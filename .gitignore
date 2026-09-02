@@ -1,0 +1,12 @@
+.squad/
+locks/
+.claude/settings.local.json
+node_modules/
+dist/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+apps/server/data/
+*.log
+.DS_Store

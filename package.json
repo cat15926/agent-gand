@@ -1,0 +1,20 @@
+{
+  "name": "agent-gand",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @agent-gand/server --filter @agent-gand/web dev",
+    "dev:server": "pnpm --filter @agent-gand/server dev",
+    "dev:web": "pnpm --filter @agent-gand/web dev",
+    "typecheck": "pnpm -r typecheck",
+    "db:reset": "rm -f apps/server/data/*.sqlite*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
