@@ -1,10 +1,21 @@
 /**
- * §7.3 验收驱动脚本（无需真实 key）
+ * §7.3 + §8.5 验收驱动脚本（无需真实 key）
  *
  * 阶段 0：无 key 零回归 —— 干净环境启动 server，pipeline/supervisor 跑通，无降级消息
  * 阶段 1：openai-compatible stub —— 请求体格式（model/tools/messages）、tool_calls 过权限门控（审批）、usage 记账
  * 阶段 2：anthropic stub —— headers、system 独立字段、tool_use 解析、usage 记账
  * 阶段 3：supervisor stub —— 合法 JSON 拆解建任务/认领/完成；非法 JSON fallback + 降级 system message
+ * 阶段 4：supervisor worker 的工具调用循环（真机 bug 回归：worker 必须下发 tools）
+ * 阶段 5：空正文防御（thinking 模型预算耗尽）
+ * 阶段 6：伪调用文本防御（正文写成"[调用工具 fs.read]"）
+ * 阶段 7：防误杀（长正文合法含伪调用标记）
+ * 阶段 8：§8.1 流式输出 —— WS 捕获 llm.delta，断言顺序/拼接一致/usage 流末块/stop_reason（openai+anthropic）
+ * 阶段 9：§8.4 并行工具 —— 一轮 2 个 tool span 时间重叠 + 结果齐回传（openai+anthropic）
+ * 阶段 10：§8.3 只读直过 —— confirm 档 fs.read 零审批；auto 档白名单外 deny
+ * 阶段 11：§8.2 审批超时 —— 独立 server（APPROVAL_TIMEOUT_MS=2500）超时置 expired 不遗留 pending
+ * 阶段 12：R6 混合轮 —— 一轮 2 工具 1 审批 1 直过，单个被拒不连坐
+ * 阶段 13：worker-3 的 mock 路由门控用例 —— confirm 只读零审批 / auto 白名单外只读 deny /
+ *          disallowed 优先 / mock 路由 expired / approved 回归
  *
  * 用法：node scripts/verify-llm-stubs.mjs
  */
@@ -17,6 +28,7 @@ const TMP = '/tmp/gand-llm-verify';
 const STUB_PORT = 3999;
 const SERVER_REGRESS_PORT = 3309;
 const SERVER_STUB_PORT = 3310;
+const SERVER_TIMEOUT_PORT = 3311; // §8.2 超时验证（APPROVAL_TIMEOUT_MS=2500）
 const SANDBOX = path.join(REPO, 'apps/server/data/sandbox');
 
 const results = [];
@@ -51,8 +63,8 @@ async function waitRun(base, id, expect = 'completed', timeoutMs = 30000) {
   }, timeoutMs);
 }
 
-/** 驱动 run 到终态：遇 awaiting_approval 自动 approve（多任务/多轮工具会多次触发审批） */
-async function driveRun(base, id, timeoutMs = 60000) {
+/** 驱动 run 到终态：遇 awaiting_approval 按给定决策处理（默认 approve；R6 拒绝场景用 reject） */
+async function driveRun(base, id, timeoutMs = 60000, decision = 'approve') {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const d = (await api(base, `/api/runs/${id}`)).data;
@@ -61,11 +73,39 @@ async function driveRun(base, id, timeoutMs = 60000) {
     if (d?.run?.status === 'awaiting_approval') {
       const list = (await api(base, '/api/approvals?status=pending')).data ?? [];
       for (const a of list.filter((x) => x.runId === id)) {
-        await api(base, `/api/approvals/${a.id}/decide`, 'POST', { decision: 'approve', by: 'user' });
+        await api(base, `/api/approvals/${a.id}/decide`, 'POST', { decision, by: 'user' });
       }
     }
     await sleep(300);
   }
+}
+
+/** WS llm.delta 捕获器（§8.1；Node 22 原生 WebSocket，无需依赖） */
+function openDeltaTap(wsBase) {
+  const tap = { deltas: [], socket: new WebSocket(`${wsBase}/ws`) };
+  tap.ready = new Promise((resolve, reject) => {
+    tap.socket.addEventListener('open', () => resolve(), { once: true });
+    tap.socket.addEventListener('error', () => reject(new Error('ws 连接失败')), { once: true });
+  });
+  tap.socket.addEventListener('message', (m) => {
+    try {
+      const ev = JSON.parse(m.data);
+      if (ev.type === 'llm.delta') tap.deltas.push(ev);
+    } catch {
+      // 非 JSON 帧忽略
+    }
+  });
+  return tap;
+}
+
+/** 两个 span 的重叠毫秒数（并行执行证据，§8.4） */
+function overlapMs(a, b) {
+  return Math.min(Date.parse(a.endedAt), Date.parse(b.endedAt)) - Math.max(Date.parse(a.startedAt), Date.parse(b.startedAt));
+}
+
+/** 两个 span 的批次墙钟毫秒数（串行时 ≈ 两者时长之和，并行时 ≈ 最长者） */
+function wallMs(a, b) {
+  return Math.max(Date.parse(a.endedAt), Date.parse(b.endedAt)) - Math.min(Date.parse(a.startedAt), Date.parse(b.startedAt));
 }
 
 /** 起一个子进程（日志落盘，失败时可 tail） */
@@ -246,6 +286,150 @@ color: '#66aa66'
 ---
 
 你是防误杀验证用审查者。`,
+  // ---- §8 v0.3 ----
+  // §8.1 流式：纯文本多分片，断言增量顺序/拼接一致/usage 流末块记账
+  'stream-oa.agent.md': `---
+name: Stream-OA
+description: openai 流式分片验证
+model: openai:stub-stream
+tools: []
+disallowedTools: []
+permissionMode: confirm
+color: '#3578ff'
+---
+
+你是 openai 流式验证用 agent。`,
+  'stream-an.agent.md': `---
+name: Stream-AN
+description: anthropic 流式分片验证
+model: anthropic:stub-stream
+tools: []
+disallowedTools: []
+permissionMode: confirm
+color: '#25a05a'
+---
+
+你是 anthropic 流式验证用 agent。`,
+  // §8.4 并行：一轮两个 http.get（读类 auto 白名单直过），断言 span 时间重叠
+  'par-oa.agent.md': `---
+name: Par-OA
+description: openai 并行工具验证
+model: openai:stub-parallel
+tools: [http.get]
+disallowedTools: []
+permissionMode: auto
+color: '#7c5cff'
+---
+
+你是 openai 并行工具验证用 agent。`,
+  'par-an.agent.md': `---
+name: Par-AN
+description: anthropic 并行工具验证
+model: anthropic:stub-parallel
+tools: [http.get]
+disallowedTools: []
+permissionMode: auto
+color: '#aa55cc'
+---
+
+你是 anthropic 并行工具验证用 agent。`,
+  // §8.3 只读直过：confirm 档 fs.read 不在白名单 → 直过零审批（fs.write 仍在白名单外供对照）
+  'ro-reader.agent.md': `---
+name: RO-Reader
+description: 只读直过验证（confirm 档 fs.read）
+model: openai:stub-ro
+tools: [fs.write]
+disallowedTools: []
+permissionMode: confirm
+color: '#55aaaa'
+---
+
+你是只读直过验证用 agent。`,
+  // §8.3 auto 档白名单外 deny（不是审批）
+  'autow-agent.agent.md': `---
+name: Autow-Agent
+description: auto 档白名单外 deny 验证
+model: openai:stub-autow
+tools: [fs.read]
+disallowedTools: []
+permissionMode: auto
+color: '#aa7755'
+---
+
+你是 auto 档 deny 验证用 agent。`,
+  // inspector R6 混合轮：一轮 2 工具 1 审批（fs.write）1 直过（http.get），单个被拒不连坐
+  'mixed-agent.agent.md': `---
+name: Mixed-Agent
+description: 混合轮部分拒绝验证
+model: openai:stub-mixed
+tools: [http.get]
+disallowedTools: []
+permissionMode: confirm
+color: '#cc5577'
+---
+
+你是混合轮验证用 agent。`,
+  // §8.2 超时：独立 server（APPROVAL_TIMEOUT_MS=2500）下审批过期置 expired
+  'tw-agent.agent.md': `---
+name: TW-Agent
+description: 审批超时 expired 验证
+model: openai:stub-tw
+tools: [fs.read]
+disallowedTools: []
+permissionMode: confirm
+color: '#ccaa55'
+---
+
+你是审批超时验证用 agent。`,
+  // ---- worker-3 的 mock 路由门控用例（§8.3 判定顺序全覆盖；mock: 路由零 stub server 改动）----
+  // confirm 档只读白名单外 → 直过
+  'ro-agent.agent.md': `---
+name: RO-Agent
+description: confirm 档只读直过（mock 路由）
+model: mock:ro
+tools: [fs.write]
+disallowedTools: []
+permissionMode: confirm
+color: '#55aa88'
+---
+
+你是只读直过验证用 agent。`,
+  // auto 档白名单外只读 → deny（只读直过不适用 auto）
+  'auto-agent.agent.md': `---
+name: Auto-Agent
+description: auto 档白名单外只读 deny（mock 路由）
+model: mock:auto
+tools: [fs.write]
+disallowedTools: []
+permissionMode: auto
+color: '#aa8855'
+---
+
+你是 auto 档 deny 验证用 agent。`,
+  // disallowedTools 命中只读工具仍 deny（判定顺序第 1 位）
+  'dis-agent.agent.md': `---
+name: Dis-Agent
+description: disallowed 优先级验证（mock 路由）
+model: mock:dis
+tools: [fs.write]
+disallowedTools: [fs.read]
+permissionMode: confirm
+color: '#aa5588'
+---
+
+你是 disallowed 优先级验证用 agent。`,
+  // confirm 档写工具白名单外 → 审批（approved / expired 两路径回归）
+  'wr-agent.agent.md': `---
+name: WR-Agent
+description: 写工具审批路径回归（mock 路由）
+model: mock:wr
+tools: [fs.read]
+disallowedTools: []
+permissionMode: confirm
+color: '#8855aa'
+---
+
+你是写工具审批回归用 agent。`,
 };
 
 async function main() {
@@ -261,11 +445,17 @@ async function main() {
   }
   rmSync(path.join(TMP, 'server-regress.log'), { force: true });
   rmSync(path.join(TMP, 'server-stub.log'), { force: true });
+  rmSync(path.join(TMP, 'server-timeout.log'), { force: true });
   rmSync(path.join(TMP, 'stub.log'), { force: true });
+  // mock 路由 fs.read 的默认入参文件（worker-3 用例：缺失则 span error，影响 ok 断言）
+  writeFileSync(path.join(SANDBOX, 'mock-demo.txt'), 'mock demo file for read');
   // 清理沙箱断言文件
   rmSync(path.join(SANDBOX, 'stub-openai.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-anthropic.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-sup-worker.txt'), { force: true });
+  rmSync(path.join(SANDBOX, 'stub-autow-deny.txt'), { force: true });
+  rmSync(path.join(SANDBOX, 'stub-mixed.txt'), { force: true });
+  rmSync(path.join(SANDBOX, 'stub-tw.txt'), { force: true });
 
   const procs = [];
   try {
@@ -425,6 +615,129 @@ async function main() {
     check('S7b 正文原样发布（含标记且非空）', mAgentMsgs.length === 1 && mAgentMsgs[0].body.includes('[调用工具 fs.read]') && mAgentMsgs[0].body.includes('PASS'), mAgentMsgs[0]?.body?.slice(0, 30));
     const mLlm = (mDone?.events ?? []).filter((e) => e.spanKind === 'llm');
     check('S7c 未触发 nudge 重试（仅 1 次 llm 调用）', mLlm.length === 1, `llm=${mLlm.length}`);
+
+    // ---- 阶段 8：§8.1 流式输出（WS 捕获 llm.delta）----
+    const STREAM_TEXT = '流式输出演示正文：本句将按片段逐块推送，用于验证增量顺序、拼接一致性与 usage 流末块记账。';
+    const tap = openDeltaTap(R1.replace('http', 'ws'));
+    await tap.ready;
+
+    const soRun = (await api(R1, '/api/runs', 'POST', { goal: 'openai 流式验证', mode: 'pipeline', agentIds: ['stream-oa'] })).data;
+    const soDone = await waitRun(R1, soRun.run.id, 'completed', 30000);
+    await sleep(500); // 收尾事件冲刷
+    const soDeltas = tap.deltas.filter((d) => d.runId === soRun.run.id);
+    const soJoined = soDeltas.map((d) => d.text).join('');
+    check('S8a openai 流式增量到达且顺序拼接还原全文', soDeltas.length >= 4 && soJoined === STREAM_TEXT, `${soDeltas.length} 片 / 拼接 ${soJoined.length} 字（期望 ${STREAM_TEXT.length}）`);
+    const soLlm = (soDone?.events ?? []).filter((e) => e.spanKind === 'llm');
+    check('S8b 增量归属 llm span（spanId 匹配）', soDeltas.length > 0 && soDeltas.every((d) => soLlm.some((s) => s.id === d.spanId)));
+    const soUsage = ((await api(R1, '/api/usage')).data ?? []).find((u) => u.runId === soRun.run.id);
+    check('S8c usage 流末块记账（130/26，1 轮）', soUsage?.tokensIn === 130 && soUsage?.tokensOut === 26 && soUsage?.llmCalls === 1, JSON.stringify(soUsage));
+    check('S8d stop_reason 记入 span output', (soLlm[0]?.output ?? '').includes('[stop_reason=stop]'), (soLlm[0]?.output ?? '').slice(-30));
+
+    const snRun = (await api(R1, '/api/runs', 'POST', { goal: 'anthropic 流式验证', mode: 'pipeline', agentIds: ['stream-an'] })).data;
+    const snDone = await waitRun(R1, snRun.run.id, 'completed', 30000);
+    await sleep(500);
+    const snDeltas = tap.deltas.filter((d) => d.runId === snRun.run.id);
+    const snJoined = snDeltas.map((d) => d.text).join('');
+    check('S9a anthropic 流式增量到达且顺序拼接还原全文', snDeltas.length >= 4 && snJoined === STREAM_TEXT, `${snDeltas.length} 片 / 拼接 ${snJoined.length} 字`);
+    const snLlm = (snDone?.events ?? []).filter((e) => e.spanKind === 'llm');
+    check('S9b 增量归属 llm span（spanId 匹配）', snDeltas.length > 0 && snDeltas.every((d) => snLlm.some((s) => s.id === d.spanId)));
+    const snUsage = ((await api(R1, '/api/usage')).data ?? []).find((u) => u.runId === snRun.run.id);
+    check('S9c usage 双段记账（131/27，1 轮）', snUsage?.tokensIn === 131 && snUsage?.tokensOut === 27 && snUsage?.llmCalls === 1, JSON.stringify(snUsage));
+    check('S9d stop_reason 记入 span output', (snLlm[0]?.output ?? '').includes('[stop_reason=end_turn]'), (snLlm[0]?.output ?? '').slice(-30));
+    tap.socket.close();
+
+    // ---- 阶段 9：§8.4 并行工具（span 时间重叠）----
+    const poRun = (await api(R1, '/api/runs', 'POST', { goal: 'openai 并行工具验证', mode: 'pipeline', agentIds: ['par-oa'] })).data;
+    const poDone = await driveRun(R1, poRun.run.id);
+    const poSpans = (poDone?.events ?? []).filter((e) => e.spanKind === 'tool' && e.status === 'ok');
+    check('S10a openai 一轮 2 个 tool span（http.get ×2，分片重组正确）', poSpans.length === 2 && poSpans.every((s) => s.name === 'tool:http.get'), poSpans.map((s) => s.name).join(','));
+    check('S10b tool span 时间重叠（并行执行）', poSpans.length === 2 && overlapMs(poSpans[0], poSpans[1]) >= 150, `overlap=${poSpans.length === 2 ? overlapMs(poSpans[0], poSpans[1]) : -1}ms`);
+    check('S10c 批次墙钟 ≤550ms（串行需 650ms+）', poSpans.length === 2 && wallMs(poSpans[0], poSpans[1]) <= 550, `wall=${poSpans.length === 2 ? wallMs(poSpans[0], poSpans[1]) : -1}ms`);
+    check('S10d 结果齐回传且最终正文到达', poDone !== null && (poDone?.messages ?? []).some((m) => m.from === 'par-oa' && m.kind === 'agent' && m.body.includes('并行工具轮完成')));
+
+    const pnRun = (await api(R1, '/api/runs', 'POST', { goal: 'anthropic 并行工具验证', mode: 'pipeline', agentIds: ['par-an'] })).data;
+    const pnDone = await driveRun(R1, pnRun.run.id);
+    const pnSpans = (pnDone?.events ?? []).filter((e) => e.spanKind === 'tool' && e.status === 'ok');
+    check('S11a anthropic 一轮 2 个 tool span（input_json_delta 重组正确）', pnSpans.length === 2 && pnSpans.every((s) => s.name === 'tool:http.get'), pnSpans.map((s) => s.name).join(','));
+    check('S11b tool span 时间重叠（并行执行）', pnSpans.length === 2 && overlapMs(pnSpans[0], pnSpans[1]) >= 150, `overlap=${pnSpans.length === 2 ? overlapMs(pnSpans[0], pnSpans[1]) : -1}ms`);
+    check('S11c 批次墙钟 ≤550ms（串行需 650ms+）', pnSpans.length === 2 && wallMs(pnSpans[0], pnSpans[1]) <= 550, `wall=${pnSpans.length === 2 ? wallMs(pnSpans[0], pnSpans[1]) : -1}ms`);
+    check('S11d 结果齐回传且最终正文到达', pnDone !== null && (pnDone?.messages ?? []).some((m) => m.from === 'par-an' && m.kind === 'agent' && m.body.includes('并行工具轮完成')));
+
+    // ---- 阶段 10：§8.3 只读直过 + auto 白名单外 deny ----
+    const roRun = (await api(R1, '/api/runs', 'POST', { goal: '只读直过验证', mode: 'pipeline', agentIds: ['ro-reader'] })).data;
+    const roDone = await waitRun(R1, roRun.run.id, 'completed', 30000);
+    check('S12a confirm 档 fs.read 零审批直过', roDone !== null && (roDone?.approvals ?? []).length === 0, `${(roDone?.approvals ?? []).length} 条审批`);
+    check('S12b fs.read tool span ok（直行执行）', (roDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok'));
+    check('S12c 读到 S1 写入的文件内容', (roDone?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('openai stub 工具写入内容')));
+
+    const awRun = (await api(R1, '/api/runs', 'POST', { goal: 'auto 白名单外 deny 验证', mode: 'pipeline', agentIds: ['autow-agent'] })).data;
+    const awDone = await waitRun(R1, awRun.run.id, 'completed', 30000);
+    check('S12d auto 档白名单外 deny（无审批卡）', awDone !== null && (awDone?.approvals ?? []).length === 0 && (awDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('被权限门控拒绝')));
+    check('S12e 被拒工具未执行（无 stub-autow-deny.txt）', !existsSync(path.join(SANDBOX, 'stub-autow-deny.txt')));
+
+    // ---- 阶段 11：§8.2 审批超时置 expired（独立 server，APPROVAL_TIMEOUT_MS=2500）----
+    const R2 = `http://localhost:${SERVER_TIMEOUT_PORT}`;
+    procs.push(
+      up('npx', ['tsx', 'apps/server/src/index.ts'], makeEnv({
+        PORT: String(SERVER_TIMEOUT_PORT),
+        DB_PATH: path.join(TMP, 'timeout.sqlite'),
+        AGENTS_DIR: path.join(TMP, 'agents'),
+        LOG_LEVEL: 'warn',
+        LLM_OPENAI_API_KEY: 'stub-key',
+        LLM_OPENAI_BASE_URL: STUB,
+        LLM_ANTHROPIC_API_KEY: 'stub-key',
+        LLM_ANTHROPIC_BASE_URL: STUB,
+        APPROVAL_TIMEOUT_MS: '2500',
+      }), path.join(TMP, 'server-timeout.log')),
+    );
+    const health2 = await poll(async () => {
+      const r = await api(R2, '/api/health').catch(() => null);
+      return r && r.status === 200 ? r.data : null;
+    }, 30000);
+    check('S13a 超时环境 server 启动', health2?.ok === true, JSON.stringify(health2));
+    const twRun = (await api(R2, '/api/runs', 'POST', { goal: '审批超时验证', mode: 'pipeline', agentIds: ['tw-agent'] })).data;
+    const twDone = await waitRun(R2, twRun.run.id, 'completed', 30000);
+    const twAppr = (twDone?.approvals ?? [])[0];
+    check('S13b 超时置 expired（decidedBy=system:timeout）', twAppr?.status === 'expired' && twAppr?.decidedBy === 'system:timeout' && twAppr?.decidedAt !== null, JSON.stringify({ status: twAppr?.status, by: twAppr?.decidedBy }));
+    check('S13c 超时按拒绝处理后 run 继续 completed', twDone !== null);
+    check('S13d 无遗留 pending', ((await api(R2, '/api/approvals?status=pending')).data ?? []).filter((a) => a.runId === twRun.run.id).length === 0);
+    check('S13e 有超时说明 system 消息 + 工具未执行', (twDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('超时')) && !existsSync(path.join(SANDBOX, 'stub-tw.txt')));
+
+    // ---- 阶段 12：R6 混合轮（一轮 2 工具 1 审批 1 直过，单个被拒不连坐）----
+    const mxRun = (await api(R1, '/api/runs', 'POST', { goal: '混合轮部分拒绝验证', mode: 'pipeline', agentIds: ['mixed-agent'] })).data;
+    const mxApproval = await poll(async () => {
+      const list = (await api(R1, '/api/approvals?status=pending')).data ?? [];
+      return list.find((a) => a.runId === mxRun.run.id) ?? null;
+    }, 20000);
+    check('S14a 混合轮 fs.write 审批卡到达', mxApproval !== null && mxApproval.toolName === 'fs.write', mxApproval?.toolName);
+    const mxDone = await driveRun(R1, mxRun.run.id, 60000, 'reject');
+    check('S14b 拒绝只跳过该工具：http.get 照跑（tool span ok）', (mxDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:http.get' && e.status === 'ok'));
+    check('S14c 被拒工具未执行（无 stub-mixed.txt）', !existsSync(path.join(SANDBOX, 'stub-mixed.txt')));
+    check('S14d 拒绝说明 + run completed', mxDone !== null && (mxDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('人工已拒绝')));
+
+    // ---- 阶段 13：worker-3 的 mock 路由门控用例（§8.3 判定顺序全覆盖；编号 S15 避免与其余冲突）----
+    const w3aRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.read] 读取资料', mode: 'pipeline', agentIds: ['ro-agent'] })).data;
+    const w3aDone = await waitRun(R1, w3aRun.run.id, 'completed', 30000);
+    check('S15a confirm 档只读 fs.read 零审批直过 + span ok（worker-3）', w3aDone !== null && (w3aDone?.approvals ?? []).length === 0 && (w3aDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok'), `${(w3aDone?.approvals ?? []).length} 审批`);
+
+    const w3bRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.read] 读取资料', mode: 'pipeline', agentIds: ['auto-agent'] })).data;
+    const w3bDone = await waitRun(R1, w3bRun.run.id, 'completed', 30000);
+    check('S15b auto 档白名单外只读 deny：零审批零 tool span + system 说明（worker-3）', w3bDone !== null && (w3bDone?.approvals ?? []).length === 0 && !(w3bDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.status === 'ok') && (w3bDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('权限门控拒绝')));
+
+    const w3cRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.read] 读取资料', mode: 'pipeline', agentIds: ['dis-agent'] })).data;
+    const w3cDone = await waitRun(R1, w3cRun.run.id, 'completed', 30000);
+    check('S15c disallowed 命中只读工具仍 deny（判定顺序第 1 位，worker-3）', w3cDone !== null && (w3cDone?.approvals ?? []).length === 0 && (w3cDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('disallowedTools')));
+
+    // S15d expired（mock 路由，复用 R2 超时 server）：不批准 → 2.5s 过期
+    const w3dRun = (await api(R2, '/api/runs', 'POST', { goal: '请调用 [tool:fs.write] 写入文件', mode: 'pipeline', agentIds: ['wr-agent'] })).data;
+    const w3dDone = await waitRun(R2, w3dRun.run.id, 'completed', 30000);
+    const w3dAppr = (w3dDone?.approvals ?? [])[0];
+    check('S15d mock 路由超时 expired 全链路（worker-3）', w3dAppr?.status === 'expired' && w3dAppr?.decidedBy === 'system:timeout' && w3dDone !== null && !(w3dDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.write' && e.status === 'ok') && (w3dDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('超时')), JSON.stringify({ status: w3dAppr?.status, by: w3dAppr?.decidedBy }));
+
+    // S15e approved 回归：及时批准 → 执行成功
+    const w3eRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.write] 写入文件', mode: 'pipeline', agentIds: ['wr-agent'] })).data;
+    const w3eDone = await driveRun(R1, w3eRun.run.id);
+    check('S15e approved 回归：tool:fs.write span ok + completed（worker-3）', w3eDone !== null && (w3eDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.write' && e.status === 'ok'));
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);

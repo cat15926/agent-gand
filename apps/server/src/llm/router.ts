@@ -1,8 +1,8 @@
 /**
- * 模型路由（规格 §4.2 + §7.1）
+ * 模型路由（规格 §4.2 + §7.1 + §8.1/8.4）
  * 前缀路由：mock:* → Mock；openai:* → OpenAICompatible；anthropic:* → Anthropic
  * 真实 Provider 单例懒建；缺 key 时 chat 调用即报错（不影响启动与 mock 路径）
- * TODO: 多工具并行 tool_calls、tool 结果回传多轮对话
+ * TODO: 协议原生 tool 消息回传（openai role:tool / anthropic tool_result block，当前 user 消息模拟）
  */
 import { config } from '../config.ts';
 import type { LLMProvider } from './provider.ts';

@@ -1,21 +1,31 @@
 /**
- * 本地 LLM stub 端点（规格 §7.3.2/3/4 验收用，无真实 key）
+ * 本地 LLM stub 端点（规格 §7.3.2/3/4 + §8.1/8.4 验收用，无真实 key）
  *
  * 一个 HTTP 服务同时模拟两种 API：
  *   POST /chat/completions   → openai-compatible 响应（含 tool_calls + usage）
  *   POST /v1/messages        → anthropic 响应（含 tool_use block + usage）
  *   GET  /__inspect          → 返回最近一次捕获的请求（body + 关键 headers），供断言
+ *   GET  /__slow?ms=N        → 延迟 N 毫秒后响应（并行工具 span 重叠证据用，§8.4）
  *
  * 行为由请求内容确定性切换：
  *   - user 消息含「严格只输出 JSON」标记 → supervisor 结构化拆解：返回 JSON tasks
  *     （goal 含 BADJSON 时返回非法 JSON，用于 fallback 验证）
+ *   - 模型名含 stub-stream / stub-parallel / stub-ro / stub-autow / stub-mixed / stub-tw
+ *     → §8 各专项形态（流式分片 / 并行双工具 / 只读直过 / auto 拒绝 / 混合轮 / 超时）
  *   - 其余 → 返回演示文案 + 一个 fs.write 工具调用（openai: tool_calls；anthropic: tool_use）
+ *
+ * 流式（§8.1）：请求体 stream:true 时以 SSE 分片响应——
+ *   openai 形状：delta.content 片段 + tool_calls[index] 分片（name 与 arguments 都跨片，R3）
+ *               + finish_reason + usage 末块 + [DONE]
+ *   anthropic 形状：message_start(usage) + text 块 text_delta 片段
+ *               + tool_use 块 input_json_delta 原始字符串分片（R1）+ message_delta(stop_reason/usage)
  *
  * 用法：node scripts/llm-stub-server.mjs [port]   # 默认 3999
  */
 import { createServer } from 'node:http';
 
 const port = Number.parseInt(process.argv[2] ?? '3999', 10);
+const SLOW_BASE = `http://127.0.0.1:${port}`;
 
 /** 结构化拆解的 stub 任务（assignee 对应 verify 脚本里的 sup-w1/sup-w2）。
  *  任务C 故意不带 blockedBy：验证结构化任务空依赖不会被误挂前驱（inspector-2 P3a 回归用例） */
@@ -93,12 +103,228 @@ const TOOL_WRITE_WORKER = { path: 'stub-sup-worker.txt', content: 'supervisor wo
 /** 防误杀用例正文：合法地在长结论中提及伪调用标记（不得被启发式误判为空正文） */
 const LEGIT_MENTION_TEXT =
   '审查结论：PASS。备注：过程中模型曾试图[调用工具 fs.read]，已被权限门控正确处理；产物内容完整、逻辑清晰，无需修改，建议归档。';
+/** §8.1 流式专用正文：分片由序列化器切，verify 断言拼接相等 */
+const STREAM_TEXT = '流式输出演示正文：本句将按片段逐块推送，用于验证增量顺序、拼接一致性与 usage 流末块记账。';
+const PARALLEL_DONE_TEXT = '并行工具轮完成：两个慢速 http.get 均已返回，且执行时间重叠。';
+const RO_DONE_TEXT = '只读直过验证完成：confirm 档的 fs.read 未经审批直接执行并读到内容。';
+const AUTOW_DONE_TEXT = 'auto 档白名单外工具已按 deny 处理，流程继续。';
+const MIXED_DONE_TEXT = '混合轮完成：只读 http.get 直过执行，写类工具走审批。';
+const TW_DONE_TEXT = '审批超时（expired）后按拒绝处理，流程继续。';
+
+/** 本轮要返回的工具调用（结构化；序列化器负责分片形状）。
+ *  hasToolResult 后一律收尾（无工具）。 */
+function toolCallsFor(body, isOpenAI) {
+  if (isDecompose(body) || hasToolResult(body) || emptyMode(body)) return [];
+  const model = String(body.model ?? '');
+  if (model.includes('stub-parallel')) {
+    // §8.4：一轮两个工具调用（读类直过，verify 断言 span 时间重叠）
+    return [
+      { id: 'call_slow_a', name: 'http.get', input: { url: `${SLOW_BASE}/__slow?ms=300` } },
+      { id: 'call_slow_b', name: 'http.get', input: { url: `${SLOW_BASE}/__slow?ms=350` } },
+    ];
+  }
+  if (model.includes('stub-ro')) {
+    // §8.3：confirm 档 fs.read → 只读直过（不建审批）
+    return [{ id: 'call_ro_read', name: 'fs.read', input: { path: 'stub-openai.txt' } }];
+  }
+  if (model.includes('stub-autow')) {
+    // §8.3：auto 档白名单外写类 → deny（不是审批）
+    return [{ id: 'call_autow', name: 'fs.write', input: { path: 'stub-autow-deny.txt', content: '不应写入' } }];
+  }
+  if (model.includes('stub-mixed')) {
+    // inspector R6：一轮 2 工具 1 审批 1 直过——单个被拒不连坐
+    return [
+      { id: 'call_mixed_write', name: 'fs.write', input: { path: 'stub-mixed.txt', content: '混合轮写入' } },
+      { id: 'call_mixed_get', name: 'http.get', input: { url: `${SLOW_BASE}/__slow?ms=250` } },
+    ];
+  }
+  if (model.includes('stub-tw')) {
+    // §8.2：审批超时路径（verify 用 APPROVAL_TIMEOUT_MS 调小的独立 server）
+    return [{ id: 'call_tw', name: 'fs.write', input: { path: 'stub-tw.txt', content: '超时前不应写入' } }];
+  }
+  if (model.includes('stub-stream')) return []; // 流式专项：纯文本
+  if (isOpenAI) {
+    // worker 模型（stub-gpt-worker）单独落一个沙箱文件，供 supervisor 工具路径断言
+    const isWorkerModel = model.includes('worker');
+    return [
+      {
+        id: 'call_stub_1',
+        name: 'fs.write',
+        input: isWorkerModel ? TOOL_WRITE_WORKER : TOOL_WRITE_OPENAI,
+      },
+    ];
+  }
+  return [{ id: 'toolu_stub_1', name: 'fs.write', input: TOOL_WRITE_ANTHROPIC }];
+}
+
+/** 本轮正文（完整字符串；SSE 分片由序列化器切） */
+function contentFor(body, isOpenAI) {
+  const model = String(body.model ?? '');
+  const decompose = isDecompose(body);
+  const bad = decompose && isBadJsonGoal(body);
+  if (decompose) {
+    return bad
+      ? '这不是合法的JSON{{{'
+      : isOpenAI
+        ? JSON.stringify({ tasks: STUB_TASKS.tasks.map((t, i) => ({ ...t, assignee: rosterIds(body)[i % rosterIds(body).length] })) })
+        : JSON.stringify(STUB_TASKS);
+  }
+  if (model.includes('stub-stream')) return STREAM_TEXT;
+  if (model.includes('stub-parallel') && hasToolResult(body)) return PARALLEL_DONE_TEXT;
+  if (model.includes('stub-ro') && hasToolResult(body)) return RO_DONE_TEXT;
+  if (model.includes('stub-autow') && hasToolResult(body)) return AUTOW_DONE_TEXT;
+  if (model.includes('stub-mixed') && hasToolResult(body)) return MIXED_DONE_TEXT;
+  if (model.includes('stub-tw') && hasToolResult(body)) return TW_DONE_TEXT;
+  const mode = emptyMode(body);
+  if (mode === 'soft' && !hasNudge(body)) return ''; // 空正文 + max_tokens（thinking 预算耗尽模拟）
+  if (mode === 'hard') return '';
+  if (mode === 'pseudo' && !hasNudge(body)) return '[调用工具 fs.read]'; // 伪调用文本（真机实证形态）
+  if (mode === 'mention') return LEGIT_MENTION_TEXT; // 防误杀：长结论中合法提及标记
+  return DEMO_TEXT;
+}
+
+/** usage 数值（openai 形状；anthropic 见 usageForAnthropic） */
+function usageFor(body) {
+  const model = String(body.model ?? '');
+  if (model.includes('stub-stream')) return { in: 130, out: 26 }; // §8.1 流式记账专项数值
+  return isDecompose(body) ? { in: 88, out: 44 } : { in: 111, out: 22 };
+}
+
+/** anthropic 侧流式/非流式的 usage 形状（原 §7 数值：decompose 88/44，其余 77/33） */
+function usageForAnthropic(body) {
+  const model = String(body.model ?? '');
+  if (model.includes('stub-stream')) return { in: 131, out: 27 };
+  return isDecompose(body) ? { in: 88, out: 44 } : { in: 77, out: 33 };
+}
+
+/** finish/stop 原因：空/伪调用未 nudge 时 max_tokens；有工具调用时 openai=tool_calls、anthropic=tool_use */
+function finishFor(body, isOpenAI, toolCalls) {
+  const mode = emptyMode(body);
+  if (mode && !hasNudge(body)) return 'max_tokens';
+  if (toolCalls.length > 0) return isOpenAI ? 'tool_calls' : 'tool_use';
+  return isOpenAI ? 'stop' : 'end_turn';
+}
+
+// ---- 分片工具（§8.1：跨片重组验证） ----
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 文本按 n 字切片（保留原串拼接还原） */
+function chunkText(s, n = 12) {
+  if (s.length === 0) return [];
+  const out = [];
+  for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n));
+  return out;
+}
+
+/** JSON 参数串切成非空片段（模拟 input_json_delta / arguments 分片） */
+function chunkJson(s, n = 15) {
+  if (s.length === 0) return [];
+  const out = [];
+  for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n));
+  return out;
+}
+
+/** 工具名跨片（R3：name 也可能分片到达） */
+function splitName(name) {
+  const mid = Math.max(1, Math.ceil(name.length / 2));
+  return [name.slice(0, mid), name.slice(mid)];
+}
+
+// ---- SSE 序列化（openai / anthropic 两种形状） ----
+
+async function writeOpenAISse(res, plan) {
+  res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' });
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  send({ choices: [{ delta: { role: 'assistant', content: '' } }] });
+  for (const piece of chunkText(plan.content)) {
+    send({ choices: [{ delta: { content: piece } }] });
+    await sleep(8);
+  }
+  plan.toolCalls.forEach((tc, i) => {
+    const [n1, n2] = splitName(tc.name);
+    send({ choices: [{ delta: { tool_calls: [{ index: i, id: tc.id, type: 'function', function: { name: n1 } }] } }] });
+    send({ choices: [{ delta: { tool_calls: [{ index: i, function: { name: n2 } }] } }] }); // name 后半片
+    for (const frag of chunkJson(JSON.stringify(tc.input))) {
+      send({ choices: [{ delta: { tool_calls: [{ index: i, function: { arguments: frag } }] } }] });
+    }
+  });
+  send({ choices: [{ delta: {}, finish_reason: plan.finish }] });
+  send({ choices: [], usage: { prompt_tokens: plan.usage.in, completion_tokens: plan.usage.out } });
+  res.write('data: [DONE]\n\n');
+  res.end();
+}
+
+async function writeAnthropicSse(res, plan) {
+  res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' });
+  const send = (ev) => {
+    res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`);
+  };
+  send({ type: 'message_start', message: { id: 'msg_stub_stream', role: 'assistant', usage: { input_tokens: plan.usage.in, output_tokens: 0 } } });
+  let idx = 0;
+  if (plan.content.length > 0) {
+    send({ type: 'content_block_start', index: idx, content_block: { type: 'text', text: '' } });
+    for (const piece of chunkText(plan.content)) {
+      send({ type: 'content_block_delta', index: idx, delta: { type: 'text_delta', text: piece } });
+      await sleep(8);
+    }
+    send({ type: 'content_block_stop', index: idx });
+    idx += 1;
+  }
+  for (const tc of plan.toolCalls) {
+    send({ type: 'content_block_start', index: idx, content_block: { type: 'tool_use', id: tc.id, name: tc.name, input: {} } });
+    for (const frag of chunkJson(JSON.stringify(tc.input))) {
+      send({ type: 'content_block_delta', index: idx, delta: { type: 'input_json_delta', partial_json: frag } });
+    }
+    send({ type: 'content_block_stop', index: idx });
+    idx += 1;
+  }
+  send({ type: 'message_delta', delta: { stop_reason: plan.finish, stop_sequence: null }, usage: { output_tokens: plan.usage.out } });
+  send({ type: 'message_stop' });
+  res.end();
+}
+
+// ---- 非流式 JSON（兼容：请求未带 stream 时保持 §7 原形状） ----
+
+function openAiJsonPayload(plan) {
+  const message = { content: plan.content };
+  if (plan.toolCalls.length > 0) {
+    message.tool_calls = plan.toolCalls.map((tc) => ({
+      id: tc.id,
+      type: 'function',
+      function: { name: tc.name, arguments: JSON.stringify(tc.input) },
+    }));
+  }
+  return {
+    choices: [{ message, finish_reason: plan.finish }],
+    usage: { prompt_tokens: plan.usage.in, completion_tokens: plan.usage.out },
+  };
+}
+
+function anthropicJsonPayload(plan) {
+  const content = [];
+  if (plan.content.length > 0) content.push({ type: 'text', text: plan.content });
+  for (const tc of plan.toolCalls) content.push({ type: 'tool_use', id: tc.id, name: tc.name, input: tc.input });
+  return {
+    content,
+    usage: { input_tokens: plan.usage.in, output_tokens: plan.usage.out },
+  };
+}
 
 async function handle(req, res) {
   const url = req.url ?? '';
   if (req.method === 'GET' && url === '/__inspect') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(state));
+    return;
+  }
+  // §8.4 并行工具 span 重叠证据：延迟响应端点
+  if (req.method === 'GET' && url.startsWith('/__slow')) {
+    const ms = Math.min(Math.max(Number.parseInt(new URL(url, 'http://stub').searchParams.get('ms') ?? '300', 10) || 300, 1), 5000);
+    setTimeout(() => {
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end(`slow response after ${ms}ms`);
+    }, ms);
     return;
   }
 
@@ -128,71 +354,24 @@ async function handle(req, res) {
     },
     body,
   };
+  if (isOpenAI) state.lastOpenAI = capture;
+  else state.lastAnthropic = capture;
 
-  const decompose = isDecompose(body);
-  const bad = decompose && isBadJsonGoal(body);
-  let payload;
+  const plan = {
+    content: contentFor(body, isOpenAI),
+    toolCalls: toolCallsFor(body, isOpenAI),
+    usage: isAnthropic ? usageForAnthropic(body) : usageFor(body),
+  };
+  plan.finish = finishFor(body, isOpenAI, plan.toolCalls);
 
-  if (isOpenAI) {
-    state.lastOpenAI = capture;
-    // worker 模型（stub-gpt-worker）单独落一个沙箱文件，供 supervisor 工具路径断言
-    const isWorkerModel = String(body.model ?? '').includes('worker');
-    const mode = emptyMode(body);
-    const content = decompose
-      ? bad
-        ? '这不是合法的JSON{{{'
-        : JSON.stringify({ tasks: STUB_TASKS.tasks.map((t, i) => ({ ...t, assignee: rosterIds(body)[i % rosterIds(body).length] })) })
-      : mode === 'soft' && !hasNudge(body)
-        ? '' // 空正文 + max_tokens（thinking 预算耗尽模拟）
-        : mode === 'hard'
-          ? ''
-          : mode === 'pseudo' && !hasNudge(body)
-            ? '[调用工具 fs.read]' // 伪调用文本（真机实证形态）
-            : mode === 'mention'
-              ? LEGIT_MENTION_TEXT // 防误杀：长结论中合法提及标记
-              : DEMO_TEXT;
-    const message = { content };
-    if (!decompose && !hasToolResult(body) && !mode) {
-      // openai tool_calls 形状（仅首轮；工具结果回传后收尾，避免无限循环）
-      message.tool_calls = [
-        {
-          id: 'call_stub_1',
-          type: 'function',
-          function: {
-            name: 'fs.write',
-            arguments: JSON.stringify(isWorkerModel ? TOOL_WRITE_WORKER : TOOL_WRITE_OPENAI),
-          },
-        },
-      ];
-    }
-    payload = {
-      choices: [{ message, finish_reason: mode && !hasNudge(body) ? 'max_tokens' : 'stop' }],
-      usage: decompose
-        ? { prompt_tokens: 88, completion_tokens: 44 }
-        : { prompt_tokens: 111, completion_tokens: 22 },
-    };
-  } else {
-    state.lastAnthropic = capture;
-    const content = decompose
-      ? bad
-        ? [{ type: 'text', text: '这不是合法的JSON{{{' }]
-        : [{ type: 'text', text: JSON.stringify(STUB_TASKS) }]
-      : hasToolResult(body)
-        ? [{ type: 'text', text: DEMO_TEXT }] // 工具结果已回传：收尾，不再 tool_use
-        : [
-            { type: 'text', text: DEMO_TEXT },
-            { type: 'tool_use', id: 'toolu_stub_1', name: 'fs.write', input: TOOL_WRITE_ANTHROPIC },
-          ];
-    payload = {
-      content,
-      usage: decompose
-        ? { input_tokens: 88, output_tokens: 44 }
-        : { input_tokens: 77, output_tokens: 33 },
-    };
+  if (body.stream === true) {
+    // §8.1：SSE 分片响应（provider 一律流式请求）
+    if (isOpenAI) await writeOpenAISse(res, plan);
+    else await writeAnthropicSse(res, plan);
+    return;
   }
-
   res.writeHead(200, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(payload));
+  res.end(JSON.stringify(isOpenAI ? openAiJsonPayload(plan) : anthropicJsonPayload(plan)));
 }
 
 createServer((req, res) => {
@@ -201,5 +380,5 @@ createServer((req, res) => {
     res.end(JSON.stringify({ error: String(err) }));
   });
 }).listen(port, '127.0.0.1', () => {
-  console.log(`llm-stub-server 就绪: http://127.0.0.1:${port}（/chat/completions + /v1/messages + /__inspect）`);
+  console.log(`llm-stub-server 就绪: http://127.0.0.1:${port}（/chat/completions + /v1/messages + /__inspect + /__slow，SSE 已支持）`);
 });

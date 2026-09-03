@@ -2,23 +2,28 @@
  * 单 agent 执行步骤（pipeline 与 supervisor 共用，避免两份工具逻辑漂移）
  *
  * runAgentTurn：LLM 调用 + 工具调用循环 ——
- *   LLM（带 tools schema）→ toolCall → 权限门控 →（confirm 非白名单）审批中断
- *   → 执行（tool span + usage 记账）→ 工具结果回传下一轮 LLM → 直至无 toolCall 或达轮数上限。
+ *   LLM（带 tools schema，流式）→ toolCalls（§8.4 一轮可多个）→ 逐个权限门控（审批并行创建、
+ *   等全部决策；单个被拒/超时只跳过该工具）→ 通过的 Promise.all 并行执行（span 时间可重叠）
+ *   → 工具结果统一回传下一轮 LLM → 直至无 toolCalls 或达轮数上限。
+ *
+ * 流式（§8.1）：llm span 运行期间文本增量经 bus 发 llm.delta（runId + spanId + text）；
+ * span 结束仍记完整 output。增量丢失可容忍（断线重连由 hydrate 回补）。
  *
  * 空正文防御（thinking 模型预算耗尽会只思考不出正文）：
- *   无正文且无 toolCall → 注入 nudge 重试一次；仍空 → llm span 标 error +
+ *   无正文且无 toolCalls → 注入 nudge 重试一次；仍空 → llm span 标 error +
  *   收件箱 system 失败说明，调用方跳过空 agent 消息（禁止静默空消息）。
  *
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
 import type { AgentDefinition, Run } from '@agent-gand/shared';
-import { createApproval, waitForDecision, ApprovalTimeoutError } from '../hitl/approvals.ts';
+import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { resolveProvider } from '../llm/router.ts';
-import type { LlmMessage, LlmToolCall, LlmResponse } from '../llm/provider.ts';
+import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
+import { emit } from '../messaging/bus.ts';
 import { endSpan, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
 import { getTool, toolsForAgent } from '../tools/builtin/index.ts';
-import { checkPermission } from '../tools/types.ts';
+import { checkPermission, type Tool } from '../tools/types.ts';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
@@ -28,8 +33,9 @@ export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): strin
 /** nudge 文案（anthropic 协议不支持 mid-conversation system，用 user 轮实现同等效果） */
 const EMPTY_NUDGE = '请直接输出结论正文，不要只思考；如需调用工具请直接发起工具调用，不要在正文中用文字描述工具调用。';
 
-/** 工具调用指令（prompt 级缓解"把调用写成文字"） */
-const TOOL_CALL_DIRECTIVE = '如需调用工具，请直接发起工具调用（tool_use/tool_calls），不要在正文中用文字描述工具调用。';
+/** 工具调用指令（prompt 级缓解"把调用写成文字"；§8.4 追加并行提示） */
+const TOOL_CALL_DIRECTIVE =
+  '如需调用工具，请直接发起工具调用（tool_use/tool_calls），不要在正文中用文字描述工具调用。如需多个工具，请在同一轮并行发起全部调用。';
 
 /**
  * 伪调用文本窄启发式：最终轮（无 toolCall）正文形如 "[调用工具 fs.read]" /
@@ -46,6 +52,11 @@ function isPseudoToolCallText(content: string): boolean {
 function llmSpanOutput(res: LlmResponse): string {
   const body = res.content.trim().length > 0 ? res.content : '（空正文）';
   return res.stopReason === null ? body : `${body}\n[stop_reason=${res.stopReason}]`;
+}
+
+/** llm.delta 转发器（§8.1）：span 运行期间把文本增量经 bus 广播 */
+function deltaForwarder(runId: string, spanId: string): DeltaHandler {
+  return (text) => emit({ type: 'llm.delta', runId, spanId, text });
 }
 
 export interface AgentTurnOptions {
@@ -89,13 +100,20 @@ export async function chatOnce(
       name: `llm:${agent.model}`,
       input: llmSpanInput(messages, []),
     });
-    const res = await provider.chat({ model: agent.model, messages });
+    let res: LlmResponse;
+    try {
+      res = await provider.chat({ model: agent.model, messages }, deltaForwarder(runId, llmSpan.id));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      endSpan(llmSpan, { output: message, status: 'error' });
+      throw err;
+    }
     const usage: EndSpanInput = {
       tokensIn: res.usage.tokensIn,
       tokensOut: res.usage.tokensOut,
       costUsd: res.usage.costUsd,
     };
-    if ((res.content.trim().length > 0 && !isPseudoToolCallText(res.content)) || res.toolCall !== null) {
+    if ((res.content.trim().length > 0 && !isPseudoToolCallText(res.content)) || res.toolCalls.length > 0) {
       endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok' });
       return res.content;
     }
@@ -135,22 +153,30 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       name: `llm:${agent.model}`,
       input: llmSpanInput(messages, toolNames),
     });
-    const res = await provider.chat({ model: agent.model, messages, tools });
+    let res: LlmResponse;
+    try {
+      res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id));
+    } catch (err) {
+      // 流式中途超时/网络异常（R5）：增量已广播不回收，span 记 error 后向上抛（run 走 failed）
+      const message = err instanceof Error ? err.message : String(err);
+      endSpan(llmSpan, { output: message, status: 'error' });
+      throw err;
+    }
     const usage: EndSpanInput = {
       tokensIn: res.usage.tokensIn,
       tokensOut: res.usage.tokensOut,
       costUsd: res.usage.costUsd,
     };
 
-    // 空正文/伪调用防御：无 toolCall 且（正文为空 或 整条正文是伪调用文本）
-    if (res.toolCall === null && (res.content.trim().length === 0 || isPseudoToolCallText(res.content))) {
+    // 空正文/伪调用防御：无 toolCalls 且（正文为空 或 整条正文是伪调用文本）
+    if (res.toolCalls.length === 0 && (res.content.trim().length === 0 || isPseudoToolCallText(res.content))) {
       if (!nudged) {
         nudged = true;
         endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok' });
         messages.push({ role: 'user', content: EMPTY_NUDGE });
         continue;
       }
-      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍为空）`, status: 'error' });
+      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍空）`, status: 'error' });
       await postSystem(
         run.id,
         agent.id,
@@ -161,7 +187,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
 
     endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok' });
 
-    if (res.toolCall === null) return { content: res.content, toolRounds, emptyResponse: false };
+    if (res.toolCalls.length === 0) return { content: res.content, toolRounds, emptyResponse: false };
     if (round >= maxRounds) {
       await postSystem(run.id, agent.id, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
       // 无 tools 的收尾调用：基于已获工具结果给最终结论（保证结论完整性，比调大上限省 token）
@@ -170,14 +196,31 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     }
 
     toolRounds += 1;
-    const outcome = await executeToolCall(run, agent, parentSpanId, res.toolCall);
-    // 工具结果回传下一轮（user 消息模拟，见文件头 TODO）。
+    // §8.4：一轮多个 toolCalls——逐个门控（审批并行创建、等全部决策）→ 通过的并行执行。
+    // 单个被拒/超时只跳过该工具，不连坐整轮（部分拒绝语义，inspector R6）。
+    const gated = await Promise.all(
+      res.toolCalls.map((toolCall) => gateToolCall(run, agent, parentSpanId, toolCall)),
+    );
+    if (gated.some((g) => g.hadApproval)) setRunStatus(run.id, 'running');
+    const outcomes = await Promise.all(
+      gated.map((g) =>
+        g.allowed && g.tool
+          ? runTool(run, agent, parentSpanId, g.tool, g.input)
+          : Promise.resolve(g.note ?? '已跳过'),
+      ),
+    );
+    // 工具结果统一回传下一轮（user 消息模拟，见文件头 TODO）。
     // 占位文案用不易被模仿的纯说明体——真机实证 GLM 会从 transcript 模仿占位句式输出伪调用文本
+    const names = res.toolCalls.map((t) => t.name).join('、');
     messages.push({
       role: 'assistant',
-      content: res.content.length > 0 ? res.content : `（assistant 已请求工具 ${res.toolCall.name}，结果见下一轮）`,
+      content:
+        res.content.length > 0 ? res.content : `（assistant 已请求工具 ${names}，结果见下一轮）`,
     });
-    messages.push({ role: 'user', content: `【工具结果】${res.toolCall.name}：\n${outcome}` });
+    messages.push({
+      role: 'user',
+      content: gated.map((g, i) => `【工具结果】${g.toolCall.name}：\n${outcomes[i]}`).join('\n\n'),
+    });
   }
 }
 
@@ -199,7 +242,15 @@ async function closingCall(
     name: `llm:${agent.model}（收尾）`,
     input: llmSpanInput(final, []),
   });
-  const res = await provider.chat({ model: agent.model, messages: final }); // 不传 tools
+  let res: LlmResponse;
+  try {
+    // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
+    res = await provider.chat({ model: agent.model, messages: final }, deltaForwarder(run.id, llmSpan.id));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    endSpan(llmSpan, { output: message, status: 'error' });
+    throw err;
+  }
   endSpan(llmSpan, {
     output: llmSpanOutput(res),
     status: 'ok',
@@ -210,27 +261,41 @@ async function closingCall(
   return res.content;
 }
 
+/** 门控结果：allowed=false 时 note 为回传给下一轮 LLM 的跳过说明 */
+interface GatedToolCall {
+  toolCall: LlmToolCall;
+  tool: Tool | null;
+  /** edit 决策可能改写入参 */
+  input: string;
+  allowed: boolean;
+  /** 是否经过了审批等待（轮级用于统一恢复 run 状态） */
+  hadApproval: boolean;
+  note: string | null;
+}
+
 /**
- * 执行一次工具调用：权限三档门控 →（need_approval 时）审批中断 → 执行 + tool span。
- * 返回回传给下一轮 LLM 的结果文本（被拒/失败也返回说明而非抛出，保证循环继续）。
+ * 工具调用门控（§8.3 顺序 + §8.2 审批）：不存在/deny → 跳过说明；
+ * need_approval → 创建审批（run 置 awaiting_approval）→ 等待决策——
+ * approved/edited → 放行；rejected/expired（超时按拒绝处理，置 expired 不遗留 pending）→ 跳过说明。
+ * 多个 gateToolCall 并发时审批创建即并行；run 状态由轮级统一恢复 running。
  */
-async function executeToolCall(
+async function gateToolCall(
   run: Run,
   agent: AgentDefinition,
   parentSpanId: string,
   toolCall: LlmToolCall,
-): Promise<string> {
+): Promise<GatedToolCall> {
   const tool = getTool(toolCall.name);
   if (!tool) {
     const note = `工具 ${toolCall.name} 不存在，已跳过`;
     await postSystem(run.id, agent.id, note);
-    return note;
+    return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note };
   }
   const decision = checkPermission(agent, tool.name);
   if (decision === 'deny') {
     const note = `工具 ${tool.name} 被权限门控拒绝（模式 ${agent.permissionMode}${agent.disallowedTools.includes(tool.name) ? '，命中 disallowedTools' : ''}）`;
     await postSystem(run.id, agent.id, note);
-    return note;
+    return { toolCall, tool, input: toolCall.input, allowed: false, hadApproval: false, note };
   }
 
   let inputRaw = toolCall.input;
@@ -240,7 +305,7 @@ async function executeToolCall(
       agentId: agent.id,
       toolName: tool.name,
       input: inputRaw,
-      reason: `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单`,
+      reason: `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
     });
     setRunStatus(run.id, 'awaiting_approval');
     const approvalSpan = startSpan(run.id, {
@@ -253,27 +318,46 @@ async function executeToolCall(
       const decided = await waitForDecision(approval.id);
       if (decided.status === 'edited') inputRaw = decided.editedInput ?? inputRaw;
       endSpan(approvalSpan, { output: `decision: ${decided.status}`, status: 'ok' });
-      setRunStatus(run.id, 'running');
       if (decided.status === 'rejected') {
         const note = `人工已拒绝工具 ${tool.name} 的调用`;
         await postSystem(run.id, agent.id, note);
-        return note;
+        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note };
       }
       if (decided.status === 'expired') {
-        // §8.2：超时按拒绝处理（decidedBy=system:timeout，置 expired 不遗留 pending）
         const note = `等待审批超时（已置 expired），工具 ${tool.name} 按拒绝处理`;
         await postSystem(run.id, agent.id, note);
-        return note;
+        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note };
       }
     } catch (err) {
-      const message = err instanceof ApprovalTimeoutError ? '等待审批超时，按拒绝处理' : String(err);
+      const message = err instanceof Error ? err.message : String(err);
       endSpan(approvalSpan, { output: message, status: 'error' });
-      setRunStatus(run.id, 'running');
       await postSystem(run.id, agent.id, `工具 ${tool.name} 审批流程异常：${message}`);
-      return `审批流程异常：${message}`;
+      return {
+        toolCall,
+        tool,
+        input: inputRaw,
+        allowed: false,
+        hadApproval: true,
+        note: `审批流程异常：${message}`,
+      };
     }
+    return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: true, note: null };
   }
+  return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: false, note: null };
+}
 
+/**
+ * 执行已放行的工具调用：tool span + usage 记账 + 广播 tool 消息。
+ * 返回回传给下一轮 LLM 的结果文本（失败也返回说明而非抛出，保证循环继续）。
+ * 同一轮多个 runTool 经 Promise.all 并行执行（span 时间可重叠，§8.4）。
+ */
+async function runTool(
+  run: Run,
+  agent: AgentDefinition,
+  parentSpanId: string,
+  tool: Tool,
+  inputRaw: string,
+): Promise<string> {
   const toolSpan = startSpan(run.id, {
     parentId: parentSpanId,
     spanKind: 'tool',
