@@ -15,5 +15,6 @@ export type ServerEvent =
   | { type: 'task.updated'; task: Task }
   | { type: 'run.updated'; run: Run }
   | { type: 'run.event'; event: RunEvent }
+  | { type: 'llm.delta'; runId: string; spanId: string; text: string }
   | { type: 'approval.updated'; approval: ApprovalRequest }
   | { type: 'usage'; usage: UsageSummary };

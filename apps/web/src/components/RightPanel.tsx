@@ -14,10 +14,25 @@ const SPAN_COLOR: Record<string, string> = {
   orchestration: 'text-emerald-300',
 };
 
+/** 已决策状态标签（最近记录区用，pending 卡走完整 ApprovalCard） */
+const DECIDED_LABEL: Record<string, string> = {
+  approved: '已批准',
+  rejected: '已拒绝',
+  edited: '已编辑',
+  expired: '已超时',
+};
+
 export function RightPanel() {
   const { state } = useStore();
   const [tab, setTab] = useState<'approvals' | 'trace' | 'usage'>('approvals');
-  const pending = state.approvals.filter((a) => a.status === 'pending');
+  // pending 按 createdAt 置顶（最早最紧急在前）；已决策的最近 5 条折叠展示在下方（§8.2）
+  const pending = state.approvals
+    .filter((a) => a.status === 'pending')
+    .sort((x, y) => x.createdAt.localeCompare(y.createdAt));
+  const decidedRecent = state.approvals
+    .filter((a) => a.status !== 'pending')
+    .sort((x, y) => (y.decidedAt ?? y.createdAt).localeCompare(x.decidedAt ?? x.createdAt))
+    .slice(0, 5);
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-800 bg-zinc-900/60">
@@ -48,6 +63,31 @@ export function RightPanel() {
             {pending.map((a) => (
               <ApprovalCard key={a.id} approval={a} />
             ))}
+            {decidedRecent.length > 0 && (
+              <details className="pt-1">
+                <summary className="cursor-pointer text-[11px] text-zinc-600 hover:text-zinc-400">
+                  最近已决策（{decidedRecent.length}）
+                </summary>
+                <ul className="mt-1.5 space-y-1">
+                  {decidedRecent.map((a) => (
+                    <li key={a.id} className="flex items-center justify-between text-[11px] text-zinc-500">
+                      <span className="truncate">{a.toolName} · {a.agentId}</span>
+                      <span
+                        className={
+                          a.status === 'approved'
+                            ? 'text-emerald-400/80'
+                            : a.status === 'expired'
+                              ? 'text-amber-400/80'
+                              : 'text-red-400/80'
+                        }
+                      >
+                        {DECIDED_LABEL[a.status] ?? a.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         )}
 

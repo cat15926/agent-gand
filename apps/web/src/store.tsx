@@ -22,6 +22,7 @@ import type {
   UsageSummary,
 } from '@agent-gand/shared';
 import * as api from './services/api';
+import { armPermissionRequest, notifyApproval } from './services/notify';
 import { onServerEvent, onWsStatus } from './services/ws';
 
 export interface State {
@@ -34,6 +35,8 @@ export interface State {
   tasks: Task[];
   approvals: ApprovalRequest[];
   usage: UsageSummary[];
+  /** 活动 llm span 的流式增量累积（spanId → 已到文本；span 结束即折叠清除，§8.1） */
+  streams: Record<string, string>;
 }
 
 type Action =
@@ -54,6 +57,7 @@ const initialState: State = {
   tasks: [],
   approvals: [],
   usage: [],
+  streams: {},
 };
 
 function upsertBy<T extends { id: string }>(list: T[], item: T): T[] {
@@ -81,9 +85,10 @@ function reducer(state: State, action: Action): State {
     case 'agents':
       return { ...state, agents: action.agents };
     case 'setActiveRun':
-      return { ...state, activeRunId: action.runId, messages: [], events: [] };
+      return { ...state, activeRunId: action.runId, messages: [], events: [], streams: {} };
     case 'runDetail':
-      return { ...state, messages: action.messages, events: action.events };
+      // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
+      return { ...state, messages: action.messages, events: action.events, streams: {} };
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
@@ -91,10 +96,23 @@ function reducer(state: State, action: Action): State {
           return e.message.runId === state.activeRunId
             ? { ...state, messages: [...state.messages, e.message] }
             : state;
-        case 'run.event':
-          return e.event.runId === state.activeRunId
-            ? { ...state, events: [...state.events, e.event] }
+        case 'llm.delta':
+          // 流式增量只累积当前活动 run（其他 run 的 span 明细本就不维护）
+          return e.runId === state.activeRunId
+            ? {
+                ...state,
+                streams: { ...state.streams, [e.spanId]: (state.streams[e.spanId] ?? '') + e.text },
+              }
             : state;
+        case 'run.event': {
+          if (e.event.runId !== state.activeRunId) return state;
+          // span 结束（endedAt 非空）→ 流式段落折叠（正式消息/终态 output 随后到达）
+          const streams =
+            e.event.endedAt !== null && state.streams[e.event.id] !== undefined
+              ? Object.fromEntries(Object.entries(state.streams).filter(([id]) => id !== e.event.id))
+              : state.streams;
+          return { ...state, events: [...state.events, e.event], streams };
+        }
         case 'task.updated':
           return { ...state, tasks: upsertBy(state.tasks, e.task) };
         case 'run.updated':
@@ -157,6 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void hydrateAll();
+    armPermissionRequest(); // 首次交互请求浏览器通知权限（§8.2）
 
     const offStatus = onWsStatus((connected) => {
       dispatch({ type: 'ws', connected });
@@ -167,6 +186,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // hello 只补 agents，不动其余状态（避免重连清空列表）
         dispatch({ type: 'agents', agents: event.agents });
         return;
+      }
+      // 新 pending 审批 → 系统通知（已授权时点击聚焦，§8.2）
+      if (event.type === 'approval.updated' && event.approval.status === 'pending') {
+        notifyApproval(event.approval);
       }
       dispatch({ type: 'serverEvent', event });
     });

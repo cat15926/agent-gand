@@ -1,7 +1,7 @@
 ---
 name: Planner
 description: 负责把用户目标拆解为可执行任务清单的规划者
-model: mock:planner
+model: anthropic:glm-5.3
 tools: []
 permissionMode: confirm
 color: '#7c5cff'

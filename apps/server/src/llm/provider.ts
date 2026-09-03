@@ -1,7 +1,13 @@
 /**
- * LLM Provider 接口与 MockProvider（规格 §4.2 llm/provider.ts）
- * Mock：确定性文案 + 假 token 数 + ~200ms 延迟；演示链路可端到端跑通
+ * LLM Provider 接口与三个实现（规格 §4.2 + §7.1）
+ * - MockProvider：确定性演示路径（零依赖，无 key 可跑）
+ * - OpenAICompatibleProvider：POST {base}/chat/completions（OpenAI / DeepSeek / GLM / Qwen 等兼容端点）
+ * - AnthropicProvider：POST {base}/v1/messages
+ * 纯 fetch 实现，不引官方 SDK；代理走 undici ProxyAgent（LLM_PROXY 可选）
  */
+import { fetch as undiciFetch, ProxyAgent, type Response as UndiciResponse } from 'undici';
+import { config } from '../config.ts';
+
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -19,20 +25,76 @@ export interface LlmUsage {
   costUsd: number;
 }
 
+/** 传给 Provider 的工具 schema（JSON Schema 形式） */
+export interface LlmToolSchema {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 export interface LlmRequest {
-  model: string;
+  model: string; // 完整路由串，如 'openai:gpt-4o' / 'anthropic:claude-...' / 'mock:x'
   messages: LlmMessage[];
+  tools?: LlmToolSchema[];
 }
 
 export interface LlmResponse {
   content: string;
   usage: LlmUsage;
   toolCall: LlmToolCall | null;
+  /** 终止原因（anthropic stop_reason / openai finish_reason），记入 llm span 供诊断 */
+  stopReason: string | null;
 }
 
 export interface LLMProvider {
   chat(req: LlmRequest): Promise<LlmResponse>;
 }
+
+// ---- 公共网络层 ----
+
+const REQUEST_TIMEOUT_MS = 60_000;
+
+let proxyAgent: ProxyAgent | null | undefined;
+
+/** LLM_PROXY 设置时懒建代理 dispatcher；未设置返回 null（直连） */
+function getDispatcher(): ProxyAgent | null {
+  if (proxyAgent === undefined) {
+    proxyAgent = config.llm.proxy ? new ProxyAgent(config.llm.proxy) : null;
+  }
+  return proxyAgent;
+}
+
+interface LlmFetchInit {
+  method: 'POST';
+  headers: Record<string, string>;
+  body: string;
+}
+
+function llmFetch(url: string, init: LlmFetchInit): Promise<UndiciResponse> {
+  const dispatcher = getDispatcher();
+  return undiciFetch(url, {
+    ...init,
+    // thinking 模型长生成：超时可经 LLM_TIMEOUT_MS 调整（默认 180s，见 config.ts）
+    signal: AbortSignal.timeout(config.llm.timeoutMs ?? REQUEST_TIMEOUT_MS),
+    ...(dispatcher !== null ? { dispatcher } : {}), // LLM_PROXY 设置时走代理
+  });
+}
+
+/** 非 2xx → 抛出含 status 与响应体的错误（便于排障） */
+async function assertOk(res: UndiciResponse, providerLabel: string): Promise<void> {
+  if (res.ok) return;
+  const body = await res.text().catch(() => '');
+  throw new Error(`${providerLabel} 请求失败 HTTP ${res.status}: ${body.slice(0, 300)}`);
+}
+
+/** TODO: 真实 Provider 的 costUsd 记账（需按模型维护价格表；当前记 0） */
+const ZERO_COST = 0;
+
+function toInt(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+// ---- MockProvider（P0 演示路径，保留）----
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -101,8 +163,154 @@ export class MockProvider implements LLMProvider {
         costUsd: Math.round((tokensIn * 2e-6 + tokensOut * 8e-6) * 1e6) / 1e6,
       },
       toolCall: extractToolCall(goal),
+      stopReason: null,
     };
   }
 }
 
 export const mockProvider = new MockProvider();
+
+// ---- OpenAICompatibleProvider（规格 §7.1）----
+
+/** openai chat/completions 响应的窄类型（只取用到的字段） */
+interface OpenAIChatResponse {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: Array<{ function?: { name?: string; arguments?: string } }>;
+    };
+    finish_reason?: unknown;
+  }>;
+  usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
+}
+
+export class OpenAICompatibleProvider implements LLMProvider {
+  private readonly apiKey: string | null;
+  private readonly baseUrl: string;
+
+  constructor(apiKey: string | null, baseUrl: string) {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl.replace(/\/+$/, ''); // 去尾部斜杠，拼接路径用
+  }
+
+  async chat(req: LlmRequest): Promise<LlmResponse> {
+    if (!this.apiKey) {
+      throw new Error('未配置 LLM_OPENAI_API_KEY（openai-compatible 路由不可用）；配置示例见 .env.example');
+    }
+    const model = req.model.slice('openai:'.length);
+    const body: Record<string, unknown> = {
+      model,
+      messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+      max_tokens: config.llm.maxTokens, // thinking 模型思考也耗预算（规格 §7 返工①）
+    };
+    if (req.tools && req.tools.length > 0) {
+      body.tools = req.tools.map((t) => ({
+        type: 'function',
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      }));
+      body.tool_choice = 'auto';
+    }
+    const res = await llmFetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` },
+      body: JSON.stringify(body),
+    });
+    await assertOk(res, `openai-compatible(${this.baseUrl})`);
+    const data = (await res.json()) as OpenAIChatResponse;
+    const choice = data.choices?.[0];
+    const message = choice?.message;
+    const firstToolCall = message?.tool_calls?.[0]?.function;
+    // arguments 缺省/为空串时按空对象处理（部分兼容端点会省略）
+    const toolCall: LlmToolCall | null =
+      firstToolCall?.name
+        ? { name: firstToolCall.name, input: firstToolCall.arguments?.trim() || '{}' }
+        : null;
+    return {
+      content: message?.content ?? '',
+      usage: {
+        tokensIn: toInt(data.usage?.prompt_tokens),
+        tokensOut: toInt(data.usage?.completion_tokens),
+        costUsd: ZERO_COST,
+      },
+      toolCall,
+      stopReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+    };
+  }
+}
+
+// ---- AnthropicProvider（规格 §7.1）----
+
+type AnthropicContentBlock =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; name: string; input: unknown }
+  | { type: string; [k: string]: unknown };
+
+/** anthropic messages 响应的窄类型 */
+interface AnthropicMessagesResponse {
+  content?: AnthropicContentBlock[];
+  usage?: { input_tokens?: unknown; output_tokens?: unknown };
+  stop_reason?: unknown;
+}
+
+export class AnthropicProvider implements LLMProvider {
+  private readonly apiKey: string | null;
+  private readonly baseUrl: string;
+
+  constructor(apiKey: string | null, baseUrl: string) {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  }
+
+  async chat(req: LlmRequest): Promise<LlmResponse> {
+    if (!this.apiKey) {
+      throw new Error('未配置 LLM_ANTHROPIC_API_KEY（anthropic 路由不可用）；配置示例见 .env.example');
+    }
+    const model = req.model.slice('anthropic:'.length);
+    // system 提示走独立 system 字段（规格 §7.1）
+    const systemParts = req.messages.filter((m) => m.role === 'system').map((m) => m.content);
+    const turns = req.messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => ({ role: m.role, content: m.content }));
+    const body: Record<string, unknown> = { model, max_tokens: config.llm.maxTokens, messages: turns };
+    if (systemParts.length > 0) body.system = systemParts.join('\n\n');
+    if (req.tools && req.tools.length > 0) {
+      body.tools = req.tools.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters,
+      }));
+    }
+    const res = await llmFetch(`${this.baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    });
+    await assertOk(res, `anthropic(${this.baseUrl})`);
+    const data = (await res.json()) as AnthropicMessagesResponse;
+    const blocks = data.content ?? [];
+    const text = blocks
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
+    const toolUse = blocks.find(
+      (b): b is { type: 'tool_use'; name: string; input: unknown } => b.type === 'tool_use',
+    );
+    const toolCall: LlmToolCall | null = toolUse
+      ? { name: toolUse.name, input: JSON.stringify(toolUse.input ?? {}) }
+      : null;
+    return {
+      content: text,
+      usage: {
+        tokensIn: toInt(data.usage?.input_tokens),
+        tokensOut: toInt(data.usage?.output_tokens),
+        costUsd: ZERO_COST,
+      },
+      toolCall,
+      stopReason: typeof data.stop_reason === 'string' ? data.stop_reason : null,
+    };
+  }
+}

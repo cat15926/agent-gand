@@ -181,3 +181,101 @@ CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 | 5 HITL（中断审批+权限三档）| hitl/*、tools 权限门控 |
 | 6 运行可视化（消息流/任务状态/用量）| api/ws、web RunView+RightPanel |
 | 7 会话与运行历史 | runs/trace、run_events/messages 表、ObserveView |
+
+---
+
+## 7. 增量需求 v0.2：真实 LLM Provider + Supervisor 结构化拆解
+
+> 2026-09-02 追加。目标：把 P0 中两处骨架级实现做实。契约（packages/shared）**不变更**。
+
+### 7.1 真实 LLM Provider（`llm/provider.ts` + `llm/router.ts` + `config.ts`）
+
+**环境变量（同步更新 `.env.example` 与 README）：**
+
+| 变量 | 说明 |
+|---|---|
+| `LLM_OPENAI_API_KEY` / `LLM_OPENAI_BASE_URL` | openai-compatible 提供方；BASE_URL 默认 `https://api.openai.com/v1`，接 DeepSeek/GLM/Qwen 等兼容端点时改此值（如 `https://api.deepseek.com/v1`） |
+| `LLM_ANTHROPIC_API_KEY` / `LLM_ANTHROPIC_BASE_URL` | Anthropic；BASE_URL 默认 `https://api.anthropic.com` |
+| `LLM_PROXY` | 可选（如 `http://127.0.0.1:7897`）；设置后 LLM 出站请求走代理（undici ProxyAgent dispatcher），不设则直连 |
+
+**实现要求：**
+
+- 纯 `fetch` 实现，不引入官方 SDK；可新增 `undici` 依赖用于代理支持。
+- **OpenAICompatibleProvider**：`POST {base}/chat/completions`；请求含 `model/messages/tools`（工具 schema）；响应解析 `choices[0].message`（含 `tool_calls`）与 `usage` 记账；60s 超时；非 2xx 抛出含 status 与 response body 的错误。
+- **AnthropicProvider**：`POST {base}/v1/messages`；headers `x-api-key` + `anthropic-version: 2023-06-01`；system 提示放独立 `system` 字段；`tools` 与响应 `tool_use` content block 解析；`usage.input_tokens/output_tokens` 记账。
+- 模型串路由不变：`openai:<model>` / `anthropic:<model>` / `mock:<x>`。
+- 未配置所需 key 时调用 → 明确错误信息（指明缺哪个 `LLM_*_API_KEY`，提示看 `.env.example`）。
+- MockProvider 保留为默认演示路径，**零回归**。
+
+### 7.2 Supervisor 结构化拆解（`orchestration/supervisor.ts`）
+
+- `decompose(goal, team)` 用 supervisor agent 的真实 LLM 产出 JSON：`{"tasks":[{"title","body","assignee","blockedBy"(标题引用,可选)}]}`，任务数 ≤5。
+- prompt 需附团队成员名单（id + description），要求 assignee 从中选。
+- 解析后校验：assignee ∈ 团队、标题去重、blockedBy 引用存在且无环；**非法输出 → fallback 到现有 mock 拆解**，并发一条 system message 说明"结构化拆解失败已降级"。
+- 并行执行与失败重试**不在本次范围**（保留 TODO）。
+
+### 7.3 验收标准（无需真实 key）
+
+1. `pnpm -r typecheck` 三包绿；不带任何 key 启动，mock 路径零回归（pipeline/supervisor run 照常）。
+2. **本地 stub 验证 openai-compatible**：写一个临时 node stub HTTP server 返回固定 chat/completions 响应（含 tool_calls + usage），`LLM_OPENAI_BASE_URL` 指向 stub 跑 pipeline —— 验证请求体格式（model/tools/messages）、tool_calls 正确触发工具执行并过权限门控、usage 从响应记账。
+3. **本地 stub 验证 anthropic**：stub 返回 messages API 格式 —— 验证 headers、system 独立字段、tool_use block 解析与 usage 记账。
+4. **supervisor stub**：合法 JSON tasks → 正确创建/认领/完成；非法 JSON → fallback 生效且有 system message。
+5. `.env.example`、README 快速开始补真实 LLM 配置示例（含 DeepSeek 示例）。
+6. inspector 复核：strict 无 any、TODO 清单同步更新、中文注释、stub 脚本不留在 src/（放 scripts/ 或临时目录）。
+
+> 真机 e2e（验收通过后可选）：由用户提供一个真实 key（如 DeepSeek）跑一次端到端 run。
+
+### 7.4 工具 schema 可见性决策（2026-09-02 真机 e2e 后裁定）
+
+`toolsForAgent`（下发给 LLM 的工具 schema 集合）按权限三档决定：
+
+| 权限档 | 下发集合 | 执行时门控 |
+|---|---|---|
+| `readonly` | 只读工具集 | 只读集直过 |
+| `auto` | 白名单 | 白名单直过 |
+| `confirm` | **全量注册表** | 白名单直过，**其余一律审批** |
+
+**理由**（真机 Run2 实证）：若 confirm 档只下发白名单 schema，真实 LLM 永远无法请求白名单外工具，"非白名单需审批"这一档对真实模型不可达（仅 mock 可演示）。schema 可见 ≠ 执行授权——与 Claude Code 的工具模型一致（工具全可见、权限在使用时把关）。执行侧门控不变，人类仍批准每个敏感动作。
+
+**配套实现**：`orchestration/agentStep.ts` 共享模块（runAgentTurn 工具循环：门控→审批中断→执行→span/usage→结果回传，maxToolRounds 防失控）；pipeline 与 supervisor worker 统一走它，避免两份实现漂移；llm span input 记 `{messages, tools:[名单]}` 便于事后诊断。
+
+---
+
+## 8. 增量需求 v0.3：响应性能优化（流式 / 审批 / 权限 / 并行工具）
+
+> 2026-09-04 追加，源于真机 run 32b19e2a 的耗时分析：总 1518s = 审批等待 49% + LLM 生成 50% + 工具 0%。本节含两处 shared 契约变更（已由 manager 落盘）：`events.ts` 新增 `llm.delta`；`approval.ts` 的 `ApprovalStatus` 新增 `'expired'`。§7.4 confirm 档执行门控行由 §8.3 修订（下发集合不变）。
+
+### 8.1 LLM 流式输出（体感优化主项）
+
+- **Provider 层**：`chat(req, onDelta?)` 增加可选增量回调 `onDelta(text: string)`；两个 Provider 均以流式请求（openai: `stream:true` + SSE 解析 `choices[0].delta`；anthropic: `stream:true` + `content_block_delta`，thinking 增量直接丢弃）。
+- **难点点名**：流式下的工具调用分片重组——openai 按 `tool_calls[index]` 增量拼接 name/arguments；anthropic 按 `content_block` 的 `input_json_delta` 收集完整后组装 `tool_use`。usage 取流末块（openai `stream_options:{include_usage:true}`；anthropic `message_delta.usage`）。
+- **转发**：agentStep 在 llm span 运行期间把增量经 bus 发 `llm.delta` 事件（runId + spanId + text）；span 结束仍记完整 output。
+- **Web**：运行视图对活动 span 显示流式文本（"⟳ agent 名"渐增段落，span 结束后折叠为正式消息）；增量丢失可容忍（断线重连已有 hydrate 回补）。
+- **stub**：stub server 需支持 SSE 分片响应，用例覆盖增量顺序、tool_calls 分片重组、usage 记账。
+
+### 8.2 审批提醒强化 + 超时状态修复
+
+- **超时可配**：`APPROVAL_TIMEOUT_MS`（默认 300_000；0 = 不超时）。
+- **超时状态**：超时按拒绝处理时 approval 置 **`expired`**（decidedBy='system:timeout'），不得遗留 `pending`（run 32b19e2a 实证遗留 2 条）。
+- **Web 提醒**：顶栏待审批数 >0 时 amber 高亮 + pulse 常驻；首次交互请求浏览器 Notification 权限，审批到达发系统通知（点击聚焦）；FleetView needs_input 判定仅看 pending；pending 卡按 createdAt 置顶。
+
+### 8.3 权限策略调优：只读工具直过
+
+- **新判定顺序**（执行侧）：`disallowedTools` 命中 → deny；**只读类**（`fs.read` / `search.files` / `http.get`）→ readonly 与 confirm 档直过；confirm 档非只读 → 审批（agent 白名单内仍直过）；auto 档 → 白名单内直过、白名单外 deny。
+- §7.4 的"confirm 下发全量注册表"**不变**；仅执行侧门控按此修订。
+- 依据：真机 3 次审批中 2 次为 fs.read（只读零风险），全可免。
+- stub：confirm 档 fs.read 直过 + fs.write 仍审批；auto 档白名单外 deny。
+
+### 8.4 并行工具调用
+
+- **Provider 契约**（server 内部类型）：`LlmResponse.toolCall: ToolCall | null` → **`toolCalls: ToolCall[]`**（openai 多 `tool_calls`、anthropic 多 `tool_use` block 原生支持）；agentStep 同步消费。
+- **执行**：一轮多个 toolCalls 逐个过门控（审批创建可并行），通过后 **Promise.all 并行执行**，每个工具独立 tool span（时间可重叠）；结果统一回传下一轮。
+- **prompt**：TOOL_CALL_DIRECTIVE 追加"如需多个工具，请在同一轮并行发起全部调用"。
+- **验收**：stub 断言一轮 2 个 tool_use 并行执行（span 时间重叠）、结果齐回传。
+
+### 8.5 验收标准
+
+1. `pnpm -r typecheck` 绿；stub 全绿（含新增流式/并行/权限/超时用例）。
+2. 真机（repo DB，GLM，.env 已配好）：① 调研类 pipeline run，web 可见逐字流式输出；② 只读工具零审批；③ 审批→approved 与超时→expired 两路径全链路（超时路径可调小 APPROVAL_TIMEOUT_MS 验证）；④ 顶栏提醒 + 浏览器通知；⑤ 至少一轮并行工具（span 时间重叠证据）。runId 成对留存。
+3. 回归：supervisor 模式、空正文/伪调用防御、usage 记账准确。
+4. inspector 复核：代码 + stub 交叉 + DB 取证。

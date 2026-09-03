@@ -5,6 +5,7 @@
  */
 import type { ApprovalDecision, ApprovalRequest, ApprovalStatus } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
+import { config } from '../config.ts';
 import { all, get, run } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
 
@@ -144,16 +145,38 @@ export class ApprovalTimeoutError extends Error {
 }
 
 /**
- * 编排器轮询等待决策（500ms 间隔）。
+ * 超时把 pending 置 expired（规格 §8.2）：decidedBy='system:timeout'，
+ * 不得遗留 pending（真机 run 32b19e2a 实证过遗留 2 条）。并发安全：仅当仍为 pending 时生效。
+ */
+function expireApproval(id: string): ApprovalRequest {
+  const now = new Date().toISOString();
+  run(
+    `UPDATE approvals SET status = 'expired', edited_input = NULL, decided_by = 'system:timeout', decided_at = ?
+     WHERE id = ? AND status = 'pending'`,
+    now,
+    id,
+  );
+  const approval = getApproval(id);
+  if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+  emit({ type: 'approval.updated', approval });
+  return approval;
+}
+
+/**
+ * 编排器轮询等待决策（500ms 间隔）。超时默认取 APPROVAL_TIMEOUT_MS（0 = 不超时），
+ * 到点置 expired 并返回（调用方按拒绝处理该工具），不再抛超时异常。
  * TODO: durable pause/resume —— 超时/进程重启后 run 停在 awaiting_approval，重启后可续跑
  */
-export async function waitForDecision(id: string, timeoutMs = 300_000): Promise<ApprovalRequest> {
-  const deadline = Date.now() + timeoutMs;
+export async function waitForDecision(
+  id: string,
+  timeoutMs: number = config.approvalTimeoutMs,
+): Promise<ApprovalRequest> {
+  const deadline = timeoutMs > 0 ? Date.now() + timeoutMs : Number.POSITIVE_INFINITY;
   for (;;) {
     const approval = getApproval(id);
     if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
     if (approval.status !== 'pending') return approval;
-    if (Date.now() >= deadline) throw new ApprovalTimeoutError(id);
+    if (Date.now() >= deadline) return expireApproval(id);
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }

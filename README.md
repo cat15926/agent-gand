@@ -19,6 +19,27 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
+### 接入真实 LLM（可选）
+
+默认 `mock:*` 模型走 MockProvider，无 key 即可演示。要接真实模型：把 agent 定义（`agents/*.agent.md`）的
+`model` 改为 `openai:<model>` 或 `anthropic:<model>`，并在 `apps/server/` 下复制 `.env.example` 为 `.env` 配置：
+
+```bash
+# OpenAI 兼容端点（以 DeepSeek 为例）
+LLM_OPENAI_API_KEY=sk-xxx
+LLM_OPENAI_BASE_URL=https://api.deepseek.com/v1
+
+# 或 Anthropic
+LLM_ANTHROPIC_API_KEY=sk-ant-xxx
+
+# 可选：出站代理
+LLM_PROXY=http://127.0.0.1:7897
+```
+
+未配置 key 时启动与 `mock:*` 路径不受影响；`openai:*` / `anthropic:*` 的 run 会在 LLM 调用时明确报缺哪个 key。
+无 key 的本地验证：`node scripts/verify-llm-stubs.mjs`（起一个本地 stub 端点，全链路验证两个 Provider 的
+请求格式、tool_calls/tool_use 解析、usage 记账与 supervisor 结构化拆解/fallback）。
+
 ## 架构
 
 ```
@@ -48,7 +69,7 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 ## 约定
 
 - **契约优先**：跨端类型一律改 `packages/shared`，不得在 server/web 私有定义；
-- **模型路由**：`mock:*` 走 MockProvider（无 key 演示），`openai:*` / `anthropic:*` 为 TODO 骨架（`llm/router.ts`）；
+- **模型路由**：`mock:*` 走 MockProvider（无 key 演示），`openai:*` 走 OpenAI 兼容端点、`anthropic:*` 走 Anthropic（`llm/router.ts`，纯 fetch 实现，支持 `LLM_PROXY` 代理）；
 - **骨架点**：全部以 `// TODO:` 标注（durable pause/resume、MCP 完整接入、只读画布、瀑布 trace 等）；
 - 数据库为本地 SQLite（`apps/server/data/`，已 gitignore），**只增不删**。
 

@@ -42,6 +42,32 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
+/** 流式段落（§8.1）：活动 llm span 的渐增文本，span 结束后由 store 折叠（正式消息随后到达） */
+function StreamingBubble({ spanId, text }: { spanId: string; text: string }) {
+  const { state } = useStore();
+  // llm span 的父级是 agent span（name = agent:<id>[（supervisor）]）→ 解析出 agent 名与颜色
+  const span = state.events.find((e) => e.id === spanId);
+  const parent = span?.parentId ? state.events.find((e) => e.id === span.parentId) : undefined;
+  const agentId = parent?.name.startsWith('agent:') ? parent.name.slice('agent:'.length) : null;
+  const agent = agentId ? state.agents.find((a) => agentId === a.id || agentId.startsWith(`${a.id}（`)) : undefined;
+  const color = agent?.color ?? '#7c8a9c';
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-2xl rounded-2xl border border-dashed border-zinc-700 bg-zinc-800/60 px-4 py-2.5 text-sm">
+        <div className="mb-0.5 flex items-center gap-1.5 text-[11px]" style={{ color }}>
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: color }} />
+          ⟳ {agent?.name ?? span?.name ?? '生成中'}
+        </div>
+        <div className="whitespace-pre-wrap leading-relaxed text-zinc-400">
+          {text}
+          <span className="animate-pulse">▍</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Launcher() {
   const { state, setActiveRun } = useStore();
   const [goal, setGoal] = useState('');
@@ -145,6 +171,9 @@ export function RunView() {
         )}
         {state.messages.map((m) => (
           <MessageBubble key={m.id} msg={m} />
+        ))}
+        {Object.entries(state.streams).map(([spanId, text]) => (
+          <StreamingBubble key={spanId} spanId={spanId} text={text} />
         ))}
       </div>
 

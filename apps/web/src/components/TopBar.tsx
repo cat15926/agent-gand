@@ -23,12 +23,20 @@ export function TopBar() {
   const { state } = useStore();
   const activeRun = state.runs.find((r) => r.id === state.activeRunId);
   const tokens = state.usage.reduce((acc, u) => acc + u.tokensIn + u.tokensOut, 0);
+  // 待审批数（含所有 run）：>0 时 amber 高亮 + pulse 常驻（§8.2）
+  const pendingApprovals = state.approvals.filter((a) => a.status === 'pending').length;
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-zinc-800 bg-zinc-900/60 px-4">
       <span className="text-sm font-semibold tracking-wide text-zinc-100">
         agent-gand <span className="text-zinc-500">· 多 Agent 协作平台</span>
       </span>
+
+      {pendingApprovals > 0 && (
+        <span className="flex animate-pulse items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-500/40">
+          ⚠ 待审批 {pendingApprovals}
+        </span>
+      )}
 
       {activeRun && (
         <span className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300">

@@ -3,7 +3,7 @@
  * 敏感动作中断 → 审批卡 → 批准 / 拒绝 / 编辑后继续
  */
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'edited';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'edited' | 'expired';
 
 export type ApprovalDecision = 'approve' | 'reject' | 'edit';
 

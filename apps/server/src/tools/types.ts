@@ -14,19 +14,34 @@ export interface ToolContext {
 export interface Tool {
   name: string;
   description: string;
+  /** JSON Schema（传给真实 LLM 的 tools 字段，规格 §7.1） */
+  inputSchema: Record<string, unknown>;
   run(input: unknown, ctx: ToolContext): Promise<string>;
 }
 
 export type PermissionDecision = 'allow' | 'deny' | 'need_approval';
 
-/** 只读类工具集合（对 readonly 模式放行的工具名） */
-const READONLY_TOOLS = new Set(['fs.read', 'http.get', 'search.files']);
+/** 只读类工具集合（对 readonly 模式放行的工具名；也用于决定 readonly 档下发哪些 schema） */
+export const READONLY_TOOLS = new Set(['fs.read', 'http.get', 'search.files']);
 
+/**
+ * 权限门控（执行侧判定顺序，规格 §8.3 修订）：
+ * 1. disallowedTools 命中 → deny
+ * 2. 只读类 → readonly 与 confirm 档直过（零风险免审，真机 3 次审批中 2 次为 fs.read 可免）；
+ *    auto 档仍按白名单（白名单外 deny）
+ * 3. confirm 档非只读 → 白名单内直过，白名单外审批
+ * 4. auto 档 → 白名单内直过、白名单外 deny
+ * §7.4 的工具 schema 下发集合不受此影响（confirm 仍全量下发）。
+ */
 export function checkPermission(agent: AgentDefinition, toolName: string): PermissionDecision {
   if (agent.disallowedTools.includes(toolName)) return 'deny';
+  if (READONLY_TOOLS.has(toolName)) {
+    if (agent.permissionMode === 'readonly' || agent.permissionMode === 'confirm') return 'allow';
+    return agent.tools.includes(toolName) ? 'allow' : 'deny';
+  }
   switch (agent.permissionMode) {
     case 'readonly':
-      return READONLY_TOOLS.has(toolName) ? 'allow' : 'deny';
+      return 'deny';
     case 'auto':
       return agent.tools.includes(toolName) ? 'allow' : 'deny';
     case 'confirm':

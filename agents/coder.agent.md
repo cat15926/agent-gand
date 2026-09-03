@@ -1,7 +1,7 @@
 ---
 name: Coder
 description: 负责实现与产出代码/文件的执行者
-model: mock:coder
+model: anthropic:glm-5.3
 tools:
   - fs.read
   - fs.write
