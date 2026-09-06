@@ -12,7 +12,7 @@ import type { LlmToolSchema } from '../../llm/provider.ts';
 import { READONLY_TOOLS, ToolError, expectObject, expectString, type Tool } from '../types.ts';
 import type { AgentDefinition } from '@agent-gand/shared';
 
-/** §9.1 沙箱三段区域 */
+/** §9.1 沙箱区域（§10 后无前缀区可为 run 专属或命名工作区） */
 type SandboxArea = 'run' | 'shared' | 'archive';
 
 interface ResolvedSandboxPath {
@@ -22,19 +22,38 @@ interface ResolvedSandboxPath {
   readOnly: boolean;
 }
 
-/** 当前 run 的独立工作区目录（shell.run 的 cwd、search.files 的 run 范围共用） */
+/** 命名工作区合法字符（§10.2，与 API 侧校验一致；resolver 处再做防御） */
+const WORKSPACE_NAME_RE = /^[\w-]{1,32}$/;
+
+/**
+ * 当前 run 的无前缀工作区根目录（§10.1/10.2）：
+ * 命名工作区 → sandbox/workspaces/<name>/（跨 run 复用）；缺省 → sandbox/runs/<runId>/（run 专属）。
+ * shell.run 的 cwd、search.files 的本区范围共用此函数。
+ */
+export function workspaceRootDir(ctx: { runId: string; workspace?: string | null }): string {
+  const name = ctx.workspace ?? null;
+  if (name !== null && !WORKSPACE_NAME_RE.test(name)) {
+    throw new ToolError(`工作区名非法（只允许字母/数字/下划线/连字符，1-32 位）: ${name}`);
+  }
+  return name === null ? path.join(config.sandboxDir, 'runs', ctx.runId) : path.join(config.sandboxDir, 'workspaces', name);
+}
+
+/** 兼容旧名（§9 时期语义）：run 专属目录 */
 export function runWorkspaceDir(runId: string): string {
   return path.join(config.sandboxDir, 'runs', runId);
 }
 
 /**
- * §9.2 路径解析规则（tools/builtin 统一 resolver）：
- * - 无前缀 → sandbox/runs/<runId>/...（run 内读写，run 间隔离）
- * - shared/ → sandbox/shared/...（跨 run 共享，读写）
+ * §9.2/§10.2 路径解析规则（tools/builtin 统一 resolver）：
+ * - 无前缀 → 工作区根目录（命名工作区 workspaces/<name>/ 或 run 专属 runs/<runId>/）
+ * - shared/ → sandbox/shared/...（跨 run 共享，读写；写入由编排侧强制审批）
  * - archive/ → sandbox/<去前缀路径>（根级历史遗留，只读）
  * - 绝对路径 / 以 / 开头 / 含 .. 段 → 拒绝（防逃逸）
  */
-export function resolveSandboxPath(relPath: string, runId: string): ResolvedSandboxPath {
+export function resolveSandboxPath(
+  relPath: string,
+  ctx: { runId: string; workspace?: string | null },
+): ResolvedSandboxPath {
   if (
     path.isAbsolute(relPath) ||
     relPath.startsWith('/') ||
@@ -52,13 +71,17 @@ export function resolveSandboxPath(relPath: string, runId: string): ResolvedSand
     area = 'archive';
     const legacy = relPath === 'archive' ? '' : relPath.slice('archive/'.length);
     absPath = path.resolve(sandbox, legacy);
-    // archive/ 只映射根级遗留：借道 archive/runs/<其他run>/ 或 archive/shared/ 绕过隔离 → 拒绝
-    if (legacy === 'runs' || legacy.startsWith('runs/') || legacy === 'shared' || legacy.startsWith('shared/')) {
-      throw new ToolError(`archive/ 仅访问根级历史归档，不能指向 runs/ 或 shared/: ${relPath}`);
+    // archive/ 只映射根级遗留：借道 archive/runs|workspaces|shared/ 绕过隔离 → 拒绝
+    if (
+      legacy === 'runs' || legacy.startsWith('runs/') ||
+      legacy === 'workspaces' || legacy.startsWith('workspaces/') ||
+      legacy === 'shared' || legacy.startsWith('shared/')
+    ) {
+      throw new ToolError(`archive/ 仅访问根级历史归档，不能指向 runs/、workspaces/ 或 shared/: ${relPath}`);
     }
   } else {
     area = 'run';
-    absPath = path.resolve(runWorkspaceDir(runId), relPath);
+    absPath = path.resolve(workspaceRootDir(ctx), relPath);
   }
   // 兜底防逃逸：解析结果必须落在沙箱内（覆盖盘符等 path.isAbsolute 未拦的变体）
   if (absPath !== sandbox && !absPath.startsWith(sandbox + path.sep)) {
@@ -86,7 +109,7 @@ const fsRead: Tool = {
   },
   async run(input, ctx) {
     const obj = expectObject(input);
-    const { absPath } = resolveSandboxPath(expectString(obj, 'path'), ctx.runId);
+    const { absPath } = resolveSandboxPath(expectString(obj, 'path'), ctx);
     try {
       const content = readFileSync(absPath, 'utf-8');
       return content.slice(0, 10_000);
@@ -98,7 +121,8 @@ const fsRead: Tool = {
 
 const fsWrite: Tool = {
   name: 'fs.write',
-  description: '写入沙箱内文本文件（当前 run 工作区或 shared/ 共享区，自动建目录）',
+  description:
+    '写入沙箱内文本文件（无前缀=当前 run 工作区，自动建目录）。注意：写入 shared/ 前缀（团队共享区）一律触发人工审批，且 shared/ 只存放跨 run 复用的持久团队资产（模板/词典/规范）；任务看板与一次性产物请写本 run 工作区。历史产物在 archive/ 前缀下只读。',
   inputSchema: {
     type: 'object',
     properties: {
@@ -113,7 +137,7 @@ const fsWrite: Tool = {
   async run(input, ctx) {
     const obj = expectObject(input);
     const rel = expectString(obj, 'path');
-    const { absPath, readOnly } = resolveSandboxPath(rel, ctx.runId);
+    const { absPath, readOnly } = resolveSandboxPath(rel, ctx);
     if (readOnly) {
       throw new ToolError(`archive/ 是历史归档只读区，不可写入（跨 run 共享请用 shared/ 前缀）: ${rel}`);
     }
@@ -176,10 +200,10 @@ const shellRun: Tool = {
       throw new ToolError(`命令不在白名单内（仅 ${[...SHELL_WHITELIST].join('/')}）: ${cmd}`);
     }
     const args = Array.isArray(obj.args) ? obj.args.filter((a): a is string => typeof a === 'string') : [];
-    // §9.2：cwd = 当前 run 工作区（不存在则建，pwd/相对操作都以 run 目录为根）
-    const runDir = runWorkspaceDir(ctx.runId);
-    mkdirSync(runDir, { recursive: true });
-    return (await execFileP(cmd, args, runDir)).trim();
+    // §9.2/§10.2：cwd = 当前工作区根（命名工作区或 run 专属；不存在则建）
+    const rootDir = workspaceRootDir(ctx);
+    mkdirSync(rootDir, { recursive: true });
+    return (await execFileP(cmd, args, rootDir)).trim();
   },
 };
 
@@ -227,17 +251,17 @@ const searchFiles: Tool = {
         ? Math.min(Math.max(1, Math.round(obj.maxResults)), 200)
         : 50;
     const sandbox = path.resolve(config.sandboxDir);
-    // §9.2：搜索范围=当前 run 工作区 + shared/ + 根级遗留（archive 视图）；
-    // 其他 run 的 runs/<id>/ 目录不可见（per-run 隔离）。结果路径带三段语义前缀。
+    // §9.2/§10.2：搜索范围=当前工作区（命名或 run 专属）+ shared/ + 根级遗留（archive 视图）；
+    // 其他 run/工作区的目录不可见（隔离）。结果路径带三段语义前缀。
     const scopes: Array<{ dir: string; prefix: string }> = [
-      { dir: runWorkspaceDir(ctx.runId), prefix: '' },
+      { dir: workspaceRootDir(ctx), prefix: '' },
       { dir: path.join(sandbox, 'shared'), prefix: 'shared/' },
       { dir: sandbox, prefix: 'archive/' },
     ];
     const results: string[] = [];
     for (const { dir, prefix } of scopes) {
       // 根级遍历时跳过 runs/ 与 shared/（已有各自范围，避免重复且不泄露其他 run）
-      const files = dir === sandbox ? walkFiles(dir, [], new Set(['runs', 'shared'])) : walkFiles(dir);
+      const files = dir === sandbox ? walkFiles(dir, [], new Set(['runs', 'workspaces', 'shared'])) : walkFiles(dir);
       for (const file of files) {
         if (results.length >= maxResults) break;
         let content: string;
@@ -295,4 +319,27 @@ export function toolsForAgent(agent: AgentDefinition): LlmToolSchema[] {
   if (agent.permissionMode === 'readonly') return toolSchemas([...READONLY_TOOLS]);
   if (agent.permissionMode === 'auto') return toolSchemas(agent.tools);
   return toolSchemas(listToolNames());
+}
+
+/** 命名工作区列表（§10.3，GET /api/workspaces）：workspaces/ 下目录名 + mtime */
+export function listWorkspaces(): Array<{ name: string; modifiedAt: string }> {
+  const root = path.join(config.sandboxDir, 'workspaces');
+  let entries: string[];
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return []; // 目录不存在（尚无命名工作区）
+  }
+  const out: Array<{ name: string; modifiedAt: string }> = [];
+  for (const name of entries) {
+    if (!WORKSPACE_NAME_RE.test(name)) continue; // 只报合法命名工作区
+    try {
+      const st = statSync(path.join(root, name));
+      if (st.isDirectory()) out.push({ name, modifiedAt: new Date(st.mtimeMs).toISOString() });
+    } catch {
+      // 竞态消失的目录跳过
+    }
+  }
+  out.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)); // 最近使用在前
+  return out;
 }

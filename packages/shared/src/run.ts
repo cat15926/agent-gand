@@ -17,6 +17,8 @@ export interface Run {
   mode: RunMode;
   status: RunStatus;
   agentIds: string[];
+  /** 命名工作区（§10.2）：非空时无前缀路径解析到 sandbox/workspaces/<name>/；null = runId 专属（默认） */
+  workspace?: string | null;
   createdAt: string;
   finishedAt: string | null;
 }

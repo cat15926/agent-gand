@@ -463,6 +463,7 @@ async function main() {
   // 根级历史遗留不动（§9.4），仅清掉本套件历届跑剩的根级测试产物
   rmSync(path.join(SANDBOX, 'runs'), { recursive: true, force: true });
   rmSync(path.join(SANDBOX, 'shared'), { recursive: true, force: true });
+  rmSync(path.join(SANDBOX, 'workspaces'), { recursive: true, force: true }); // §10 命名工作区（套件独占）
   rmSync(path.join(SANDBOX, 'mock-demo.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'mock-approval-write.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-openai.txt'), { force: true });
@@ -764,8 +765,13 @@ async function main() {
 
     // ---- 阶段 14：§9 per-run 沙箱隔离（S16；FSOP 指令驱动，agent=fs-agent 零审批确定性） ----
     const runDir = (id) => path.join(SANDBOX, 'runs', id);
-    const fsRun = async (goal) => {
-      const r = (await api(R1, '/api/runs', 'POST', { goal, mode: 'pipeline', agentIds: ['fs-agent'] })).data;
+    const fsRun = async (goal, workspace) => {
+      const r = (await api(R1, '/api/runs', 'POST', {
+        goal,
+        mode: 'pipeline',
+        agentIds: ['fs-agent'],
+        ...(workspace !== undefined ? { workspace } : {}),
+      })).data;
       return { id: r.run.id, done: await waitRun(R1, r.run.id, 'completed', 30000) };
     };
     // S16a/S16b run 间隔离：A 写 x.md，B 无前缀读不到
@@ -777,11 +783,13 @@ async function main() {
     check('S16b run B 无前缀读不到 run A 的文件（读取失败 span error）', fb.done !== null && (fb.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'error'));
     check('S16b2 run B 工作区无 x.md', !existsSync(path.join(runDir(fb.id), 'x.md')));
 
-    // S16c shared/ 跨 run 共享：A 写 shared/lib.md，B 可读
-    const fc = await fsRun('FSOP:W:shared/lib.md::shared-XMARK 共享内容');
-    check('S16c run A 写入 shared/lib.md', fc.done !== null && existsSync(path.join(SANDBOX, 'shared', 'lib.md')));
+    // S16c shared/ 跨 run 共享：A 写 shared/lib.md（写 shared/ 强制人工审批 → driveRun 批准），B 可读
+    const fcStart = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:W:shared/lib.md::shared-XMARK 共享内容', mode: 'pipeline', agentIds: ['fs-agent'] })).data;
+    const fcDone = await driveRun(R1, fcStart.run.id);
+    check('S16c run A 写入 shared/lib.md（经审批后落盘）', fcDone !== null && existsSync(path.join(SANDBOX, 'shared', 'lib.md')));
+    check('S16c2 写 shared/ 触发审批（auto 档不豁免，理由=团队资产）', fcDone !== null && (fcDone.approvals ?? []).some((a) => a.toolName === 'fs.write' && a.status === 'approved' && (a.reason ?? '').includes('团队共享区')));
     const fd = await fsRun('FSOP:R:shared/lib.md');
-    check('S16c2 run B 经 shared/ 读到 run A 写入的内容', fd.done !== null && (fd.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok') && (fd.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('shared-XMARK 共享内容')));
+    check('S16c3 run B 经 shared/ 读到 run A 写入的内容', fd.done !== null && (fd.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok') && (fd.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('shared-XMARK 共享内容')));
 
     // S16d/S16e archive/：根级遗留只读访问
     const fe = await fsRun('FSOP:R:archive/root-legacy.txt');
@@ -808,6 +816,19 @@ async function main() {
     const fj = await fsRun('FSOP:S:XMARK');
     const searchBody = ((fj.done?.messages ?? []).find((m) => m.kind === 'tool')?.body ?? '');
     check('S16h search 命中 shared/ 但不见其他 run 的文件', fj.done !== null && searchBody.includes('shared/lib.md') && !searchBody.includes('x.md'), searchBody.slice(0, 120));
+
+    // ---- 阶段 15：§10 命名工作区（S17；跨 run 文件延续） ----
+    const wa = await fsRun('FSOP:W:proj.md::WS-V05 工作区首轮内容', 'w-alpha');
+    check('S17a 指定 workspace 落盘 workspaces/w-alpha/proj.md', wa.done !== null && existsSync(path.join(SANDBOX, 'workspaces', 'w-alpha', 'proj.md')) && readFileSync(path.join(SANDBOX, 'workspaces', 'w-alpha', 'proj.md'), 'utf-8') === 'WS-V05 工作区首轮内容');
+    check('S17a2 run 记录透出 workspace 字段', wa.done?.run?.workspace === 'w-alpha', JSON.stringify(wa.done?.run?.workspace));
+    const wb = await fsRun('FSOP:R:proj.md', 'w-alpha');
+    check('S17b 同名工作区跨 run 读到首轮文件', wb.done !== null && (wb.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok') && (wb.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('WS-V05 工作区首轮内容')));
+    const badWs = await api(R1, '/api/runs', 'POST', { goal: 'FSOP:R:proj.md', mode: 'pipeline', agentIds: ['fs-agent'], workspace: '坏 名字!' });
+    check('S17c 非法 workspace 名 400', badWs.status === 400, `status=${badWs.status}`);
+    const wd = await fsRun('FSOP:W:own.md::默认独立目录');
+    check('S17d 缺省仍落 runs/<id>/ 且 workspace=null', wd.done !== null && wd.done?.run?.workspace == null && existsSync(path.join(SANDBOX, 'runs', wd.id, 'own.md')) && !existsSync(path.join(SANDBOX, 'workspaces', 'w-alpha', 'own.md')));
+    const wsList = (await api(R1, '/api/workspaces')).data ?? [];
+    check('S17e /api/workspaces 列出命名工作区（含 mtime）', Array.isArray(wsList) && wsList.some((w) => w.name === 'w-alpha' && typeof w.modifiedAt === 'string'), JSON.stringify(wsList));
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);

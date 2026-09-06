@@ -42,7 +42,7 @@ const TOOL_CALL_DIRECTIVE =
  * 背景 run 74ff3ce5——跨 run 共享沙箱导致新 run 被历史文件误导。
  */
 export const SESSION_BOUNDARY_DIRECTIVE =
-  '会话边界提示：这是一个全新任务的开始，当前任务以上方用户目标为准。你的工作目录是当前 run 独立的——无前缀路径只在本次 run 内可见，历史任务的文件不会出现在其中；跨 run 协作文件放 shared/ 前缀，历史产物在 archive/ 前缀下只读。除非用户目标或本轮对话明确要求，不要引用或恢复历史任务的内容。';
+  '会话边界提示：这是一个全新任务的开始，当前任务以上方用户目标为准。你的工作目录是当前 run 独立的——无前缀路径只在本次 run 内可见，历史任务的文件不会出现在其中；历史产物在 archive/ 前缀下只读。除非用户目标或本轮对话明确要求，不要引用或恢复历史任务的内容。shared/ 前缀是团队共享区，只存放跨 run 复用的持久团队资产（模板、词典、规范等），且写入需人工审批；任务看板、过程产物等一次性内容一律写入本 run 工作区（无前缀路径），不要放入 shared/。';
 
 /**
  * 伪调用文本窄启发式：最终轮（无 toolCall）正文形如 "[调用工具 fs.read]" /
@@ -305,14 +305,29 @@ async function gateToolCall(
     return { toolCall, tool, input: toolCall.input, allowed: false, hadApproval: false, note };
   }
 
+  // 团队共享区写保护（2026-09-06 用户需求）：fs.write 目标为 shared/ 前缀 → 无论权限档一律人工审批
+  // （auto 白名单内也不豁免——团队资产变更由用户拍板；archive/ 写入在 resolver 层已拒）
+  let sharedWrite = false;
+  if (decision === 'allow' && tool.name === 'fs.write') {
+    try {
+      const parsed = JSON.parse(toolCall.input) as { path?: unknown };
+      sharedWrite = typeof parsed.path === 'string' && parsed.path.trim().startsWith('shared/');
+    } catch {
+      sharedWrite = false;
+    }
+  }
+  const effectiveDecision = sharedWrite ? 'need_approval' : decision;
+
   let inputRaw = toolCall.input;
-  if (decision === 'need_approval') {
+  if (effectiveDecision === 'need_approval') {
     const approval = createApproval({
       runId: run.id,
       agentId: agent.id,
       toolName: tool.name,
       input: inputRaw,
-      reason: `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
+      reason: sharedWrite
+        ? `写入团队共享区 shared/（团队资产变更，需用户审批；shared/ 仅存放持久团队资产）`
+        : `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
     });
     setRunStatus(run.id, 'awaiting_approval');
     const approvalSpan = startSpan(run.id, {
@@ -373,7 +388,12 @@ async function runTool(
   });
   try {
     const parsed: unknown = JSON.parse(inputRaw);
-    const output = await tool.run(parsed, { runId: run.id, agentId: agent.id });
+    // workspace 透传（§10.2）：命名工作区时无前缀路径落 workspaces/<name>/
+    const output = await tool.run(parsed, {
+      runId: run.id,
+      agentId: agent.id,
+      workspace: run.workspace ?? null,
+    });
     endSpan(toolSpan, { output, status: 'ok' });
     await post({
       runId: run.id,

@@ -52,10 +52,20 @@ export function completeTask(taskId: string, agentId: string): Promise<Task> {
   return request(`/api/tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify({ agentId }) });
 }
 
+/** 命名工作区条目（§10.3，GET /api/workspaces） */
+export interface WorkspaceInfo {
+  name: string;
+  modifiedAt: string;
+}
+
+export const getWorkspaces = () => request<WorkspaceInfo[]>('/api/workspaces');
+
 export function startRun(input: {
   goal: string;
   mode: 'pipeline' | 'supervisor';
   agentIds: string[];
+  /** 命名工作区（§10.2）：缺省 = 每次 run 专属目录 */
+  workspace?: string;
 }): Promise<{ run: Run }> {
   return request('/api/runs', { method: 'POST', body: JSON.stringify(input) });
 }

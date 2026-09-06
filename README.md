@@ -71,7 +71,8 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 - **契约优先**：跨端类型一律改 `packages/shared`，不得在 server/web 私有定义；
 - **模型路由**：`mock:*` 走 MockProvider（无 key 演示），`openai:*` 走 OpenAI 兼容端点、`anthropic:*` 走 Anthropic（`llm/router.ts`，纯 fetch 实现，支持 `LLM_PROXY` 代理）；
 - **骨架点**：全部以 `// TODO:` 标注（durable pause/resume、MCP 完整接入、只读画布、瀑布 trace 等）；
-- 数据库为本地 SQLite（`apps/server/data/`，已 gitignore），**只增不删**。
+- 数据库为本地 SQLite（`apps/server/data/`，已 gitignore），**只增不删**；
+- **沙箱工作区（§9/§10）**：无前缀路径 = 当前工作区（默认每次 run 独立 `sandbox/runs/<runId>/`，或 `POST /api/runs` 指定命名工作区 `sandbox/workspaces/<name>/` 跨 run 复用）；`shared/` = 团队共享区（写入强制人工审批）；`archive/` = 根级历史归档只读。并发写同一命名工作区在 MVP 下接受（单用户场景），不设锁。
 
 ## 路线图
 

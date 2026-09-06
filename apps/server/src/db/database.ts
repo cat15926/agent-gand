@@ -17,6 +17,11 @@ db.pragma('journal_mode = WAL');
 const schemaPath = fileURLToPath(new URL('./schema.sql', import.meta.url));
 db.exec(readFileSync(schemaPath, 'utf-8'));
 
+// 轻量列迁移（§10.2）：既有库补 workspace 列（CREATE TABLE IF NOT EXISTS 不会为旧表加列）
+if (!db.prepare('PRAGMA table_info(runs)').all().some((c) => (c as { name?: string }).name === 'workspace')) {
+  db.exec('ALTER TABLE runs ADD COLUMN workspace TEXT');
+}
+
 export function all<T>(sql: string, ...params: unknown[]): T[] {
   return db.prepare(sql).all(...params) as T[];
 }

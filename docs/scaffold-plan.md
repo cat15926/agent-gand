@@ -320,3 +320,36 @@ apps/server/data/sandbox/
 - 不自动迁移/清理根级遗留文件（历史证据与产物保留）。
 - web 文件浏览器（工作区面板展示 run 目录）留 P1。
 - 不引入新的 env 配置。
+
+---
+
+## 10. 增量需求 v0.5：用户可选工作区
+
+> 2026-09-06 追加（用户需求③）。现状：工作区由系统自动分配 `sandbox/runs/<runId>/`，用户不可选。本节放开为三种模式。同日已落的相关改动（manager 直做）：shared/ 写入强制审批（auto 档不豁免）、双编排器补发用户目标消息入聊天流、shared/ 内容守则 + 错位文件清理至 `_cleaned-20260906/`。
+
+### 10.1 工作区三种模式
+
+| 模式 | 目录 | 语义 |
+|---|---|---|
+| 每次新建（默认，现状）| `sandbox/runs/<runId>/` | run 专属 |
+| **命名工作区** | `sandbox/workspaces/<name>/` | **跨 run 复用**（同名即同目录，支持多轮迭代同一项目）|
+| shared/ · archive/ | 不变 | 团队资产 · 历史只读 |
+
+### 10.2 API 与解析
+
+- `POST /api/runs` 增加 `workspace?: string`；校验 `/^[\w-]{1,32}$/`，非法 400；缺省 = runId 专属
+- `runs` 表增列 `workspace TEXT`（迁移：ALTER TABLE 兼容既有库）；Run 对象透出（shared 契约加可选字段 `workspace?: string | null`——契约变更由 manager 落）
+- resolver：无前缀路径 → `runs/<runId>/` 或 `workspaces/<name>/`（按 run 的 workspace 字段）；其余前缀语义不变
+- 并发写同名工作区：MVP 接受（单用户场景），README 注明
+
+### 10.3 UI
+
+- Launcher 增工作区选择：下拉（每次新建 + `GET /api/workspaces` 列出的历史命名工作区）+ 输入新名称
+- RunView 会话栏显示当前 run 的工作区标识
+- `GET /api/workspaces`：列出 `workspaces/` 下目录（名称 + mtime）
+
+### 10.4 验收
+
+1. typecheck 三包绿；stub 新增 S17：指定 workspace → 落盘 `workspaces/<name>/`；两次同名 run 文件互通；非法名 400；缺省仍 `runs/<id>/`；既有 96 项回归全绿。
+2. 真机：两次同名工作区 run 验证文件延续（repo DB，runId 留存）。
+3. inspector 终验（代码 + stub 交叉 + DB 取证），同批复核 manager 的三项直做改动（shared 写审批/用户消息/守则清理）。

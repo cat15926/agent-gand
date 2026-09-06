@@ -27,6 +27,7 @@ interface RunRow {
   mode: string;
   status: string;
   agent_ids: string;
+  workspace: string | null;
   created_at: string;
   finished_at: string | null;
 }
@@ -54,6 +55,7 @@ function rowToRun(row: RunRow): Run {
     mode: row.mode as RunMode,
     status: row.status as RunStatus,
     agentIds: JSON.parse(row.agent_ids) as string[],
+    workspace: row.workspace ?? null,
     createdAt: row.created_at,
     finishedAt: row.finished_at,
   };
@@ -77,24 +79,32 @@ function rowToRunEvent(row: RunEventRow): RunEvent {
   };
 }
 
-export function createRun(goal: string, mode: RunMode, agentIds: string[]): Run {
+/** workspace：命名工作区（§10.2，校验后的值）；null = runId 专属目录 */
+export function createRun(
+  goal: string,
+  mode: RunMode,
+  agentIds: string[],
+  workspace: string | null = null,
+): Run {
   const record: Run = {
     id: randomUUID(),
     goal,
     mode,
     status: 'pending',
     agentIds,
+    workspace,
     createdAt: new Date().toISOString(),
     finishedAt: null,
   };
   run(
-    `INSERT INTO runs (id, goal, mode, status, agent_ids, created_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO runs (id, goal, mode, status, agent_ids, workspace, created_at, finished_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
     record.id,
     record.goal,
     record.mode,
     record.status,
     JSON.stringify(record.agentIds),
+    record.workspace,
     record.createdAt,
   );
   emit({ type: 'run.updated', run: record });

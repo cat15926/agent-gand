@@ -1,7 +1,7 @@
 /**
  * 运行视图（报告模式 2）：消息流时间线 + 启动器 + 工作区占位
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Message } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
@@ -77,6 +77,18 @@ function Launcher() {
   const [mode, setMode] = useState<'pipeline' | 'supervisor'>('pipeline');
   const [selected, setSelected] = useState<string[]>(state.agents.map((a) => a.id));
   const [busy, setBusy] = useState(false);
+  // 工作区选择（§10.3）：'' = 每次 run 专属；否则命名工作区（下拉历史或输入新名）
+  const [workspace, setWorkspace] = useState('');
+  const [newWorkspace, setNewWorkspace] = useState('');
+  const [workspaces, setWorkspaces] = useState<Array<{ name: string; modifiedAt: string }>>([]);
+
+  useEffect(() => {
+    // 打开时与运行结束后刷新可选工作区列表（新建命名工作区后即出现在下拉）
+    api
+      .getWorkspaces()
+      .then(setWorkspaces)
+      .catch(() => setWorkspaces([]));
+  }, [state.runs.length]);
 
   // @提及路由：输入中的 @agentId 自动限定接收者（按提及顺序）并剥离前缀，形成"单聊"语义
   const mentionedIds = [...goal.matchAll(/@([\w-]+)/g)]
@@ -90,6 +102,9 @@ function Launcher() {
 
   async function launch() {
     if (!goal.trim() || selected.length === 0 || busy) return;
+    // 新名输入优先于下拉选择；非法名（非 [\w-] 或超 32）不发请求（服务端同样校验）
+    const ws = newWorkspace.trim() !== '' ? newWorkspace.trim() : workspace;
+    if (ws !== '' && !/^[\w-]{1,32}$/.test(ws)) return;
     setBusy(true);
     try {
       let effectiveGoal = goal.trim();
@@ -101,9 +116,15 @@ function Launcher() {
         stripped = stripped.replace(/\s+/g, ' ').trim();
         if (stripped !== '') effectiveGoal = stripped; // 剥离后为空（纯提及）则保留原文
       }
-      const { run } = await api.startRun({ goal: effectiveGoal, mode, agentIds: effectiveAgents });
+      const { run } = await api.startRun({
+        goal: effectiveGoal,
+        mode,
+        agentIds: effectiveAgents,
+        ...(ws !== '' ? { workspace: ws } : {}),
+      });
       setActiveRun(run.id);
       setGoal('');
+      setNewWorkspace(''); // 启动成功后清空新名输入（下拉会在列表刷新后带上它）
     } finally {
       setBusy(false);
     }
@@ -120,6 +141,33 @@ function Launcher() {
           <option value="pipeline">顺序流水线</option>
           <option value="supervisor">主管委派</option>
         </select>
+        {/* 工作区选择（§10.3）：每次新建（默认）或历史命名工作区；新名输入优先生效 */}
+        <select
+          value={workspace}
+          onChange={(e) => {
+            setWorkspace(e.target.value);
+            setNewWorkspace('');
+          }}
+          className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
+          title={workspace === '' ? '每次运行使用独立目录' : `命名工作区：${workspace}`}
+        >
+          <option value="">🗂 每次新建</option>
+          {workspaces.map((w) => (
+            <option key={w.name} value={w.name}>
+              🗂 {w.name}
+            </option>
+          ))}
+        </select>
+        <input
+          value={newWorkspace}
+          onChange={(e) => setNewWorkspace(e.target.value)}
+          placeholder="或输入新工作区名（字母/数字/-/_）"
+          className={`w-52 rounded-md bg-zinc-800 px-2 py-1 outline-none ring-1 ${
+            newWorkspace !== '' && !/^[\w-]{1,32}$/.test(newWorkspace.trim())
+              ? 'ring-red-500/70 text-zinc-300'
+              : 'ring-zinc-700 text-zinc-300'
+          } placeholder:text-zinc-600`}
+        />
         {state.agents.map((a) => (
           <button
             key={a.id}
@@ -164,6 +212,7 @@ function Launcher() {
 
 export function RunView() {
   const { state, setActiveRun } = useStore();
+  const activeRun = state.runs.find((r) => r.id === state.activeRunId);
 
   return (
     <div className="flex h-full flex-col">
@@ -182,8 +231,21 @@ export function RunView() {
             </option>
           ))}
         </select>
+        {/* 当前 run 的工作区标识（§10.3）：命名工作区或 run 专属 */}
+        {activeRun?.workspace ? (
+          <span
+            className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
+            title="命名工作区：同名单次运行共用目录（跨 run 文件延续）"
+          >
+            🗂 {activeRun.workspace}
+          </span>
+        ) : (
+          <span className="rounded-md bg-zinc-800 px-2 py-1 text-[11px] text-zinc-500" title="本次运行使用独立目录">
+            🗂 独立目录
+          </span>
+        )}
         {/* 工作区占位：P1 接入沙箱终端/浏览器实时视图（报告模式 2 右栏） */}
-        <span className="ml-auto rounded-md bg-zinc-800 px-2 py-1 text-zinc-600">🖥 工作区（P1）</span>
+        <span className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-600">🖥 工作区（P1）</span>
       </div>
 
       {/* 消息流 */}

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS agents (
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, goal TEXT NOT NULL, mode TEXT NOT NULL,
   status TEXT NOT NULL, agent_ids TEXT NOT NULL,  -- JSON array
+  workspace TEXT,                                 -- 命名工作区（§10.2，NULL=runId 专属）
   created_at TEXT NOT NULL, finished_at TEXT
 );
 CREATE TABLE IF NOT EXISTS tasks (

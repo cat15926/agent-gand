@@ -9,6 +9,8 @@ import type { AgentDefinition } from '@agent-gand/shared';
 export interface ToolContext {
   runId: string;
   agentId: string;
+  /** 命名工作区（§10.2）：非空时无前缀路径解析到 workspaces/<name>/；null = runId 专属 */
+  workspace?: string | null;
 }
 
 export interface Tool {

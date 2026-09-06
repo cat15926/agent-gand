@@ -141,6 +141,8 @@ export const supervisorOrchestrator: Orchestrator = {
   async start(run: Run, agents: AgentDefinition[], goal: string): Promise<void> {
     try {
       setRunStatus(run.id, 'running');
+      // 用户目标先入消息流（聊天界面可见用户输入，与 agent 消息同流展示）
+      await post({ runId: run.id, from: 'user', to: 'all', kind: 'user', body: goal });
       const supervisor = agents[0];
       if (!supervisor) throw new Error('supervisor 模式至少需要 1 个 agent');
       const agentMap = new Map(agents.map((a) => [a.id, a]));

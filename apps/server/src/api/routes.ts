@@ -17,9 +17,12 @@ import {
   runDetail,
   usageSummary,
 } from '../runs/trace.ts';
+import { listWorkspaces } from '../tools/builtin/index.ts';
 
 const MESSAGE_KINDS: readonly MessageKind[] = ['user', 'agent', 'system', 'tool'];
 const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor'];
+/** 命名工作区名（§10.2）：与 resolver 侧同规 */
+const WORKSPACE_RE = /^[\w-]{1,32}$/;
 
 /** 带状态码的错误（errorHandler 统一映射） */
 function httpError(status: number, message: string): Error & { status: number } {
@@ -106,24 +109,30 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 运行（异步执行，立即返回）----
 
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[] } }>('/api/runs', async (req, reply) => {
-    const { goal, mode, agentIds } = req.body ?? {};
-    if (typeof goal !== 'string' || goal.length === 0) throw httpError(400, 'goal 必填');
-    if (mode !== 'pipeline' && mode !== 'supervisor') {
-      throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
-    }
-    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((a) => typeof a === 'string')) {
-      throw httpError(400, 'agentIds 必须是非空字符串数组');
-    }
-    const agents: AgentDefinition[] = [];
-    const missing: string[] = [];
-    for (const id of agentIds) {
-      const agent = registry.getAgent(id);
-      if (agent) agents.push(agent);
-      else missing.push(id);
-    }
-    if (missing.length > 0) throw httpError(400, `未知 agent: ${missing.join(', ')}`);
-    const run = createRun(goal, mode, agentIds);
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; workspace?: string } }>(
+    '/api/runs',
+    async (req, reply) => {
+      const { goal, mode, agentIds, workspace } = req.body ?? {};
+      if (typeof goal !== 'string' || goal.length === 0) throw httpError(400, 'goal 必填');
+      if (mode !== 'pipeline' && mode !== 'supervisor') {
+        throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
+      }
+      if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((a) => typeof a === 'string')) {
+        throw httpError(400, 'agentIds 必须是非空字符串数组');
+      }
+      // 命名工作区（§10.2）：[\w-]{1,32}，缺省 = runId 专属
+      if (workspace !== undefined && workspace !== null && workspace !== '' && !WORKSPACE_RE.test(workspace)) {
+        throw httpError(400, 'workspace 只允许字母/数字/下划线/连字符，长度 1-32');
+      }
+      const agents: AgentDefinition[] = [];
+      const missing: string[] = [];
+      for (const id of agentIds) {
+        const agent = registry.getAgent(id);
+        if (agent) agents.push(agent);
+        else missing.push(id);
+      }
+      if (missing.length > 0) throw httpError(400, `未知 agent: ${missing.join(', ')}`);
+      const run = createRun(goal, mode, agentIds, workspace || null);
     const orchestrator: Orchestrator = mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
     // 异步执行：进度经 WS / GET 获取；失败由编排器置 failed
     void orchestrator.start(run, agents, goal).catch((err: unknown) => {
@@ -134,6 +143,9 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get('/api/runs', async () => listRuns());
+
+  // 命名工作区列表（§10.3）：workspaces/ 下目录名 + mtime
+  app.get('/api/workspaces', async () => listWorkspaces());
 
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (req) => {
     const detail = runDetail(req.params.id);
