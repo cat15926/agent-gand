@@ -22,7 +22,8 @@ import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse } from '../llm/
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit } from '../messaging/bus.ts';
 import { endSpan, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
-import { getTool, toolsForAgent } from '../tools/builtin/index.ts';
+import { getTool, isExternalRun, toolsForAgent } from '../tools/builtin/index.ts';
+import { externalId, getExternalByIdOrThrow } from '../workspaces/external.ts';
 import { checkPermission, type Tool } from '../tools/types.ts';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
@@ -308,7 +309,8 @@ async function gateToolCall(
   // 团队共享区写保护（2026-09-06 用户需求）：fs.write 目标为 shared/ 前缀 → 无论权限档一律人工审批
   // （auto 白名单内也不豁免——团队资产变更由用户拍板；archive/ 写入在 resolver 层已拒）
   let sharedWrite = false;
-  if (decision === 'allow' && tool.name === 'fs.write') {
+  // 外部 run 中 shared/ 前缀不经审批（resolver 直接以"自成一体"拒绝，§11.3），故仅内部 run 判定
+  if (decision === 'allow' && tool.name === 'fs.write' && !isExternalRun({ workspace: run.workspace ?? null })) {
     try {
       const parsed = JSON.parse(toolCall.input) as { path?: unknown };
       sharedWrite = typeof parsed.path === 'string' && parsed.path.trim().startsWith('shared/');
@@ -316,7 +318,15 @@ async function gateToolCall(
       sharedWrite = false;
     }
   }
-  const effectiveDecision = sharedWrite ? 'need_approval' : decision;
+  // §11.3 外部工作区写保护（用户裁定：逐次审批）：run 绑定外部目录时 fs.write 一律人工审批
+  // （auto/白名单内不豁免——本机目录写入由用户逐次拍板；外部内 shared/archive 前缀在 resolver 层已拒）
+  let externalWrite = false;
+  let externalRoot = '';
+  if (decision === 'allow' && tool.name === 'fs.write' && isExternalRun({ workspace: run.workspace ?? null })) {
+    externalWrite = true;
+    externalRoot = getExternalByIdOrThrow(externalId(run.workspace) ?? '').absPath;
+  }
+  const effectiveDecision = sharedWrite || externalWrite ? 'need_approval' : decision;
 
   let inputRaw = toolCall.input;
   if (effectiveDecision === 'need_approval') {
@@ -327,7 +337,9 @@ async function gateToolCall(
       input: inputRaw,
       reason: sharedWrite
         ? `写入团队共享区 shared/（团队资产变更，需用户审批；shared/ 仅存放持久团队资产）`
-        : `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
+        : externalWrite
+          ? `写入外部工作区（本机目录 ${externalRoot}）需用户审批`
+          : `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
     });
     setRunStatus(run.id, 'awaiting_approval');
     const approvalSpan = startSpan(run.id, {

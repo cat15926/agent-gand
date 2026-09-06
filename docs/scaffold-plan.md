@@ -353,3 +353,36 @@ apps/server/data/sandbox/
 1. typecheck 三包绿；stub 新增 S17：指定 workspace → 落盘 `workspaces/<name>/`；两次同名 run 文件互通；非法名 400；缺省仍 `runs/<id>/`；既有 96 项回归全绿。
 2. 真机：两次同名工作区 run 验证文件延续（repo DB，runId 留存）。
 3. inspector 终验（代码 + stub 交叉 + DB 取证），同批复核 manager 的三项直做改动（shared 写审批/用户消息/守则清理）。
+
+---
+
+## 11. 增量需求 v0.6：工作区选择交互优化（M1 卡片选择器 + M2 本机目录注册 + M3 外部工作区语义）
+
+> 2026-09-06 追加。用户评审结论：全量实施；外部工作区写入**逐次审批**。本节取代 §10.3 的"下拉+文本输入"交互。
+
+### 11.1 M1 卡片式选择器
+
+- Launcher 工作区控件 → 芯片按钮，点击弹出**工作区管理面板**（弹层）
+- 卡片：名称、最后使用、文件数、关联 run 数、最近目标摘要（截断）；操作=选择/重命名/复制/删除（删除需确认对话框）
+- 新建：**自动名称建议**（`task-MMDD` 或目标关键词 slug），可直接确认，名称可改（输入不再是必须路径）
+- API：`GET /api/workspaces` 扩展返回 `{name, modifiedAt, fileCount, runCount, lastGoal}`；`POST /api/workspaces/:name/rename` `{to}`、`POST /api/workspaces/:name/duplicate`、`POST /api/workspaces/:name/delete` `{confirm:true}`（目录移入 `sandbox/_deleted-workspaces/` 归档，不物理删除——只增不删原则）
+
+### 11.2 M2 本机目录注册
+
+- **注册表**：新表 `external_workspaces(id TEXT PK, label TEXT, abs_path TEXT UNIQUE, created_at TEXT)`；`POST /api/workspaces/register {path, label?}`（校验存在且为目录，取 realpath）；`DELETE /api/workspaces/register/:id`（解除注册，不动文件）
+- **目录浏览器**：`GET /api/fs/browse?path=`（缺省=用户主目录；**只列目录**、跳过点开头；返回 `{current, dirs:[{name, path}]}`；仅本地单用户场景，README 注明）
+- **Run 关联**：`POST /api/runs` 的 `workspace` 字符串扩展约定——内部名如 `my-proj`；外部为 `ext:<id>`；校验放行至注册表存在的 id；`Run.workspace` 契约不变（仍是 string）
+
+### 11.3 M3 外部工作区语义与安全
+
+- **resolver**：`workspaceRootDir` 支持 `ext:<id>` → 注册根；包含性检查以**注册根**为界（防 `..`/绝对路径逃逸，复用现有模式）
+- **前缀禁用**：外部工作区内 `shared/`、`archive/` 前缀直接拒绝（报错文案："外部工作区自成一体，shared/archive 仅在内部工作区可用"）
+- **写审批（用户裁定：逐次审批）**：run 的 workspace 为外部时，`fs.write` 无论路径与权限档（auto/白名单内也不豁免）一律 `need_approval`，理由："写入外部工作区（本机目录 <path>）需用户审批"；复用 shared/ 门控实现模式；`shell.run` cwd=外部根（白名单命令本身无副作用）
+- **web**：管理面板分"内部/外部"两区（外部卡片独立配色+📁徽标+路径副标题）；注册流程=目录树浏览器选择 → **风险确认对话框**（"agent 将能读写此目录内文件（写入逐次审批），目录外不可触碰"）→ 注册；RunView 工作区徽标区分内外部
+
+### 11.4 验收标准
+
+1. typecheck 三包绿；stub 新增 S18：外部注册→run 落盘至外部根（磁盘核验）、`..`/绝对路径逃逸拒绝、shared//archive/ 前缀拒绝、fs.write 逐次审批（auto 不豁免、reason 含目录路径）、browse 只列目录不读内容；既有 102 项回归全绿。
+2. 真机：注册一个真实测试目录跑 run——读取自由、写入经审批落盘、外部徽标显示正确；runId+sandboxDir 绝对路径成对留存（新取证惯例）。
+3. M1 交互：零输入完成"选已有/每次新建/自动名新建"三条路径；重命名/复制/删除生效且删除有确认与归档。
+4. inspector 终验（代码 + stub 交叉 + DB/磁盘取证 + M1 交互走查）。

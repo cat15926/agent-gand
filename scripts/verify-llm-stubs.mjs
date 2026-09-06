@@ -464,6 +464,7 @@ async function main() {
   rmSync(path.join(SANDBOX, 'runs'), { recursive: true, force: true });
   rmSync(path.join(SANDBOX, 'shared'), { recursive: true, force: true });
   rmSync(path.join(SANDBOX, 'workspaces'), { recursive: true, force: true }); // §10 命名工作区（套件独占）
+  rmSync(path.join(SANDBOX, '_deleted-workspaces'), { recursive: true, force: true }); // §11 删除归档区
   rmSync(path.join(SANDBOX, 'mock-demo.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'mock-approval-write.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-openai.txt'), { force: true });
@@ -829,6 +830,66 @@ async function main() {
     check('S17d 缺省仍落 runs/<id>/ 且 workspace=null', wd.done !== null && wd.done?.run?.workspace == null && existsSync(path.join(SANDBOX, 'runs', wd.id, 'own.md')) && !existsSync(path.join(SANDBOX, 'workspaces', 'w-alpha', 'own.md')));
     const wsList = (await api(R1, '/api/workspaces')).data ?? [];
     check('S17e /api/workspaces 列出命名工作区（含 mtime）', Array.isArray(wsList) && wsList.some((w) => w.name === 'w-alpha' && typeof w.modifiedAt === 'string'), JSON.stringify(wsList));
+
+    // ---- 阶段 16：§11 外部工作区（S18；ext:<id> 语义与安全） ----
+    const EXT = path.join(TMP, 'ext-root'); // 外部测试目录（套件自建）
+    rmSync(EXT, { recursive: true, force: true });
+    mkdirSync(path.join(EXT, 'docs'), { recursive: true });
+    writeFileSync(path.join(EXT, 'docs', 'readme.md'), '外部目录既有内容 EXT-V06');
+    // S18a 注册（realpath 归一）+ 重复注册 409
+    const reg = await api(R1, '/api/workspaces/register', 'POST', { path: EXT, label: 'ext 测试区' });
+    check('S18a 注册外部目录成功（含 realpath）', reg.status === 200 && reg.data?.label === 'ext 测试区' && reg.data?.absPath?.includes('ext-root'), JSON.stringify(reg.data));
+    const extId = reg.data?.id ?? '';
+    const regDup = await api(R1, '/api/workspaces/register', 'POST', { path: EXT });
+    check('S18a2 重复注册 409', regDup.status === 409);
+    const regBad = await api(R1, '/api/workspaces/register', 'POST', { path: path.join(EXT, 'docs', 'readme.md') });
+    check('S18a3 注册非目录 400', regBad.status === 400);
+    // S18b 外部 run：读自由 + 写逐次审批（fs-agent=auto 白名单内也不豁免）落盘至外部根
+    const er = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:R:docs/readme.md', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` })).data;
+    const erDone = await waitRun(R1, er.run.id, 'completed', 30000);
+    check('S18b 外部 run 读取既有文件自由（无审批）', erDone !== null && (erDone?.approvals ?? []).length === 0 && (erDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok'));
+    const ew = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:W:notes/out.md::EXT-V06 外部写入', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` })).data;
+    const ewAppr = await poll(async () => {
+      const list = (await api(R1, '/api/approvals?status=pending')).data ?? [];
+      return list.find((a) => a.runId === ew.run.id) ?? null;
+    }, 15000);
+    check('S18c 外部写入触发逐次审批（auto 不豁免，reason 含目录）', ewAppr !== null && (ewAppr.reason ?? '').includes('ext-root'), JSON.stringify(ewAppr?.reason));
+    const ewDone = await driveRun(R1, ew.run.id); // 批准
+    check('S18c2 批准后落盘至外部根（磁盘核验）', ewDone !== null && existsSync(path.join(EXT, 'notes', 'out.md')) && readFileSync(path.join(EXT, 'notes', 'out.md'), 'utf-8') === 'EXT-V06 外部写入');
+    // S18d 拒绝路径：外部写入被拒不落盘
+    const ex = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:W:rejected.md::不应写入', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` })).data;
+    const exAppr = await poll(async () => {
+      const list = (await api(R1, '/api/approvals?status=pending')).data ?? [];
+      return list.find((a) => a.runId === ex.run.id) ?? null;
+    }, 15000);
+    check('S18d 外部写入拒绝路径（审批卡到达）', exAppr !== null);
+    const exDone = await driveRun(R1, ex.run.id, 60000, 'reject');
+    check('S18d2 拒绝后未落盘且 run 继续', exDone !== null && !existsSync(path.join(EXT, 'rejected.md')));
+    // S18e 外部内 shared//archive/ 前缀拒绝 + 逃逸拒绝
+    const ep = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:W:shared/x.md::禁用前缀', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` })).data;
+    const epDone = await driveRun(R1, ep.run.id); // 若误判为 shared 写会出审批卡，driveRun 会批准——需检查消息文案
+    check('S18e 外部内 shared/ 前缀拒绝（自成一体文案）', epDone !== null && (epDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('外部工作区自成一体')));
+    const esc = (await api(R1, '/api/runs', 'POST', { goal: 'FSOP:W:../escape-ext.txt::逃逸', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` })).data;
+    const escDone = await driveRun(R1, esc.run.id);
+    check('S18e2 外部 .. 逃逸拒绝且未落盘', escDone !== null && (escDone?.messages ?? []).some((m) => m.kind === 'system' && (m.body.includes('逃逸') || m.body.includes('越出'))) && !existsSync(path.join(TMP, 'escape-ext.txt')));
+    // S18f browse 只列目录（无文件、含 current）
+    const br = (await api(R1, `/api/fs/browse?path=${encodeURIComponent(EXT)}`)).data;
+    check('S18f browse 只列目录不列文件', br?.current?.includes('ext-root') && Array.isArray(br?.dirs) && br.dirs.some((d) => d.name === 'docs') && br.dirs.every((d) => typeof d.path === 'string' && d.name.endsWith('.md') === false), JSON.stringify(br?.dirs));
+    // S18g M1 管理端点：suggest/rename/duplicate/delete 归档
+    const sug = (await api(R1, '/api/workspaces/suggest?goal=hello world proto')).data;
+    check('S18g suggest 自动名含关键词', typeof sug?.name === 'string' && sug.name.includes('hello'), JSON.stringify(sug));
+    const rn = await api(R1, '/api/workspaces/w-alpha/rename', 'POST', { to: 'w-beta' });
+    check('S18g2 rename 生效', rn.status === 200 && rn.data?.name === 'w-beta', JSON.stringify(rn.data?.name));
+    const dup = await api(R1, '/api/workspaces/w-beta/duplicate', 'POST');
+    check('S18g3 duplicate 生成 w-beta-copy', dup.status === 200 && dup.data?.name === 'w-beta-copy', JSON.stringify(dup.data?.name));
+    const delNo = await api(R1, '/api/workspaces/w-beta-copy/delete', 'POST', { confirm: false });
+    check('S18g4 delete 需显式确认', delNo.status === 400);
+    const del = await api(R1, '/api/workspaces/w-beta-copy/delete', 'POST', { confirm: true });
+    check('S18g5 delete 归档（目录移入 _deleted-workspaces）', del.status === 200 && existsSync(path.join(SANDBOX, '_deleted-workspaces')) && (del.data?.archivedAs ?? '').startsWith('w-beta-copy-'), JSON.stringify(del.data));
+    // S18h 解除注册（不动文件）
+    const unreg = await api(R1, `/api/workspaces/register/${extId}`, 'DELETE');
+    const runAfter = await api(R1, '/api/runs', 'POST', { goal: 'FSOP:R:docs/readme.md', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` });
+    check('S18h 解除注册后 ext run 400（且文件仍在）', unreg.status === 200 && runAfter.status === 400 && existsSync(path.join(EXT, 'notes', 'out.md')));
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);

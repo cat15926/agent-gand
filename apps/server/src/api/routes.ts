@@ -17,7 +17,24 @@ import {
   runDetail,
   usageSummary,
 } from '../runs/trace.ts';
-import { listWorkspaces } from '../tools/builtin/index.ts';
+import {
+  externalId,
+  getExternal,
+  isExternalWorkspace,
+  listExternal,
+  registerExternal,
+  unregisterExternal,
+  ExternalWorkspaceError,
+} from '../workspaces/external.ts';
+import {
+  browseDirs,
+  deleteWorkspace,
+  duplicateWorkspace,
+  listWorkspaceMetas,
+  renameWorkspace,
+  suggestWorkspaceName,
+  WorkspaceManageError,
+} from '../workspaces/manager.ts';
 
 const MESSAGE_KINDS: readonly MessageKind[] = ['user', 'agent', 'system', 'tool'];
 const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor'];
@@ -29,6 +46,21 @@ function httpError(status: number, message: string): Error & { status: number } 
   const err = new Error(message) as Error & { status: number };
   err.status = status;
   return err;
+}
+
+/** 工作区管理操作包装：领域错误（带 status）映射为 HTTP 错误 */
+function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: unknown): T {
+  const invoke = () => {
+    if (op === 'rename') return renameWorkspace(name, String(arg));
+    if (op === 'duplicate') return duplicateWorkspace(name);
+    return deleteWorkspace(name, arg === true);
+  };
+  try {
+    return invoke() as T;
+  } catch (err) {
+    if (err instanceof WorkspaceManageError) throw httpError(err.status, err.message);
+    throw err;
+  }
 }
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
@@ -120,9 +152,15 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((a) => typeof a === 'string')) {
         throw httpError(400, 'agentIds 必须是非空字符串数组');
       }
-      // 命名工作区（§10.2）：[\w-]{1,32}，缺省 = runId 专属
-      if (workspace !== undefined && workspace !== null && workspace !== '' && !WORKSPACE_RE.test(workspace)) {
-        throw httpError(400, 'workspace 只允许字母/数字/下划线/连字符，长度 1-32');
+      // 工作区（§10.2 内部名 [\w-]{1,32}；§11.2 外部约定 ext:<id> 须注册在案）
+      if (workspace !== undefined && workspace !== null && workspace !== '') {
+        if (isExternalWorkspace(workspace)) {
+          if (!getExternal(externalId(workspace)!)) {
+            throw httpError(400, `外部工作区未注册: ${externalId(workspace)}`);
+          }
+        } else if (!WORKSPACE_RE.test(workspace)) {
+          throw httpError(400, 'workspace 只允许字母/数字/下划线/连字符（或外部约定 ext:<id>），长度 1-32');
+        }
       }
       const agents: AgentDefinition[] = [];
       const missing: string[] = [];
@@ -144,8 +182,60 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/runs', async () => listRuns());
 
-  // 命名工作区列表（§10.3）：workspaces/ 下目录名 + mtime
-  app.get('/api/workspaces', async () => listWorkspaces());
+  // ---- 工作区管理（§11.1 M1 / §11.2 M2） ----
+
+  // 卡片元数据列表（§11.1：名称/最后使用/文件数/关联 run 数/最近目标）
+  app.get('/api/workspaces', async () => listWorkspaceMetas());
+
+  // 自动名建议（§11.1 新建零输入路径：goal 关键词 slug 或 task-MMDD，服务端判撞名）
+  app.get<{ Querystring: { goal?: string } }>('/api/workspaces/suggest', async (req) => ({
+    name: suggestWorkspaceName(req.query.goal),
+  }));
+
+  app.post<{ Params: { name: string }; Body: { to?: string } }>(
+    '/api/workspaces/:name/rename',
+    async (req) => {
+      const { to } = req.body ?? {};
+      if (typeof to !== 'string' || to.length === 0) throw httpError(400, 'to 必填');
+      return manage('rename', req.params.name, to);
+    },
+  );
+
+  app.post<{ Params: { name: string } }>('/api/workspaces/:name/duplicate', async (req) =>
+    manage('duplicate', req.params.name),
+  );
+
+  app.post<{ Params: { name: string }; Body: { confirm?: boolean } }>(
+    '/api/workspaces/:name/delete',
+    async (req) => manage('delete', req.params.name, req.body?.confirm === true),
+  );
+
+  // 外部目录注册表（§11.2）
+  app.get('/api/workspaces/external', async () => listExternal());
+  app.post<{ Body: { path?: string; label?: string } }>('/api/workspaces/register', async (req) => {
+    const { path: p, label } = req.body ?? {};
+    if (typeof p !== 'string' || p.length === 0) throw httpError(400, 'path 必填');
+    try {
+      return registerExternal({ path: p, label });
+    } catch (err) {
+      if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
+      throw err;
+    }
+  });
+  app.delete<{ Params: { id: string } }>('/api/workspaces/register/:id', async (req) => {
+    try {
+      unregisterExternal(req.params.id);
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
+      throw err;
+    }
+  });
+
+  // 本机目录浏览器（§11.2：只列目录、跳点开头；缺省=主目录）
+  app.get<{ Querystring: { path?: string } }>('/api/fs/browse', async (req) =>
+    browseDirs(req.query.path),
+  );
 
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (req) => {
     const detail = runDetail(req.params.id);

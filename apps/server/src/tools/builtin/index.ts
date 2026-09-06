@@ -5,12 +5,13 @@
  * 根级遗留（archive/ 前缀只读访问，不移动不删除）。
  */
 import { execFile } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../../config.ts';
 import type { LlmToolSchema } from '../../llm/provider.ts';
 import { READONLY_TOOLS, ToolError, expectObject, expectString, type Tool } from '../types.ts';
 import type { AgentDefinition } from '@agent-gand/shared';
+import { externalId, getExternalByIdOrThrow, isExternalWorkspace } from '../../workspaces/external.ts';
 
 /** §9.1 沙箱区域（§10 后无前缀区可为 run 专属或命名工作区） */
 type SandboxArea = 'run' | 'shared' | 'archive';
@@ -26,16 +27,26 @@ interface ResolvedSandboxPath {
 const WORKSPACE_NAME_RE = /^[\w-]{1,32}$/;
 
 /**
- * 当前 run 的无前缀工作区根目录（§10.1/10.2）：
- * 命名工作区 → sandbox/workspaces/<name>/（跨 run 复用）；缺省 → sandbox/runs/<runId>/（run 专属）。
+ * 当前 run 的无前缀工作区根目录（§10.1/10.2 + §11.3）：
+ * - ext:<id> → 注册的外部本机目录（包含性检查以注册根为界）
+ * - 命名工作区 → sandbox/workspaces/<name>/（跨 run 复用）
+ * - 缺省 → sandbox/runs/<runId>/（run 专属）
  * shell.run 的 cwd、search.files 的本区范围共用此函数。
  */
 export function workspaceRootDir(ctx: { runId: string; workspace?: string | null }): string {
-  const name = ctx.workspace ?? null;
-  if (name !== null && !WORKSPACE_NAME_RE.test(name)) {
-    throw new ToolError(`工作区名非法（只允许字母/数字/下划线/连字符，1-32 位）: ${name}`);
+  const ws = ctx.workspace ?? null;
+  if (isExternalWorkspace(ws)) {
+    return getExternalByIdOrThrow(externalId(ws)!).absPath; // 未注册 → ToolError 语义的领域错误
   }
-  return name === null ? path.join(config.sandboxDir, 'runs', ctx.runId) : path.join(config.sandboxDir, 'workspaces', name);
+  if (ws !== null && !WORKSPACE_NAME_RE.test(ws)) {
+    throw new ToolError(`工作区名非法（只允许字母/数字/下划线/连字符，1-32 位）: ${ws}`);
+  }
+  return ws === null ? path.join(config.sandboxDir, 'runs', ctx.runId) : path.join(config.sandboxDir, 'workspaces', ws);
+}
+
+/** run 工作区是否为外部注册目录（§11.3：前缀禁用/写审批的判定基础） */
+export function isExternalRun(ctx: { workspace?: string | null }): boolean {
+  return isExternalWorkspace(ctx.workspace ?? null);
 }
 
 /** 兼容旧名（§9 时期语义）：run 专属目录 */
@@ -44,11 +55,31 @@ export function runWorkspaceDir(runId: string): string {
 }
 
 /**
- * §9.2/§10.2 路径解析规则（tools/builtin 统一 resolver）：
- * - 无前缀 → 工作区根目录（命名工作区 workspaces/<name>/ 或 run 专属 runs/<runId>/）
- * - shared/ → sandbox/shared/...（跨 run 共享，读写；写入由编排侧强制审批）
- * - archive/ → sandbox/<去前缀路径>（根级历史遗留，只读）
+ * realpath 消解（§11.3 inspector 补充：防符号链接绕过注册根边界）：
+ * 目标不存在（如待写入的新文件）时向上找最近存在的祖先消解，再拼回余下部分。
+ */
+function resolveReal(absPath: string): string {
+  let current = absPath;
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      return path.join(realpathSync(current), ...tail);
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return absPath; // 到根都不存在：原样返回（后续包含检查兜底拦截）
+      tail.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * §9.2/§10.2/§11.3 路径解析规则（tools/builtin 统一 resolver）：
+ * - 无前缀 → 工作区根目录（外部注册根 / 命名工作区 / run 专属）
+ * - shared/ → sandbox/shared/...（跨 run 共享，读写；写入由编排侧强制审批）——外部工作区内禁用
+ * - archive/ → sandbox/<去前缀路径>（根级历史遗留，只读）——外部工作区内禁用
  * - 绝对路径 / 以 / 开头 / 含 .. 段 → 拒绝（防逃逸）
+ * - 外部工作区：包含性检查以注册根为界，且经 realpath 消解后再判（防 symlink 逃逸）
  */
 export function resolveSandboxPath(
   relPath: string,
@@ -61,7 +92,20 @@ export function resolveSandboxPath(
   ) {
     throw new ToolError(`路径被拒绝（禁止绝对路径、前导 / 或 .. 逃逸）: ${relPath}`);
   }
+  const external = isExternalWorkspace(ctx.workspace ?? null);
   const sandbox = path.resolve(config.sandboxDir);
+  if (external) {
+    // §11.3 前缀禁用：外部工作区自成一体
+    if (relPath === 'shared' || relPath.startsWith('shared/') || relPath === 'archive' || relPath.startsWith('archive/')) {
+      throw new ToolError('外部工作区自成一体，shared/archive 仅在内部工作区可用');
+    }
+    const root = resolveReal(workspaceRootDir(ctx)); // 注册根再消解（双保险，注册时已 realpath）
+    const absPath = resolveReal(path.resolve(root, relPath)); // 符号链接消解后再判包含
+    if (absPath !== root && !absPath.startsWith(root + path.sep)) {
+      throw new ToolError(`路径越出外部工作区目录（${root}）: ${relPath}`);
+    }
+    return { area: 'run', absPath, readOnly: false };
+  }
   let area: SandboxArea;
   let absPath: string;
   if (relPath === 'shared' || relPath.startsWith('shared/')) {
@@ -122,7 +166,7 @@ const fsRead: Tool = {
 const fsWrite: Tool = {
   name: 'fs.write',
   description:
-    '写入沙箱内文本文件（无前缀=当前 run 工作区，自动建目录）。注意：写入 shared/ 前缀（团队共享区）一律触发人工审批，且 shared/ 只存放跨 run 复用的持久团队资产（模板/词典/规范）；任务看板与一次性产物请写本 run 工作区。历史产物在 archive/ 前缀下只读。',
+    '写入沙箱内文本文件（无前缀=当前 run 工作区，自动建目录）。注意：写入 shared/ 前缀（团队共享区）或本次运行使用外部工作区时，一律触发人工审批；shared/ 只存放跨 run 复用的持久团队资产（模板/词典/规范），任务看板与一次性产物请写本 run 工作区。历史产物在 archive/ 前缀下只读。',
   inputSchema: {
     type: 'object',
     properties: {
@@ -253,11 +297,14 @@ const searchFiles: Tool = {
     const sandbox = path.resolve(config.sandboxDir);
     // §9.2/§10.2：搜索范围=当前工作区（命名或 run 专属）+ shared/ + 根级遗留（archive 视图）；
     // 其他 run/工作区的目录不可见（隔离）。结果路径带三段语义前缀。
-    const scopes: Array<{ dir: string; prefix: string }> = [
-      { dir: workspaceRootDir(ctx), prefix: '' },
-      { dir: path.join(sandbox, 'shared'), prefix: 'shared/' },
-      { dir: sandbox, prefix: 'archive/' },
-    ];
+    // §11.3：外部工作区自成一体——只搜外部根，无 shared/archive 视图。
+    const scopes: Array<{ dir: string; prefix: string }> = isExternalWorkspace(ctx.workspace ?? null)
+      ? [{ dir: workspaceRootDir(ctx), prefix: '' }]
+      : [
+          { dir: workspaceRootDir(ctx), prefix: '' },
+          { dir: path.join(sandbox, 'shared'), prefix: 'shared/' },
+          { dir: sandbox, prefix: 'archive/' },
+        ];
     const results: string[] = [];
     for (const { dir, prefix } of scopes) {
       // 根级遍历时跳过 runs/ 与 shared/（已有各自范围，避免重复且不泄露其他 run）

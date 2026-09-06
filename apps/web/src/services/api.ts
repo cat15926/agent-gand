@@ -52,13 +52,51 @@ export function completeTask(taskId: string, agentId: string): Promise<Task> {
   return request(`/api/tasks/${taskId}/complete`, { method: 'POST', body: JSON.stringify({ agentId }) });
 }
 
-/** 命名工作区条目（§10.3，GET /api/workspaces） */
-export interface WorkspaceInfo {
+/** 内部工作区卡片元数据（§11.1，GET /api/workspaces） */
+export interface WorkspaceMeta {
   name: string;
   modifiedAt: string;
+  fileCount: number;
+  runCount: number;
+  lastGoal: string | null;
 }
 
-export const getWorkspaces = () => request<WorkspaceInfo[]>('/api/workspaces');
+/** 外部注册工作区（§11.2） */
+export interface ExternalWorkspaceInfo {
+  id: string;
+  label: string;
+  absPath: string;
+  createdAt: string;
+}
+
+export const getWorkspaces = () => request<WorkspaceMeta[]>('/api/workspaces');
+export const getExternalWorkspaces = () =>
+  request<ExternalWorkspaceInfo[]>('/api/workspaces/external');
+export const suggestWorkspaceName = (goal?: string) =>
+  request<{ name: string }>(`/api/workspaces/suggest${goal ? `?goal=${encodeURIComponent(goal)}` : ''}`);
+export const renameWorkspace = (name: string, to: string) =>
+  request<WorkspaceMeta>(`/api/workspaces/${encodeURIComponent(name)}/rename`, {
+    method: 'POST',
+    body: JSON.stringify({ to }),
+  });
+export const duplicateWorkspace = (name: string) =>
+  request<WorkspaceMeta>(`/api/workspaces/${encodeURIComponent(name)}/duplicate`, { method: 'POST' });
+export const deleteWorkspace = (name: string) =>
+  request<{ archivedAs: string }>(`/api/workspaces/${encodeURIComponent(name)}/delete`, {
+    method: 'POST',
+    body: JSON.stringify({ confirm: true }),
+  });
+export const registerExternal = (path: string, label?: string) =>
+  request<ExternalWorkspaceInfo>('/api/workspaces/register', {
+    method: 'POST',
+    body: JSON.stringify({ path, label }),
+  });
+export const unregisterExternal = (id: string) =>
+  request<{ ok: boolean }>(`/api/workspaces/register/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const browseFs = (path?: string) =>
+  request<{ current: string; dirs: Array<{ name: string; path: string }> }>(
+    `/api/fs/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`,
+  );
 
 export function startRun(input: {
   goal: string;

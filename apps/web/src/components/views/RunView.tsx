@@ -1,11 +1,12 @@
 /**
  * 运行视图（报告模式 2）：消息流时间线 + 启动器 + 工作区占位
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Message } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
+import { WorkspacePanel } from '../WorkspacePanel';
 
 function MessageBubble({ msg }: { msg: Message }) {
   const { state } = useStore();
@@ -77,18 +78,9 @@ function Launcher() {
   const [mode, setMode] = useState<'pipeline' | 'supervisor'>('pipeline');
   const [selected, setSelected] = useState<string[]>(state.agents.map((a) => a.id));
   const [busy, setBusy] = useState(false);
-  // 工作区选择（§10.3）：'' = 每次 run 专属；否则命名工作区（下拉历史或输入新名）
+  // 工作区选择（§11.1 M1）：'' = 每次 run 专属；内部名；'ext:<id>' 外部。芯片按钮 → 卡片管理面板
   const [workspace, setWorkspace] = useState('');
-  const [newWorkspace, setNewWorkspace] = useState('');
-  const [workspaces, setWorkspaces] = useState<Array<{ name: string; modifiedAt: string }>>([]);
-
-  useEffect(() => {
-    // 打开时与运行结束后刷新可选工作区列表（新建命名工作区后即出现在下拉）
-    api
-      .getWorkspaces()
-      .then(setWorkspaces)
-      .catch(() => setWorkspaces([]));
-  }, [state.runs.length]);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // @提及路由：输入中的 @agentId 自动限定接收者（按提及顺序）并剥离前缀，形成"单聊"语义
   const mentionedIds = [...goal.matchAll(/@([\w-]+)/g)]
@@ -102,9 +94,7 @@ function Launcher() {
 
   async function launch() {
     if (!goal.trim() || selected.length === 0 || busy) return;
-    // 新名输入优先于下拉选择；非法名（非 [\w-] 或超 32）不发请求（服务端同样校验）
-    const ws = newWorkspace.trim() !== '' ? newWorkspace.trim() : workspace;
-    if (ws !== '' && !/^[\w-]{1,32}$/.test(ws)) return;
+
     setBusy(true);
     try {
       let effectiveGoal = goal.trim();
@@ -120,11 +110,10 @@ function Launcher() {
         goal: effectiveGoal,
         mode,
         agentIds: effectiveAgents,
-        ...(ws !== '' ? { workspace: ws } : {}),
+        ...(workspace !== '' ? { workspace } : {}),
       });
       setActiveRun(run.id);
       setGoal('');
-      setNewWorkspace(''); // 启动成功后清空新名输入（下拉会在列表刷新后带上它）
     } finally {
       setBusy(false);
     }
@@ -141,33 +130,16 @@ function Launcher() {
           <option value="pipeline">顺序流水线</option>
           <option value="supervisor">主管委派</option>
         </select>
-        {/* 工作区选择（§10.3）：每次新建（默认）或历史命名工作区；新名输入优先生效 */}
-        <select
-          value={workspace}
-          onChange={(e) => {
-            setWorkspace(e.target.value);
-            setNewWorkspace('');
-          }}
-          className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
-          title={workspace === '' ? '每次运行使用独立目录' : `命名工作区：${workspace}`}
+        {/* 工作区芯片（§11.1 M1）：点击弹出卡片管理面板（内部/外部/新建/注册） */}
+        <button
+          onClick={() => setPanelOpen(true)}
+          className={`rounded-md px-2 py-1 outline-none ring-1 ${
+            workspace === '' ? 'bg-zinc-800 text-zinc-300 ring-zinc-700' : 'bg-violet-500/15 text-violet-200 ring-violet-500/40'
+          }`}
+          title={workspace === '' ? '每次运行使用独立目录' : `工作区：${workspace}`}
         >
-          <option value="">🗂 每次新建</option>
-          {workspaces.map((w) => (
-            <option key={w.name} value={w.name}>
-              🗂 {w.name}
-            </option>
-          ))}
-        </select>
-        <input
-          value={newWorkspace}
-          onChange={(e) => setNewWorkspace(e.target.value)}
-          placeholder="或输入新工作区名（字母/数字/-/_）"
-          className={`w-52 rounded-md bg-zinc-800 px-2 py-1 outline-none ring-1 ${
-            newWorkspace !== '' && !/^[\w-]{1,32}$/.test(newWorkspace.trim())
-              ? 'ring-red-500/70 text-zinc-300'
-              : 'ring-zinc-700 text-zinc-300'
-          } placeholder:text-zinc-600`}
-        />
+          {workspace === '' ? '🗂 每次新建 ▾' : workspace.startsWith('ext:') ? '📁 外部目录 ▾' : `🗂 ${workspace} ▾`}
+        </button>
         {state.agents.map((a) => (
           <button
             key={a.id}
@@ -206,6 +178,14 @@ function Launcher() {
           启动
         </button>
       </div>
+
+      <WorkspacePanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        current={workspace}
+        onSelect={setWorkspace}
+        goal={goal}
+      />
     </div>
   );
 }
@@ -231,14 +211,23 @@ export function RunView() {
             </option>
           ))}
         </select>
-        {/* 当前 run 的工作区标识（§10.3）：命名工作区或 run 专属 */}
+        {/* 当前 run 的工作区标识（§10.3/§11.3）：外部 📁 / 命名 🗂 / 独立目录 */}
         {activeRun?.workspace ? (
-          <span
-            className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
-            title="命名工作区：同名单次运行共用目录（跨 run 文件延续）"
-          >
-            🗂 {activeRun.workspace}
-          </span>
+          activeRun.workspace.startsWith('ext:') ? (
+            <span
+              className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
+              title="外部工作区（本机目录，写入逐次审批，目录外不可触碰）"
+            >
+              📁 外部目录
+            </span>
+          ) : (
+            <span
+              className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
+              title="命名工作区：同名单次运行共用目录（跨 run 文件延续）"
+            >
+              🗂 {activeRun.workspace}
+            </span>
+          )
         ) : (
           <span className="rounded-md bg-zinc-800 px-2 py-1 text-[11px] text-zinc-500" title="本次运行使用独立目录">
             🗂 独立目录
