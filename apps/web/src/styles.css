@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 /* 深色工作台基调（scaffold 默认，后续可做亮色主题切换） */
 :root {

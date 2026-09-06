@@ -11,6 +11,7 @@
  *   - user 消息含「严格只输出 JSON」标记 → supervisor 结构化拆解：返回 JSON tasks
  *     （goal 含 BADJSON 时返回非法 JSON，用于 fallback 验证）
  *   - 模型名含 stub-stream / stub-parallel / stub-ro / stub-autow / stub-mixed / stub-tw
+ *   - 模型名含 stub-fs（§9 S16）：goal 携带 FSOP:W/R/S/PWD 指令驱动路径工具
  *     → §8 各专项形态（流式分片 / 并行双工具 / 只读直过 / auto 拒绝 / 混合轮 / 超时）
  *   - 其余 → 返回演示文案 + 一个 fs.write 工具调用（openai: tool_calls；anthropic: tool_use）
  *
@@ -95,6 +96,20 @@ function hasNudge(body) {
   return allText(body).includes('请直接输出结论正文');
 }
 
+/** §9 S16：goal 携带 FSOP 指令驱动任意路径工具调用（隔离/shared/archive/逃逸/cwd 用例）
+ *  W:path::content → fs.write；R:path → fs.read；S:pattern → search.files；PWD → shell.run pwd */
+function fsopFor(body) {
+  const text = allText(body);
+  const w = /FSOP:W:([^:\s]+)::(.*)$/m.exec(text);
+  if (w) return { id: 'call_fs_w', name: 'fs.write', input: { path: w[1], content: w[2] } };
+  const r = /FSOP:R:(\S+)/.exec(text);
+  if (r) return { id: 'call_fs_r', name: 'fs.read', input: { path: r[1] } };
+  const s = /FSOP:S:(\S+)/.exec(text);
+  if (s) return { id: 'call_fs_s', name: 'search.files', input: { pattern: s[1] } };
+  if (/FSOP:PWD/.test(text)) return { id: 'call_fs_pwd', name: 'shell.run', input: { cmd: 'pwd' } };
+  return null;
+}
+
 /** 演示文案 + fs.write 工具调用（两种 API 各自的形状与文件名，便于分别断言） */
 const DEMO_TEXT = '【llm-stub】已处理目标（stub 响应）';
 const TOOL_WRITE_OPENAI = { path: 'stub-openai.txt', content: 'openai stub 工具写入内容' };
@@ -124,8 +139,9 @@ function toolCallsFor(body, isOpenAI) {
     ];
   }
   if (model.includes('stub-ro')) {
-    // §8.3：confirm 档 fs.read → 只读直过（不建审批）
-    return [{ id: 'call_ro_read', name: 'fs.read', input: { path: 'stub-openai.txt' } }];
+    // §8.3：confirm 档 fs.read → 只读直过（不建审批）。
+    // §9 后跨 run 读 S1 的文件不再可能——改读 shared/ 预置文件（verify setup 落盘）
+    return [{ id: 'call_ro_read', name: 'fs.read', input: { path: 'shared/stub-ro-shared.txt' } }];
   }
   if (model.includes('stub-autow')) {
     // §8.3：auto 档白名单外写类 → deny（不是审批）
@@ -141,6 +157,11 @@ function toolCallsFor(body, isOpenAI) {
   if (model.includes('stub-tw')) {
     // §8.2：审批超时路径（verify 用 APPROVAL_TIMEOUT_MS 调小的独立 server）
     return [{ id: 'call_tw', name: 'fs.write', input: { path: 'stub-tw.txt', content: '超时前不应写入' } }];
+  }
+  if (model.includes('stub-fs')) {
+    // §9 S16：FSOP 指令驱动的路径工具调用（每 run 一个操作，单对象包成数组）
+    const op = fsopFor(body);
+    return op === null ? [] : [op];
   }
   if (model.includes('stub-stream')) return []; // 流式专项：纯文本
   if (isOpenAI) {
@@ -175,6 +196,7 @@ function contentFor(body, isOpenAI) {
   if (model.includes('stub-autow') && hasToolResult(body)) return AUTOW_DONE_TEXT;
   if (model.includes('stub-mixed') && hasToolResult(body)) return MIXED_DONE_TEXT;
   if (model.includes('stub-tw') && hasToolResult(body)) return TW_DONE_TEXT;
+  if (model.includes('stub-fs') && hasToolResult(body)) return 'FSOP 完成：工具结果已回传，按结果给出结论。';
   const mode = emptyMode(body);
   if (mode === 'soft' && !hasNudge(body)) return ''; // 空正文 + max_tokens（thinking 预算耗尽模拟）
   if (mode === 'hard') return '';
@@ -376,8 +398,13 @@ async function handle(req, res) {
 
 createServer((req, res) => {
   handle(req, res).catch((err) => {
-    res.writeHead(500, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: String(err) }));
+    console.error('stub handler error:', err); // 保留原始错误现场（headersSent 后 writeHead 会二次崩）
+    if (!res.headersSent) {
+      res.writeHead(500, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err) }));
+    } else {
+      res.destroy(); // SSE 已开流：断流结束，由 provider 侧报错
+    }
   });
 }).listen(port, '127.0.0.1', () => {
   console.log(`llm-stub-server 就绪: http://127.0.0.1:${port}（/chat/completions + /v1/messages + /__inspect + /__slow，SSE 已支持）`);

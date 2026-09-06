@@ -10,7 +10,7 @@ import type { AgentDefinition, Run } from '@agent-gand/shared';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { claimTask, createTask, completeTask } from '../messaging/tasks.ts';
 import { endSpan, finishRun, setRunStatus, startSpan } from '../runs/trace.ts';
-import { chatOnce, runAgentTurn } from './agentStep.ts';
+import { chatOnce, runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
 import type { Orchestrator } from './types.ts';
 
 /** mock 任务拆解：按 goal 关键词确定性生成 2-3 条（零回归的 fallback 路径） */
@@ -227,6 +227,8 @@ export const supervisorOrchestrator: Orchestrator = {
           parentSpanId: workerSpan.id,
           messages: [
             { role: 'system', content: worker.systemPrompt },
+            // 会话边界声明：worker 独立上下文，每轮注入（防跨 run 沙箱遗留污染，§9 过渡缓解）
+            { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE },
             {
               role: 'user',
               content: `任务：${claimed.title}\n说明：${claimed.body ?? '-'}\n\n总体目标：${goal}`,

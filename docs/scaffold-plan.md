@@ -279,3 +279,44 @@ CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 2. 真机（repo DB，GLM，.env 已配好）：① 调研类 pipeline run，web 可见逐字流式输出；② 只读工具零审批；③ 审批→approved 与超时→expired 两路径全链路（超时路径可调小 APPROVAL_TIMEOUT_MS 验证）；④ 顶栏提醒 + 浏览器通知；⑤ 至少一轮并行工具（span 时间重叠证据）。runId 成对留存。
 3. 回归：supervisor 模式、空正文/伪调用防御、usage 记账准确。
 4. inspector 复核：代码 + stub 交叉 + DB 取证。
+
+---
+
+## 9. 增量需求 v0.4：沙箱 per-run 隔离
+
+> 2026-09-04 追加。背景：run 74ff3ce5（目标"@coder 你好👋"）中，coder 读取沙箱发现历史"唐诗"工作流遗留文件，把问候理解为"继续旧任务"并输出盘点/移交报告。根因：沙箱跨 run 共享且不清理，新 run 无上下文边界。已落的过渡缓解：`agentStep.ts` 的 `SESSION_BOUNDARY_DIRECTIVE`（pipeline 首轮 + supervisor 每轮注入）与 web 端 `@提及路由`。本节为根治方案。
+
+### 9.1 目录模型
+
+```
+apps/server/data/sandbox/
+├── runs/<runId>/      # 每 run 独立工作区（run 内多 agent 共享——文件协作特性保留）
+├── shared/            # 跨 run 共享区（显式 shared/ 前缀访问）
+└── （既有根级文件）    # 历史归档：不移动、不删除，经 archive/ 前缀只读访问
+```
+
+### 9.2 路径解析规则（tools/builtin 实现统一 resolver）
+
+| 用户输入路径 | 解析为 | 权限 |
+|---|---|---|
+| `notes/a.md`（无前缀） | `sandbox/runs/<runId>/notes/a.md` | 读写（run 内） |
+| `shared/lib.md` | `sandbox/shared/lib.md` | 读写（跨 run） |
+| `archive/01-liyi.md` | `sandbox/01-liyi.md`（根级遗留文件） | **只读**（写入报错，提示用 shared/） |
+| `..`/绝对路径/以 `/` 开头 | 拒绝（沿用现有防逃逸） | — |
+
+- `fs.read` / `fs.write` / `search.files` / `shell.run`（cwd=run 目录）统一走 resolver；`http.get` 不涉路径。
+- 工具 inputSchema description 同步更新（告知模型三段路径语义，减少试错）。
+- `SESSION_BOUNDARY_DIRECTIVE` 措辞更新：由"不要把沙箱既有内容当状态"改为"你的工作目录是当前 run 独立的；跨 run 协作文件放 shared/，历史产物在 archive/ 只读"。
+
+### 9.3 验收标准
+
+1. typecheck 绿；stub 新增 S16 系列：run A 写 `x.md` → run B 无前缀读不到（404/不存在）；`shared/x.md` 跨 run 可读；`archive/` 前缀可读根级旧文件且写入被拒；路径逃逸仍拒绝。
+2. 真机（repo DB）：两个先后 run 验证隔离；同 run 内多 agent 文件协作不受影响（唐诗式 01→04 工作流仍通，可在 supervisor 模式复验）；runId 留存。
+3. 回归：82+ 既有 stub 全绿；§8 五项不回退。
+4. inspector 终验（代码 + stub 交叉 + DB 取证）。
+
+### 9.4 边界与不做
+
+- 不自动迁移/清理根级遗留文件（历史证据与产物保留）。
+- web 文件浏览器（工作区面板展示 run 目录）留 P1。
+- 不引入新的 env 配置。

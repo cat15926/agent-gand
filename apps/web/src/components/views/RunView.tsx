@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { Message } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
+import { MarkdownBody } from '../Markdown';
 
 function MessageBubble({ msg }: { msg: Message }) {
   const { state } = useStore();
@@ -36,7 +37,9 @@ function MessageBubble({ msg }: { msg: Message }) {
             {agent?.name ?? msg.from}
           </div>
         )}
-        <div className="whitespace-pre-wrap leading-relaxed">{msg.body}</div>
+        <div className="min-w-0">
+          <MarkdownBody text={msg.body} />
+        </div>
       </div>
     </div>
   );
@@ -59,8 +62,8 @@ function StreamingBubble({ spanId, text }: { spanId: string; text: string }) {
           <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: color }} />
           ⟳ {agent?.name ?? span?.name ?? '生成中'}
         </div>
-        <div className="whitespace-pre-wrap leading-relaxed text-zinc-400">
-          {text}
+        <div className="min-w-0 text-zinc-400">
+          <MarkdownBody text={text} />
           <span className="animate-pulse">▍</span>
         </div>
       </div>
@@ -75,6 +78,12 @@ function Launcher() {
   const [selected, setSelected] = useState<string[]>(state.agents.map((a) => a.id));
   const [busy, setBusy] = useState(false);
 
+  // @提及路由：输入中的 @agentId 自动限定接收者（按提及顺序）并剥离前缀，形成"单聊"语义
+  const mentionedIds = [...goal.matchAll(/@([\w-]+)/g)]
+    .map((m) => m[1] ?? '')
+    .filter((id) => id !== '' && state.agents.some((a) => a.id === id));
+  const routedIds = [...new Set(mentionedIds)];
+
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -83,7 +92,16 @@ function Launcher() {
     if (!goal.trim() || selected.length === 0 || busy) return;
     setBusy(true);
     try {
-      const { run } = await api.startRun({ goal: goal.trim(), mode, agentIds: selected });
+      let effectiveGoal = goal.trim();
+      let effectiveAgents = selected;
+      if (routedIds.length > 0) {
+        effectiveAgents = routedIds;
+        let stripped = goal;
+        for (const id of routedIds) stripped = stripped.replaceAll(`@${id}`, '');
+        stripped = stripped.replace(/\s+/g, ' ').trim();
+        if (stripped !== '') effectiveGoal = stripped; // 剥离后为空（纯提及）则保留原文
+      }
+      const { run } = await api.startRun({ goal: effectiveGoal, mode, agentIds: effectiveAgents });
       setActiveRun(run.id);
       setGoal('');
     } finally {
@@ -117,13 +135,19 @@ function Launcher() {
             {a.name}
           </button>
         ))}
+        {routedIds.length > 0 && (
+          <span className="text-amber-300/90">
+            → @路由：仅发送给{' '}
+            {routedIds.map((id) => state.agents.find((a) => a.id === id)?.name ?? id).join('、')}
+          </span>
+        )}
       </div>
       <div className="flex gap-2">
         <input
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void launch()}
-          placeholder="输入目标，如：调研并生成一份竞品分析报告"
+          placeholder="输入目标；@coder 前缀=仅发给该 agent"
           className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500"
         />
         <button

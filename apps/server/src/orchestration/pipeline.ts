@@ -6,7 +6,7 @@
 import type { AgentDefinition, Run } from '@agent-gand/shared';
 import { post } from '../messaging/inbox.ts';
 import { endSpan, finishRun, setRunStatus, startSpan } from '../runs/trace.ts';
-import { runAgentTurn } from './agentStep.ts';
+import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
 import type { Orchestrator } from './types.ts';
 
 /** 累积的对话转写：后续 agent 的 user 轮包含前面所有 agent 的产出 */
@@ -31,14 +31,19 @@ export const pipelineOrchestrator: Orchestrator = {
         // 结果回传下一轮（agentStep.runAgentTurn）
         // TODO: [tool:X] 标记会随 transcript 累积传递，后续 agent 会重复触发同名工具
         //（当前顺带演示三档权限；接入真实 Provider 后应只解析原始 goal 或按 agent 上下文提取）
+        // 首个 agent 注入会话边界声明（防跨 run 沙箱遗留污染，§9 过渡缓解）
+        const messages: Array<{ role: 'system' | 'user'; content: string }> = [
+          { role: 'system', content: agent.systemPrompt },
+        ];
+        if (transcript.length === 0) {
+          messages.push({ role: 'system', content: SESSION_BOUNDARY_DIRECTIVE });
+        }
+        messages.push({ role: 'user', content: buildUserTurn(goal, transcript) });
         const turn = await runAgentTurn({
           run,
           agent,
           parentSpanId: agentSpan.id,
-          messages: [
-            { role: 'system', content: agent.systemPrompt },
-            { role: 'user', content: buildUserTurn(goal, transcript) },
-          ],
+          messages,
         });
         // 空正文（重试后仍空）时 agentStep 已发 system 失败说明，跳过空 agent 消息
         if (turn.content.trim().length > 0) {

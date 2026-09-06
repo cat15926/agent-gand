@@ -430,6 +430,18 @@ color: '#8855aa'
 ---
 
 你是写工具审批回归用 agent。`,
+  // §9 S16：FSOP 指令驱动路径工具（auto 全白名单，零审批确定性）
+  'fs-agent.agent.md': `---
+name: FS-Agent
+description: §9 per-run 沙箱隔离验证（FSOP 指令）
+model: openai:stub-fs
+tools: [fs.read, fs.write, search.files, shell.run]
+disallowedTools: []
+permissionMode: auto
+color: '#557799'
+---
+
+你是沙箱路径语义验证用 agent。`,
 };
 
 async function main() {
@@ -447,15 +459,22 @@ async function main() {
   rmSync(path.join(TMP, 'server-stub.log'), { force: true });
   rmSync(path.join(TMP, 'server-timeout.log'), { force: true });
   rmSync(path.join(TMP, 'stub.log'), { force: true });
-  // mock 路由 fs.read 的默认入参文件（worker-3 用例：缺失则 span error，影响 ok 断言）
-  writeFileSync(path.join(SANDBOX, 'mock-demo.txt'), 'mock demo file for read');
-  // 清理沙箱断言文件
+  // §9 起无前缀写入落在 runs/<runId>/：run 目录与 shared/ 由套件独占，整体清空重来；
+  // 根级历史遗留不动（§9.4），仅清掉本套件历届跑剩的根级测试产物
+  rmSync(path.join(SANDBOX, 'runs'), { recursive: true, force: true });
+  rmSync(path.join(SANDBOX, 'shared'), { recursive: true, force: true });
+  rmSync(path.join(SANDBOX, 'mock-demo.txt'), { force: true });
+  rmSync(path.join(SANDBOX, 'mock-approval-write.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-openai.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-anthropic.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-sup-worker.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-autow-deny.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-mixed.txt'), { force: true });
   rmSync(path.join(SANDBOX, 'stub-tw.txt'), { force: true });
+  // S12（stub-ro）读 shared/ 预置文件（§9 后跨 run 读 S1 文件不再可能）；S16 archive 用根级夹具
+  mkdirSync(path.join(SANDBOX, 'shared'), { recursive: true });
+  writeFileSync(path.join(SANDBOX, 'shared', 'stub-ro-shared.txt'), 'openai stub 工具写入内容');
+  writeFileSync(path.join(SANDBOX, 'root-legacy.txt'), '历史归档遗留内容（§9 前的根级文件）');
 
   const procs = [];
   try {
@@ -523,7 +542,7 @@ async function main() {
     const oaUsage = ((await api(R1, '/api/usage')).data ?? []).find((u) => u.runId === oaRun.run.id);
     // 工具循环：round0（tool_calls）+ round1（工具结果回传后收尾）→ 2 次 llm 调用
     check('S1e usage 从 stub 响应记账（222/44，2 轮）', oaUsage?.tokensIn === 222 && oaUsage?.tokensOut === 44 && oaUsage?.llmCalls === 2, JSON.stringify(oaUsage));
-    check('S1f 工具已执行（沙箱 stub-openai.txt）', existsSync(path.join(SANDBOX, 'stub-openai.txt')), existsSync(path.join(SANDBOX, 'stub-openai.txt')) ? readFileSync(path.join(SANDBOX, 'stub-openai.txt'), 'utf-8') : 'missing');
+    check('S1f 工具已执行（run 工作区 stub-openai.txt，§9）', existsSync(path.join(SANDBOX, 'runs', oaRun.run.id, 'stub-openai.txt')), existsSync(path.join(SANDBOX, 'runs', oaRun.run.id, 'stub-openai.txt')) ? readFileSync(path.join(SANDBOX, 'runs', oaRun.run.id, 'stub-openai.txt'), 'utf-8') : 'missing');
     const insp1 = (await api(STUB, '/__inspect')).data;
     const oaBody = insp1.lastOpenAI?.body ?? {};
     check('S1g 请求体 model 去前缀（stub-gpt）', oaBody.model === 'stub-gpt', oaBody.model);
@@ -537,7 +556,7 @@ async function main() {
     check('S2a anthropic pipeline run completed（auto 白名单直过）', anDone !== null && (anDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.status === 'ok'));
     const anUsage = ((await api(R1, '/api/usage')).data ?? []).find((u) => u.runId === anRun.run.id);
     check('S2b usage 从 stub 响应记账（154/66，2 轮）', anUsage?.tokensIn === 154 && anUsage?.tokensOut === 66 && anUsage?.llmCalls === 2, JSON.stringify(anUsage));
-    check('S2c 工具已执行（沙箱 stub-anthropic.txt）', existsSync(path.join(SANDBOX, 'stub-anthropic.txt')));
+    check('S2c 工具已执行（run 工作区 stub-anthropic.txt，§9）', existsSync(path.join(SANDBOX, 'runs', anRun.run.id, 'stub-anthropic.txt')));
     const insp2 = (await api(STUB, '/__inspect')).data;
     const anBody = insp2.lastAnthropic?.body ?? {};
     check('S2d 请求头 x-api-key + anthropic-version', insp2.lastAnthropic?.headers?.['x-api-key'] === 'stub-key' && insp2.lastAnthropic?.headers?.['anthropic-version'] === '2023-06-01');
@@ -572,7 +591,7 @@ async function main() {
     check('S4a worker 工具调用触发审批（confirm 门控）', wApproval !== null && wApproval.toolName === 'fs.write' && wApproval.agentId === 'sworker1', `${wApproval?.agentId}/${wApproval?.toolName}`);
     const wDone = await driveRun(R1, wRun.run.id, 60000);
     check('S4b supervisor run completed（工具循环后）', wDone !== null);
-    check('S4c 工具已执行（沙箱 stub-sup-worker.txt）', existsSync(path.join(SANDBOX, 'stub-sup-worker.txt')), existsSync(path.join(SANDBOX, 'stub-sup-worker.txt')) ? readFileSync(path.join(SANDBOX, 'stub-sup-worker.txt'), 'utf-8') : 'missing');
+    check('S4c 工具已执行（run 工作区 stub-sup-worker.txt，§9）', existsSync(path.join(SANDBOX, 'runs', wRun.run.id, 'stub-sup-worker.txt')), existsSync(path.join(SANDBOX, 'runs', wRun.run.id, 'stub-sup-worker.txt')) ? readFileSync(path.join(SANDBOX, 'runs', wRun.run.id, 'stub-sup-worker.txt'), 'utf-8') : 'missing');
     const wToolSpans = (wDone?.events ?? []).filter((e) => e.spanKind === 'tool');
     check('S4d run events 有 ok 的 tool span', wToolSpans.some((e) => e.status === 'ok'));
     const wLlmSpans = (wDone?.events ?? []).filter((e) => e.spanKind === 'llm');
@@ -668,12 +687,12 @@ async function main() {
     const roDone = await waitRun(R1, roRun.run.id, 'completed', 30000);
     check('S12a confirm 档 fs.read 零审批直过', roDone !== null && (roDone?.approvals ?? []).length === 0, `${(roDone?.approvals ?? []).length} 条审批`);
     check('S12b fs.read tool span ok（直行执行）', (roDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok'));
-    check('S12c 读到 S1 写入的文件内容', (roDone?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('openai stub 工具写入内容')));
+    check('S12c 读到 shared/ 预置文件内容（§9 后跨 run 经 shared/）', (roDone?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('openai stub 工具写入内容')));
 
     const awRun = (await api(R1, '/api/runs', 'POST', { goal: 'auto 白名单外 deny 验证', mode: 'pipeline', agentIds: ['autow-agent'] })).data;
     const awDone = await waitRun(R1, awRun.run.id, 'completed', 30000);
     check('S12d auto 档白名单外 deny（无审批卡）', awDone !== null && (awDone?.approvals ?? []).length === 0 && (awDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('被权限门控拒绝')));
-    check('S12e 被拒工具未执行（无 stub-autow-deny.txt）', !existsSync(path.join(SANDBOX, 'stub-autow-deny.txt')));
+    check('S12e 被拒工具未执行（run 工作区无 stub-autow-deny.txt，§9）', !existsSync(path.join(SANDBOX, 'runs', awRun.run.id, 'stub-autow-deny.txt')));
 
     // ---- 阶段 11：§8.2 审批超时置 expired（独立 server，APPROVAL_TIMEOUT_MS=2500）----
     const R2 = `http://localhost:${SERVER_TIMEOUT_PORT}`;
@@ -701,7 +720,7 @@ async function main() {
     check('S13b 超时置 expired（decidedBy=system:timeout）', twAppr?.status === 'expired' && twAppr?.decidedBy === 'system:timeout' && twAppr?.decidedAt !== null, JSON.stringify({ status: twAppr?.status, by: twAppr?.decidedBy }));
     check('S13c 超时按拒绝处理后 run 继续 completed', twDone !== null);
     check('S13d 无遗留 pending', ((await api(R2, '/api/approvals?status=pending')).data ?? []).filter((a) => a.runId === twRun.run.id).length === 0);
-    check('S13e 有超时说明 system 消息 + 工具未执行', (twDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('超时')) && !existsSync(path.join(SANDBOX, 'stub-tw.txt')));
+    check('S13e 有超时说明 system 消息 + 工具未执行', (twDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('超时')) && !existsSync(path.join(SANDBOX, 'runs', twRun.run.id, 'stub-tw.txt')));
 
     // ---- 阶段 12：R6 混合轮（一轮 2 工具 1 审批 1 直过，单个被拒不连坐）----
     const mxRun = (await api(R1, '/api/runs', 'POST', { goal: '混合轮部分拒绝验证', mode: 'pipeline', agentIds: ['mixed-agent'] })).data;
@@ -712,11 +731,15 @@ async function main() {
     check('S14a 混合轮 fs.write 审批卡到达', mxApproval !== null && mxApproval.toolName === 'fs.write', mxApproval?.toolName);
     const mxDone = await driveRun(R1, mxRun.run.id, 60000, 'reject');
     check('S14b 拒绝只跳过该工具：http.get 照跑（tool span ok）', (mxDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:http.get' && e.status === 'ok'));
-    check('S14c 被拒工具未执行（无 stub-mixed.txt）', !existsSync(path.join(SANDBOX, 'stub-mixed.txt')));
+    check('S14c 被拒工具未执行（run 工作区无 stub-mixed.txt，§9）', !existsSync(path.join(SANDBOX, 'runs', mxRun.run.id, 'stub-mixed.txt')));
     check('S14d 拒绝说明 + run completed', mxDone !== null && (mxDone?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('人工已拒绝')));
 
     // ---- 阶段 13：worker-3 的 mock 路由门控用例（§8.3 判定顺序全覆盖；编号 S15 避免与其余冲突）----
     const w3aRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.read] 读取资料', mode: 'pipeline', agentIds: ['ro-agent'] })).data;
+    // §9：mock fs.read 的固定入参 mock-demo.txt 现解析到本 run 工作区——run 创建后立即预置
+    //（mock provider 有 200ms 延迟，POST 返回到工具执行有充分窗口）
+    mkdirSync(path.join(SANDBOX, 'runs', w3aRun.run.id), { recursive: true });
+    writeFileSync(path.join(SANDBOX, 'runs', w3aRun.run.id, 'mock-demo.txt'), 'mock demo file for read');
     const w3aDone = await waitRun(R1, w3aRun.run.id, 'completed', 30000);
     check('S15a confirm 档只读 fs.read 零审批直过 + span ok（worker-3）', w3aDone !== null && (w3aDone?.approvals ?? []).length === 0 && (w3aDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok'), `${(w3aDone?.approvals ?? []).length} 审批`);
 
@@ -738,10 +761,59 @@ async function main() {
     const w3eRun = (await api(R1, '/api/runs', 'POST', { goal: '请调用 [tool:fs.write] 写入文件', mode: 'pipeline', agentIds: ['wr-agent'] })).data;
     const w3eDone = await driveRun(R1, w3eRun.run.id);
     check('S15e approved 回归：tool:fs.write span ok + completed（worker-3）', w3eDone !== null && (w3eDone?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.write' && e.status === 'ok'));
+
+    // ---- 阶段 14：§9 per-run 沙箱隔离（S16；FSOP 指令驱动，agent=fs-agent 零审批确定性） ----
+    const runDir = (id) => path.join(SANDBOX, 'runs', id);
+    const fsRun = async (goal) => {
+      const r = (await api(R1, '/api/runs', 'POST', { goal, mode: 'pipeline', agentIds: ['fs-agent'] })).data;
+      return { id: r.run.id, done: await waitRun(R1, r.run.id, 'completed', 30000) };
+    };
+    // S16a/S16b run 间隔离：A 写 x.md，B 无前缀读不到
+    const fa = await fsRun('FSOP:W:x.md::runA-XMARK 独占内容');
+    const faFile = path.join(runDir(fa.id), 'x.md');
+    check('S16a run A 无前缀写入落在 runs/<runId>/x.md', fa.done !== null && existsSync(faFile) && readFileSync(faFile, 'utf-8') === 'runA-XMARK 独占内容');
+    check('S16a2 根级不出现 x.md（隔离落地，根级仅历史遗留）', !existsSync(path.join(SANDBOX, 'x.md')));
+    const fb = await fsRun('FSOP:R:x.md');
+    check('S16b run B 无前缀读不到 run A 的文件（读取失败 span error）', fb.done !== null && (fb.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'error'));
+    check('S16b2 run B 工作区无 x.md', !existsSync(path.join(runDir(fb.id), 'x.md')));
+
+    // S16c shared/ 跨 run 共享：A 写 shared/lib.md，B 可读
+    const fc = await fsRun('FSOP:W:shared/lib.md::shared-XMARK 共享内容');
+    check('S16c run A 写入 shared/lib.md', fc.done !== null && existsSync(path.join(SANDBOX, 'shared', 'lib.md')));
+    const fd = await fsRun('FSOP:R:shared/lib.md');
+    check('S16c2 run B 经 shared/ 读到 run A 写入的内容', fd.done !== null && (fd.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok') && (fd.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('shared-XMARK 共享内容')));
+
+    // S16d/S16e archive/：根级遗留只读访问
+    const fe = await fsRun('FSOP:R:archive/root-legacy.txt');
+    check('S16d archive/ 前缀读到根级遗留文件', fe.done !== null && (fe.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.read' && e.status === 'ok') && (fe.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes('历史归档遗留内容')));
+    const ff = await fsRun('FSOP:W:archive/root-legacy.txt::篡改归档');
+    const legacyBody = readFileSync(path.join(SANDBOX, 'root-legacy.txt'), 'utf-8');
+    check('S16e archive/ 写入被拒（只读 + 提示 shared/）', ff.done !== null && (ff.done?.events ?? []).some((e) => e.spanKind === 'tool' && e.name === 'tool:fs.write' && e.status === 'error') && (ff.done?.messages ?? []).some((m) => m.kind === 'system' && m.body.includes('archive/') && m.body.includes('shared/')));
+    check('S16e2 根级遗留内容未变', legacyBody === '历史归档遗留内容（§9 前的根级文件）');
+
+    // S16f 路径逃逸拒绝（.. 与绝对路径）
+    const hasEscapeReject = (d) =>
+      (d?.events ?? []).some((e) => e.spanKind === 'tool' && e.status === 'error') &&
+      (d?.messages ?? []).some((m) => m.kind === 'system' && (m.body.includes('逃逸') || m.body.includes('越出沙箱')));
+    const fg = await fsRun('FSOP:W:../escape.txt::越界内容');
+    check('S16f .. 逃逸被拒且未落盘', fg.done !== null && hasEscapeReject(fg.done) && !existsSync(path.join(SANDBOX, '..', 'escape.txt')));
+    const fh = await fsRun('FSOP:R:/etc/passwd');
+    check('S16f2 绝对路径被拒', fh.done !== null && hasEscapeReject(fh.done));
+
+    // S16g shell.run cwd = run 工作区
+    const fi = await fsRun('FSOP:PWD');
+    check('S16g shell.run cwd=run 工作区（pwd 输出 runs/<runId>）', fi.done !== null && (fi.done?.messages ?? []).some((m) => m.kind === 'tool' && m.body.includes(path.join('sandbox', 'runs', fi.id))));
+
+    // S16h search.files 范围=本 run + shared/ + archive（其他 run 不可见）
+    const fj = await fsRun('FSOP:S:XMARK');
+    const searchBody = ((fj.done?.messages ?? []).find((m) => m.kind === 'tool')?.body ?? '');
+    check('S16h search 命中 shared/ 但不见其他 run 的文件', fj.done !== null && searchBody.includes('shared/lib.md') && !searchBody.includes('x.md'), searchBody.slice(0, 120));
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);
     for (const p of procs) if (!p.killed) p.kill('SIGKILL');
+    // 清掉本套件的根级夹具（root-legacy.txt 仅测试用，避免污染真实归档区）
+    rmSync(path.join(SANDBOX, 'root-legacy.txt'), { force: true });
   }
 
   const failed = results.filter((r) => !r.pass);
