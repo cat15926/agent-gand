@@ -97,6 +97,21 @@ export const browseFs = (path?: string) =>
   request<{ current: string; dirs: Array<{ name: string; path: string }> }>(
     `/api/fs/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`,
   );
+/** §12.1 浏览器内新建文件夹（用户操作语义，同 Finder；不经 agent 权限体系） */
+export const mkdirFs = (parentPath: string, name: string) =>
+  request<{ path: string }>('/api/fs/mkdir', {
+    method: 'POST',
+    body: JSON.stringify({ parentPath, name }),
+  });
+/** §12.3 在 Finder 中显示（仅已注册外部工作区） */
+export const revealExternal = (id: string) =>
+  request<{ ok: true; path: string }>(`/api/workspaces/${encodeURIComponent(id)}/reveal`, { method: 'POST' });
+/** §12.3 外部工作区 label 编辑 */
+export const updateExternalLabel = (id: string, label: string) =>
+  request<ExternalWorkspaceInfo>(`/api/workspaces/register/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ label }),
+  });
 
 export function startRun(input: {
   goal: string;

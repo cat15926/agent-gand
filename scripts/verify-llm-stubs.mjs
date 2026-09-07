@@ -890,6 +890,33 @@ async function main() {
     const unreg = await api(R1, `/api/workspaces/register/${extId}`, 'DELETE');
     const runAfter = await api(R1, '/api/runs', 'POST', { goal: 'FSOP:R:docs/readme.md', mode: 'pipeline', agentIds: ['fs-agent'], workspace: `ext:${extId}` });
     check('S18h 解除注册后 ext run 400（且文件仍在）', unreg.status === 200 && runAfter.status === 400 && existsSync(path.join(EXT, 'notes', 'out.md')));
+
+    // ---- 阶段 17：§12 mkdir / reveal / label（S19；mkdir 与 reveal 为用户直接操作语义，§12.5 与 agent 权限分线） ----
+    const MK = path.join(TMP, 'mkdir-demo');
+    rmSync(MK, { recursive: true, force: true });
+    mkdirSync(MK, { recursive: true });
+    const mkOk = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: MK, name: '新建目录' });
+    check('S19a mkdir 合法创建（磁盘核验）', mkOk.status === 200 && existsSync(path.join(MK, '新建目录')), JSON.stringify(mkOk.data));
+    const mkSlash = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: MK, name: 'a/b' });
+    const mkDotDot = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: MK, name: '..' });
+    const mkDot = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: MK, name: '.hidden' });
+    check('S19b mkdir 名称三拒（/、..、点开头）', mkSlash.status === 400 && mkDotDot.status === 400 && mkDot.status === 400, `${mkSlash.status}/${mkDotDot.status}/${mkDot.status}`);
+    const mkDup = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: MK, name: '新建目录' });
+    check('S19c mkdir 重名 409', mkDup.status === 409);
+    const mkBad = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: path.join(MK, '不存在'), name: 'x' });
+    const mkFile = await api(R1, '/api/fs/mkdir', 'POST', { parentPath: path.join(EXT, 'docs', 'readme.md'), name: 'x' });
+    check('S19d mkdir 越界 parentPath 拒（不存在/非目录）', mkBad.status === 400 && mkFile.status === 400);
+    // reveal：未注册 404（正路径在真机走查核验——套件避免弹 Finder 窗）
+    const rv404 = await api(R1, '/api/workspaces/noexist1/reveal', 'POST');
+    check('S19e reveal 仅注册项（未注册 404）', rv404.status === 404);
+    // label 编辑：注册临时目录 → PATCH label → 列表核验 → 解除
+    const reg2 = await api(R1, '/api/workspaces/register', 'POST', { path: MK });
+    const eid2 = reg2.data?.id ?? '';
+    const lbEmpty = await api(R1, `/api/workspaces/register/${eid2}`, 'PATCH', { label: '  ' });
+    const lb = await api(R1, `/api/workspaces/register/${eid2}`, 'PATCH', { label: '改名后的标签' });
+    const lbList = (await api(R1, '/api/workspaces/external')).data ?? [];
+    check('S19f label 编辑生效（空值拒/新值入列）', lbEmpty.status === 400 && lb.status === 200 && lb.data?.label === '改名后的标签' && lbList.some((x) => x.id === eid2 && x.label === '改名后的标签'), JSON.stringify(lb.data?.label));
+    await api(R1, `/api/workspaces/register/${eid2}`, 'DELETE');
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);

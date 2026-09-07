@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../services/api';
+import { BrowserModal } from './BrowserModal';
 
 export interface WorkspacePanelProps {
   open: boolean;
@@ -28,10 +29,11 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
   const [externals, setExternals] = useState<api.ExternalWorkspaceInfo[]>([]);
   const [suggested, setSuggested] = useState('');
   const [newName, setNewName] = useState(''); // '' = 用建议名
-  const [browse, setBrowse] = useState<{ current: string; dirs: Array<{ name: string; path: string }> } | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
   const [riskPath, setRiskPath] = useState<string | null>(null); // 待风险确认的目录
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // 待删除确认的工作区名
   const [renaming, setRenaming] = useState<{ from: string; to: string } | null>(null);
+  const [editingLabel, setEditingLabel] = useState<{ id: string; label: string } | null>(null); // §12.3 外部 label 内联编辑
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
@@ -253,99 +255,80 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
                     </div>
                     <div className="mt-1 text-[11px] text-sky-300/70">写入逐次审批 · 目录外不可触碰</div>
                   </button>
-                  <div className="mt-2 flex gap-1.5 text-[11px]">
-                    <button
-                      className="text-zinc-400 hover:text-red-300"
-                      onClick={() => {
-                        if (current === `ext:${x.id}`) onSelect('');
-                        void op(() => api.unregisterExternal(x.id));
-                      }}
-                    >
-                      解除注册（不动文件）
-                    </button>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                    {editingLabel?.id === x.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={editingLabel.label}
+                          onChange={(e) => setEditingLabel({ id: x.id, label: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && editingLabel.label.trim() !== '') {
+                              void op(() => api.updateExternalLabel(x.id, editingLabel.label));
+                              setEditingLabel(null);
+                            }
+                            if (e.key === 'Escape') setEditingLabel(null);
+                          }}
+                          className="w-28 rounded-md bg-zinc-800 px-2 py-0.5 text-zinc-200 outline-none ring-1 ring-zinc-700 focus:ring-sky-500"
+                        />
+                        <button
+                          className="text-sky-300 hover:text-sky-200"
+                          onClick={() => {
+                            if (editingLabel.label.trim() !== '') {
+                              void op(() => api.updateExternalLabel(x.id, editingLabel.label));
+                              setEditingLabel(null);
+                            }
+                          }}
+                        >
+                          保存
+                        </button>
+                        <button className="text-zinc-500 hover:text-zinc-300" onClick={() => setEditingLabel(null)}>
+                          取消
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="text-zinc-400 hover:text-zinc-100" onClick={() => void op(() => api.revealExternal(x.id))}>
+                          在 Finder 中显示
+                        </button>
+                        <button className="text-zinc-400 hover:text-zinc-100" onClick={() => setEditingLabel({ id: x.id, label: x.label })}>
+                          改名
+                        </button>
+                        <button
+                          className="text-zinc-400 hover:text-red-300"
+                          onClick={() => {
+                            if (current === `ext:${x.id}`) onSelect('');
+                            void op(() => api.unregisterExternal(x.id));
+                          }}
+                        >
+                          解除注册
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
               <button
-                onClick={async () => {
-                  try {
-                    setBrowse(await api.browseFs());
-                    setError('');
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : String(e));
-                  }
-                }}
+                onClick={() => setBrowserOpen(true)}
                 className="rounded-xl border border-dashed border-sky-800 p-3 text-left text-sm text-sky-300 hover:border-sky-600"
               >
                 📁 注册本机目录…
-                <span className="mt-1 block text-[11px] text-zinc-600">浏览选择 → 风险确认 → 注册</span>
+                <span className="mt-1 block text-[11px] text-zinc-600">浏览选择（可新建文件夹）→ 风险确认 → 注册</span>
               </button>
             </div>
           </section>
         </div>
       </div>
 
-      {/* 目录浏览器（§11.2：只列目录、跳点开头） */}
-      {browse && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-6" onClick={() => setBrowse(null)}>
-          <div
-            className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-4 py-3">
-              <span className="truncate text-xs font-mono text-zinc-400" title={browse.current}>
-                {browse.current}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800"
-                  onClick={async () => {
-                    const parent = browse.current.replace(/\/[^/]+\/?$/, '') || '/';
-                    setBrowse(await api.browseFs(parent));
-                  }}
-                >
-                  ⬆ 上级
-                </button>
-                <button className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800" onClick={() => setBrowse(null)}>
-                  ✕
-                </button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              {browse.dirs.length === 0 && <p className="p-4 text-center text-xs text-zinc-600">无可见子目录</p>}
-              {browse.dirs.map((d) => (
-                <div key={d.path} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-zinc-800/60">
-                  <button
-                    className="flex-1 truncate text-left text-sm text-zinc-300"
-                    onClick={async () => setBrowse(await api.browseFs(d.path))}
-                  >
-                    📁 {d.name}
-                  </button>
-                  <button
-                    className="ml-2 shrink-0 rounded-md bg-sky-500/20 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/30"
-                    onClick={() => {
-                      setRiskPath(d.path);
-                      setBrowse(null);
-                    }}
-                  >
-                    选此目录
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="shrink-0 border-t border-zinc-800 p-3">
-              <button
-                className="w-full rounded-lg bg-sky-500/20 px-3 py-2 text-xs text-sky-300 hover:bg-sky-500/30"
-                onClick={() => {
-                  setRiskPath(browse.current);
-                  setBrowse(null);
-                }}
-              >
-                注册当前目录（{browse.current}）
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* 目录浏览器（§11.2 + §12.1/12.2：面包屑/记忆位置/快捷位/直达/过滤/内联新建） */}
+      {browserOpen && (
+        <BrowserModal
+          onClose={() => setBrowserOpen(false)}
+          onPick={(picked) => {
+            setBrowserOpen(false);
+            setRiskPath(picked);
+          }}
+        />
       )}
 
       {/* 风险确认（§11.3 文案与实际权限一致） */}
@@ -366,10 +349,16 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
                 onClick={() => {
                   const p = riskPath;
                   setRiskPath(null);
-                  void op(async () => {
-                    await api.registerExternal(p);
-                    setBrowse(null);
-                  });
+                  void (async () => {
+                    try {
+                      const reg = await api.registerExternal(p);
+                      onSelect(`ext:${reg.id}`); // §12.3 注册成功自动选中
+                      onClose(); // 并关闭面板，可直接发起 run
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : String(e));
+                      await refresh();
+                    }
+                  })();
                 }}
               >
                 我已了解，注册

@@ -3,6 +3,7 @@
  * 本机目录注册为 run 可用的工作区：workspace 字符串约定 ext:<id> 指向注册根。
  * 注册时取 realpath（解析符号链接，登记真实位置）；解除注册不动文件。
  */
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -105,4 +106,29 @@ export function registerExternal(input: { path: string; label?: string }): Exter
 export function unregisterExternal(id: string): void {
   const changes = run('DELETE FROM external_workspaces WHERE id = ?', id);
   if (changes === 0) throw new ExternalWorkspaceError(`外部工作区未注册: ${id}`, 404);
+}
+
+/** §12.3 label 编辑：仅更新注册表显示名，不动磁盘 */
+export function updateExternalLabel(id: string, label: string): ExternalWorkspace {
+  if (label.trim().length === 0) throw new ExternalWorkspaceError('label 不能为空', 400);
+  const changes = run('UPDATE external_workspaces SET label = ? WHERE id = ?', label.trim(), id);
+  if (changes === 0) throw new ExternalWorkspaceError(`外部工作区未注册: ${id}`, 404);
+  return getExternalByIdOrThrow(id);
+}
+
+/**
+ * §12.3 在 Finder 中显示——用户直接操作语义（同 Finder 的 reveal），仅对已注册项生效（§12.5 分线）。
+ * 仅支持 darwin（本项目本机单用户场景）；打开失败原样报错。
+ */
+export function revealExternal(id: string): { ok: true; path: string } {
+  const ws = getExternalByIdOrThrow(id); // 未注册 → 404
+  if (process.platform !== 'darwin') {
+    throw new ExternalWorkspaceError(`当前平台不支持 Finder 定位（${process.platform}）`, 400);
+  }
+  try {
+    execFileSync('open', [ws.absPath], { stdio: 'ignore' });
+  } catch (err) {
+    throw new ExternalWorkspaceError(`打开失败: ${err instanceof Error ? err.message : String(err)}`, 500);
+  }
+  return { ok: true, path: ws.absPath };
 }

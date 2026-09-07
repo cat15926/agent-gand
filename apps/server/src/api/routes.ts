@@ -23,7 +23,9 @@ import {
   isExternalWorkspace,
   listExternal,
   registerExternal,
+  revealExternal,
   unregisterExternal,
+  updateExternalLabel,
   ExternalWorkspaceError,
 } from '../workspaces/external.ts';
 import {
@@ -31,6 +33,7 @@ import {
   deleteWorkspace,
   duplicateWorkspace,
   listWorkspaceMetas,
+  mkdirInBrowser,
   renameWorkspace,
   suggestWorkspaceName,
   WorkspaceManageError,
@@ -235,6 +238,44 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // 本机目录浏览器（§11.2：只列目录、跳点开头；缺省=主目录）
   app.get<{ Querystring: { path?: string } }>('/api/fs/browse', async (req) =>
     browseDirs(req.query.path),
+  );
+
+  // §12.1 浏览器内新建文件夹——用户直接操作语义（同 Finder；不经 agent 权限体系，§12.5 分线）
+  app.post<{ Body: { parentPath?: string; name?: string } }>('/api/fs/mkdir', async (req) => {
+    const { parentPath, name } = req.body ?? {};
+    if (typeof parentPath !== 'string' || parentPath.length === 0) throw httpError(400, 'parentPath 必填');
+    if (typeof name !== 'string' || name.length === 0) throw httpError(400, 'name 必填');
+    try {
+      return mkdirInBrowser(parentPath, name);
+    } catch (err) {
+      if (err instanceof WorkspaceManageError) throw httpError(err.status, err.message);
+      throw err;
+    }
+  });
+
+  // §12.3 在 Finder 中显示（用户操作语义；仅已注册项，§12.5 分线）
+  app.post<{ Params: { id: string } }>('/api/workspaces/:id/reveal', async (req) => {
+    try {
+      return revealExternal(req.params.id);
+    } catch (err) {
+      if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
+      throw err;
+    }
+  });
+
+  // §12.3 外部工作区 label 编辑
+  app.patch<{ Params: { id: string }; Body: { label?: string } }>(
+    '/api/workspaces/register/:id',
+    async (req) => {
+      const { label } = req.body ?? {};
+      if (typeof label !== 'string') throw httpError(400, 'label 必填');
+      try {
+        return updateExternalLabel(req.params.id, label);
+      } catch (err) {
+        if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
+        throw err;
+      }
+    },
   );
 
   app.get<{ Params: { id: string } }>('/api/runs/:id', async (req) => {

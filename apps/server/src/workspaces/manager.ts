@@ -180,3 +180,29 @@ export function browseDirs(inputPath: string | undefined): BrowseResult {
   dirs.sort((a, b) => a.name.localeCompare(b.name));
   return { current: real, dirs };
 }
+
+/**
+ * §12.1 浏览器内新建文件夹——用户直接操作语义（同 Finder），不经 agent 权限体系（§12.5 分线）。
+ * 名称禁 /、..、点开头；重名 409；父目录必须存在且为目录；仅创建一层。
+ */
+export function mkdirInBrowser(parentPath: string, name: string): { path: string } {
+  if (name.includes('/') || name === '..' || name === '.' || name.startsWith('.')) {
+    throw new WorkspaceManageError('文件夹名非法（禁 / 、.. 或点开头）', 400);
+  }
+  const parent = path.resolve(parentPath);
+  let st;
+  try {
+    st = statSync(parent);
+  } catch {
+    throw new WorkspaceManageError(`父目录不存在或不可访问: ${parentPath}`, 400);
+  }
+  if (st.isDirectory() !== true) throw new WorkspaceManageError(`父路径不是目录: ${parentPath}`, 400);
+  const target = path.join(parent, name);
+  if (existsSync(target)) throw new WorkspaceManageError(`已存在同名项: ${name}`, 409);
+  try {
+    mkdirSync(target, { recursive: false }); // 仅一层
+  } catch (err) {
+    throw new WorkspaceManageError(`创建失败（权限或路径受限）: ${err instanceof Error ? err.message : String(err)}`, 400);
+  }
+  return { path: target };
+}
