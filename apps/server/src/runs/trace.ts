@@ -28,6 +28,8 @@ interface RunRow {
   status: string;
   agent_ids: string;
   workspace: string | null;
+  title: string | null;
+  deleted_at: string | null;
   created_at: string;
   finished_at: string | null;
 }
@@ -56,6 +58,8 @@ function rowToRun(row: RunRow): Run {
     status: row.status as RunStatus,
     agentIds: JSON.parse(row.agent_ids) as string[],
     workspace: row.workspace ?? null,
+    title: row.title ?? null,
+    deletedAt: row.deleted_at ?? null,
     createdAt: row.created_at,
     finishedAt: row.finished_at,
   };
@@ -93,18 +97,21 @@ export function createRun(
     status: 'pending',
     agentIds,
     workspace,
+    title: goal.slice(0, 24), // §13.2 缺省标题：目标前 24 字
+    deletedAt: null,
     createdAt: new Date().toISOString(),
     finishedAt: null,
   };
   run(
-    `INSERT INTO runs (id, goal, mode, status, agent_ids, workspace, created_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO runs (id, goal, mode, status, agent_ids, workspace, title, created_at, finished_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     record.id,
     record.goal,
     record.mode,
     record.status,
     JSON.stringify(record.agentIds),
     record.workspace,
+    record.title,
     record.createdAt,
   );
   emit({ type: 'run.updated', run: record });
@@ -116,8 +123,35 @@ export function getRun(id: string): Run | undefined {
   return row ? rowToRun(row) : undefined;
 }
 
-export function listRuns(): Run[] {
-  return all<RunRow>('SELECT * FROM runs ORDER BY created_at DESC').map(rowToRun);
+/** §13.3 列表过滤：默认排除软删；includeDeleted=1 含软删；q 模糊匹配标题与目标；status 精确 */
+export function listRuns(opts: { includeDeleted?: boolean; q?: string; status?: string } = {}): Run[] {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (opts.includeDeleted !== true) where.push('deleted_at IS NULL');
+  if (opts.q && opts.q.length > 0) {
+    where.push('(title LIKE ? OR goal LIKE ?)');
+    params.push(`%${opts.q}%`, `%${opts.q}%`);
+  }
+  if (opts.status && opts.status.length > 0) {
+    where.push('status = ?');
+    params.push(opts.status);
+  }
+  const clause = where.length > 0 ? ` WHERE ${where.join(' AND ')}` : '';
+  return all<RunRow>(`SELECT * FROM runs${clause} ORDER BY created_at DESC`, ...params).map(rowToRun);
+}
+
+/** §13.2 会话改题（非空 ≤80）；run 不存在 → 返回 null（路由映射 404） */
+export function renameRun(id: string, title: string): Run | null {
+  const trimmed = title.trim();
+  if (trimmed.length === 0 || trimmed.length > 80) return null; // 长度非法（路由已先校验，双保险）
+  run('UPDATE runs SET title = ? WHERE id = ?', trimmed, id);
+  return getRun(id) ?? null;
+}
+
+/** §13.3 软删（幂等：重复删仍 200）；物理零删除——DB 行保留、沙箱产物不动 */
+export function softDeleteRun(id: string): Run | null {
+  run('UPDATE runs SET deleted_at = ? WHERE id = ?', new Date().toISOString(), id);
+  return getRun(id) ?? null;
 }
 
 export function countRuns(): number {

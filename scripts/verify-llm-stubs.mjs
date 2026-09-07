@@ -19,7 +19,7 @@
  *
  * 用法：node scripts/verify-llm-stubs.mjs
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -454,6 +454,16 @@ async function main() {
   mkdirSync(path.join(TMP, 'agents'), { recursive: true });
   for (const [file, content] of Object.entries(stubAgentDefs)) {
     writeFileSync(path.join(TMP, 'agents', file), content);
+  }
+  // 端口预清：残留的旧套件 server 会静默抢占端口（EADDRINUSE 后新进程死亡、请求打到旧进程）
+  for (const port of [SERVER_REGRESS_PORT, SERVER_STUB_PORT, SERVER_TIMEOUT_PORT, STUB_PORT]) {
+    try {
+      const out = execFileSync('lsof', ['-nP', '-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+      for (const pid of out.split('\n').map((x) => x.trim()).filter(Boolean)) {
+        try { process.kill(Number(pid), 'SIGTERM'); } catch { /* 已退出 */ }
+      }
+    } catch { /* 端口空闲 */
+    }
   }
   rmSync(path.join(TMP, 'server-regress.log'), { force: true });
   rmSync(path.join(TMP, 'server-stub.log'), { force: true });
@@ -917,6 +927,49 @@ async function main() {
     const lbList = (await api(R1, '/api/workspaces/external')).data ?? [];
     check('S19f label 编辑生效（空值拒/新值入列）', lbEmpty.status === 400 && lb.status === 200 && lb.data?.label === '改名后的标签' && lbList.some((x) => x.id === eid2 && x.label === '改名后的标签'), JSON.stringify(lb.data?.label));
     await api(R1, `/api/workspaces/register/${eid2}`, 'DELETE');
+
+    // ---- 阶段 18：§13 会话管理（S20；mock 路由 R0 快速完成，纯 API 语义） ----
+    const mk = async (goal) => {
+      const r = (await api(R0, '/api/runs', 'POST', { goal, mode: 'pipeline', agentIds: ['planner', 'coder', 'reviewer'] })).data;
+      await waitRun(R0, r.run.id, 'completed', 30000);
+      return r.run.id;
+    };
+    const idA = await mk('S20 会话A：调研主题 alpha');
+    const idB = await mk('S20 会话B：主题 beta');
+    const idC = await mk('S20 会话C：主题 gamma');
+    // S20a 缺省标题 = 目标前 24 字
+    const detA = (await api(R0, `/api/runs/${idA}`)).data;
+    check('S20a 缺省标题=目标前 24 字', detA?.run?.title === 'S20 会话A：调研主题 alpha'.slice(0, 24), JSON.stringify(detA?.run?.title));
+    // S20b PATCH 合法 / 空 / 超长
+    const ptOk = await api(R0, `/api/runs/${idA}`, 'PATCH', { title: '重命名后的会话A' });
+    const ptEmpty = await api(R0, `/api/runs/${idA}`, 'PATCH', { title: '   ' });
+    const ptLong = await api(R0, `/api/runs/${idA}`, 'PATCH', { title: 'x'.repeat(81) });
+    check('S20b title PATCH 合法/空拒/超长拒', ptOk.status === 200 && ptOk.data?.title === '重命名后的会话A' && ptEmpty.status === 400 && ptLong.status === 400, `${ptOk.status}/${ptEmpty.status}/${ptLong.status}`);
+    // S20c 软删后默认列表不含
+    await api(R0, `/api/runs/${idA}`, 'DELETE');
+    const listDefault = (await api(R0, '/api/runs')).data ?? [];
+    check('S20c 软删后默认列表不含', listDefault.some((r) => r.id === idA) === false && listDefault.some((r) => r.id === idB));
+    // S20d includeDeleted 含
+    const listAll = (await api(R0, '/api/runs?includeDeleted=1')).data ?? [];
+    const ra = listAll.find((r) => r.id === idA);
+    check('S20d includeDeleted 含且带 deletedAt', ra !== undefined && typeof ra.deletedAt === 'string', JSON.stringify(ra?.deletedAt));
+    // S20e q/status 过滤命中
+    const byQ = (await api(R0, '/api/runs?includeDeleted=1&q=' + encodeURIComponent('重命名后的会话'))).data ?? []; // idA 已软删（S20c），含软删查询验证标题匹配
+    const byQGoal = (await api(R0, '/api/runs?q=beta')).data ?? [];
+    const byStatus = (await api(R0, '/api/runs?status=completed')).data ?? [];
+    check('S20e q 过滤命中标题与目标', byQ.some((r) => r.id === idA) && byQGoal.some((r) => r.id === idB));
+    check('S20e2 status 过滤命中 completed', byStatus.some((r) => r.id === idB) && byStatus.every((r) => r.status === 'completed'));
+    // S20f DELETE 幂等（重复删 200）
+    const delAgain = await api(R0, `/api/runs/${idA}`, 'DELETE');
+    check('S20f DELETE 幂等（重复删 200）', delAgain.status === 200 && delAgain.data?.deletedAt != null);
+    // S20g 批删语义（逐个置位：B、C 各自软删后 includeDeleted 均含）
+    for (const id of [idB, idC]) await api(R0, `/api/runs/${id}`, 'DELETE');
+    const listAll2 = (await api(R0, '/api/runs?includeDeleted=1')).data ?? [];
+    check('S20g 批删逐个置位', listAll2.some((r) => r.id === idB && r.deletedAt != null) && listAll2.some((r) => r.id === idC && r.deletedAt != null));
+    // S20h 软删后证据链：events/messages API 仍可访问
+    const detDel = (await api(R0, `/api/runs/${idB}`)).data;
+    const msgsDel = (await api(R0, `/api/messages?runId=${idB}`)).data;
+    check('S20h 软删后 detail/messages 仍可访问（取证链不受影响）', detDel?.run?.deletedAt != null && (detDel?.events ?? []).length > 0 && Array.isArray(msgsDel) && msgsDel.length > 0, `events=${(detDel?.events ?? []).length} msgs=${msgsDel?.length}`);
   } finally {
     for (const p of procs) p.kill('SIGTERM');
     await sleep(500);

@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, goal TEXT NOT NULL, mode TEXT NOT NULL,
   status TEXT NOT NULL, agent_ids TEXT NOT NULL,  -- JSON array
   workspace TEXT,                                 -- 命名工作区（§10.2，NULL=runId 专属；§11.2 可为 ext:<id>）
+  title TEXT,                                     -- 会话标题（§13.2，NULL=用目标前 24 字）
+  deleted_at TEXT,                                -- 软删时间（§13.3，NULL=在册）
   created_at TEXT NOT NULL, finished_at TEXT
 );
 CREATE TABLE IF NOT EXISTS external_workspaces (

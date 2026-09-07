@@ -429,3 +429,39 @@ apps/server/data/sandbox/
 3. inspector 终验（代码 + stub 交叉 + 动线走查 + 安全分线核查：mkdir/reveal 无 agent 权限旁路）。
 
 > 补注（inspector-2 终审要点，2026-09-07）：外部写审批绑定 `run.workspace = ext:<id>` 判定，**与目录由谁创建无关**——经 mkdir（用户操作）创建的目录注册为外部工作区后，agent 写入仍逐次审批，不存在"自建目录放宽门控"的旁路。
+
+---
+
+## 13. 增量需求 v0.8：会话管理（侧栏/标题/软删/新建切换动线）
+
+> 2026-09-08 追加。用户评审结论：全量 A+B+C+D；承载形态=**常驻侧栏**（约 240px 可折叠，聊天区左侧）。P2（本次不做）：LLM 自动标题、Cmd+K 切换器、置顶、"从会话继续"、会话内多轮追问（建议 v0.9 单独立项）。
+
+### 13.1 A 会话侧栏
+
+- 新组件 `SessionSidebar`：聊天区左侧常驻窄栏（~240px，可折叠为图标条；窄屏为抽屉）
+- 条目：状态点（running 呼吸/awaiting_approval 琥珀/completed 绿/failed 红）、**标题**、模式徽标（pipeline/supervisor）、相对时间、工作区徽标（内部名/📁外部，与 v0.6 一致）
+- **时间分组**：今天/昨天/本周/更早；激活项高亮
+- 顶部：搜索框（标题+目标模糊匹配）+ 状态过滤（全部/进行中/已完成/失败/已删除）
+- 替换 RunView 顶部原生 `<select>`（移除）
+
+### 13.2 B 会话标题
+
+- `runs` 加 `title TEXT`（幂等迁移）；缺省=目标前 24 字；`PATCH /api/runs/:id {title}`（非空、≤80 字）
+- 侧栏条目内联重命名；**契约**：`Run` 加 `title?: string | null`（授权 worker-3 直改 shared，web 同步消费）
+
+### 13.3 C 软删除
+
+- `runs` 加 `deleted_at TEXT`；`DELETE /api/runs/:id` 置位（幂等）；`GET /api/runs` 支持 `includeDeleted=1&q=&status=` 过滤
+- UI：条目菜单"删除"→确认框（文案明示：会话从列表移除；**沙箱产物与 span 证据保留**）；**多选批删**（复选模式）；"已删除"筛选可见
+- 物理数据零删除（DB 行软删、sandbox/runs/<id>/ 不动）——runId 取证链不受影响
+
+### 13.4 D 新建与切换
+
+- 侧栏顶部"＋ 新会话"：清空激活会话→输入框聚焦空态（"输入目标开启新会话"）
+- 点击条目即时切换（WS 增量已就位）；新 run 启动后侧栏自动滚动定位
+
+### 13.5 验收标准
+
+1. typecheck 三包绿；stub 新增 S20：title PATCH 合法/空拒/超长拒、软删后默认列表不含、includeDeleted 含、q/status 过滤命中、DELETE 幂等（重复删 200）、批删语义（逐个置位）；既有 125 项回归全绿。
+2. 真机走查全动线：新建（空态聚焦）→启动（自动定位）→切换→内联重命名→搜索过滤→删除（确认文案）→已删筛选可见；runId 留存。
+3. inspector 终验（代码 + stub 交叉 + 动线走查 + 软删证据链核查：软删 run 的 events/messages API 仍可访问——取证不受影响）。

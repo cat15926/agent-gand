@@ -21,6 +21,14 @@ db.exec(readFileSync(schemaPath, 'utf-8'));
 if (!db.prepare('PRAGMA table_info(runs)').all().some((c) => (c as { name?: string }).name === 'workspace')) {
   db.exec('ALTER TABLE runs ADD COLUMN workspace TEXT');
 }
+// §13.2/13.3：title / deleted_at 列（同幂等模式）
+{
+  const cols = new Set(
+    (db.prepare('PRAGMA table_info(runs)').all() as Array<{ name?: string }>).map((c) => c.name),
+  );
+  if (cols.has('title') !== true) db.exec('ALTER TABLE runs ADD COLUMN title TEXT');
+  if (cols.has('deleted_at') !== true) db.exec('ALTER TABLE runs ADD COLUMN deleted_at TEXT');
+}
 
 export function all<T>(sql: string, ...params: unknown[]): T[] {
   return db.prepare(sql).all(...params) as T[];

@@ -30,7 +30,21 @@ export interface RunDetail {
 }
 
 export const getAgents = () => request<AgentDefinition[]>('/api/agents');
-export const getRuns = () => request<Run[]>('/api/runs');
+/** §13.3 列表过滤（默认排除软删） */
+export const getRuns = (params?: { includeDeleted?: boolean; q?: string; status?: string }) => {
+  const sp = new URLSearchParams();
+  if (params?.includeDeleted) sp.set('includeDeleted', '1');
+  if (params?.q) sp.set('q', params.q);
+  if (params?.status) sp.set('status', params.status);
+  const qs = sp.toString();
+  return request<Run[]>(`/api/runs${qs ? `?${qs}` : ''}`);
+};
+/** §13.2 会话改题（非空 ≤80） */
+export const renameRun = (id: string, title: string) =>
+  request<Run>(`/api/runs/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+/** §13.3 软删（幂等；物理零删除） */
+export const softDeleteRun = (id: string) =>
+  request<Run>(`/api/runs/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getRun = (id: string) => request<RunDetail>(`/api/runs/${id}`);
 export const getTasks = (runId?: string) =>
   request<Task[]>(runId ? `/api/tasks?runId=${encodeURIComponent(runId)}` : '/api/tasks');

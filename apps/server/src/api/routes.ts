@@ -14,7 +14,9 @@ import {
   countRuns,
   createRun,
   listRuns,
+  renameRun,
   runDetail,
+  softDeleteRun,
   usageSummary,
 } from '../runs/trace.ts';
 import {
@@ -183,7 +185,33 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { run };
   });
 
-  app.get('/api/runs', async () => listRuns());
+  // §13.3 列表过滤：默认排除软删；includeDeleted=1 含；q=标题/目标模糊；status=精确
+  app.get<{ Querystring: { includeDeleted?: string; q?: string; status?: string } }>(
+    '/api/runs',
+    async (req) =>
+      listRuns({
+        includeDeleted: req.query.includeDeleted === '1',
+        q: typeof req.query.q === 'string' ? req.query.q : undefined,
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+      }),
+  );
+
+  // §13.2 会话改题（非空 ≤80）
+  app.patch<{ Params: { id: string }; Body: { title?: string } }>('/api/runs/:id', async (req) => {
+    const { title } = req.body ?? {};
+    if (typeof title !== 'string' || title.trim().length === 0) throw httpError(400, 'title 必填且非空');
+    if (title.trim().length > 80) throw httpError(400, 'title 长度 ≤80');
+    const updated = renameRun(req.params.id, title);
+    if (updated === null) throw httpError(404, `run 不存在: ${req.params.id}`);
+    return updated;
+  });
+
+  // §13.3 软删（幂等；物理零删除：DB 行保留、沙箱产物与 span 证据不动，runId 取证链不受影响）
+  app.delete<{ Params: { id: string } }>('/api/runs/:id', async (req) => {
+    const updated = softDeleteRun(req.params.id);
+    if (updated === null) throw httpError(404, `run 不存在: ${req.params.id}`);
+    return updated;
+  });
 
   // ---- 工作区管理（§11.1 M1 / §11.2 M2） ----
 

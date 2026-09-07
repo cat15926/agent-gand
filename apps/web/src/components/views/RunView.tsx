@@ -7,6 +7,7 @@ import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
 import { WorkspacePanel } from '../WorkspacePanel';
+import { SessionSidebar } from '../SessionSidebar';
 
 function MessageBubble({ msg }: { msg: Message }) {
   const { state } = useStore();
@@ -164,6 +165,7 @@ function Launcher() {
       </div>
       <div className="flex gap-2">
         <input
+          id="goal-input"
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void launch()}
@@ -193,24 +195,27 @@ function Launcher() {
 export function RunView() {
   const { state, setActiveRun } = useStore();
   const activeRun = state.runs.find((r) => r.id === state.activeRunId);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  /** §13.4 新会话：清空激活 → 聚焦输入框（空态文案由消息流区域呈现） */
+  const newSession = () => {
+    setActiveRun(null);
+    setTimeout(() => document.getElementById('goal-input')?.focus(), 0);
+  };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      <SessionSidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        activeRunId={state.activeRunId}
+        onSelect={setActiveRun}
+        onNewSession={newSession}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
       {/* 运行切换 */}
       <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs">
         <span className="text-zinc-500">运行会话</span>
-        <select
-          value={state.activeRunId ?? ''}
-          onChange={(e) => setActiveRun(e.target.value || null)}
-          className="max-w-72 flex-1 rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
-        >
-          <option value="">（无）</option>
-          {[...state.runs].reverse().map((r) => (
-            <option key={r.id} value={r.id}>
-              [{r.mode}] {r.goal.slice(0, 30)} · {r.status}
-            </option>
-          ))}
-        </select>
         {/* 当前 run 的工作区标识（§10.3/§11.3）：外部 📁 / 命名 🗂 / 独立目录 */}
         {activeRun?.workspace ? (
           activeRun.workspace.startsWith('ext:') ? (
@@ -241,7 +246,7 @@ export function RunView() {
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         {state.messages.length === 0 && (
           <p className="pt-16 text-center text-sm text-zinc-600">
-            {state.activeRunId ? '等待消息…' : '在下方输入目标，启动一次多 Agent 运行'}
+            {state.activeRunId ? '等待消息…' : '输入目标开启新会话'}
           </p>
         )}
         {state.messages.map((m) => (
@@ -252,7 +257,8 @@ export function RunView() {
         ))}
       </div>
 
-      <Launcher />
+        <Launcher />
+      </div>
     </div>
   );
 }
