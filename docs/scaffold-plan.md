@@ -427,3 +427,5 @@ apps/server/data/sandbox/
 1. typecheck 三包绿；stub 新增 S19：mkdir 合法创建/名称校验三拒（`/`、`..`、点开头）/重名 409/越界 parentPath 拒/reveal 仅注册项（未注册 404）/label 编辑生效；既有 119 项回归全绿。
 2. 真机走查全动线：浏览 → 新建文件夹 → 注册（自动选中）→ 发起 run → Finder 定位（reveal）；runId 留存。
 3. inspector 终验（代码 + stub 交叉 + 动线走查 + 安全分线核查：mkdir/reveal 无 agent 权限旁路）。
+
+> 补注（inspector-2 终审要点，2026-09-07）：外部写审批绑定 `run.workspace = ext:<id>` 判定，**与目录由谁创建无关**——经 mkdir（用户操作）创建的目录注册为外部工作区后，agent 写入仍逐次审批，不存在"自建目录放宽门控"的旁路。
