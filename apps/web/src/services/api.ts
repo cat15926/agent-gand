@@ -14,8 +14,10 @@ import type {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
-    headers: { 'content-type': 'application/json' },
     ...init,
+    // 仅在有 body 时声明 json：Fastify 对"带 content-type 空 body"的 DELETE 返回 500
+    // （v0.8 删除按钮"不可用"的根因；同修外部工作区解除注册等同型调用）
+    headers: init?.body != null ? { 'content-type': 'application/json' } : undefined,
   });
   if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} → ${res.status}`);
   return (await res.json()) as T;

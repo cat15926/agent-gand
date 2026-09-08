@@ -299,7 +299,7 @@ export function SessionSidebar({ collapsed, onToggleCollapse, activeRunId, onSel
                         </button>
                       </span>
                     ) : !deleted && !batchMode ? (
-                      <span className="flex shrink-0 flex-col gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="flex shrink-0 flex-col gap-0.5 opacity-40 transition-opacity group-hover:opacity-100">
                         <button
                           className="rounded px-1 text-[10px] text-zinc-500 hover:text-zinc-100"
                           title="重命名"
