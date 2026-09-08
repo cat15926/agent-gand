@@ -123,14 +123,17 @@ export function getRun(id: string): Run | undefined {
   return row ? rowToRun(row) : undefined;
 }
 
-/** §13.3 列表过滤：默认排除软删；includeDeleted=1 含软删；q 模糊匹配标题与目标；status 精确 */
+/** §13.3 列表过滤：默认排除软删；includeDeleted=1 含软删；q 模糊匹配标题与目标；status 精确。
+ *  q 做 LIKE 字面转义（\→\\、%→\%、_→\_ + ESCAPE '\'）：'%'/'_' 按字面命中而非通配（inspector 终验返工） */
 export function listRuns(opts: { includeDeleted?: boolean; q?: string; status?: string } = {}): Run[] {
   const where: string[] = [];
   const params: unknown[] = [];
   if (opts.includeDeleted !== true) where.push('deleted_at IS NULL');
   if (opts.q && opts.q.length > 0) {
-    where.push('(title LIKE ? OR goal LIKE ?)');
-    params.push(`%${opts.q}%`, `%${opts.q}%`);
+    const literal = `%${opts.q.replace(/([\\%_])/g, '\\$1')}%`;
+    // TS 双引号串里 '\\' 的值是单个反斜杠 → SQL ESCAPE 得到单字符（ESCAPE 要求恰好一个字符）
+    where.push("(title LIKE ? ESCAPE '\\' OR goal LIKE ? ESCAPE '\\')");
+    params.push(literal, literal);
   }
   if (opts.status && opts.status.length > 0) {
     where.push('status = ?');

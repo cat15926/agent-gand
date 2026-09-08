@@ -959,6 +959,16 @@ async function main() {
     const byStatus = (await api(R0, '/api/runs?status=completed')).data ?? [];
     check('S20e q 过滤命中标题与目标', byQ.some((r) => r.id === idA) && byQGoal.some((r) => r.id === idB));
     check('S20e2 status 过滤命中 completed', byStatus.some((r) => r.id === idB) && byStatus.every((r) => r.status === 'completed'));
+    // S20e3 LIKE 通配字面语义（inspector 返工用例：% 与 _ 按字面命中，不做通配）
+    const idW = await mk('S20 通配字面样本 100%_end');
+    const byLiteral = (await api(R0, '/api/runs?q=' + encodeURIComponent('100%_end'))).data ?? [];
+    const byPercent = (await api(R0, '/api/runs?q=' + encodeURIComponent('%'))).data ?? [];
+    const byUnderscore = (await api(R0, '/api/runs?q=' + encodeURIComponent('主_题'))).data ?? [];
+    check(
+      'S20e3 q 的 %/_ 按字面命中（非通配）',
+      byLiteral.some((r) => r.id === idW) && byPercent.some((r) => r.id === idW) && byPercent.some((r) => r.id === idB) === false && byUnderscore.length === 0,
+      `literal=${byLiteral.length} percent=${byPercent.length} underscore=${byUnderscore.length}`,
+    );
     // S20f DELETE 幂等（重复删 200）
     const delAgain = await api(R0, `/api/runs/${idA}`, 'DELETE');
     check('S20f DELETE 幂等（重复删 200）', delAgain.status === 200 && delAgain.data?.deletedAt != null);
