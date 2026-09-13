@@ -12,6 +12,8 @@ import type {
   SpanKind,
   SpanStatus,
   Task,
+  TaskAttempt,
+  TaskReview,
   UsageSummary,
 } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
@@ -20,6 +22,8 @@ import { emit } from '../messaging/bus.ts';
 import { listApprovals } from '../hitl/approvals.ts';
 import { listByRun } from '../messaging/inbox.ts';
 import { listTasks } from '../messaging/tasks.ts';
+import { listAttempts } from '../tasks/attempts.ts';
+import { listReviews } from '../tasks/reviews.ts';
 
 interface RunRow {
   id: string;
@@ -27,6 +31,7 @@ interface RunRow {
   mode: string;
   status: string;
   agent_ids: string;
+  supervisor_id: string | null;
   workspace: string | null;
   title: string | null;
   deleted_at: string | null;
@@ -57,6 +62,7 @@ function rowToRun(row: RunRow): Run {
     mode: row.mode as RunMode,
     status: row.status as RunStatus,
     agentIds: JSON.parse(row.agent_ids) as string[],
+    supervisorId: row.supervisor_id ?? null,
     workspace: row.workspace ?? null,
     title: row.title ?? null,
     deletedAt: row.deleted_at ?? null,
@@ -89,6 +95,7 @@ export function createRun(
   mode: RunMode,
   agentIds: string[],
   workspace: string | null = null,
+  supervisorId: string | null = null,
 ): Run {
   const record: Run = {
     id: randomUUID(),
@@ -96,6 +103,7 @@ export function createRun(
     mode,
     status: 'pending',
     agentIds,
+    supervisorId,
     workspace,
     title: goal.slice(0, 24), // §13.2 缺省标题：目标前 24 字
     deletedAt: null,
@@ -103,13 +111,14 @@ export function createRun(
     finishedAt: null,
   };
   run(
-    `INSERT INTO runs (id, goal, mode, status, agent_ids, workspace, title, created_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO runs (id, goal, mode, status, agent_ids, supervisor_id, workspace, title, created_at, finished_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     record.id,
     record.goal,
     record.mode,
     record.status,
     JSON.stringify(record.agentIds),
+    record.supervisorId,
     record.workspace,
     record.title,
     record.createdAt,
@@ -164,7 +173,8 @@ export function countRuns(): number {
 
 /** 状态流转（含 awaiting_approval ↔ running 往返），每次广播 run.updated */
 export function setRunStatus(runId: string, status: RunStatus): void {
-  run('UPDATE runs SET status = ? WHERE id = ?', status, runId);
+  if (status === 'running') run('UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?', status, runId);
+  else run('UPDATE runs SET status = ? WHERE id = ?', status, runId);
   const runRow = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
   if (runRow) emit({ type: 'run.updated', run: rowToRun(runRow) });
 }
@@ -305,17 +315,22 @@ export interface RunDetail {
   tasks: Task[];
   messages: Message[];
   approvals: ApprovalRequest[];
+  attempts: TaskAttempt[];
+  reviews: TaskReview[];
 }
 
 /** GET /api/runs/:id 聚合视图 */
 export function runDetail(id: string): RunDetail | null {
   const run = getRun(id);
   if (!run) return null;
+  const tasks = listTasks(id);
   return {
     run,
     events: listEvents(id),
-    tasks: listTasks(id),
+    tasks,
     messages: listByRun(id),
     approvals: listApprovals().filter((a) => a.runId === id),
+    attempts: tasks.flatMap((task) => listAttempts(task.id)),
+    reviews: tasks.flatMap((task) => listReviews(task.id)),
   };
 }

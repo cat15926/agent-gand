@@ -1,7 +1,7 @@
 /**
  * 运行视图（报告模式 2）：消息流时间线 + 启动器 + 工作区占位
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Message } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
@@ -78,6 +78,7 @@ function Launcher() {
   const [goal, setGoal] = useState('');
   const [mode, setMode] = useState<'pipeline' | 'supervisor'>('pipeline');
   const [selected, setSelected] = useState<string[]>(state.agents.map((a) => a.id));
+  const [supervisorId, setSupervisorId] = useState('planner');
   const [busy, setBusy] = useState(false);
   // 工作区选择（§11.1 M1）：'' = 每次 run 专属；内部名；'ext:<id>' 外部。芯片按钮 → 卡片管理面板
   const [workspace, setWorkspace] = useState('');
@@ -88,6 +89,15 @@ function Launcher() {
     .map((m) => m[1] ?? '')
     .filter((id) => id !== '' && state.agents.some((a) => a.id === id));
   const routedIds = [...new Set(mentionedIds)];
+
+  useEffect(() => {
+    if (selected.length === 0 && state.agents.length > 0) {
+      setSelected(state.agents.map((agent) => agent.id));
+      if (!state.agents.some((agent) => agent.id === supervisorId)) {
+        setSupervisorId(state.agents[0]?.id ?? '');
+      }
+    }
+  }, [selected.length, state.agents, supervisorId]);
 
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -111,6 +121,7 @@ function Launcher() {
         goal: effectiveGoal,
         mode,
         agentIds: effectiveAgents,
+        ...(mode === 'supervisor' ? { supervisorId: effectiveAgents.includes(supervisorId) ? supervisorId : effectiveAgents[0] } : {}),
         ...(workspace !== '' ? { workspace } : {}),
       });
       setActiveRun(run.id);
@@ -131,6 +142,18 @@ function Launcher() {
           <option value="pipeline">顺序流水线</option>
           <option value="supervisor">主管委派</option>
         </select>
+        {mode === 'supervisor' && (
+          <select
+            value={selected.includes(supervisorId) ? supervisorId : (selected[0] ?? '')}
+            onChange={(e) => setSupervisorId(e.target.value)}
+            className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
+            title="主管负责拆解任务和最终汇总"
+          >
+            {state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => (
+              <option key={agent.id} value={agent.id}>主管：{agent.name}</option>
+            ))}
+          </select>
+        )}
         {/* 工作区芯片（§11.1 M1）：点击弹出卡片管理面板（内部/外部/新建/注册） */}
         <button
           onClick={() => setPanelOpen(true)}

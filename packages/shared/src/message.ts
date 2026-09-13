@@ -5,6 +5,15 @@
 
 export type MessageKind = 'user' | 'agent' | 'system' | 'tool';
 
+export type AgentMessageType =
+  | 'assignment'
+  | 'result'
+  | 'review_request'
+  | 'review_result'
+  | 'revision_request'
+  | 'handoff'
+  | 'informational';
+
 export interface Message {
   id: string;
   runId: string;
@@ -14,5 +23,9 @@ export interface Message {
   body: string;
   /** 附加信息：工具名、span 引用等 */
   meta?: Record<string, unknown> | null;
+  taskId: string | null;
+  replyTo: string | null;
+  messageType: AgentMessageType;
+  payload: Record<string, unknown> | null;
   createdAt: string; // ISO
 }

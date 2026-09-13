@@ -65,7 +65,12 @@ function rosterIds(body) {
 }
 
 function isDecompose(body) {
-  return allText(body).includes('严格只输出 JSON');
+  const text = allText(body);
+  return text.includes('严格只输出 JSON') && !text.includes('__AGENT_GAND_REVIEW_JSON__');
+}
+
+function isReview(body) {
+  return allText(body).includes('__AGENT_GAND_REVIEW_JSON__');
 }
 
 /** 已有工具结果回传（【工具结果】标记）→ 本轮不再返回 tool_calls（模拟"用完工具就收尾"） */
@@ -183,6 +188,9 @@ function contentFor(body, isOpenAI) {
   const model = String(body.model ?? '');
   const decompose = isDecompose(body);
   const bad = decompose && isBadJsonGoal(body);
+  if (isReview(body)) {
+    return JSON.stringify({ verdict: 'PASS', summary: 'stub 审查通过', issues: [] });
+  }
   if (decompose) {
     return bad
       ? '这不是合法的JSON{{{'

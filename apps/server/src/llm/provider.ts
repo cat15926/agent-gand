@@ -188,12 +188,28 @@ const ROLE_LINES: Array<{ keyword: string; label: string; lines: string[] }> = [
   },
 ];
 
-function buildContent(model: string, goalExcerpt: string): string {
+function buildContent(model: string, goal: string): string {
+  if (goal.includes('__AGENT_GAND_REVIEW_JSON__')) {
+    if (goal.includes('__MOCK_REVIEW_FAIL_ONCE__') && goal.includes('当前实现轮次：1')) {
+      return JSON.stringify({
+        verdict: 'FAIL',
+        summary: 'mock 首轮发现阻塞问题',
+        issues: [{
+          severity: 'blocking',
+          file: 'mock-demo.txt',
+          line: 1,
+          problem: '需要完成一次返工验证',
+          suggestion: '根据审查意见重新执行任务',
+        }],
+      });
+    }
+    return JSON.stringify({ verdict: 'PASS', summary: 'mock 审查通过', issues: [] });
+  }
   const role = model.split(':')[1] ?? model;
   const matched = ROLE_LINES.find((r) => role.includes(r.keyword));
   const label = matched?.label ?? '【处理】';
   const lines = matched?.lines ?? ['1. 已理解目标', '2. 已给出处理结果', '3. 交付完成'];
-  return [`${label}（mock:${role}）已处理目标「${goalExcerpt}」`, ...lines].join('\n');
+  return [`${label}（mock:${role}）已处理目标「${goal.slice(0, 40)}」`, ...lines].join('\n');
 }
 
 export class MockProvider implements LLMProvider {
@@ -201,7 +217,7 @@ export class MockProvider implements LLMProvider {
     await delay(200); // 模拟网络延迟
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
     const goal = lastUser?.content ?? '';
-    const content = buildContent(req.model, goal.slice(0, 40));
+    const content = buildContent(req.model, goal);
     // 假 token：按字符数折算（确定性）
     const tokensIn = Math.ceil(req.messages.reduce((n, m) => n + m.content.length, 0) / 4);
     const tokensOut = Math.ceil(content.length / 4);

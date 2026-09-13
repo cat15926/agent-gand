@@ -77,6 +77,10 @@ export const config = {
   },
   /** 审批等待超时毫秒（规格 §8.2；默认 300s，0 = 不超时；超时置 expired 按拒绝处理） */
   approvalTimeoutMs: firstInt(process.env.APPROVAL_TIMEOUT_MS, 300_000),
+  /** Supervisor 调度并发、任务返工上限与执行租约。 */
+  orchestratorConcurrency: Math.max(1, firstInt(process.env.ORCHESTRATOR_CONCURRENCY, 2)),
+  taskMaxAttempts: Math.max(1, firstInt(process.env.TASK_MAX_ATTEMPTS, 3)),
+  taskLeaseMs: Math.max(10_000, firstInt(process.env.TASK_LEASE_MS, 300_000)),
 } as const;
 
 export type AppConfig = typeof config;

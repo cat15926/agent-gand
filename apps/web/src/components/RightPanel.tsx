@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { ApprovalCard } from './ApprovalCard';
+import * as api from '../services/api';
 
 const SPAN_COLOR: Record<string, string> = {
   llm: 'text-sky-300',
@@ -24,7 +25,18 @@ const DECIDED_LABEL: Record<string, string> = {
 
 export function RightPanel() {
   const { state } = useStore();
-  const [tab, setTab] = useState<'approvals' | 'trace' | 'usage'>('approvals');
+  const [tab, setTab] = useState<'tasks' | 'approvals' | 'trace' | 'usage'>('tasks');
+  const [actingTask, setActingTask] = useState<string | null>(null);
+
+  async function taskAction(taskId: string, action: 'retry' | 'cancel') {
+    setActingTask(taskId);
+    try {
+      if (action === 'retry') await api.retryTask(taskId);
+      else await api.cancelTask(taskId);
+    } finally {
+      setActingTask(null);
+    }
+  }
   // pending 按 createdAt 置顶（最早最紧急在前）；已决策的最近 5 条折叠展示在下方（§8.2）
   const pending = state.approvals
     .filter((a) => a.status === 'pending')
@@ -39,6 +51,7 @@ export function RightPanel() {
       <div className="flex shrink-0 border-b border-zinc-800 text-xs">
         {(
           [
+            ['tasks', '任务'],
             ['approvals', `审批${pending.length ? ` (${pending.length})` : ''}`],
             ['trace', 'Trace'],
             ['usage', '用量'],
@@ -57,6 +70,62 @@ export function RightPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {tab === 'tasks' && (
+          <div className="space-y-2">
+            {state.scheduler && (
+              <div className="rounded-md bg-violet-500/10 px-2 py-1.5 text-[11px] text-violet-300">
+                调度中 {state.scheduler.active} · 排队 {state.scheduler.queued}
+              </div>
+            )}
+            {state.tasks.filter((task) => task.runId === state.activeRunId).map((task) => {
+              const attempts = state.attempts.filter((attempt) => attempt.taskId === task.id);
+              const review = state.reviews.filter((item) => item.taskId === task.id).at(-1);
+              return (
+                <details key={task.id} open={task.status === 'in_progress' || task.status === 'awaiting_review' || task.status === 'needs_revision'} className="rounded-lg bg-zinc-800/60 p-2.5 text-xs">
+                  <summary className="cursor-pointer list-none">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-zinc-200">{task.title}</span>
+                      <span className={task.status === 'completed' ? 'text-emerald-400' : task.status === 'failed' ? 'text-red-400' : task.status === 'needs_revision' ? 'text-amber-300' : 'text-sky-300'}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-zinc-500">
+                      {task.assignee ?? '未指派'} · 第 {task.attempt}/{task.maxAttempts} 次
+                      {task.reviewerId && ` · Reviewer ${task.reviewerId}`}
+                    </div>
+                  </summary>
+                  <div className="mt-2 space-y-1 border-t border-zinc-700/70 pt-2 text-[11px] text-zinc-400">
+                    {attempts.map((attempt) => (
+                      <div key={attempt.id}>
+                        {attempt.status === 'completed' ? '✓' : attempt.status === 'failed' ? '✗' : '◌'}{' '}
+                        {attempt.kind === 'review' ? '审查' : '实现'} #{attempt.attemptNo} · {attempt.agentId}
+                      </div>
+                    ))}
+                    {review && (
+                      <div className={review.verdict === 'PASS' ? 'text-emerald-400' : 'text-red-400'}>
+                        {review.verdict}：{review.summary}
+                      </div>
+                    )}
+                    {task.lastError && <div className="text-red-300">{task.lastError}</div>}
+                    <div className="flex gap-2 pt-1">
+                      {task.status === 'failed' && (
+                        <button disabled={actingTask === task.id} onClick={() => void taskAction(task.id, 'retry')} className="rounded bg-violet-500/20 px-2 py-1 text-violet-200 disabled:opacity-40">
+                          人工重试
+                        </button>
+                      )}
+                      {(task.status === 'pending' || task.status === 'needs_revision') && (
+                        <button disabled={actingTask === task.id} onClick={() => void taskAction(task.id, 'cancel')} className="rounded bg-red-500/10 px-2 py-1 text-red-300 disabled:opacity-40">
+                          取消任务
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              );
+            })}
+            {state.tasks.every((task) => task.runId !== state.activeRunId) && <p className="text-xs text-zinc-600">暂无调度任务</p>}
+          </div>
+        )}
         {tab === 'approvals' && (
           <div className="space-y-3">
             {pending.length === 0 && <p className="text-xs text-zinc-600">暂无待审批项</p>}

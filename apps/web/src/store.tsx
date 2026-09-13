@@ -19,6 +19,8 @@ import type {
   RunEvent,
   ServerEvent,
   Task,
+  TaskAttempt,
+  TaskReview,
   UsageSummary,
 } from '@agent-gand/shared';
 import * as api from './services/api';
@@ -33,17 +35,20 @@ export interface State {
   messages: Message[];
   events: RunEvent[];
   tasks: Task[];
+  attempts: TaskAttempt[];
+  reviews: TaskReview[];
   approvals: ApprovalRequest[];
   usage: UsageSummary[];
   /** 活动 llm span 的流式增量累积（spanId → 已到文本；span 结束即折叠清除，§8.1） */
   streams: Record<string, string>;
+  scheduler: { runId: string; active: number; queued: number } | null;
 }
 
 type Action =
   | { type: 'ws'; connected: boolean }
   | { type: 'hydrate'; runs: Run[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
   | { type: 'agents'; agents: AgentDefinition[] }
-  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[] }
+  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
   | { type: 'setActiveRun'; runId: string | null }
   | { type: 'serverEvent'; event: ServerEvent };
 
@@ -55,9 +60,12 @@ const initialState: State = {
   messages: [],
   events: [],
   tasks: [],
+  attempts: [],
+  reviews: [],
   approvals: [],
   usage: [],
   streams: {},
+  scheduler: null,
 };
 
 function upsertBy<T extends { id: string }>(list: T[], item: T): T[] {
@@ -85,10 +93,11 @@ function reducer(state: State, action: Action): State {
     case 'agents':
       return { ...state, agents: action.agents };
     case 'setActiveRun':
-      return { ...state, activeRunId: action.runId, messages: [], events: [], streams: {} };
+      return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
     case 'runDetail':
       // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
-      return { ...state, messages: action.messages, events: action.events, streams: {} };
+      if (action.runId !== state.activeRunId) return state;
+      return { ...state, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {} };
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
@@ -111,10 +120,20 @@ function reducer(state: State, action: Action): State {
             e.event.endedAt !== null && state.streams[e.event.id] !== undefined
               ? Object.fromEntries(Object.entries(state.streams).filter(([id]) => id !== e.event.id))
               : state.streams;
-          return { ...state, events: [...state.events, e.event], streams };
+          return { ...state, events: upsertBy(state.events, e.event), streams };
         }
         case 'task.updated':
           return { ...state, tasks: upsertBy(state.tasks, e.task) };
+        case 'task.attempt.updated':
+          return e.attempt.runId === state.activeRunId
+            ? { ...state, attempts: upsertBy(state.attempts, e.attempt) }
+            : state;
+        case 'review.updated':
+          return state.tasks.some((task) => task.id === e.review.taskId && task.runId === state.activeRunId)
+            ? { ...state, reviews: upsertBy(state.reviews, e.review) }
+            : state;
+        case 'scheduler.updated':
+          return e.runId === state.activeRunId ? { ...state, scheduler: e } : state;
         case 'run.updated':
           return { ...state, runs: upsertBy(state.runs, e.run) };
         case 'approval.updated':
@@ -136,7 +155,14 @@ function reducer(state: State, action: Action): State {
 
 async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Promise<void> {
   const detail = await api.getRun(runId);
-  dispatch({ type: 'runDetail', runId, messages: detail.messages, events: detail.events });
+  dispatch({
+    type: 'runDetail',
+    runId,
+    messages: detail.messages,
+    events: detail.events,
+    attempts: detail.attempts,
+    reviews: detail.reviews,
+  });
 }
 
 const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void }>({
@@ -165,7 +191,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 有活动 run：回补其消息/事件明细
       await loadRunDetail(current, dispatch);
     } else {
-      const latest = runs.at(-1);
+      const latest = runs[0];
       if (latest) {
         dispatch({ type: 'setActiveRun', runId: latest.id });
         await loadRunDetail(latest.id, dispatch);

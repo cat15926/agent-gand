@@ -9,6 +9,8 @@ import type {
   Run,
   RunEvent,
   Task,
+  TaskAttempt,
+  TaskReview,
   UsageSummary,
 } from '@agent-gand/shared';
 
@@ -29,6 +31,8 @@ export interface RunDetail {
   tasks: Task[];
   messages: Message[];
   approvals: ApprovalRequest[];
+  attempts: TaskAttempt[];
+  reviews: TaskReview[];
 }
 
 export const getAgents = () => request<AgentDefinition[]>('/api/agents');
@@ -50,8 +54,22 @@ export const softDeleteRun = (id: string) =>
 export const getRun = (id: string) => request<RunDetail>(`/api/runs/${id}`);
 export const getTasks = (runId?: string) =>
   request<Task[]>(runId ? `/api/tasks?runId=${encodeURIComponent(runId)}` : '/api/tasks');
-export const getMessages = (runId: string) =>
-  request<Message[]>(`/api/messages?runId=${encodeURIComponent(runId)}`);
+export const getTask = (taskId: string) => request<Task>(`/api/tasks/${encodeURIComponent(taskId)}`);
+export const getTaskAttempts = (taskId: string) =>
+  request<TaskAttempt[]>(`/api/tasks/${encodeURIComponent(taskId)}/attempts`);
+export const getTaskReviews = (taskId: string) =>
+  request<TaskReview[]>(`/api/tasks/${encodeURIComponent(taskId)}/reviews`);
+export const retryTask = (taskId: string) =>
+  request<Task>(`/api/tasks/${encodeURIComponent(taskId)}/retry`, { method: 'POST' });
+export const cancelTask = (taskId: string) =>
+  request<Task>(`/api/tasks/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' });
+export const getMessages = (runId: string, filters?: { agentId?: string; taskId?: string; messageType?: string }) => {
+  const sp = new URLSearchParams({ runId });
+  if (filters?.agentId) sp.set('agentId', filters.agentId);
+  if (filters?.taskId) sp.set('taskId', filters.taskId);
+  if (filters?.messageType) sp.set('messageType', filters.messageType);
+  return request<Message[]>(`/api/messages?${sp.toString()}`);
+};
 export const getApprovals = (status = 'pending') =>
   request<ApprovalRequest[]>(`/api/approvals?status=${status}`);
 export const getUsage = () => request<UsageSummary[]>('/api/usage');
@@ -133,6 +151,7 @@ export function startRun(input: {
   goal: string;
   mode: 'pipeline' | 'supervisor';
   agentIds: string[];
+  supervisorId?: string;
   /** 命名工作区（§10.2）：缺省 = 每次 run 专属目录 */
   workspace?: string;
 }): Promise<{ run: Run }> {

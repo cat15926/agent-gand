@@ -14,7 +14,7 @@ const STATUS_META: Record<AgentStatus, { label: string; cls: string }> = {
 
 function agentStatus(agentId: string, ctx: ReturnType<typeof useStore>['state']): AgentStatus {
   if (ctx.approvals.some((a) => a.status === 'pending' && a.agentId === agentId)) return 'needs_input';
-  if (ctx.tasks.some((t) => t.status === 'in_progress' && t.assignee === agentId)) return 'working';
+  if (ctx.tasks.some((t) => (t.status === 'in_progress' || t.status === 'awaiting_review') && (t.assignee === agentId || t.reviewerId === agentId))) return 'working';
   return 'idle';
 }
 
@@ -23,7 +23,7 @@ export function FleetView() {
 
   const rows = state.agents.map((agent) => {
     const status = agentStatus(agent.id, state);
-    const activeTask = state.tasks.find((t) => t.assignee === agent.id && t.status === 'in_progress');
+    const activeTask = state.tasks.find((t) => (t.assignee === agent.id && t.status === 'in_progress') || (t.reviewerId === agent.id && t.status === 'awaiting_review'));
     const done = state.tasks.filter((t) => t.assignee === agent.id && t.status === 'completed').length;
     return { agent, status, summary: activeTask?.title ?? (done > 0 ? `已完成 ${done} 项任务` : '暂无任务'), done };
   });

@@ -2,13 +2,15 @@
  * REST API（规格 §4.3 全部端点）
  */
 import type { FastifyInstance } from 'fastify';
-import type { AgentDefinition, MessageKind, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, AgentMessageType, MessageKind, RunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
-import { post as postMessage, listByRun } from '../messaging/inbox.ts';
-import { claimTask, completeTask, createTask, listTasks, TaskError } from '../messaging/tasks.ts';
+import { post as postMessage, listMessages } from '../messaging/inbox.ts';
+import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, retryTask, TaskError } from '../messaging/tasks.ts';
+import { listAttempts } from '../tasks/attempts.ts';
+import { listReviews } from '../tasks/reviews.ts';
 import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
-import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
+import { resumeSupervisorRun, supervisorOrchestrator } from '../orchestration/supervisor.ts';
 import type { Orchestrator } from '../orchestration/types.ts';
 import {
   countRuns,
@@ -42,6 +44,7 @@ import {
 } from '../workspaces/manager.ts';
 
 const MESSAGE_KINDS: readonly MessageKind[] = ['user', 'agent', 'system', 'tool'];
+const MESSAGE_TYPES: readonly AgentMessageType[] = ['assignment', 'result', 'review_request', 'review_result', 'revision_request', 'handoff', 'informational'];
 const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor'];
 /** 命名工作区名（§10.2）：与 resolver 侧同规 */
 const WORKSPACE_RE = /^[\w-]{1,32}$/;
@@ -113,6 +116,20 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  app.get<{ Params: { id: string } }>('/api/tasks/:id', async (req) => {
+    const task = getTask(req.params.id);
+    if (!task) throw httpError(404, `task 不存在: ${req.params.id}`);
+    return task;
+  });
+  app.get<{ Params: { id: string } }>('/api/tasks/:id/attempts', async (req) => listAttempts(req.params.id));
+  app.get<{ Params: { id: string } }>('/api/tasks/:id/reviews', async (req) => listReviews(req.params.id));
+  app.post<{ Params: { id: string } }>('/api/tasks/:id/retry', async (req) => {
+    const task = retryTask(req.params.id);
+    if (task.runId) void resumeSupervisorRun(task.runId);
+    return task;
+  });
+  app.post<{ Params: { id: string } }>('/api/tasks/:id/cancel', async (req) => cancelTask(req.params.id));
+
   app.post<{ Params: { id: string }; Body: { agentId?: string } }>(
     '/api/tasks/:id/complete',
     async (req) => {
@@ -124,9 +141,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 消息 ----
 
-  app.get<{ Querystring: { runId?: string } }>('/api/messages', async (req) => {
+  app.get<{ Querystring: { runId?: string; agentId?: string; taskId?: string; messageType?: string } }>('/api/messages', async (req) => {
     if (!req.query.runId) throw httpError(400, 'runId 必填');
-    return listByRun(req.query.runId);
+    if (req.query.messageType && !MESSAGE_TYPES.includes(req.query.messageType as AgentMessageType)) {
+      throw httpError(400, `messageType 必须是 ${MESSAGE_TYPES.join('|')}`);
+    }
+    return listMessages({
+      runId: req.query.runId,
+      ...(req.query.agentId ? { agentId: req.query.agentId } : {}),
+      ...(req.query.taskId ? { taskId: req.query.taskId } : {}),
+      ...(req.query.messageType ? { messageType: req.query.messageType as AgentMessageType } : {}),
+    });
   });
 
   app.post<{ Body: { runId?: string; from?: string; to?: string; kind?: string; body?: string } }>(
@@ -146,10 +171,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 运行（异步执行，立即返回）----
 
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; workspace?: string } }>(
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; workspace?: string } }>(
     '/api/runs',
     async (req, reply) => {
-      const { goal, mode, agentIds, workspace } = req.body ?? {};
+      const { goal, mode, agentIds, supervisorId, workspace } = req.body ?? {};
       if (typeof goal !== 'string' || goal.length === 0) throw httpError(400, 'goal 必填');
       if (mode !== 'pipeline' && mode !== 'supervisor') {
         throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
@@ -175,10 +200,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         else missing.push(id);
       }
       if (missing.length > 0) throw httpError(400, `未知 agent: ${missing.join(', ')}`);
-      const run = createRun(goal, mode, agentIds, workspace || null);
+      const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? agentIds[0] ?? null) : null;
+      if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) {
+        throw httpError(400, 'supervisorId 必须属于 agentIds');
+      }
+      const orderedAgents = mode === 'supervisor' && effectiveSupervisorId
+        ? [agents.find((agent) => agent.id === effectiveSupervisorId)!, ...agents.filter((agent) => agent.id !== effectiveSupervisorId)]
+        : agents;
+      const run = createRun(goal, mode, agentIds, workspace || null, effectiveSupervisorId);
     const orchestrator: Orchestrator = mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
     // 异步执行：进度经 WS / GET 获取；失败由编排器置 failed
-    void orchestrator.start(run, agents, goal).catch((err: unknown) => {
+    void orchestrator.start(run, orderedAgents, goal).catch((err: unknown) => {
       req.log.error(`run ${run.id} 执行异常: ${err instanceof Error ? err.message : String(err)}`);
     });
     reply.code(201);

@@ -13,11 +13,13 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 打开 http://localhost:5173 ：
 
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
-2. 在"运行"视图输入目标 → 选模式（顺序流水线 / 主管委派）→ 勾选 agent → 启动；
+2. 在"运行"视图输入目标 → 选模式（顺序流水线 / 主管委派）→ 勾选 agent；主管模式可显式选择主管 → 启动；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
 4. "舰队"视图看各 agent 状态（待输入置顶），"观测"视图看运行历史与事件时间线。
 
-其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm db:reset`（清空 SQLite 重 seed）。
+其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm db:reset`（清空 SQLite 重 seed）。
+
+主管委派模式会把任务、每轮执行和结构化审查结果落库。Reviewer 返回 FAIL 时，调度器会把 issues 发送给原执行者并自动返工，默认最多执行 3 次；无依赖任务最多并行 2 个。可通过 `TASK_MAX_ATTEMPTS`、`ORCHESTRATOR_CONCURRENCY` 和 `TASK_LEASE_MS` 调整。
 
 ### 接入真实 LLM（可选）
 
