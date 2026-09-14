@@ -12,6 +12,8 @@ import type {
   TaskAttempt,
   TaskReview,
   UsageSummary,
+  Conversation,
+  SendConversationMessageInput,
 } from '@agent-gand/shared';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -21,8 +23,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // （v0.8 删除按钮"不可用"的根因；同修外部工作区解除注册等同型调用）
     headers: init?.body != null ? { 'content-type': 'application/json' } : undefined,
   });
-  if (!res.ok) throw new Error(`${init?.method ?? 'GET'} ${path} → ${res.status}`);
-  return (await res.json()) as T;
+  const text = await res.text();
+  if (!res.ok) {
+    let detail = '';
+    try { detail = String((JSON.parse(text) as { error?: unknown }).error ?? ''); } catch { detail = text.slice(0, 200); }
+    throw new Error(detail || `${init?.method ?? 'GET'} ${path} → ${res.status}`);
+  }
+  return JSON.parse(text) as T;
 }
 
 export interface RunDetail {
@@ -34,6 +41,26 @@ export interface RunDetail {
   attempts: TaskAttempt[];
   reviews: TaskReview[];
 }
+
+export interface ConversationDetail {
+  conversation: Conversation;
+  runs: Run[];
+  messages: Message[];
+}
+
+export const getConversations = () => request<Conversation[]>('/api/conversations');
+export function createConversation(input: { goal: string; mode: 'pipeline' | 'supervisor'; agentIds: string[]; supervisorId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
+  return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
+}
+export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
+export const renameConversation = (id: string, title: string) =>
+  request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+export const archiveConversation = (id: string) =>
+  request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const sendConversationMessage = (id: string, input: SendConversationMessageInput) =>
+  request<{ run: Run; message: Message }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
+    method: 'POST', body: JSON.stringify(input),
+  });
 
 export const getAgents = () => request<AgentDefinition[]>('/api/agents');
 /** §13.3 列表过滤（默认排除软删） */
@@ -154,7 +181,7 @@ export function startRun(input: {
   supervisorId?: string;
   /** 命名工作区（§10.2）：缺省 = 每次 run 专属目录 */
   workspace?: string;
-}): Promise<{ run: Run }> {
+}): Promise<{ run: Run; conversation: Conversation }> {
   return request('/api/runs', { method: 'POST', body: JSON.stringify(input) });
 }
 

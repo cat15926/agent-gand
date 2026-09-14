@@ -17,11 +17,12 @@ function buildUserTurn(goal: string, transcript: Array<{ from: string; content: 
 }
 
 export const pipelineOrchestrator: Orchestrator = {
-  async start(run: Run, agents: AgentDefinition[], goal: string): Promise<void> {
+  async start(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage): Promise<void> {
     try {
       setRunStatus(run.id, 'running');
       // 用户目标先入消息流（聊天界面可见用户输入，与 agent 消息同流展示）
-      await post({ runId: run.id, from: 'user', to: 'all', kind: 'user', body: goal });
+      await post({ runId: run.id, from: 'user', to: userMessage?.recipientIds?.join(',') || 'all', kind: 'user', body: displayGoal,
+        replyTo: userMessage?.replyTo, taskId: userMessage?.taskId, clientMessageId: userMessage?.clientMessageId, deliveryStatus: 'processing' });
       const transcript: Array<{ from: string; content: string }> = [];
       for (const agent of agents) {
         const agentSpan = startSpan(run.id, {

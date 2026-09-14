@@ -1,0 +1,64 @@
+import type { AgentDefinition } from '@agent-gand/shared';
+import * as registry from '../agents/registry.ts';
+import { conversationHistory, getConversation, listConversations, touchConversation } from './service.ts';
+import { updateRunUserMessageStatus } from '../messaging/inbox.ts';
+import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
+import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
+import { getRun, listPendingRunsByConversation } from '../runs/trace.ts';
+
+const active = new Set<string>();
+const inputs = new Map<string, { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }>();
+
+export function enqueueConversationRun(runId: string, input?: { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }): void {
+  if (input) inputs.set(runId, input);
+  const item = getRun(runId);
+  if (!item) return;
+  void drain(item.conversationId);
+}
+
+async function drain(conversationId: string): Promise<void> {
+  if (active.has(conversationId)) return;
+  active.add(conversationId);
+  try {
+    for (;;) {
+      const current = listPendingRunsByConversation(conversationId)[0];
+      if (!current) break;
+      const conversation = getConversation(conversationId);
+      if (!conversation) break;
+      const members = conversation.agentIds
+        .map((id) => registry.getAgent(id))
+        .filter((agent): agent is AgentDefinition => agent !== undefined);
+      // @ 只记录公开接收者，不改变房间成员或既定 Reviewer；编排层仍拿到完整团队。
+      let agents = members;
+      if (conversation.mode === 'supervisor') {
+        const supervisor = members.find((agent) => agent.id === conversation.supervisorId) ?? members[0];
+        if (supervisor) agents = [supervisor, ...agents.filter((agent) => agent.id !== supervisor.id)];
+      }
+      const history = conversationHistory(conversationId, current.turnNo);
+      const messageInput = inputs.get(current.id);
+      const recipientHint = messageInput?.recipientIds?.length
+        ? `本轮用户公开定向给：${messageInput.recipientIds.join('、')}。保持完整团队与既定审查关系，由被提及成员优先回应。\n\n`
+        : '';
+      const contextGoal = history
+        ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${recipientHint}本轮用户消息：\n${current.goal}`
+        : `${recipientHint}${current.goal}`;
+      const orchestrator = conversation.mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
+      try {
+        await orchestrator.start(current, agents, contextGoal, current.goal, messageInput);
+        updateRunUserMessageStatus(current.id, 'responded');
+      } catch {
+        try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* 用户消息可能在启动前失败 */ }
+      } finally {
+        inputs.delete(current.id);
+        touchConversation(conversationId);
+      }
+    }
+  } finally {
+    active.delete(conversationId);
+    if (listPendingRunsByConversation(conversationId).length > 0) void drain(conversationId);
+  }
+}
+
+export function recoverPendingConversationRuns(): void {
+  for (const conversation of listConversations()) void drain(conversation.id);
+}

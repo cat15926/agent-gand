@@ -1,7 +1,7 @@
 import type { AgentDefinition, Run, Task } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { emit } from '../messaging/bus.ts';
-import { postSystem, sendAgentMessage } from '../messaging/inbox.ts';
+import { listForTask, postSystem, sendAgentMessage } from '../messaging/inbox.ts';
 import {
   claimRevision,
   claimTask,
@@ -88,6 +88,7 @@ async function executeTask(
       ? `任务指派：${claimed.title}`
       : `返工指派：${claimed.title}（第 ${claimed.attempt}/${claimed.maxAttempts} 次）`,
     payload: { attemptId: attempt.id, attemptNo: claimed.attempt },
+    replyTo: claimed.attempt > 1 ? listForTask(claimed.id).filter((message) => message.messageType === 'revision_request').at(-1)?.id : null,
   });
 
   let output: string;
@@ -101,6 +102,10 @@ async function executeTask(
         { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE },
         { role: 'user', content: context },
       ],
+      agentId: agent.id,
+      taskId: claimed.id,
+      attemptId: attempt.id,
+      displayKind: 'message',
     });
     output = turn.content.trim();
     if (turn.emptyResponse || output === '') throw new Error('Agent 未返回可用结果');
@@ -122,7 +127,7 @@ async function executeTask(
     return;
   }
 
-  await sendAgentMessage({
+  const submissionMessage = await sendAgentMessage({
     runId: run.id,
     taskId: claimed.id,
     from: agent.id,
@@ -178,6 +183,7 @@ async function executeTask(
       messageType: parsed.verdict === 'PASS' ? 'review_result' : 'revision_request',
       body: `${parsed.verdict}：${parsed.summary}`,
       payload: reviewPayload(review),
+      replyTo: submissionMessage.id,
     });
     if (parsed.verdict === 'PASS') {
       transitionTask(awaiting.id, { from: 'awaiting_review', to: 'completed', result: output });

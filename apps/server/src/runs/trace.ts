@@ -27,6 +27,8 @@ import { listReviews } from '../tasks/reviews.ts';
 
 interface RunRow {
   id: string;
+  conversation_id: string;
+  turn_no: number;
   goal: string;
   mode: string;
   status: string;
@@ -58,6 +60,8 @@ interface RunEventRow {
 function rowToRun(row: RunRow): Run {
   return {
     id: row.id,
+    conversationId: row.conversation_id,
+    turnNo: row.turn_no,
     goal: row.goal,
     mode: row.mode as RunMode,
     status: row.status as RunStatus,
@@ -96,9 +100,13 @@ export function createRun(
   agentIds: string[],
   workspace: string | null = null,
   supervisorId: string | null = null,
+  conversationId = '',
+  turnNo = 1,
 ): Run {
   const record: Run = {
     id: randomUUID(),
+    conversationId,
+    turnNo,
     goal,
     mode,
     status: 'pending',
@@ -111,9 +119,11 @@ export function createRun(
     finishedAt: null,
   };
   run(
-    `INSERT INTO runs (id, goal, mode, status, agent_ids, supervisor_id, workspace, title, created_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    `INSERT INTO runs (id, conversation_id, turn_no, goal, mode, status, agent_ids, supervisor_id, workspace, title, created_at, finished_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     record.id,
+    record.conversationId,
+    record.turnNo,
     record.goal,
     record.mode,
     record.status,
@@ -125,6 +135,14 @@ export function createRun(
   );
   emit({ type: 'run.updated', run: record });
   return record;
+}
+
+export function listRunsByConversation(conversationId: string): Run[] {
+  return all<RunRow>('SELECT * FROM runs WHERE conversation_id = ? ORDER BY turn_no ASC', conversationId).map(rowToRun);
+}
+
+export function listPendingRunsByConversation(conversationId: string): Run[] {
+  return all<RunRow>("SELECT * FROM runs WHERE conversation_id = ? AND status = 'pending' ORDER BY turn_no ASC", conversationId).map(rowToRun);
 }
 
 export function getRun(id: string): Run | undefined {

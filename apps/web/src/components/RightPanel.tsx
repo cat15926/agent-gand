@@ -39,10 +39,10 @@ export function RightPanel() {
   }
   // pending 按 createdAt 置顶（最早最紧急在前）；已决策的最近 5 条折叠展示在下方（§8.2）
   const pending = state.approvals
-    .filter((a) => a.status === 'pending')
+    .filter((a) => a.status === 'pending' && a.runId === state.activeRunId)
     .sort((x, y) => x.createdAt.localeCompare(y.createdAt));
   const decidedRecent = state.approvals
-    .filter((a) => a.status !== 'pending')
+    .filter((a) => a.status !== 'pending' && a.runId === state.activeRunId)
     .sort((x, y) => (y.decidedAt ?? y.createdAt).localeCompare(x.decidedAt ?? x.createdAt))
     .slice(0, 5);
 

@@ -50,14 +50,25 @@ ensureColumns('tasks', [
   { name: 'last_error', sql: 'last_error TEXT' },
 ]);
 ensureColumns('messages', [
+  { name: 'conversation_id', sql: 'conversation_id TEXT' },
+  { name: 'seq', sql: 'seq INTEGER' },
   { name: 'task_id', sql: 'task_id TEXT' },
   { name: 'reply_to', sql: 'reply_to TEXT' },
   { name: 'message_type', sql: "message_type TEXT NOT NULL DEFAULT 'informational'" },
   { name: 'payload', sql: 'payload TEXT' },
+  { name: 'delivery_status', sql: 'delivery_status TEXT' },
+  { name: 'client_message_id', sql: 'client_message_id TEXT' },
 ]);
-ensureColumns('runs', [{ name: 'supervisor_id', sql: 'supervisor_id TEXT' }]);
+ensureColumns('runs', [
+  { name: 'supervisor_id', sql: 'supervisor_id TEXT' },
+  { name: 'conversation_id', sql: 'conversation_id TEXT' },
+  { name: 'turn_no', sql: 'turn_no INTEGER NOT NULL DEFAULT 1' },
+]);
 db.exec('CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(run_id, to_agent, created_at)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_messages_task ON messages(task_id, created_at)');
+db.exec('CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_id, turn_no)');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_seq ON messages(conversation_id, seq)');
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client ON messages(conversation_id, client_message_id) WHERE client_message_id IS NOT NULL");
 
 export function all<T>(sql: string, ...params: unknown[]): T[] {
   return db.prepare(sql).all(...params) as T[];

@@ -5,5 +5,5 @@ import type { AgentDefinition, Run } from '@agent-gand/shared';
 
 export interface Orchestrator {
   /** 异步执行：调用方（routes）立即返回，进度走 WS / GET */
-  start(run: Run, agents: AgentDefinition[], goal: string): Promise<void>;
+  start(run: Run, agents: AgentDefinition[], goal: string, displayGoal?: string, userMessage?: { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }): Promise<void>;
 }

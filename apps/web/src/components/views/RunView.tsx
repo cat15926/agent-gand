@@ -1,287 +1,255 @@
-/**
- * 运行视图（报告模式 2）：消息流时间线 + 启动器 + 工作区占位
- */
-import { useEffect, useState } from 'react';
-import type { Message } from '@agent-gand/shared';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { AgentDefinition, Message } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
 import { WorkspacePanel } from '../WorkspacePanel';
 import { SessionSidebar } from '../SessionSidebar';
 
-function MessageBubble({ msg }: { msg: Message }) {
-  const { state } = useStore();
-  const agent = state.agents.find((a) => a.id === msg.from);
-  const color = agent?.color ?? '#7c8a9c';
+const TYPE_LABEL: Record<string, string> = {
+  assignment: '任务指派', result: '任务结果', review_request: '请求审查', review_result: '审查结论',
+  revision_request: '需要修改', handoff: '工作交接', informational: '讨论',
+};
+const DELIVERY_LABEL: Record<string, string> = {
+  received: '已接收', queued: '已排队', processing: '处理中', responded: '已回应', failed: '处理失败',
+};
 
-  // 系统与工具消息：紧凑卡片，工具详情可折叠（过程降噪，见报告 §5.3-5）
-  if (msg.kind === 'system' || msg.kind === 'tool') {
-    return (
-      <details className="mx-auto w-full max-w-2xl">
-        <summary className="cursor-pointer py-1 text-center text-[11px] text-zinc-600 hover:text-zinc-400">
-          {msg.kind === 'tool' ? `🔧 ${msg.from}` : '⚙ system'} · {msg.body.slice(0, 60)}
-          {msg.body.length > 60 ? '…' : ''}
-        </summary>
-        <pre className="mx-auto max-w-2xl whitespace-pre-wrap rounded-lg bg-zinc-900 p-3 font-mono text-[11px] text-zinc-400">
-          {msg.body}
-        </pre>
-      </details>
-    );
-  }
-
-  const mine = msg.from === 'user';
-  return (
-    <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-2xl rounded-2xl px-4 py-2.5 text-sm ${mine ? 'bg-violet-500/20 text-zinc-100' : 'bg-zinc-800 text-zinc-200'}`}>
-        {!mine && (
-          <div className="mb-0.5 flex items-center gap-1.5 text-[11px]" style={{ color }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-            {agent?.name ?? msg.from}
-          </div>
-        )}
-        <div className="min-w-0">
-          <MarkdownBody text={msg.body} />
-        </div>
-      </div>
-    </div>
-  );
+function belongsToSameVisualGroup(previous: Message | undefined, current: Message | undefined): boolean {
+  if (!previous || !current) return false;
+  if (previous.kind !== 'user' && previous.kind !== 'agent') return false;
+  if (current.kind !== 'user' && current.kind !== 'agent') return false;
+  if (previous.replyTo || current.replyTo) return false;
+  return previous.from === current.from &&
+    previous.runId === current.runId &&
+    previous.messageType === current.messageType &&
+    previous.taskId === current.taskId &&
+    new Date(current.createdAt).getTime() - new Date(previous.createdAt).getTime() <= 90_000;
 }
 
-/** 流式段落（§8.1）：活动 llm span 的渐增文本，span 结束后由 store 折叠（正式消息随后到达） */
-function StreamingBubble({ spanId, text }: { spanId: string; text: string }) {
-  const { state } = useStore();
-  // llm span 的父级是 agent span（name = agent:<id>[（supervisor）]）→ 解析出 agent 名与颜色
-  const span = state.events.find((e) => e.id === spanId);
-  const parent = span?.parentId ? state.events.find((e) => e.id === span.parentId) : undefined;
-  const agentId = parent?.name.startsWith('agent:') ? parent.name.slice('agent:'.length) : null;
-  const agent = agentId ? state.agents.find((a) => agentId === a.id || agentId.startsWith(`${a.id}（`)) : undefined;
-  const color = agent?.color ?? '#7c8a9c';
-
-  return (
-    <div className="flex justify-start">
-      <div className="max-w-2xl rounded-2xl border border-dashed border-zinc-700 bg-zinc-800/60 px-4 py-2.5 text-sm">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[11px]" style={{ color }}>
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: color }} />
-          ⟳ {agent?.name ?? span?.name ?? '生成中'}
-        </div>
-        <div className="min-w-0 text-zinc-400">
-          <MarkdownBody text={text} />
-          <span className="animate-pulse">▍</span>
-        </div>
-      </div>
-    </div>
-  );
+function agentName(id: string, agents: AgentDefinition[]): string {
+  if (id === 'all') return '团队';
+  if (id === 'user') return '你';
+  if (id === 'system') return '系统';
+  return id.split(',').map((part) => agents.find((agent) => agent.id === part)?.name ?? part).join('、');
 }
 
-function Launcher() {
-  const { state, setActiveRun } = useStore();
+function ReviewIssues({ message }: { message: Message }) {
+  const issues = Array.isArray(message.payload?.issues) ? message.payload.issues as Array<Record<string, unknown>> : [];
+  if (issues.length === 0) return null;
+  return <div className="mt-3 space-y-2 border-t border-red-500/20 pt-3">
+    {issues.map((issue, index) => <div key={index} className="rounded-lg bg-zinc-950/50 p-2.5 text-xs">
+      <div className="flex items-center gap-2">
+        <span className={issue.severity === 'blocking' ? 'text-red-300' : 'text-amber-300'}>{issue.severity === 'blocking' ? '阻塞' : '提醒'}</span>
+        {(typeof issue.file === 'string' || typeof issue.line === 'number') && <code className="text-zinc-400">{String(issue.file ?? '')}{issue.line ? `:${String(issue.line)}` : ''}</code>}
+      </div>
+      <p className="mt-1 text-zinc-300">{String(issue.problem ?? '')}</p>
+      <p className="mt-1 text-zinc-500">建议：{String(issue.suggestion ?? '')}</p>
+    </div>)}
+  </div>;
+}
+
+function MessageItem({
+  message,
+  allMessages,
+  onReply,
+  groupStart,
+  groupEnd,
+}: {
+  message: Message;
+  allMessages: Message[];
+  onReply: (message: Message) => void;
+  groupStart: boolean;
+  groupEnd: boolean;
+}) {
+  const { state } = useStore();
+  const author = state.agents.find((agent) => agent.id === message.from);
+  // 气泡方向由真实发送者决定，避免未来扩展 kind 后把非用户消息放到右侧。
+  const mine = message.from === 'user';
+  const referenced = message.replyTo ? allMessages.find((item) => item.id === message.replyTo) : undefined;
+  const isReview = message.messageType === 'review_result' || message.messageType === 'revision_request';
+  const verdict = typeof message.payload?.verdict === 'string' ? message.payload.verdict : null;
+  if (message.kind === 'system' || message.kind === 'tool') return <details className="mx-auto max-w-3xl rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-500">
+    <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'} · {message.body.slice(0, 90)}</summary>
+    <pre className="mt-2 whitespace-pre-wrap text-[11px] text-zinc-400">{message.body}</pre>
+  </details>;
+
+  const meta = <>
+    <span className="font-medium" style={{ color: mine ? '#c4b5fd' : (author?.color ?? '#d4d4d8') }}>{mine ? '你' : (author?.name ?? message.from)}</span>
+    {!mine && <span className="hidden text-zinc-600 sm:inline">Agent</span>}
+    <span className="text-zinc-600">→ {agentName(message.to, state.agents)}</span>
+    {message.messageType !== 'informational' && <span className={`rounded-full px-2 py-0.5 ${isReview ? 'bg-amber-500/15 text-amber-300' : 'bg-zinc-800 text-zinc-400'}`}>{TYPE_LABEL[message.messageType]}</span>}
+    {message.taskId && <span className="hidden rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-300 sm:inline">任务 {message.taskId.slice(0, 6)}</span>}
+  </>;
+
+  const avatar = groupStart
+    ? <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${mine ? 'max-[420px]:hidden' : ''}`}
+        style={{ backgroundColor: mine ? '#7c3aed' : (author?.color ?? '#52525b') }}>{mine ? '你' : (author?.name ?? message.from).slice(0, 1).toUpperCase()}</div>
+    : <div className={`h-9 w-9 shrink-0 ${mine ? 'max-[420px]:hidden' : ''}`} aria-hidden="true" />;
+
+  return <article id={`message-${message.id}`} className={`group flex w-full items-start gap-2.5 px-3 ${groupStart ? 'pt-3' : 'pt-1'} ${groupEnd ? 'pb-3' : 'pb-1'} ${mine ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
+    {avatar}
+    <div className={`min-w-0 ${isReview ? 'w-fit max-w-[92%] sm:max-w-[88%] md:max-w-[82%] xl:max-w-[840px]' : mine ? 'w-fit max-w-[90%] sm:max-w-[84%] md:max-w-[76%] xl:max-w-[680px]' : 'w-fit max-w-[92%] sm:max-w-[86%] md:max-w-[80%] xl:max-w-[720px]'}`}>
+      {groupStart && <div className={`mb-1 flex flex-wrap items-center gap-2 text-xs ${mine ? 'justify-end' : 'justify-start'}`}>{meta}</div>}
+      <div className={`min-w-0 overflow-hidden border px-4 py-2.5 text-left shadow-sm ${
+        mine
+          ? 'rounded-2xl rounded-br-md border-violet-400/20 bg-violet-500/25 text-zinc-100'
+          : isReview
+            ? `${verdict === 'PASS' ? 'border-emerald-500/30' : 'border-red-500/30'} rounded-2xl rounded-bl-md bg-zinc-900 text-zinc-200`
+            : 'rounded-2xl rounded-bl-md border-zinc-700/70 bg-zinc-800/90 text-zinc-200'
+      }`}>
+        {referenced && <button onClick={() => document.getElementById(`message-${referenced.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          className="mb-2 block w-full truncate rounded-lg border-l-2 bg-zinc-950/30 px-3 py-2 text-left text-xs text-zinc-400"
+          style={{ borderColor: state.agents.find((item) => item.id === referenced.from)?.color ?? '#71717a' }}>
+          回复 {agentName(referenced.from, state.agents)}：{referenced.body.slice(0, 100)}
+        </button>}
+        {isReview && verdict && <div className={`mb-1 text-xs font-medium ${verdict === 'PASS' ? 'text-emerald-300' : 'text-red-300'}`}>{verdict === 'PASS' ? '✓ 审查通过' : '✗ 审查未通过'}</div>}
+        <div className="[overflow-wrap:anywhere] text-sm leading-6"><MarkdownBody text={message.body} /></div>
+        <ReviewIssues message={message} />
+      </div>
+      {groupEnd && <div className={`mt-1 flex items-center gap-2 text-[11px] text-zinc-600 ${mine ? 'justify-end' : 'justify-start'}`}>
+        <time>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time>
+        {mine && message.deliveryStatus && <span className={message.deliveryStatus === 'failed' ? 'text-red-300' : ''}>{DELIVERY_LABEL[message.deliveryStatus] ?? message.deliveryStatus}</span>}
+        <button onClick={() => onReply(message)} className="opacity-0 hover:text-violet-300 group-hover:opacity-100 group-focus-within:opacity-100">回复</button>
+      </div>}
+    </div>
+  </article>;
+}
+
+function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
+  const { state } = useStore();
+  const span = state.events.find((event) => event.id === spanId);
+  const parent = span?.parentId ? state.events.find((event) => event.id === span.parentId) : undefined;
+  const rawId = parent?.name.startsWith('agent:') ? parent.name.slice(6).split('（')[0] : '';
+  const agent = state.agents.find((item) => item.id === rawId);
+  return <div className="flex gap-3 rounded-xl px-3 py-3">
+    <div className="flex h-9 w-9 shrink-0 animate-pulse items-center justify-center rounded-full text-sm text-white" style={{ backgroundColor: agent?.color ?? '#52525b' }}>{(agent?.name ?? 'A').slice(0, 1)}</div>
+    <div className="max-w-3xl rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-3">
+      <p className="mb-1 text-xs text-zinc-500">{agent?.name ?? 'Agent'} 正在回复…</p>
+      <div className="text-sm text-zinc-400"><MarkdownBody text={text} /><span className="animate-pulse">▍</span></div>
+    </div>
+  </div>;
+}
+
+function NewRoomComposer() {
+  const { state, setActiveConversation } = useStore();
   const [goal, setGoal] = useState('');
-  const [mode, setMode] = useState<'pipeline' | 'supervisor'>('pipeline');
-  const [selected, setSelected] = useState<string[]>(state.agents.map((a) => a.id));
+  const [mode, setMode] = useState<'pipeline' | 'supervisor'>('supervisor');
+  const [selected, setSelected] = useState<string[]>(state.agents.map((agent) => agent.id));
   const [supervisorId, setSupervisorId] = useState('planner');
-  const [busy, setBusy] = useState(false);
-  // 工作区选择（§11.1 M1）：'' = 每次 run 专属；内部名；'ext:<id>' 外部。芯片按钮 → 卡片管理面板
   const [workspace, setWorkspace] = useState('');
-  const [panelOpen, setPanelOpen] = useState(false);
-
-  // @提及路由：输入中的 @agentId 自动限定接收者（按提及顺序）并剥离前缀，形成"单聊"语义
-  const mentionedIds = [...goal.matchAll(/@([\w-]+)/g)]
-    .map((m) => m[1] ?? '')
-    .filter((id) => id !== '' && state.agents.some((a) => a.id === id));
-  const routedIds = [...new Set(mentionedIds)];
-
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (selected.length === 0 && state.agents.length > 0) {
-      setSelected(state.agents.map((agent) => agent.id));
-      if (!state.agents.some((agent) => agent.id === supervisorId)) {
-        setSupervisorId(state.agents[0]?.id ?? '');
-      }
-    }
+    if (selected.length === 0 && state.agents.length > 0) setSelected(state.agents.map((agent) => agent.id));
+    if (!state.agents.some((agent) => agent.id === supervisorId)) setSupervisorId(state.agents[0]?.id ?? '');
   }, [selected.length, state.agents, supervisorId]);
-
-  function toggle(id: string) {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
-
-  async function launch() {
+  async function create() {
     if (!goal.trim() || selected.length === 0 || busy) return;
-
     setBusy(true);
     try {
-      let effectiveGoal = goal.trim();
-      let effectiveAgents = selected;
-      if (routedIds.length > 0) {
-        effectiveAgents = routedIds;
-        let stripped = goal;
-        for (const id of routedIds) stripped = stripped.replaceAll(`@${id}`, '');
-        stripped = stripped.replace(/\s+/g, ' ').trim();
-        if (stripped !== '') effectiveGoal = stripped; // 剥离后为空（纯提及）则保留原文
-      }
-      const { run } = await api.startRun({
-        goal: effectiveGoal,
-        mode,
-        agentIds: effectiveAgents,
-        ...(mode === 'supervisor' ? { supervisorId: effectiveAgents.includes(supervisorId) ? supervisorId : effectiveAgents[0] } : {}),
-        ...(workspace !== '' ? { workspace } : {}),
-      });
-      setActiveRun(run.id);
-      setGoal('');
-    } finally {
-      setBusy(false);
-    }
+      const created = await api.createConversation({ goal: goal.trim(), mode, agentIds: selected,
+        ...(mode === 'supervisor' ? { supervisorId: selected.includes(supervisorId) ? supervisorId : selected[0] } : {}),
+        ...(workspace ? { workspace } : {}) });
+      setActiveConversation(created.conversation.id);
+    } finally { setBusy(false); }
   }
-
-  return (
-    <div className="shrink-0 border-t border-zinc-800 bg-zinc-900/60 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as 'pipeline' | 'supervisor')}
-          className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
-        >
-          <option value="pipeline">顺序流水线</option>
-          <option value="supervisor">主管委派</option>
-        </select>
-        {mode === 'supervisor' && (
-          <select
-            value={selected.includes(supervisorId) ? supervisorId : (selected[0] ?? '')}
-            onChange={(e) => setSupervisorId(e.target.value)}
-            className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-300 outline-none"
-            title="主管负责拆解任务和最终汇总"
-          >
-            {state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => (
-              <option key={agent.id} value={agent.id}>主管：{agent.name}</option>
-            ))}
-          </select>
-        )}
-        {/* 工作区芯片（§11.1 M1）：点击弹出卡片管理面板（内部/外部/新建/注册） */}
-        <button
-          onClick={() => setPanelOpen(true)}
-          className={`rounded-md px-2 py-1 outline-none ring-1 ${
-            workspace === '' ? 'bg-zinc-800 text-zinc-300 ring-zinc-700' : 'bg-violet-500/15 text-violet-200 ring-violet-500/40'
-          }`}
-          title={workspace === '' ? '每次运行使用独立目录' : `工作区：${workspace}`}
-        >
-          {workspace === '' ? '🗂 每次新建 ▾' : workspace.startsWith('ext:') ? '📁 外部目录 ▾' : `🗂 ${workspace} ▾`}
-        </button>
-        {state.agents.map((a) => (
-          <button
-            key={a.id}
-            onClick={() => toggle(a.id)}
-            className={`rounded-full px-2.5 py-1 ${
-              selected.includes(a.id) ? 'text-zinc-100' : 'text-zinc-500'
-            }`}
-            style={{
-              backgroundColor: selected.includes(a.id) ? `${a.color}26` : 'transparent',
-              boxShadow: selected.includes(a.id) ? `0 0 0 1px ${a.color}66` : 'none',
-            }}
-          >
-            {a.name}
-          </button>
-        ))}
-        {routedIds.length > 0 && (
-          <span className="text-amber-300/90">
-            → @路由：仅发送给{' '}
-            {routedIds.map((id) => state.agents.find((a) => a.id === id)?.name ?? id).join('、')}
-          </span>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <input
-          id="goal-input"
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void launch()}
-          placeholder="输入目标；@coder 前缀=仅发给该 agent"
-          className="flex-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500"
-        />
-        <button
-          disabled={busy || !goal.trim() || selected.length === 0}
-          onClick={() => void launch()}
-          className="rounded-lg bg-violet-500/80 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40"
-        >
-          启动
-        </button>
-      </div>
-
-      <WorkspacePanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        current={workspace}
-        onSelect={setWorkspace}
-        goal={goal}
-      />
+  return <div className="mx-auto flex h-full max-w-3xl flex-col justify-center px-6">
+    <div className="mb-6 text-center"><h2 className="text-xl font-semibold text-zinc-100">创建 Agent 聊天室</h2><p className="mt-2 text-sm text-zinc-500">选择团队与协作方式，之后可在同一房间继续交流。</p></div>
+    <textarea id="goal-input" value={goal} onChange={(event) => setGoal(event.target.value)} rows={5} placeholder="描述希望团队完成的目标…"
+      className="resize-none rounded-2xl bg-zinc-900 p-4 text-sm outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500" />
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+      <select value={mode} onChange={(event) => setMode(event.target.value as 'pipeline' | 'supervisor')} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
+      {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
+      <button onClick={() => setWorkspaceOpen(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-zinc-400">🗂 {workspace || '自动创建房间工作区'} ▾</button>
+      {state.agents.map((agent) => <button key={agent.id} onClick={() => setSelected((items) => items.includes(agent.id) ? items.filter((id) => id !== agent.id) : [...items, agent.id])}
+        className="rounded-full px-3 py-1.5" style={{ color: selected.includes(agent.id) ? agent.color : '#71717a', backgroundColor: selected.includes(agent.id) ? `${agent.color}20` : 'transparent' }}>{agent.name}</button>)}
+      <button disabled={busy || !goal.trim() || selected.length === 0} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">创建并发送</button>
     </div>
-  );
+    <WorkspacePanel open={workspaceOpen} onClose={() => setWorkspaceOpen(false)} current={workspace} onSelect={setWorkspace} goal={goal} />
+  </div>;
+}
+
+function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyClear: () => void }) {
+  const { state, refreshConversation } = useStore();
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const room = state.conversations.find((item) => item.id === state.activeConversationId);
+  const mentioned = [...text.matchAll(/@([\w-]+)/g)].map((match) => match[1] ?? '').filter((id) => room?.agentIds.includes(id));
+  async function send() {
+    if (!room || !text.trim() || busy) return;
+    const body = text.trim();
+    setBusy(true); setError('');
+    try {
+      await api.sendConversationMessage(room.id, { body, recipientIds: [...new Set(mentioned)], replyTo: reply?.id ?? null,
+        taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID() });
+      setText(''); onReplyClear(); await refreshConversation();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
+  }
+  return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/90 p-3">
+    <div className="mx-auto max-w-3xl rounded-2xl bg-zinc-900 ring-1 ring-zinc-700 focus-within:ring-violet-500">
+      {reply && <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500"><span className="min-w-0 flex-1 truncate">回复 {agentName(reply.from, state.agents)}：{reply.body}</span><button onClick={onReplyClear}>×</button></div>}
+      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} placeholder="发送消息；使用 @coder 定向交流，Shift+Enter 换行"
+        onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
+        className="w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-zinc-600" />
+      <div className="flex items-center gap-2 px-4 pb-3 text-xs">
+        {mentioned.length > 0 ? <span className="text-violet-300">发送给 {mentioned.map((id) => agentName(id, state.agents)).join('、')}</span> : <span className="text-zinc-600">发送给团队，由主管协调</span>}
+        {error && <span className="truncate text-red-300">{error}</span>}
+        <button onClick={() => void send()} disabled={!text.trim() || busy} className="ml-auto rounded-lg bg-violet-500 px-4 py-1.5 text-white disabled:opacity-40">{busy ? '发送中…' : '发送'}</button>
+      </div>
+    </div>
+  </div>;
 }
 
 export function RunView() {
-  const { state, setActiveRun } = useStore();
-  const activeRun = state.runs.find((r) => r.id === state.activeRunId);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  /** §13.4 新会话：清空激活 → 聚焦输入框（空态文案由消息流区域呈现） */
-  const newSession = () => {
-    setActiveRun(null);
-    setTimeout(() => document.getElementById('goal-input')?.focus(), 0);
-  };
-
-  return (
-    <div className="flex h-full">
-      <SessionSidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
-        activeRunId={state.activeRunId}
-        onSelect={setActiveRun}
-        onNewSession={newSession}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-      {/* 运行切换 */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs">
-        <span className="text-zinc-500">运行会话</span>
-        {/* 当前 run 的工作区标识（§10.3/§11.3）：外部 📁 / 命名 🗂 / 独立目录 */}
-        {activeRun?.workspace ? (
-          activeRun.workspace.startsWith('ext:') ? (
-            <span
-              className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
-              title="外部工作区（本机目录，写入逐次审批，目录外不可触碰）"
-            >
-              📁 外部目录
-            </span>
-          ) : (
-            <span
-              className="rounded-md bg-sky-500/10 px-2 py-1 text-[11px] text-sky-300 ring-1 ring-sky-500/30"
-              title="命名工作区：同名单次运行共用目录（跨 run 文件延续）"
-            >
-              🗂 {activeRun.workspace}
-            </span>
-          )
-        ) : (
-          <span className="rounded-md bg-zinc-800 px-2 py-1 text-[11px] text-zinc-500" title="本次运行使用独立目录">
-            🗂 独立目录
-          </span>
-        )}
-        {/* 工作区占位：P1 接入沙箱终端/浏览器实时视图（报告模式 2 右栏） */}
-        <span className="rounded-md bg-zinc-800 px-2 py-1 text-zinc-600">🖥 工作区（P1）</span>
-      </div>
-
-      {/* 消息流 */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-        {state.messages.length === 0 && (
-          <p className="pt-16 text-center text-sm text-zinc-600">
-            {state.activeRunId ? '等待消息…' : '输入目标开启新会话'}
-          </p>
-        )}
-        {state.messages.map((m) => (
-          <MessageBubble key={m.id} msg={m} />
-        ))}
-        {Object.entries(state.streams).map(([spanId, text]) => (
-          <StreamingBubble key={spanId} spanId={spanId} text={text} />
-        ))}
-      </div>
-
-        <Launcher />
-      </div>
+  const { state, setActiveConversation } = useStore();
+  const [collapsed, setCollapsed] = useState(false);
+  const [reply, setReply] = useState<Message | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const room = state.conversations.find((item) => item.id === state.activeConversationId);
+  const roomRuns = useMemo(() => state.runs.filter((run) => run.conversationId === room?.id).sort((a, b) => a.turnNo - b.turnNo), [state.runs, room?.id]);
+  const activeRun = roomRuns.at(-1);
+  useEffect(() => { const element = scrollRef.current; if (element && element.scrollHeight - element.scrollTop - element.clientHeight < 220) element.scrollTop = element.scrollHeight; }, [state.messages.length, Object.values(state.streams).join('').length]);
+  async function archiveRoom() {
+    if (!room || !window.confirm(`归档聊天室“${room.title}”？历史运行和证据仍会保留。`)) return;
+    await api.archiveConversation(room.id);
+    setActiveConversation(null);
+  }
+  return <div className="flex h-full">
+    <SessionSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((value) => !value)} activeConversationId={state.activeConversationId}
+      onSelect={setActiveConversation} onNewSession={() => setActiveConversation(null)} />
+    <div className="flex min-w-0 flex-1 flex-col">
+      {!room ? <NewRoomComposer /> : <>
+        <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3">
+          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
+            <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <div key={id} title={`${agent?.name ?? id} · ${agent?.description ?? 'Agent'}`} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-zinc-950 text-xs text-white" style={{ backgroundColor: agent?.color ?? '#52525b' }}>{(agent?.name ?? id).slice(0, 1)}</div>; })}</div>
+            <button onClick={() => void archiveRoom()} className="rounded-lg px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="归档聊天室">•••</button>
+          </div>
+          {state.scheduler && <div className="mt-2 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full animate-pulse rounded bg-violet-500" style={{ width: `${Math.max(20, 100 * state.scheduler.active / Math.max(1, state.scheduler.active + state.scheduler.queued))}%` }} /></div>}
+        </header>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="mx-auto max-w-4xl space-y-1">
+            {state.messages.map((message, index) => {
+              const run = roomRuns.find((item) => item.id === message.runId);
+              const showDivider = index === 0 || state.messages[index - 1]?.runId !== message.runId;
+              return <div key={message.id}>
+                {showDivider && run && <div className="my-5 flex items-center gap-3 text-[11px] text-zinc-600"><span className="h-px flex-1 bg-zinc-800" /><span>第 {run.turnNo} 轮 · {run.status === 'pending' ? '等待执行' : run.status === 'running' ? '进行中' : run.status === 'completed' ? '已完成' : run.status}</span><span className="h-px flex-1 bg-zinc-800" /></div>}
+                <MessageItem
+                  message={message}
+                  allMessages={state.messages}
+                  onReply={setReply}
+                  groupStart={!belongsToSameVisualGroup(state.messages[index - 1], message)}
+                  groupEnd={!belongsToSameVisualGroup(message, state.messages[index + 1])}
+                />
+              </div>;
+            })}
+            {Object.entries(state.streams).map(([id, text]) => <StreamingItem key={id} spanId={id} text={text} />)}
+            {state.messages.length === 0 && <p className="pt-20 text-center text-sm text-zinc-600">聊天室已创建，等待团队消息…</p>}
+          </div>
+        </div>
+        <RoomComposer reply={reply} onReplyClear={() => setReply(null)} />
+      </>}
     </div>
-  );
+  </div>;
 }

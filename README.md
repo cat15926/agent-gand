@@ -13,13 +13,15 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 打开 http://localhost:5173 ：
 
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
-2. 在"运行"视图输入目标 → 选模式（顺序流水线 / 主管委派）→ 勾选 agent；主管模式可显式选择主管 → 启动；
+2. 在“运行”视图创建聊天室，选择模式与成员并发送目标；之后可在同一房间继续发送、@成员或引用回复；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
 4. "舰队"视图看各 agent 状态（待输入置顶），"观测"视图看运行历史与事件时间线。
 
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
 主管委派模式会把任务、每轮执行和结构化审查结果落库。Reviewer 返回 FAIL 时，调度器会把 issues 发送给原执行者并自动返工，默认最多执行 3 次；无依赖任务最多并行 2 个。可通过 `TASK_MAX_ATTEMPTS`、`ORCHESTRATOR_CONCURRENCY` 和 `TASK_LEASE_MS` 调整。
+
+聊天室包含多轮 Run，并绑定稳定工作区。运行中的新消息会以待执行轮次排队；消息使用客户端 ID 幂等写入，@ 只标记公开接收人，不改变房间成员或 Reviewer。主消息流直接展示引用关系、审查问题、执行轮次与处理状态，原始 Trace 仍可在右侧查看。设计与实现边界见 [docs/agent-chatroom-experience-plan.md](./docs/agent-chatroom-experience-plan.md)。
 
 ### 接入真实 LLM（可选）
 
@@ -45,9 +47,9 @@ LLM_PROXY=http://127.0.0.1:7897
 ## 架构
 
 ```
-packages/shared   领域类型契约（Agent / Message / Task / Run / Approval / WS 事件协议）
-apps/server       Fastify + better-sqlite3：编排引擎、收件箱+共享任务列表、工具+权限门控+MCP 骨架、HITL 审批、trace/用量、REST+WS
-apps/web          React 19 + Vite + Tailwind 4："1+3"布局壳（顶栏/左侧导航/运行视图/右侧面板）
+packages/shared   领域类型契约（Conversation / Agent / Message / Task / Run / Approval / WS 事件协议）
+apps/server       Fastify + better-sqlite3：聊天室、编排引擎、收件箱+共享任务列表、工具+权限门控+MCP 骨架、HITL 审批、trace/用量、REST+WS
+apps/web          React 19 + Vite + Tailwind 4：聊天室消息流、会话列表、运行详情与审批面板
 agents/           agent 定义（Markdown + YAML frontmatter，正文=system prompt，入库共享）
 ```
 

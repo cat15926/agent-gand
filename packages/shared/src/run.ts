@@ -13,6 +13,10 @@ export type RunStatus =
 
 export interface Run {
   id: string;
+  /** 所属聊天室；旧数据启动时自动回填。 */
+  conversationId: string;
+  /** 聊天室内从 1 开始的执行轮次。 */
+  turnNo: number;
   goal: string;
   mode: RunMode;
   status: RunStatus;

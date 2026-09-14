@@ -22,6 +22,7 @@ import type {
   TaskAttempt,
   TaskReview,
   UsageSummary,
+  Conversation,
 } from '@agent-gand/shared';
 import * as api from './services/api';
 import { armPermissionRequest, notifyApproval } from './services/notify';
@@ -31,6 +32,8 @@ export interface State {
   wsConnected: boolean;
   agents: AgentDefinition[];
   runs: Run[];
+  conversations: Conversation[];
+  activeConversationId: string | null;
   activeRunId: string | null;
   messages: Message[];
   events: RunEvent[];
@@ -46,16 +49,20 @@ export interface State {
 
 type Action =
   | { type: 'ws'; connected: boolean }
-  | { type: 'hydrate'; runs: Run[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
+  | { type: 'hydrate'; runs: Run[]; conversations: Conversation[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
   | { type: 'agents'; agents: AgentDefinition[] }
   | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
   | { type: 'setActiveRun'; runId: string | null }
+  | { type: 'setActiveConversation'; conversationId: string | null; runId: string | null }
+  | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
   | { type: 'serverEvent'; event: ServerEvent };
 
 const initialState: State = {
   wsConnected: false,
   agents: [],
   runs: [],
+  conversations: [],
+  activeConversationId: null,
   activeRunId: null,
   messages: [],
   events: [],
@@ -85,6 +92,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         runs: action.runs,
+        conversations: action.conversations,
         agents: action.agents,
         tasks: action.tasks,
         approvals: action.approvals,
@@ -94,6 +102,11 @@ function reducer(state: State, action: Action): State {
       return { ...state, agents: action.agents };
     case 'setActiveRun':
       return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
+    case 'setActiveConversation':
+      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
+    case 'conversationDetail':
+      if (action.conversationId !== state.activeConversationId) return state;
+      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {} };
     case 'runDetail':
       // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
       if (action.runId !== state.activeRunId) return state;
@@ -102,10 +115,15 @@ function reducer(state: State, action: Action): State {
       const e = action.event;
       switch (e.type) {
         case 'message':
-          return e.message.runId === state.activeRunId
-            ? { ...state, messages: [...state.messages, e.message] }
+          return e.message.conversationId === state.activeConversationId
+            ? { ...state, messages: upsertBy(state.messages, e.message).sort((a, b) => a.seq - b.seq) }
             : state;
+        case 'conversation.updated':
+          return { ...state, conversations: (e.conversation.archivedAt
+            ? state.conversations.filter((item) => item.id !== e.conversation.id)
+            : upsertBy(state.conversations, e.conversation)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) };
         case 'llm.delta':
+          if (e.displayKind === 'review_protocol') return state;
           // 流式增量只累积当前活动 run（其他 run 的 span 明细本就不维护）
           return e.runId === state.activeRunId
             ? {
@@ -135,7 +153,21 @@ function reducer(state: State, action: Action): State {
         case 'scheduler.updated':
           return e.runId === state.activeRunId ? { ...state, scheduler: e } : state;
         case 'run.updated':
-          return { ...state, runs: upsertBy(state.runs, e.run) };
+          {
+          const rooms = state.conversations.map((room) => {
+            if (room.id !== e.run.conversationId) return room;
+            const latestTurn = state.runs.filter((run) => run.conversationId === room.id).reduce((max, run) => Math.max(max, run.turnNo), 0);
+            return e.run.turnNo >= latestTurn ? { ...room, latestRunId: e.run.id, latestRunStatus: e.run.status } : room;
+          });
+          return {
+            ...state,
+            conversations: rooms,
+            runs: upsertBy(state.runs, e.run),
+            activeRunId: e.run.conversationId === state.activeConversationId &&
+              e.run.turnNo >= (state.runs.find((run) => run.id === state.activeRunId)?.turnNo ?? 0)
+              ? e.run.id : state.activeRunId,
+          };
+          }
         case 'approval.updated':
           return { ...state, approvals: upsertBy(state.approvals, e.approval) };
         case 'usage': {
@@ -165,36 +197,48 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
   });
 }
 
-const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void }>({
+async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
+  const room = await api.getConversation(conversationId);
+  const latest = room.runs.at(-1);
+  const detail = latest ? await api.getRun(latest.id) : null;
+  dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: room.messages,
+    events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [] });
+}
+
+const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void> }>({
   state: initialState,
   setActiveRun: () => {},
+  setActiveConversation: () => {},
+  refreshConversation: async () => {},
 });
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const activeRunRef = useRef(state.activeRunId);
+  const activeConversationRef = useRef(state.activeConversationId);
   activeRunRef.current = state.activeRunId;
+  activeConversationRef.current = state.activeConversationId;
 
   /** 全量刷新列表；断线重连后也调用，回补断连期间丢失的增量（inspector P2） */
   const hydrateAll = useCallback(async () => {
-    const [agents, runs, tasks, approvals, usage] = await Promise.all([
+    const [agents, runs, conversations, tasks, approvals, usage] = await Promise.all([
       api.getAgents(),
       api.getRuns(),
+      api.getConversations(),
       api.getTasks(),
       api.getApprovals(),
       api.getUsage(),
     ]);
-    dispatch({ type: 'hydrate', runs, agents, tasks, approvals, usage });
+    dispatch({ type: 'hydrate', runs, conversations, agents, tasks, approvals, usage });
 
-    const current = activeRunRef.current;
-    if (current) {
-      // 有活动 run：回补其消息/事件明细
-      await loadRunDetail(current, dispatch);
+    const currentConversation = activeConversationRef.current;
+    if (currentConversation) {
+      await loadConversationDetail(currentConversation, dispatch);
     } else {
-      const latest = runs[0];
+      const latest = conversations[0];
       if (latest) {
-        dispatch({ type: 'setActiveRun', runId: latest.id });
-        await loadRunDetail(latest.id, dispatch);
+        dispatch({ type: 'setActiveConversation', conversationId: latest.id, runId: latest.latestRunId });
+        await loadConversationDetail(latest.id, dispatch);
       }
     }
   }, []);
@@ -233,7 +277,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  return <StoreContext.Provider value={{ state, setActiveRun }}>{children}</StoreContext.Provider>;
+  const setActiveConversation = useCallback((id: string | null) => {
+    const conversation = state.conversations.find((item) => item.id === id);
+    dispatch({ type: 'setActiveConversation', conversationId: id, runId: conversation?.latestRunId ?? null });
+    if (id) void loadConversationDetail(id, dispatch);
+  }, [state.conversations]);
+
+  const refreshConversation = useCallback(async () => {
+    const id = activeConversationRef.current;
+    if (id) await loadConversationDetail(id, dispatch);
+  }, []);
+
+  return <StoreContext.Provider value={{ state, setActiveRun, setActiveConversation, refreshConversation }}>{children}</StoreContext.Provider>;
 }
 
 export function useStore() {

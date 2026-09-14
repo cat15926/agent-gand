@@ -10,16 +10,18 @@ import type { TaskAttempt } from './task.ts';
 import type { TaskReview } from './review.ts';
 import type { Run, RunEvent, UsageSummary } from './run.ts';
 import type { ApprovalRequest } from './approval.ts';
+import type { Conversation } from './conversation.ts';
 
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
   | { type: 'message'; message: Message }
+  | { type: 'conversation.updated'; conversation: Conversation }
   | { type: 'task.updated'; task: Task }
   | { type: 'task.attempt.updated'; attempt: TaskAttempt }
   | { type: 'review.updated'; review: TaskReview }
   | { type: 'scheduler.updated'; runId: string; active: number; queued: number }
   | { type: 'run.updated'; run: Run }
   | { type: 'run.event'; event: RunEvent }
-  | { type: 'llm.delta'; runId: string; spanId: string; text: string }
+  | { type: 'llm.delta'; runId: string; spanId: string; text: string; agentId?: string; taskId?: string; attemptId?: string; displayKind?: 'message' | 'review_protocol' }
   | { type: 'approval.updated'; approval: ApprovalRequest }
   | { type: 'usage'; usage: UsageSummary };

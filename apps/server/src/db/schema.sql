@@ -7,12 +7,19 @@ CREATE TABLE IF NOT EXISTS agents (
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, goal TEXT NOT NULL, mode TEXT NOT NULL,
+  conversation_id TEXT,
+  turn_no INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL, agent_ids TEXT NOT NULL,  -- JSON array
   supervisor_id TEXT,
   workspace TEXT,                                 -- 命名工作区（§10.2，NULL=runId 专属；§11.2 可为 ext:<id>）
   title TEXT,                                     -- 会话标题（§13.2，NULL=用目标前 24 字）
   deleted_at TEXT,                                -- 软删时间（§13.3，NULL=在册）
   created_at TEXT NOT NULL, finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, mode TEXT NOT NULL,
+  agent_ids TEXT NOT NULL, supervisor_id TEXT, workspace TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived_at TEXT
 );
 CREATE TABLE IF NOT EXISTS external_workspaces (
   id TEXT PRIMARY KEY, label TEXT NOT NULL,
@@ -35,10 +42,13 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+  conversation_id TEXT,
+  seq INTEGER,
   from_agent TEXT NOT NULL, to_agent TEXT NOT NULL, -- agent id | 'user' | 'system'
   kind TEXT NOT NULL, body TEXT NOT NULL, meta TEXT,
   task_id TEXT, reply_to TEXT,
   message_type TEXT NOT NULL DEFAULT 'informational', payload TEXT,
+  delivery_status TEXT, client_message_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS task_attempts (

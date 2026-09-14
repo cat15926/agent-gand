@@ -4,12 +4,14 @@
  */
 import type { AgentMessageType, Message, MessageKind } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
-import { all, run } from '../db/database.ts';
+import { all, get, run, tx } from '../db/database.ts';
 import { emit } from './bus.ts';
 
 interface MessageRow {
   id: string;
   run_id: string;
+  conversation_id: string;
+  seq: number;
   from_agent: string;
   to_agent: string;
   kind: string;
@@ -19,6 +21,8 @@ interface MessageRow {
   reply_to: string | null;
   message_type: string;
   payload: string | null;
+  delivery_status: string | null;
+  client_message_id: string | null;
   created_at: string;
 }
 
@@ -26,6 +30,8 @@ function rowToMessage(row: MessageRow): Message {
   return {
     id: row.id,
     runId: row.run_id,
+    conversationId: row.conversation_id,
+    seq: row.seq,
     from: row.from_agent,
     to: row.to_agent,
     kind: row.kind as MessageKind,
@@ -35,6 +41,8 @@ function rowToMessage(row: MessageRow): Message {
     replyTo: row.reply_to,
     messageType: row.message_type as AgentMessageType,
     payload: row.payload === null ? null : (JSON.parse(row.payload) as Record<string, unknown>),
+    deliveryStatus: row.delivery_status as Message['deliveryStatus'],
+    clientMessageId: row.client_message_id,
     createdAt: row.created_at,
   };
 }
@@ -50,12 +58,31 @@ export interface PostMessageInput {
   replyTo?: string | null;
   messageType?: AgentMessageType;
   payload?: Record<string, unknown> | null;
+  deliveryStatus?: Message['deliveryStatus'];
+  clientMessageId?: string | null;
 }
 
 export function post(input: PostMessageInput): Message {
+  return tx(() => {
+  const runInfo = get<{ conversation_id: string }>('SELECT conversation_id FROM runs WHERE id = ?', input.runId);
+  if (!runInfo?.conversation_id) throw new Error(`run 没有关联聊天室: ${input.runId}`);
+  if (input.clientMessageId) {
+    const existing = get<MessageRow>('SELECT * FROM messages WHERE conversation_id = ? AND client_message_id = ?', runInfo.conversation_id, input.clientMessageId);
+    if (existing) {
+      if (input.deliveryStatus && existing.delivery_status !== input.deliveryStatus) {
+        run('UPDATE messages SET delivery_status = ? WHERE id = ?', input.deliveryStatus, existing.id);
+        existing.delivery_status = input.deliveryStatus;
+        emit({ type: 'message', message: rowToMessage(existing) });
+      }
+      return rowToMessage(existing);
+    }
+  }
+  const seq = get<{ n: number }>('SELECT COALESCE(MAX(seq), 0) + 1 n FROM messages WHERE conversation_id = ?', runInfo.conversation_id)?.n ?? 1;
   const message: Message = {
     id: randomUUID(),
     runId: input.runId,
+    conversationId: runInfo.conversation_id,
+    seq,
     from: input.from,
     to: input.to,
     kind: input.kind,
@@ -65,15 +92,19 @@ export function post(input: PostMessageInput): Message {
     replyTo: input.replyTo ?? null,
     messageType: input.messageType ?? 'informational',
     payload: input.payload ?? null,
+    deliveryStatus: input.deliveryStatus ?? null,
+    clientMessageId: input.clientMessageId ?? null,
     createdAt: new Date().toISOString(),
   };
   run(
     `INSERT INTO messages (
-       id, run_id, from_agent, to_agent, kind, body, meta,
-       task_id, reply_to, message_type, payload, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       id, run_id, conversation_id, seq, from_agent, to_agent, kind, body, meta,
+       task_id, reply_to, message_type, payload, delivery_status, client_message_id, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     message.id,
     message.runId,
+    message.conversationId,
+    message.seq,
     message.from,
     message.to,
     message.kind,
@@ -83,10 +114,13 @@ export function post(input: PostMessageInput): Message {
     message.replyTo,
     message.messageType,
     message.payload === null ? null : JSON.stringify(message.payload),
+    message.deliveryStatus,
+    message.clientMessageId,
     message.createdAt,
   );
   emit({ type: 'message', message });
   return message;
+  });
 }
 
 export function listByRun(runId: string): Message[] {
@@ -94,6 +128,16 @@ export function listByRun(runId: string): Message[] {
     'SELECT * FROM messages WHERE run_id = ? ORDER BY created_at ASC, rowid ASC',
     runId,
   ).map(rowToMessage);
+}
+
+export function listByConversation(conversationId: string): Message[] {
+  return all<MessageRow>('SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq ASC', conversationId).map(rowToMessage);
+}
+
+export function updateRunUserMessageStatus(runId: string, deliveryStatus: NonNullable<Message['deliveryStatus']>): void {
+  run("UPDATE messages SET delivery_status = ? WHERE run_id = ? AND kind = 'user'", deliveryStatus, runId);
+  const rows = all<MessageRow>("SELECT * FROM messages WHERE run_id = ? AND kind = 'user'", runId);
+  for (const row of rows) emit({ type: 'message', message: rowToMessage(row) });
 }
 
 export interface ListAgentMessagesOptions {

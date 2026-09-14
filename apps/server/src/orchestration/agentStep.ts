@@ -63,8 +63,8 @@ function llmSpanOutput(res: LlmResponse): string {
 }
 
 /** llm.delta 转发器（§8.1）：span 运行期间把文本增量经 bus 广播 */
-function deltaForwarder(runId: string, spanId: string): DeltaHandler {
-  return (text) => emit({ type: 'llm.delta', runId, spanId, text });
+function deltaForwarder(runId: string, spanId: string, meta: Pick<AgentTurnOptions, 'agentId' | 'taskId' | 'attemptId' | 'displayKind'> = {}): DeltaHandler {
+  return (text) => emit({ type: 'llm.delta', runId, spanId, text, ...meta });
 }
 
 export interface AgentTurnOptions {
@@ -75,6 +75,10 @@ export interface AgentTurnOptions {
   messages: LlmMessage[];
   /** 工具循环轮数上限，默认 6（思考型模型多轮核验常见；TODO: P1 支持 agent frontmatter 级配置） */
   maxToolRounds?: number;
+  agentId?: string;
+  taskId?: string;
+  attemptId?: string;
+  displayKind?: 'message' | 'review_protocol';
 }
 
 export interface AgentTurnResult {
@@ -95,6 +99,7 @@ export async function chatOnce(
   runId: string,
   parentSpanId: string,
   userContent: string,
+  displayKind: 'message' | 'review_protocol' = 'message',
 ): Promise<string> {
   const provider = resolveProvider(agent.model);
   const messages: LlmMessage[] = [
@@ -110,7 +115,7 @@ export async function chatOnce(
     });
     let res: LlmResponse;
     try {
-      res = await provider.chat({ model: agent.model, messages }, deltaForwarder(runId, llmSpan.id));
+      res = await provider.chat({ model: agent.model, messages }, deltaForwarder(runId, llmSpan.id, { agentId: agent.id, displayKind }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       endSpan(llmSpan, { output: message, status: 'error' });
@@ -163,7 +168,9 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     });
     let res: LlmResponse;
     try {
-      res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id));
+      res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id, {
+        agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
+      }));
     } catch (err) {
       // 流式中途超时/网络异常（R5）：增量已广播不回收，span 记 error 后向上抛（run 走 failed）
       const message = err instanceof Error ? err.message : String(err);

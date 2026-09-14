@@ -17,6 +17,9 @@ export type AgentMessageType =
 export interface Message {
   id: string;
   runId: string;
+  conversationId: string;
+  /** 聊天室内稳定递增序号，用于重连排序与去重。 */
+  seq: number;
   from: string;
   to: string;
   kind: MessageKind;
@@ -27,5 +30,7 @@ export interface Message {
   replyTo: string | null;
   messageType: AgentMessageType;
   payload: Record<string, unknown> | null;
+  deliveryStatus?: 'received' | 'queued' | 'processing' | 'responded' | 'failed' | null;
+  clientMessageId?: string | null;
   createdAt: string; // ISO
 }

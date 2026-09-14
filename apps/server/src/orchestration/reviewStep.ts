@@ -70,6 +70,10 @@ export async function reviewTask(input: {
         { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE },
         { role: 'user', content: prompt },
       ],
+      agentId: input.reviewer.id,
+      taskId: input.task.id,
+      attemptId: input.workAttempt.id,
+      displayKind: 'review_protocol',
     });
     previous = turn.content;
     const parsed = parseReview(previous);

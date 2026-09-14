@@ -201,10 +201,11 @@ export async function resumeSupervisorRun(runId: string): Promise<void> {
 }
 
 export const supervisorOrchestrator: Orchestrator = {
-  async start(run: Run, agents: AgentDefinition[], goal: string): Promise<void> {
+  async start(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage): Promise<void> {
     try {
       setRunStatus(run.id, 'running');
-      await post({ runId: run.id, from: 'user', to: 'all', kind: 'user', body: goal });
+      await post({ runId: run.id, from: 'user', to: userMessage?.recipientIds?.join(',') || 'all', kind: 'user', body: displayGoal,
+        replyTo: userMessage?.replyTo, taskId: userMessage?.taskId, clientMessageId: userMessage?.clientMessageId, deliveryStatus: 'processing' });
       const supervisor = agents[0];
       if (!supervisor) throw new Error('supervisor 模式至少需要 1 个 agent');
       const workers = agents.length > 1 ? agents.slice(1) : [supervisor];
@@ -217,7 +218,7 @@ export const supervisorOrchestrator: Orchestrator = {
       let specs: DecomposedTask[] | null = null;
       if (!supervisor.model.startsWith('mock:')) {
         try {
-          const raw = await chatOnce(supervisor, run.id, supervisorSpan.id, decomposePrompt(goal, workers, agents));
+          const raw = await chatOnce(supervisor, run.id, supervisorSpan.id, decomposePrompt(goal, workers, agents), 'review_protocol');
           specs = parseDecomposition(raw, workers, agents);
         } catch {
           specs = null;

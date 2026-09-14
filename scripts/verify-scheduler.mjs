@@ -27,7 +27,8 @@ await Promise.all([
 ]);
 
 const port = 39000 + Math.floor(Math.random() * 1000);
-const child = spawn('pnpm', ['--filter', '@agent-gand/server', 'start'], {
+// 直接用 Node loader 启动，避免 tsx CLI 为父子进程控制创建额外 IPC socket；受限 CI 也可运行。
+const child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
   cwd: path.resolve(import.meta.dirname, '..'),
   env: {
     ...process.env,
@@ -62,7 +63,7 @@ async function waitForHealth() {
 
 try {
   await waitForHealth();
-  const started = await fetch(`${base}/api/runs`, {
+  const started = await fetch(`${base}/api/conversations`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -73,7 +74,7 @@ try {
     }),
   });
   assert.equal(started.status, 201);
-  const { run } = await started.json();
+  const { run, conversation } = await started.json();
   const deadline = Date.now() + 20_000;
   let detail;
   while (Date.now() < deadline) {
@@ -95,6 +96,49 @@ try {
   assert.ok(messageTypes.includes('assignment'));
   assert.ok(messageTypes.includes('revision_request'));
   assert.ok(messageTypes.includes('review_result'));
+  assert.equal(run.conversationId, conversation.id);
+  assert.equal(run.turnNo, 1);
+  assert.match(run.workspace, /^room-[0-9a-f]{8}$/);
+  assert.equal(run.workspace, conversation.workspace);
+
+  const replyTo = detail.messages.findLast((message) => message.messageType === 'result')?.id;
+  assert.ok(replyTo);
+  const clientMessageId = `verify-${crypto.randomUUID()}`;
+  const followupBody = '@coder 请基于上一轮结果补充说明边界情况';
+  const followupRequest = {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ body: followupBody, recipientIds: ['coder'], replyTo, clientMessageId }),
+  };
+  const followup = await fetch(`${base}/api/conversations/${conversation.id}/messages`, followupRequest);
+  assert.equal(followup.status, 202);
+  const followupPayload = await followup.json();
+  assert.equal(followupPayload.run.turnNo, 2);
+  assert.equal(followupPayload.message.deliveryStatus, 'queued');
+  assert.equal(followupPayload.message.to, 'coder');
+  assert.equal(followupPayload.message.replyTo, replyTo);
+
+  const duplicate = await fetch(`${base}/api/conversations/${conversation.id}/messages`, followupRequest);
+  assert.equal(duplicate.status, 200);
+  assert.equal((await duplicate.json()).run.id, followupPayload.run.id);
+
+  let secondDetail;
+  const followupDeadline = Date.now() + 20_000;
+  while (Date.now() < followupDeadline) {
+    const response = await fetch(`${base}/api/runs/${followupPayload.run.id}`);
+    secondDetail = await response.json();
+    if (secondDetail.run.status === 'completed' || secondDetail.run.status === 'failed') break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(secondDetail.run.status, 'completed', logs);
+  assert.deepEqual(secondDetail.run.agentIds, ['planner', 'coder', 'reviewer']);
+  const roomResponse = await fetch(`${base}/api/conversations/${conversation.id}`);
+  assert.equal(roomResponse.status, 200);
+  const room = await roomResponse.json();
+  assert.equal(room.runs.length, 2);
+  assert.equal(room.messages.filter((message) => message.clientMessageId === clientMessageId).length, 1);
+  assert.equal(room.messages.find((message) => message.clientMessageId === clientMessageId)?.deliveryStatus, 'responded');
+  assert.ok(room.messages.every((message, index) => index === 0 || message.seq > room.messages[index - 1].seq));
   console.log(`scheduler verification passed: run=${run.id} attempts=${detail.attempts.length} reviews=${detail.reviews.length}`);
 } finally {
   if (child.exitCode === null) child.kill('SIGTERM');

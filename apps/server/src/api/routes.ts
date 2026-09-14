@@ -6,15 +6,18 @@ import type { AgentDefinition, AgentMessageType, MessageKind, RunMode } from '@a
 import * as registry from '../agents/registry.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
 import { post as postMessage, listMessages } from '../messaging/inbox.ts';
+import { listByConversation } from '../messaging/inbox.ts';
 import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, retryTask, TaskError } from '../messaging/tasks.ts';
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
-import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
-import { resumeSupervisorRun, supervisorOrchestrator } from '../orchestration/supervisor.ts';
-import type { Orchestrator } from '../orchestration/types.ts';
+import { resumeSupervisorRun } from '../orchestration/supervisor.ts';
+import { archiveConversation, createConversation, getConversation, listConversations, nextTurnNo, renameConversation, touchConversation } from '../conversations/service.ts';
+import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import {
   countRuns,
   createRun,
+  getRun,
+  listRunsByConversation,
   listRuns,
   renameRun,
   runDetail,
@@ -86,6 +89,73 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   }));
 
   app.get('/api/agents', async () => registry.list());
+
+  // ---- 聊天室：一个房间包含多轮 Run ----
+
+  app.get('/api/conversations', async () => listConversations());
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
+    const { goal, mode, agentIds, supervisorId, workspace } = req.body ?? {};
+    if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
+    if (mode !== 'pipeline' && mode !== 'supervisor') throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
+    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string' && registry.getAgent(id))) throw httpError(400, 'agentIds 包含未知成员');
+    const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? agentIds[0] ?? null) : null;
+    if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) throw httpError(400, 'supervisorId 必须属于 agentIds');
+    if (workspace && (isExternalWorkspace(workspace) ? !getExternal(externalId(workspace)!) : !WORKSPACE_RE.test(workspace))) throw httpError(400, 'workspace 无效或未注册');
+    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, workspace: workspace || null, stableWorkspace: true });
+    const run = createRun(goal.trim(), mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1);
+    touchConversation(conversation.id);
+    enqueueConversationRun(run.id);
+    reply.code(201);
+    return { run, conversation: getConversation(conversation.id)! };
+  });
+  app.get<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
+    const conversation = getConversation(req.params.id);
+    if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+    return { conversation, runs: listRunsByConversation(conversation.id), messages: listByConversation(conversation.id) };
+  });
+  app.patch<{ Params: { id: string }; Body: { title?: string } }>('/api/conversations/:id', async (req) => {
+    const title = req.body?.title;
+    if (typeof title !== 'string' || title.trim().length === 0 || title.trim().length > 80) throw httpError(400, 'title 必填且长度 ≤80');
+    const conversation = renameConversation(req.params.id, title);
+    if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+    return conversation;
+  });
+  app.delete<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
+    const conversation = archiveConversation(req.params.id);
+    if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+    return conversation;
+  });
+  app.post<{ Params: { id: string }; Body: { body?: string; recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string } }>(
+    '/api/conversations/:id/messages',
+    async (req, reply) => {
+      const conversation = getConversation(req.params.id);
+      if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+      const { body, recipientIds, replyTo, taskId, clientMessageId } = req.body ?? {};
+      if (typeof body !== 'string' || body.trim().length === 0) throw httpError(400, 'body 必填');
+      if (typeof clientMessageId !== 'string' || clientMessageId.length < 8 || clientMessageId.length > 100) throw httpError(400, 'clientMessageId 必填');
+      if (recipientIds !== undefined && (!Array.isArray(recipientIds) || !recipientIds.every((id) => typeof id === 'string' && conversation.agentIds.includes(id)))) {
+        throw httpError(400, 'recipientIds 必须全部属于当前聊天室');
+      }
+      const existing = listByConversation(conversation.id).find((message) => message.clientMessageId === clientMessageId);
+      if (existing) {
+        const existingRun = getRun(existing.runId);
+        reply.code(200);
+        return { run: existingRun, message: existing };
+      }
+      if (replyTo && !listByConversation(conversation.id).some((message) => message.id === replyTo)) throw httpError(400, 'replyTo 不属于当前聊天室');
+      if (taskId && !listTasks().some((task) => task.id === taskId && task.runId && getRun(task.runId)?.conversationId === conversation.id)) throw httpError(400, 'taskId 不属于当前聊天室');
+      const turnNo = nextTurnNo(conversation.id);
+      const run = createRun(body.trim(), conversation.mode, conversation.agentIds, conversation.workspace, conversation.supervisorId, conversation.id, turnNo);
+      const message = postMessage({
+        runId: run.id, from: 'user', to: recipientIds?.join(',') || 'all', kind: 'user', body: body.trim(),
+        replyTo: replyTo ?? null, taskId: taskId ?? null, clientMessageId, deliveryStatus: 'queued',
+      });
+      touchConversation(conversation.id);
+      enqueueConversationRun(run.id, { recipientIds, replyTo, taskId, clientMessageId });
+      reply.code(202);
+      return { run, message };
+    },
+  );
 
   // ---- 任务（三态 + 认领事务锁）----
 
@@ -204,17 +274,14 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) {
         throw httpError(400, 'supervisorId 必须属于 agentIds');
       }
-      const orderedAgents = mode === 'supervisor' && effectiveSupervisorId
-        ? [agents.find((agent) => agent.id === effectiveSupervisorId)!, ...agents.filter((agent) => agent.id !== effectiveSupervisorId)]
-        : agents;
-      const run = createRun(goal, mode, agentIds, workspace || null, effectiveSupervisorId);
-    const orchestrator: Orchestrator = mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
-    // 异步执行：进度经 WS / GET 获取；失败由编排器置 failed
-    void orchestrator.start(run, orderedAgents, goal).catch((err: unknown) => {
-      req.log.error(`run ${run.id} 执行异常: ${err instanceof Error ? err.message : String(err)}`);
-    });
+      const conversation = createConversation({
+        title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, workspace: workspace || null,
+      });
+      const run = createRun(goal, mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1);
+      touchConversation(conversation.id);
+      enqueueConversationRun(run.id);
     reply.code(201);
-    return { run };
+    return { run, conversation: getConversation(conversation.id)! };
   });
 
   // §13.3 列表过滤：默认排除软删；includeDeleted=1 含；q=标题/目标模糊；status=精确

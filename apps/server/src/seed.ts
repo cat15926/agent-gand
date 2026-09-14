@@ -3,6 +3,7 @@
  * DB 为空时：1 条 completed 演示 run（含 events+usage）、1 条 pending approval、2 条示例 task、若干 message
  */
 import { createApproval } from './hitl/approvals.ts';
+import { createConversation } from './conversations/service.ts';
 import { post } from './messaging/inbox.ts';
 import { claimTask, createTask } from './messaging/tasks.ts';
 import {
@@ -25,7 +26,11 @@ export function seed(): void {
   if (countRuns() > 0) return; // 已有数据（含此前 seed 过）则跳过
 
   // 1) completed 演示 run：agent span + 嵌套 llm span（含 usage）+ message 流
-  const run = createRun('演示：三角色流水线巡检', 'pipeline', ['planner', 'coder', 'reviewer']);
+  const conversation = createConversation({
+    title: '演示：三角色流水线巡检', mode: 'pipeline', agentIds: ['planner', 'coder', 'reviewer'],
+    supervisorId: null, workspace: null,
+  });
+  const run = createRun('演示：三角色流水线巡检', 'pipeline', ['planner', 'coder', 'reviewer'], null, null, conversation.id, 1);
   setRunStatus(run.id, 'running');
   post({ runId: run.id, from: 'user', to: 'all', kind: 'user', body: '请开始演示巡检' });
   for (const demo of DEMO_USAGE) {
