@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+.input {
+  @apply w-full rounded-lg bg-zinc-900 px-3 py-2.5 text-zinc-200 outline-none ring-1 ring-zinc-800 focus:ring-violet-500;
+}
+
 /* 深色工作台基调（scaffold 默认，后续可做亮色主题切换） */
 :root {
   color-scheme: dark;

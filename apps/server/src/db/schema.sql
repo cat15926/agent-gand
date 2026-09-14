@@ -3,7 +3,13 @@
 
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, definition TEXT NOT NULL,
-  source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  source TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+  version INTEGER NOT NULL DEFAULT 1, definition_hash TEXT, source_path TEXT, sync_error TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS agent_versions (
+  agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,
+  created_at TEXT NOT NULL, PRIMARY KEY(agent_id, version)
 );
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, goal TEXT NOT NULL, mode TEXT NOT NULL,
@@ -11,6 +17,7 @@ CREATE TABLE IF NOT EXISTS runs (
   turn_no INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL, agent_ids TEXT NOT NULL,  -- JSON array
   supervisor_id TEXT,
+  default_reviewer_id TEXT,
   workspace TEXT,                                 -- 命名工作区（§10.2，NULL=runId 专属；§11.2 可为 ext:<id>）
   title TEXT,                                     -- 会话标题（§13.2，NULL=用目标前 24 字）
   deleted_at TEXT,                                -- 软删时间（§13.3，NULL=在册）
@@ -18,8 +25,13 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, mode TEXT NOT NULL,
-  agent_ids TEXT NOT NULL, supervisor_id TEXT, workspace TEXT,
+  agent_ids TEXT NOT NULL, supervisor_id TEXT, default_reviewer_id TEXT,
+  members_version INTEGER NOT NULL DEFAULT 1, workspace TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived_at TEXT
+);
+CREATE TABLE IF NOT EXISTS run_agent_snapshots (
+  run_id TEXT NOT NULL, agent_id TEXT NOT NULL, version INTEGER NOT NULL,
+  definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(run_id, agent_id)
 );
 CREATE TABLE IF NOT EXISTS external_workspaces (
   id TEXT PRIMARY KEY, label TEXT NOT NULL,

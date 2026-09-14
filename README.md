@@ -15,9 +15,12 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
 2. 在“运行”视图创建聊天室，选择模式与成员并发送目标；之后可在同一房间继续发送、@成员或引用回复；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
-4. "舰队"视图看各 agent 状态（待输入置顶），"观测"视图看运行历史与事件时间线。
+4. 在“舰队 → 角色管理”从模板创建、复制、编辑或停用 Agent；保存后无需重启即可用于新聊天室；
+5. “舰队 → 执行状态”查看各 Agent 状态（待输入置顶），“观测”查看运行历史与事件时间线。
 
-其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm db:reset`（清空 SQLite 重 seed）。
+其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm db:reset`（清空 SQLite 重 seed）。
+
+自建角色保存在 SQLite，文件角色继续由 `agents/*.agent.md` 提供且在界面中只读，可复制为自建角色。角色通过“执行 / 审查 / 协调”能力参与调度，主管和默认评审者不再依赖固定 ID。每个 Run 创建时会保存成员配置快照，因此之后编辑或停用角色不会改变已经排队、执行中或历史 Run 的行为。
 
 主管委派模式会把任务、每轮执行和结构化审查结果落库。Reviewer 返回 FAIL 时，调度器会把 issues 发送给原执行者并自动返工，默认最多执行 3 次；无依赖任务最多并行 2 个。可通过 `TASK_MAX_ATTEMPTS`、`ORCHESTRATOR_CONCURRENCY` 和 `TASK_LEASE_MS` 调整。
 

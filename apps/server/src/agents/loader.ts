@@ -6,7 +6,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
-import type { AgentDefinition, PermissionMode } from '@agent-gand/shared';
+import type { AgentCapability, AgentDefinition, PermissionMode } from '@agent-gand/shared';
+import { inferCapabilities, normalizeAgent } from './validation.ts';
 
 const PERMISSION_MODES: readonly PermissionMode[] = ['readonly', 'confirm', 'auto'];
 
@@ -44,10 +45,11 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
   const permissionMode: PermissionMode =
     rawPermission && PERMISSION_MODES.includes(rawPermission) ? rawPermission : 'confirm';
 
-  return {
+  return normalizeAgent({
     id,
     name: str(fields.name) ?? id,
     description: str(fields.description),
+    capabilities: (strArray(fields.capabilities) as AgentCapability[]).length ? strArray(fields.capabilities) as AgentCapability[] : inferCapabilities(id),
     systemPrompt: body,
     model,
     tools: strArray(fields.tools),
@@ -55,7 +57,7 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
     permissionMode,
     color: str(fields.color) ?? '#7c8a9c',
     source: 'file',
-  };
+  });
 }
 
 export interface LoadedAgentFile {

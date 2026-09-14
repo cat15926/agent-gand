@@ -2,8 +2,12 @@
  * REST API（规格 §4.3 全部端点）
  */
 import type { FastifyInstance } from 'fastify';
-import type { AgentDefinition, AgentMessageType, MessageKind, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, AgentInput, AgentMessageType, MessageKind, RunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
+import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
+import { builtinTools } from '../tools/builtin/index.ts';
+import { READONLY_TOOLS } from '../tools/types.ts';
+import { config } from '../config.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
 import { post as postMessage, listMessages } from '../messaging/inbox.ts';
 import { listByConversation } from '../messaging/inbox.ts';
@@ -11,7 +15,7 @@ import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, re
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
 import { resumeSupervisorRun } from '../orchestration/supervisor.ts';
-import { archiveConversation, createConversation, getConversation, listConversations, nextTurnNo, renameConversation, touchConversation } from '../conversations/service.ts';
+import { archiveConversation, createConversation, getConversation, listConversations, nextTurnNo, renameConversation, touchConversation, updateConversationMembers } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import {
   countRuns,
@@ -59,6 +63,19 @@ function httpError(status: number, message: string): Error & { status: number } 
   return err;
 }
 
+function validateTeam(mode: RunMode, agentIds: string[], supervisorId?: string, defaultReviewerId?: string) {
+  const agents = agentIds.map((id) => registry.getAgent(id));
+  if (agents.some((agent) => !agent)) throw httpError(400, 'agentIds 包含未知或已停用成员');
+  const active = agents as AgentDefinition[];
+  const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? active.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? null) : null;
+  if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) throw httpError(400, 'supervisorId 必须属于 agentIds');
+  if (effectiveSupervisorId && !active.find((agent) => agent.id === effectiveSupervisorId)?.capabilities.includes('coordinate')) throw httpError(400, '主管必须具备协调能力');
+  const effectiveReviewerId = defaultReviewerId ?? active.find((agent) => agent.capabilities.includes('review'))?.id ?? null;
+  if (effectiveReviewerId && (!agentIds.includes(effectiveReviewerId) || !active.find((agent) => agent.id === effectiveReviewerId)?.capabilities.includes('review'))) throw httpError(400, '默认评审者必须属于聊天室且具备审查能力');
+  if (mode === 'supervisor' && !active.some((agent) => agent.capabilities.includes('execute'))) throw httpError(400, '主管委派至少需要一名具备执行能力的成员');
+  return { effectiveSupervisorId, effectiveReviewerId };
+}
+
 /** 工作区管理操作包装：领域错误（带 status）映射为 HTTP 错误 */
 function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: unknown): T {
   const invoke = () => {
@@ -79,7 +96,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const status = (err as { status?: number }).status;
     const code = typeof status === 'number' ? status : 500;
     if (code >= 500) req.log.error(err);
-    reply.code(code).send({ error: err instanceof Error ? err.message : String(err) });
+    reply.code(code).send({ error: err instanceof Error ? err.message : String(err), ...(
+      err instanceof AgentValidationError ? { fieldErrors: err.fieldErrors } : {}) });
   });
 
   app.get('/api/health', async () => ({
@@ -88,21 +106,47 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     runs: countRuns(),
   }));
 
-  app.get('/api/agents', async () => registry.list());
+  app.get<{ Querystring: { includeDisabled?: string } }>('/api/agents', async (req) => registry.list(req.query.includeDisabled === '1'));
+  app.get('/api/agent-options', async () => ({
+    tools: builtinTools.map((tool) => ({ name: tool.name, description: tool.description, readonly: READONLY_TOOLS.has(tool.name) })),
+    capabilities: [{ value: 'execute', label: '执行' }, { value: 'review', label: '审查' }, { value: 'coordinate', label: '协调' }],
+    providers: [
+      { value: 'mock', label: 'Mock（本地演示）', configured: true },
+      { value: 'openai', label: 'OpenAI', configured: Boolean(config.llm.openaiApiKey) },
+      { value: 'anthropic', label: 'Anthropic', configured: Boolean(config.llm.anthropicApiKey) },
+    ],
+    templates: [
+      { id: 'blank', name: '空白角色', description: '从最小配置开始', input: { description: '自定义团队角色', capabilities: ['execute'], systemPrompt: '你是团队中的专业执行者。请根据目标完成任务，并清楚说明结果。', model: 'mock:agent', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff' } },
+      { id: 'planner', name: '规划主管', description: '拆解目标并协调成员', input: { description: '负责拆解目标和协调团队', capabilities: ['coordinate', 'execute'], systemPrompt: '你负责理解目标、拆解任务、分配成员并汇总最终结果。', model: 'mock:planner', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff' } },
+      { id: 'executor', name: '执行者', description: '实现任务并交付产物', input: { description: '负责实现任务并交付可验证产物', capabilities: ['execute'], systemPrompt: '你负责按任务要求完成实现，报告产物位置和验证结果。', model: 'mock:coder', tools: ['fs.read', 'fs.write', 'shell.run'], disallowedTools: [], permissionMode: 'auto', color: '#2f9e6e' } },
+      { id: 'reviewer', name: '评审者', description: '检查结果并推动返工', input: { description: '负责审查产出并给出明确结论', capabilities: ['review'], systemPrompt: '你负责对照验收标准审查产出。发现问题时给出具体、可执行的修改建议。', model: 'mock:reviewer', tools: ['fs.read', 'search.files'], disallowedTools: [], permissionMode: 'readonly', color: '#e0a13c' } },
+    ],
+  }));
+  app.post<{ Body: unknown }>('/api/agents/validate', async (req) => ({ valid: true, normalized: validateAgentInput(req.body) }));
+  app.post<{ Body: AgentInput }>('/api/agents', async (req, reply) => { const agent = registry.createAgent(req.body); reply.code(201); return agent; });
+  app.get<{ Params: { id: string } }>('/api/agents/:id', async (req) => { const agent = registry.getAnyAgent(req.params.id); if (!agent) throw httpError(404, `角色不存在: ${req.params.id}`); return agent; });
+  app.get<{ Params: { id: string } }>('/api/agents/:id/versions', async (req) => { if (!registry.getAnyAgent(req.params.id)) throw httpError(404, `角色不存在: ${req.params.id}`); return registry.listVersions(req.params.id); });
+  app.patch<{ Params: { id: string }; Body: AgentInput & { expectedVersion?: number } }>('/api/agents/:id', async (req) => {
+    if (!Number.isInteger(req.body?.expectedVersion)) throw httpError(400, 'expectedVersion 必填');
+    return registry.updateAgent(req.params.id, req.body, req.body.expectedVersion!);
+  });
+  app.patch<{ Params: { id: string }; Body: { enabled?: boolean; expectedVersion?: number } }>('/api/agents/:id/status', async (req) => {
+    if (typeof req.body?.enabled !== 'boolean') throw httpError(400, 'enabled 必填');
+    return registry.setEnabled(req.params.id, req.body.enabled, req.body.expectedVersion);
+  });
 
   // ---- 聊天室：一个房间包含多轮 Run ----
 
   app.get('/api/conversations', async () => listConversations());
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
-    const { goal, mode, agentIds, supervisorId, workspace } = req.body ?? {};
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
+    const { goal, mode, agentIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
     if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
     if (mode !== 'pipeline' && mode !== 'supervisor') throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
-    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string' && registry.getAgent(id))) throw httpError(400, 'agentIds 包含未知成员');
-    const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? agentIds[0] ?? null) : null;
-    if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) throw httpError(400, 'supervisorId 必须属于 agentIds');
+    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
+    const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode, agentIds, supervisorId, defaultReviewerId);
     if (workspace && (isExternalWorkspace(workspace) ? !getExternal(externalId(workspace)!) : !WORKSPACE_RE.test(workspace))) throw httpError(400, 'workspace 无效或未注册');
-    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, workspace: workspace || null, stableWorkspace: true });
-    const run = createRun(goal.trim(), mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1);
+    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null, stableWorkspace: true });
+    const run = createRun(goal.trim(), mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
     touchConversation(conversation.id);
     enqueueConversationRun(run.id);
     reply.code(201);
@@ -113,7 +157,16 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
     return { conversation, runs: listRunsByConversation(conversation.id), messages: listByConversation(conversation.id) };
   });
-  app.patch<{ Params: { id: string }; Body: { title?: string } }>('/api/conversations/:id', async (req) => {
+  app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
+    if (req.body?.agentIds) {
+      const current = getConversation(req.params.id); if (!current) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+      if (!Number.isInteger(req.body.expectedMembersVersion)) throw httpError(400, 'expectedMembersVersion 必填');
+      if (req.body.agentIds.length === 0 || !req.body.agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
+      const team = validateTeam(current.mode, req.body.agentIds, req.body.supervisorId, req.body.defaultReviewerId);
+      const updated = updateConversationMembers(current.id, { agentIds: req.body.agentIds, supervisorId: team.effectiveSupervisorId, defaultReviewerId: team.effectiveReviewerId, expectedMembersVersion: req.body.expectedMembersVersion! });
+      if (!updated) throw httpError(409, '聊天室成员已被其他操作修改，请刷新后重试');
+      return updated;
+    }
     const title = req.body?.title;
     if (typeof title !== 'string' || title.trim().length === 0 || title.trim().length > 80) throw httpError(400, 'title 必填且长度 ≤80');
     const conversation = renameConversation(req.params.id, title);
@@ -145,7 +198,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       if (replyTo && !listByConversation(conversation.id).some((message) => message.id === replyTo)) throw httpError(400, 'replyTo 不属于当前聊天室');
       if (taskId && !listTasks().some((task) => task.id === taskId && task.runId && getRun(task.runId)?.conversationId === conversation.id)) throw httpError(400, 'taskId 不属于当前聊天室');
       const turnNo = nextTurnNo(conversation.id);
-      const run = createRun(body.trim(), conversation.mode, conversation.agentIds, conversation.workspace, conversation.supervisorId, conversation.id, turnNo);
+      validateTeam(conversation.mode, conversation.agentIds, conversation.supervisorId ?? undefined, conversation.defaultReviewerId ?? undefined);
+      const run = createRun(body.trim(), conversation.mode, conversation.agentIds, conversation.workspace, conversation.supervisorId, conversation.id, turnNo, conversation.defaultReviewerId);
       const message = postMessage({
         runId: run.id, from: 'user', to: recipientIds?.join(',') || 'all', kind: 'user', body: body.trim(),
         replyTo: replyTo ?? null, taskId: taskId ?? null, clientMessageId, deliveryStatus: 'queued',
@@ -241,10 +295,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 运行（异步执行，立即返回）----
 
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; workspace?: string } }>(
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>(
     '/api/runs',
     async (req, reply) => {
-      const { goal, mode, agentIds, supervisorId, workspace } = req.body ?? {};
+      const { goal, mode, agentIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
       if (typeof goal !== 'string' || goal.length === 0) throw httpError(400, 'goal 必填');
       if (mode !== 'pipeline' && mode !== 'supervisor') {
         throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
@@ -262,22 +316,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           throw httpError(400, 'workspace 只允许字母/数字/下划线/连字符（或外部约定 ext:<id>），长度 1-32');
         }
       }
-      const agents: AgentDefinition[] = [];
-      const missing: string[] = [];
-      for (const id of agentIds) {
-        const agent = registry.getAgent(id);
-        if (agent) agents.push(agent);
-        else missing.push(id);
-      }
-      if (missing.length > 0) throw httpError(400, `未知 agent: ${missing.join(', ')}`);
-      const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? agentIds[0] ?? null) : null;
-      if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) {
-        throw httpError(400, 'supervisorId 必须属于 agentIds');
-      }
+      const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode, agentIds, supervisorId, defaultReviewerId);
       const conversation = createConversation({
-        title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, workspace: workspace || null,
+        title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null,
       });
-      const run = createRun(goal, mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1);
+      const run = createRun(goal, mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
       touchConversation(conversation.id);
       enqueueConversationRun(run.id);
     reply.code(201);

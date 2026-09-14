@@ -114,6 +114,8 @@ function reducer(state: State, action: Action): State {
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
+        case 'agent.updated':
+          return { ...state, agents: e.agent.enabled ? upsertBy(state.agents, e.agent) : state.agents.filter((agent) => agent.id !== e.agent.id) };
         case 'message':
           return e.message.conversationId === state.activeConversationId
             ? { ...state, messages: upsertBy(state.messages, e.message).sort((a, b) => a.seq - b.seq) }

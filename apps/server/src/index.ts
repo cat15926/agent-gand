@@ -15,6 +15,7 @@ import { recoverInterruptedTasks } from './messaging/tasks.ts';
 import { interruptRunningAttempts } from './tasks/attempts.ts';
 import { resumeSupervisorRun } from './orchestration/supervisor.ts';
 import { backfillConversations } from './conversations/service.ts';
+import { backfillRunAgentSnapshots } from './runs/trace.ts';
 import { recoverPendingConversationRuns } from './conversations/dispatcher.ts';
 
 const app = Fastify({ logger: { level: config.logLevel } });
@@ -24,6 +25,7 @@ await app.register((instance) => registerRoutes(instance));
 await app.register((instance) => registerWs(instance));
 
 const agents = registry.syncFromFiles();
+backfillRunAgentSnapshots();
 seed();
 backfillConversations();
 

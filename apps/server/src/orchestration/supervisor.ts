@@ -2,10 +2,9 @@
  * 主管委派：一次结构化规划 → DAG 调度 → Coder/Reviewer 返工闭环 → 基于真实结果汇总。
  */
 import type { AgentDefinition, Run } from '@agent-gand/shared';
-import * as registry from '../agents/registry.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { createTask } from '../messaging/tasks.ts';
-import { endSpan, finishRun, getRun, setRunStatus, startSpan } from '../runs/trace.ts';
+import { endSpan, finishRun, getRun, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { chatOnce } from './agentStep.ts';
 import { buildSupervisorSummaryContext } from './contextBuilder.ts';
 import { runTaskSchedule } from './scheduler.ts';
@@ -35,6 +34,7 @@ export function parseDecomposition(
   content: string,
   workers: AgentDefinition[],
   allAgents: AgentDefinition[],
+  defaultReviewerId?: string | null,
 ): DecomposedTask[] | null {
   let parsed: unknown;
   try {
@@ -47,7 +47,7 @@ export function parseDecomposition(
   if (!Array.isArray(rawTasks) || rawTasks.length === 0 || rawTasks.length > MAX_TASKS) return null;
 
   const workerIds = new Set(workers.map((agent) => agent.id));
-  const allIds = new Set(allAgents.map((agent) => agent.id));
+  const reviewerIds = new Set(allAgents.filter((agent) => agent.capabilities.includes('review')).map((agent) => agent.id));
   const tasks: DecomposedTask[] = [];
   const titles = new Set<string>();
   for (const raw of rawTasks) {
@@ -55,10 +55,11 @@ export function parseDecomposition(
     const item = raw as Record<string, unknown>;
     if (typeof item.title !== 'string' || item.title.trim() === '' || titles.has(item.title.trim())) return null;
     if (typeof item.assignee !== 'string' || !workerIds.has(item.assignee)) return null;
-    const inferredReviewer = allAgents.find((agent) => /review/i.test(agent.id) && agent.id !== item.assignee)?.id ?? null;
+    const inferredReviewer = (defaultReviewerId && reviewerIds.has(defaultReviewerId) && defaultReviewerId !== item.assignee
+      ? defaultReviewerId : allAgents.find((agent) => agent.capabilities.includes('review') && agent.id !== item.assignee)?.id) ?? null;
     const reviewer = typeof item.reviewer === 'string' ? item.reviewer : inferredReviewer;
     const reviewRequired = item.reviewRequired === true || (item.reviewRequired !== false && reviewer !== null);
-    if (reviewRequired && (reviewer === null || !allIds.has(reviewer))) return null;
+    if (reviewRequired && (reviewer === null || !reviewerIds.has(reviewer))) return null;
     if (reviewer === item.assignee && allAgents.length > 1) return null;
     const rawCriteria = Array.isArray(item.acceptanceCriteria)
       ? item.acceptanceCriteria
@@ -103,7 +104,7 @@ export function parseDecomposition(
 
 function decomposePrompt(goal: string, workers: AgentDefinition[], allAgents: AgentDefinition[]): string {
   const workerList = workers.map((agent) => `- ${agent.id}：${agent.description ?? '（无描述）'}`).join('\n');
-  const reviewerList = allAgents.map((agent) => `* ${agent.id}：${agent.description ?? '（无描述）'}`).join('\n');
+  const reviewerList = allAgents.filter((agent) => agent.capabilities.includes('review')).map((agent) => `* ${agent.id}：${agent.description ?? '（无描述）'}`).join('\n');
   return [
     `目标：${goal}`,
     '',
@@ -119,8 +120,9 @@ function decomposePrompt(goal: string, workers: AgentDefinition[], allAgents: Ag
   ].join('\n');
 }
 
-function fallbackTasks(goal: string, workers: AgentDefinition[], allAgents: AgentDefinition[]): DecomposedTask[] {
-  const reviewer = allAgents.find((agent) => /review/i.test(agent.id));
+function fallbackTasks(goal: string, workers: AgentDefinition[], allAgents: AgentDefinition[], defaultReviewerId?: string | null): DecomposedTask[] {
+  const reviewer = allAgents.find((agent) => agent.id === defaultReviewerId && agent.capabilities.includes('review'))
+    ?? allAgents.find((agent) => agent.capabilities.includes('review'));
   const executorPool = reviewer ? workers.filter((agent) => agent.id !== reviewer.id) : workers;
   const executor = executorPool[0] ?? workers[0] ?? allAgents[0];
   if (!executor) throw new Error('主管委派至少需要一个可执行 Agent');
@@ -178,8 +180,8 @@ export async function resumeSupervisorRun(runId: string): Promise<void> {
   if (!run || run.mode !== 'supervisor') return;
   const supervisorId = run.supervisorId ?? run.agentIds[0];
   if (!supervisorId) return;
-  const agents = run.agentIds
-    .map((id) => registry.getAgent(id))
+  const snapshots = listRunAgentSnapshots(run.id);
+  const agents = run.agentIds.map((id) => snapshots.find((agent) => agent.id === id))
     .filter((agent): agent is AgentDefinition => agent !== undefined);
   const supervisor = agents.find((agent) => agent.id === supervisorId);
   if (!supervisor) return;
@@ -208,7 +210,10 @@ export const supervisorOrchestrator: Orchestrator = {
         replyTo: userMessage?.replyTo, taskId: userMessage?.taskId, clientMessageId: userMessage?.clientMessageId, deliveryStatus: 'processing' });
       const supervisor = agents[0];
       if (!supervisor) throw new Error('supervisor 模式至少需要 1 个 agent');
-      const workers = agents.length > 1 ? agents.slice(1) : [supervisor];
+      if (!supervisor.capabilities.includes('coordinate')) throw new Error(`主管 ${supervisor.id} 不具备协调能力`);
+      const workers = agents.filter((agent) => agent.id !== supervisor.id && agent.capabilities.includes('execute'));
+      if (workers.length === 0 && supervisor.capabilities.includes('execute')) workers.push(supervisor);
+      if (workers.length === 0) throw new Error('主管委派至少需要一个具备执行能力的 Agent');
       const supervisorSpan = startSpan(run.id, {
         spanKind: 'orchestration',
         name: `supervisor:${supervisor.id}`,
@@ -219,13 +224,13 @@ export const supervisorOrchestrator: Orchestrator = {
       if (!supervisor.model.startsWith('mock:')) {
         try {
           const raw = await chatOnce(supervisor, run.id, supervisorSpan.id, decomposePrompt(goal, workers, agents), 'review_protocol');
-          specs = parseDecomposition(raw, workers, agents);
+          specs = parseDecomposition(raw, workers, agents, run.defaultReviewerId);
         } catch {
           specs = null;
         }
       }
       if (!specs) {
-        specs = fallbackTasks(goal, workers, agents);
+        specs = fallbackTasks(goal, workers, agents, run.defaultReviewerId);
         if (!supervisor.model.startsWith('mock:')) {
           await postSystem(run.id, supervisor.id, '结构化拆解失败已降级为安全 fallback 计划');
         }

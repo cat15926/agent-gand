@@ -9,6 +9,8 @@ interface ConversationRow {
   mode: string;
   agent_ids: string;
   supervisor_id: string | null;
+  default_reviewer_id: string | null;
+  members_version: number;
   workspace: string | null;
   created_at: string;
   updated_at: string;
@@ -34,6 +36,8 @@ function fromRow(row: ConversationRow): Conversation {
     mode: row.mode as RunMode,
     agentIds: JSON.parse(row.agent_ids) as string[],
     supervisorId: row.supervisor_id,
+    defaultReviewerId: row.default_reviewer_id,
+    membersVersion: row.members_version,
     workspace: row.workspace,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -59,6 +63,7 @@ export function createConversation(input: {
   mode: RunMode;
   agentIds: string[];
   supervisorId: string | null;
+  defaultReviewerId?: string | null;
   workspace: string | null;
   stableWorkspace?: boolean;
 }): Conversation {
@@ -66,9 +71,9 @@ export function createConversation(input: {
   const now = new Date().toISOString();
   const workspace = input.workspace ?? (input.stableWorkspace ? `room-${id.slice(0, 8)}` : null);
   run(
-    `INSERT INTO conversations (id, title, mode, agent_ids, supervisor_id, workspace, created_at, updated_at, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-    id, input.title.slice(0, 80), input.mode, JSON.stringify(input.agentIds), input.supervisorId, workspace, now, now,
+    `INSERT INTO conversations (id,title,mode,agent_ids,supervisor_id,default_reviewer_id,members_version,workspace,created_at,updated_at,archived_at)
+     VALUES (?,?,?,?,?,?,1,?,?,?,NULL)`,
+    id, input.title.slice(0, 80), input.mode, JSON.stringify(input.agentIds), input.supervisorId, input.defaultReviewerId ?? null, workspace, now, now,
   );
   const conversation = getConversation(id)!;
   emit({ type: 'conversation.updated', conversation });
@@ -90,6 +95,14 @@ export function renameConversation(id: string, title: string): Conversation | nu
   return conversation;
 }
 
+export function updateConversationMembers(id: string, input: { agentIds: string[]; supervisorId: string | null; defaultReviewerId: string | null; expectedMembersVersion: number }): Conversation | null {
+  const now = new Date().toISOString();
+  const changes = run(`UPDATE conversations SET agent_ids=?,supervisor_id=?,default_reviewer_id=?,members_version=members_version+1,updated_at=?
+    WHERE id=? AND members_version=?`, JSON.stringify(input.agentIds), input.supervisorId, input.defaultReviewerId, now, id, input.expectedMembersVersion);
+  if (changes === 0) return null;
+  const conversation = getConversation(id) ?? null; if (conversation) emit({ type: 'conversation.updated', conversation }); return conversation;
+}
+
 export function archiveConversation(id: string): Conversation | null {
   run('UPDATE conversations SET archived_at = ?, updated_at = ? WHERE id = ?', new Date().toISOString(), new Date().toISOString(), id);
   const conversation = getConversation(id) ?? null;
@@ -107,8 +120,8 @@ export function backfillConversations(): void {
     for (const item of legacy) {
       const conversationId = randomUUID();
       run(
-        `INSERT INTO conversations (id, title, mode, agent_ids, supervisor_id, workspace, created_at, updated_at, archived_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO conversations (id,title,mode,agent_ids,supervisor_id,default_reviewer_id,members_version,workspace,created_at,updated_at,archived_at)
+         VALUES (?,?,?,?,?,NULL,1,?,?,?,?)`,
         conversationId, item.title ?? item.goal.slice(0, 24), item.mode, item.agent_ids, item.supervisor_id,
         item.workspace, item.created_at, item.finished_at ?? item.created_at, item.deleted_at,
       );

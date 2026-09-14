@@ -363,9 +363,10 @@ export function toolSchemas(names: string[]): LlmToolSchema[] {
  *   否则真实 LLM 永远不会触发审批（mock 靠 [tool:X] 标记才能演示）
  */
 export function toolsForAgent(agent: AgentDefinition): LlmToolSchema[] {
-  if (agent.permissionMode === 'readonly') return toolSchemas([...READONLY_TOOLS]);
-  if (agent.permissionMode === 'auto') return toolSchemas(agent.tools);
-  return toolSchemas(listToolNames());
+  const denied = new Set(agent.disallowedTools);
+  const allowed = agent.permissionMode === 'readonly' ? [...READONLY_TOOLS]
+    : agent.permissionMode === 'auto' ? agent.tools : listToolNames();
+  return toolSchemas(allowed.filter((name) => !denied.has(name)));
 }
 
 /** 命名工作区列表（§10.3，GET /api/workspaces）：workspaces/ 下目录名 + mtime */

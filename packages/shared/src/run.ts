@@ -23,6 +23,7 @@ export interface Run {
   agentIds: string[];
   /** 主管委派模式的显式主管；旧数据可为 null。 */
   supervisorId?: string | null;
+  defaultReviewerId?: string | null;
   /** 命名工作区（§10.2）：非空时无前缀路径解析到 sandbox/workspaces/<name>/；null = runId 专属（默认） */
   workspace?: string | null;
   /** 会话标题（§13.2）：缺省=目标前 24 字；可 PATCH（非空 ≤80）；null=用目标 */

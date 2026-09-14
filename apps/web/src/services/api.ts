@@ -3,6 +3,8 @@
  */
 import type {
   AgentDefinition,
+  AgentInput,
+  AgentOptions,
   ApprovalDecision,
   ApprovalRequest,
   Message,
@@ -25,15 +27,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const text = await res.text();
   if (!res.ok) {
-    let detail = '';
-    try { detail = String((JSON.parse(text) as { error?: unknown }).error ?? ''); } catch { detail = text.slice(0, 200); }
-    throw new Error(detail || `${init?.method ?? 'GET'} ${path} → ${res.status}`);
+    let detail = ''; let fieldErrors: Record<string, string> = {};
+    try { const parsed = JSON.parse(text) as { error?: unknown; fieldErrors?: Record<string, string> }; detail = String(parsed.error ?? ''); fieldErrors = parsed.fieldErrors ?? {}; } catch { detail = text.slice(0, 200); }
+    throw new ApiError(detail || `${init?.method ?? 'GET'} ${path} → ${res.status}`, res.status, fieldErrors);
   }
   return JSON.parse(text) as T;
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public fieldErrors: Record<string, string>) { super(message); }
+}
+
 export interface RunDetail {
   run: Run;
+  agents: AgentDefinition[];
   events: RunEvent[];
   tasks: Task[];
   messages: Message[];
@@ -49,7 +56,7 @@ export interface ConversationDetail {
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
-export function createConversation(input: { goal: string; mode: 'pipeline' | 'supervisor'; agentIds: string[]; supervisorId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
+export function createConversation(input: { goal: string; mode: 'pipeline' | 'supervisor'; agentIds: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 }
 export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
@@ -62,7 +69,11 @@ export const sendConversationMessage = (id: string, input: SendConversationMessa
     method: 'POST', body: JSON.stringify(input),
   });
 
-export const getAgents = () => request<AgentDefinition[]>('/api/agents');
+export const getAgents = (includeDisabled = false) => request<AgentDefinition[]>(`/api/agents${includeDisabled ? '?includeDisabled=1' : ''}`);
+export const getAgentOptions = () => request<AgentOptions>('/api/agent-options');
+export const createAgent = (input: AgentInput) => request<AgentDefinition>('/api/agents', { method: 'POST', body: JSON.stringify(input) });
+export const updateAgent = (id: string, input: AgentInput, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...input, expectedVersion }) });
+export const setAgentEnabled = (id: string, enabled: boolean, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ enabled, expectedVersion }) });
 /** §13.3 列表过滤（默认排除软删） */
 export const getRuns = (params?: { includeDeleted?: boolean; q?: string; status?: string }) => {
   const sp = new URLSearchParams();

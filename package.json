@@ -13,6 +13,7 @@
     "dev:web": "pnpm --filter @agent-gand/web dev",
     "typecheck": "pnpm -r typecheck",
     "verify:scheduler": "node scripts/verify-scheduler.mjs",
+    "verify:agents": "node scripts/verify-agent-management.mjs",
     "db:reset": "rm -f apps/server/data/*.sqlite*"
   },
   "devDependencies": {

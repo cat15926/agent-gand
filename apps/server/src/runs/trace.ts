@@ -3,6 +3,7 @@
  * createRun/startSpan/endSpan/finishRun；usage 按 run 汇总（SUM tokens/cost + llm/tool 调用数）
  */
 import type {
+  AgentDefinition,
   ApprovalRequest,
   Message,
   Run,
@@ -17,7 +18,8 @@ import type {
   UsageSummary,
 } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
-import { all, get, run } from '../db/database.ts';
+import { all, get, run, tx } from '../db/database.ts';
+import { getAnyAgent } from '../agents/registry.ts';
 import { emit } from '../messaging/bus.ts';
 import { listApprovals } from '../hitl/approvals.ts';
 import { listByRun } from '../messaging/inbox.ts';
@@ -34,6 +36,7 @@ interface RunRow {
   status: string;
   agent_ids: string;
   supervisor_id: string | null;
+  default_reviewer_id: string | null;
   workspace: string | null;
   title: string | null;
   deleted_at: string | null;
@@ -67,6 +70,7 @@ function rowToRun(row: RunRow): Run {
     status: row.status as RunStatus,
     agentIds: JSON.parse(row.agent_ids) as string[],
     supervisorId: row.supervisor_id ?? null,
+    defaultReviewerId: row.default_reviewer_id ?? null,
     workspace: row.workspace ?? null,
     title: row.title ?? null,
     deletedAt: row.deleted_at ?? null,
@@ -102,6 +106,7 @@ export function createRun(
   supervisorId: string | null = null,
   conversationId = '',
   turnNo = 1,
+  defaultReviewerId: string | null = null,
 ): Run {
   const record: Run = {
     id: randomUUID(),
@@ -112,29 +117,53 @@ export function createRun(
     status: 'pending',
     agentIds,
     supervisorId,
+    defaultReviewerId,
     workspace,
     title: goal.slice(0, 24), // §13.2 缺省标题：目标前 24 字
     deletedAt: null,
     createdAt: new Date().toISOString(),
     finishedAt: null,
   };
-  run(
-    `INSERT INTO runs (id, conversation_id, turn_no, goal, mode, status, agent_ids, supervisor_id, workspace, title, created_at, finished_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-    record.id,
-    record.conversationId,
-    record.turnNo,
-    record.goal,
-    record.mode,
-    record.status,
-    JSON.stringify(record.agentIds),
-    record.supervisorId,
-    record.workspace,
-    record.title,
-    record.createdAt,
-  );
+  tx(() => {
+    const agents = record.agentIds.map((id) => {
+      const agent = getAnyAgent(id);
+      if (!agent?.enabled) throw new Error(`Agent 不存在或已停用: ${id}`);
+      return agent;
+    });
+    run(
+      `INSERT INTO runs (id,conversation_id,turn_no,goal,mode,status,agent_ids,supervisor_id,default_reviewer_id,workspace,title,created_at,finished_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+      record.id, record.conversationId, record.turnNo, record.goal, record.mode, record.status,
+      JSON.stringify(record.agentIds), record.supervisorId, record.defaultReviewerId, record.workspace, record.title, record.createdAt,
+    );
+    for (const agent of agents) run(
+      'INSERT INTO run_agent_snapshots (run_id,agent_id,version,definition,created_at) VALUES (?,?,?,?,?)',
+      record.id, agent.id, agent.version, JSON.stringify(agent), record.createdAt,
+    );
+  });
   emit({ type: 'run.updated', run: record });
   return record;
+}
+
+export function listRunAgentSnapshots(runId: string): AgentDefinition[] {
+  return all<{ definition: string }>('SELECT definition FROM run_agent_snapshots WHERE run_id=? ORDER BY rowid', runId)
+    .map((row) => JSON.parse(row.definition) as AgentDefinition);
+}
+
+/** 升级旧库时以迁移时的角色版本补齐历史 Run；之后所有新 Run 都在创建事务内写快照。 */
+export function backfillRunAgentSnapshots(): void {
+  const rows = all<{ id: string; agent_ids: string; created_at: string }>(
+    `SELECT r.id,r.agent_ids,r.created_at FROM runs r
+     WHERE NOT EXISTS (SELECT 1 FROM run_agent_snapshots s WHERE s.run_id=r.id)`,
+  );
+  tx(() => {
+    for (const item of rows) {
+      for (const id of JSON.parse(item.agent_ids) as string[]) {
+        const agent = getAnyAgent(id); if (!agent) continue;
+        run('INSERT OR IGNORE INTO run_agent_snapshots (run_id,agent_id,version,definition,created_at) VALUES (?,?,?,?,?)', item.id, id, agent.version, JSON.stringify(agent), item.created_at);
+      }
+    }
+  });
 }
 
 export function listRunsByConversation(conversationId: string): Run[] {
@@ -329,6 +358,7 @@ export function usageSummary(): UsageSummary[] {
 
 export interface RunDetail {
   run: Run;
+  agents: AgentDefinition[];
   events: RunEvent[];
   tasks: Task[];
   messages: Message[];
@@ -344,6 +374,7 @@ export function runDetail(id: string): RunDetail | null {
   const tasks = listTasks(id);
   return {
     run,
+    agents: listRunAgentSnapshots(id),
     events: listEvents(id),
     tasks,
     messages: listByRun(id),

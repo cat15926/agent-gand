@@ -14,6 +14,7 @@ import {
   setRunStatus,
   startSpan,
 } from './runs/trace.ts';
+import { getAgent } from './agents/registry.ts';
 
 /** 演示 run 各 agent 的假 usage（确定性） */
 const DEMO_USAGE: Array<{ agentId: string; tokensIn: number; tokensOut: number }> = [
@@ -24,6 +25,8 @@ const DEMO_USAGE: Array<{ agentId: string; tokensIn: number; tokensOut: number }
 
 export function seed(): void {
   if (countRuns() > 0) return; // 已有数据（含此前 seed 过）则跳过
+  // 自定义 AGENTS_DIR 可以不包含演示三角色，此时不注入与实际注册表冲突的样例。
+  if (!['planner', 'coder', 'reviewer'].every((id) => getAgent(id))) return;
 
   // 1) completed 演示 run：agent span + 嵌套 llm span（含 usage）+ message 流
   const conversation = createConversation({

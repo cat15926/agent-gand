@@ -5,12 +5,15 @@
 
 /** 权限三档（P0-5：只读 / 需确认 / 白名单自动） */
 export type PermissionMode = 'readonly' | 'confirm' | 'auto';
+export type AgentCapability = 'execute' | 'review' | 'coordinate';
 
 export interface AgentDefinition {
   id: string;
   name: string;
   /** 给 supervisor 路由/自动委派用的一句话描述 */
   description?: string;
+  /** 调度能力：执行、审查、协调。 */
+  capabilities: AgentCapability[];
   /** 正文即 system prompt */
   systemPrompt: string;
   /** 模型路由串，如 'mock:planner' | 'openai:gpt-5' | 'anthropic:claude-...' */
@@ -22,4 +25,35 @@ export interface AgentDefinition {
   /** 前端展示用的主题色 */
   color: string;
   source: 'file' | 'db';
+  enabled: boolean;
+  /** 每次有效配置变更递增，用于乐观锁和运行快照。 */
+  version: number;
+  syncError?: string | null;
+}
+
+export interface AgentInput {
+  id: string;
+  name: string;
+  description: string;
+  capabilities: AgentCapability[];
+  systemPrompt: string;
+  model: string;
+  tools: string[];
+  disallowedTools: string[];
+  permissionMode: PermissionMode;
+  color: string;
+}
+
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  input: Omit<AgentInput, 'id' | 'name'>;
+}
+
+export interface AgentOptions {
+  tools: Array<{ name: string; description: string; readonly: boolean }>;
+  capabilities: Array<{ value: AgentCapability; label: string }>;
+  providers: Array<{ value: 'mock' | 'openai' | 'anthropic'; label: string; configured: boolean }>;
+  templates: AgentTemplate[];
 }

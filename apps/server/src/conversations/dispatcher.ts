@@ -1,10 +1,9 @@
 import type { AgentDefinition } from '@agent-gand/shared';
-import * as registry from '../agents/registry.ts';
 import { conversationHistory, getConversation, listConversations, touchConversation } from './service.ts';
 import { updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
 import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
-import { getRun, listPendingRunsByConversation } from '../runs/trace.ts';
+import { finishRun, getRun, listPendingRunsByConversation, listRunAgentSnapshots } from '../runs/trace.ts';
 
 const active = new Set<string>();
 const inputs = new Map<string, { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }>();
@@ -25,9 +24,15 @@ async function drain(conversationId: string): Promise<void> {
       if (!current) break;
       const conversation = getConversation(conversationId);
       if (!conversation) break;
-      const members = conversation.agentIds
-        .map((id) => registry.getAgent(id))
+      const snapshots = listRunAgentSnapshots(current.id);
+      const members = current.agentIds.map((id) => snapshots.find((agent) => agent.id === id))
         .filter((agent): agent is AgentDefinition => agent !== undefined);
+      if (members.length !== current.agentIds.length) {
+        finishRun(current.id, 'failed');
+        try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* 旧 Run 可能没有用户消息 */ }
+        touchConversation(conversationId);
+        continue;
+      }
       // @ 只记录公开接收者，不改变房间成员或既定 Reviewer；编排层仍拿到完整团队。
       let agents = members;
       if (conversation.mode === 'supervisor') {

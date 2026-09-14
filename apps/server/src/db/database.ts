@@ -63,7 +63,25 @@ ensureColumns('runs', [
   { name: 'supervisor_id', sql: 'supervisor_id TEXT' },
   { name: 'conversation_id', sql: 'conversation_id TEXT' },
   { name: 'turn_no', sql: 'turn_no INTEGER NOT NULL DEFAULT 1' },
+  { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
 ]);
+ensureColumns('agents', [
+  { name: 'enabled', sql: 'enabled INTEGER NOT NULL DEFAULT 1' },
+  { name: 'version', sql: 'version INTEGER NOT NULL DEFAULT 1' },
+  { name: 'definition_hash', sql: 'definition_hash TEXT' },
+  { name: 'source_path', sql: 'source_path TEXT' },
+  { name: 'sync_error', sql: 'sync_error TEXT' },
+]);
+ensureColumns('conversations', [
+  { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
+  { name: 'members_version', sql: 'members_version INTEGER NOT NULL DEFAULT 1' },
+]);
+db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
+  agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,
+  created_at TEXT NOT NULL, PRIMARY KEY(agent_id, version))`);
+db.exec(`CREATE TABLE IF NOT EXISTS run_agent_snapshots (
+  run_id TEXT NOT NULL, agent_id TEXT NOT NULL, version INTEGER NOT NULL,
+  definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(run_id, agent_id))`);
 db.exec('CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(run_id, to_agent, created_at)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_messages_task ON messages(task_id, created_at)');
 db.exec('CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_id, turn_no)');

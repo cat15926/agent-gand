@@ -135,20 +135,24 @@ function NewRoomComposer() {
   const [goal, setGoal] = useState('');
   const [mode, setMode] = useState<'pipeline' | 'supervisor'>('supervisor');
   const [selected, setSelected] = useState<string[]>(state.agents.map((agent) => agent.id));
-  const [supervisorId, setSupervisorId] = useState('planner');
+  const initialized = useRef(state.agents.length > 0);
+  const [supervisorId, setSupervisorId] = useState(state.agents.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
+  const [defaultReviewerId, setDefaultReviewerId] = useState(state.agents.find((agent) => agent.capabilities.includes('review'))?.id ?? '');
   const [workspace, setWorkspace] = useState('');
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (selected.length === 0 && state.agents.length > 0) setSelected(state.agents.map((agent) => agent.id));
-    if (!state.agents.some((agent) => agent.id === supervisorId)) setSupervisorId(state.agents[0]?.id ?? '');
-  }, [selected.length, state.agents, supervisorId]);
+    if (!initialized.current && state.agents.length > 0) { setSelected(state.agents.map((agent) => agent.id)); initialized.current = true; }
+    if (!state.agents.some((agent) => agent.id === supervisorId && agent.capabilities.includes('coordinate'))) setSupervisorId(state.agents.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
+    if (!state.agents.some((agent) => agent.id === defaultReviewerId && agent.capabilities.includes('review'))) setDefaultReviewerId(state.agents.find((agent) => agent.capabilities.includes('review'))?.id ?? '');
+  }, [state.agents, supervisorId, defaultReviewerId]);
   async function create() {
     if (!goal.trim() || selected.length === 0 || busy) return;
     setBusy(true);
     try {
       const created = await api.createConversation({ goal: goal.trim(), mode, agentIds: selected,
-        ...(mode === 'supervisor' ? { supervisorId: selected.includes(supervisorId) ? supervisorId : selected[0] } : {}),
+        ...(mode === 'supervisor' && selected.includes(supervisorId) ? { supervisorId } : {}),
+        ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}),
         ...(workspace ? { workspace } : {}) });
       setActiveConversation(created.conversation.id);
     } finally { setBusy(false); }
@@ -159,7 +163,8 @@ function NewRoomComposer() {
       className="resize-none rounded-2xl bg-zinc-900 p-4 text-sm outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500" />
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
       <select value={mode} onChange={(event) => setMode(event.target.value as 'pipeline' | 'supervisor')} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
-      {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
+      {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('coordinate')).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
+      <select value={defaultReviewerId} onChange={(event) => setDefaultReviewerId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="">不设默认评审</option>{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('review')).map((agent) => <option key={agent.id} value={agent.id}>评审：{agent.name}</option>)}</select>
       <button onClick={() => setWorkspaceOpen(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-zinc-400">🗂 {workspace || '自动创建房间工作区'} ▾</button>
       {state.agents.map((agent) => <button key={agent.id} onClick={() => setSelected((items) => items.includes(agent.id) ? items.filter((id) => id !== agent.id) : [...items, agent.id])}
         className="rounded-full px-3 py-1.5" style={{ color: selected.includes(agent.id) ? agent.color : '#71717a', backgroundColor: selected.includes(agent.id) ? `${agent.color}20` : 'transparent' }}>{agent.name}</button>)}

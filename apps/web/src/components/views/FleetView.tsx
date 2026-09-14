@@ -3,6 +3,8 @@
  * 状态推导：待审批 > 工作中 > 空闲（Claude Code agent view 的 Needs-input 置顶思想）
  */
 import { useStore } from '../../store';
+import { useState } from 'react';
+import { AgentManager } from '../AgentManager';
 
 type AgentStatus = 'needs_input' | 'working' | 'idle';
 
@@ -20,6 +22,7 @@ function agentStatus(agentId: string, ctx: ReturnType<typeof useStore>['state'])
 
 export function FleetView() {
   const { state } = useStore();
+  const [tab, setTab] = useState<'status' | 'roles'>('status');
 
   const rows = state.agents.map((agent) => {
     const status = agentStatus(agent.id, state);
@@ -33,7 +36,9 @@ export function FleetView() {
   rows.sort((a, b) => order[a.status] - order[b.status]);
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="flex h-full flex-col">
+      <div className="flex shrink-0 gap-1 border-b border-zinc-800 px-4 pt-3"><button onClick={() => setTab('status')} className={`px-3 py-2 text-sm ${tab === 'status' ? 'border-b-2 border-violet-400 text-zinc-100' : 'text-zinc-500'}`}>执行状态</button><button onClick={() => setTab('roles')} className={`px-3 py-2 text-sm ${tab === 'roles' ? 'border-b-2 border-violet-400 text-zinc-100' : 'text-zinc-500'}`}>角色管理</button></div>
+      {tab === 'roles' ? <AgentManager /> : <div className="h-full overflow-y-auto p-4">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">
@@ -71,6 +76,7 @@ export function FleetView() {
           ))}
         </tbody>
       </table>
+    </div>}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import type { Conversation } from './conversation.ts';
 
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
+  | { type: 'agent.updated'; agent: AgentDefinition }
   | { type: 'message'; message: Message }
   | { type: 'conversation.updated'; conversation: Conversation }
   | { type: 'task.updated'; task: Task }

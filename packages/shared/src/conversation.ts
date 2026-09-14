@@ -6,6 +6,8 @@ export interface Conversation {
   mode: RunMode;
   agentIds: string[];
   supervisorId: string | null;
+  defaultReviewerId: string | null;
+  membersVersion: number;
   workspace: string | null;
   createdAt: string;
   updatedAt: string;
