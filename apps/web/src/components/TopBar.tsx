@@ -7,6 +7,7 @@ const STATUS_LABEL: Record<string, string> = {
   pending: '排队中',
   running: '运行中',
   awaiting_approval: '待审批',
+  waiting_for_user: '等待你的决定',
   completed: '已完成',
   failed: '失败',
 };
@@ -15,6 +16,7 @@ const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-zinc-500',
   running: 'bg-sky-400 animate-pulse',
   awaiting_approval: 'bg-amber-400 animate-pulse',
+  waiting_for_user: 'bg-violet-400 animate-pulse',
   completed: 'bg-emerald-400',
   failed: 'bg-red-500',
 };

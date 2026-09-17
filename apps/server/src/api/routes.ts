@@ -2,10 +2,11 @@
  * REST API（规格 §4.3 全部端点）
  */
 import type { FastifyInstance } from 'fastify';
-import type { AgentDefinition, AgentInput, AgentMessageType, MessageKind, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, AgentInput, AgentMessageType, MessageKind, ResolveCollaborationDecision, RunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
-import { builtinTools } from '../tools/builtin/index.ts';
+import { listTools } from '../tools/builtin/index.ts';
+import { getMcpStatus, refreshMcpTools } from '../tools/mcp/client.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import { config } from '../config.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
@@ -17,9 +18,13 @@ import { listReviews } from '../tasks/reviews.ts';
 import { resumeSupervisorRun } from '../orchestration/supervisor.ts';
 import { archiveConversation, createConversation, getConversation, listConversations, nextTurnNo, renameConversation, touchConversation, updateConversationMembers } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
+import { resolveCollaborationDecision, CollaborationDecisionError } from '../collaboration/decisions.ts';
+import { settleCollaborationRun } from '../collaboration/scheduler.ts';
+import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
   countRuns,
   createRun,
+  finishRun,
   getRun,
   listRunsByConversation,
   listRuns,
@@ -51,8 +56,8 @@ import {
 } from '../workspaces/manager.ts';
 
 const MESSAGE_KINDS: readonly MessageKind[] = ['user', 'agent', 'system', 'tool'];
-const MESSAGE_TYPES: readonly AgentMessageType[] = ['assignment', 'result', 'review_request', 'review_result', 'revision_request', 'handoff', 'informational'];
-const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor'];
+const MESSAGE_TYPES: readonly AgentMessageType[] = ['assignment', 'result', 'review_request', 'review_result', 'revision_request', 'handoff', 'collaboration_result', 'collaboration_handoff', 'collaboration_question', 'collaboration_wait_user', 'collaboration_routing', 'collaboration_task_proposal', 'informational'];
+const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor', 'collaboration'];
 /** 命名工作区名（§10.2）：与 resolver 侧同规 */
 const WORKSPACE_RE = /^[\w-]{1,32}$/;
 
@@ -104,11 +109,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     ok: true,
     agents: registry.count(),
     runs: countRuns(),
+    mcp: getMcpStatus(),
   }));
 
   app.get<{ Querystring: { includeDisabled?: string } }>('/api/agents', async (req) => registry.list(req.query.includeDisabled === '1'));
   app.get('/api/agent-options', async () => ({
-    tools: builtinTools.map((tool) => ({ name: tool.name, description: tool.description, readonly: READONLY_TOOLS.has(tool.name) })),
+    tools: listTools().map((tool) => ({ name: tool.name, description: tool.description, readonly: READONLY_TOOLS.has(tool.name), source: tool.source ?? 'builtin' })),
     capabilities: [{ value: 'execute', label: '执行' }, { value: 'review', label: '审查' }, { value: 'coordinate', label: '协调' }],
     providers: [
       { value: 'mock', label: 'Mock（本地演示）', configured: true },
@@ -122,6 +128,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       { id: 'reviewer', name: '评审者', description: '检查结果并推动返工', input: { description: '负责审查产出并给出明确结论', capabilities: ['review'], systemPrompt: '你负责对照验收标准审查产出。发现问题时给出具体、可执行的修改建议。', model: 'mock:reviewer', tools: ['fs.read', 'search.files'], disallowedTools: [], permissionMode: 'readonly', color: '#e0a13c' } },
     ],
   }));
+  app.get('/api/tools/mcp/status', async () => getMcpStatus());
+  app.post('/api/tools/mcp/refresh', async (_req, reply) => {
+    const status = await refreshMcpTools();
+    if (status.configured && !status.connected) reply.code(503);
+    return status;
+  });
   app.post<{ Body: unknown }>('/api/agents/validate', async (req) => ({ valid: true, normalized: validateAgentInput(req.body) }));
   app.post<{ Body: AgentInput }>('/api/agents', async (req, reply) => { const agent = registry.createAgent(req.body); reply.code(201); return agent; });
   app.get<{ Params: { id: string } }>('/api/agents/:id', async (req) => { const agent = registry.getAnyAgent(req.params.id); if (!agent) throw httpError(404, `角色不存在: ${req.params.id}`); return agent; });
@@ -138,17 +150,19 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 聊天室：一个房间包含多轮 Run ----
 
   app.get('/api/conversations', async () => listConversations());
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
-    const { goal, mode, agentIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
+    const { goal, agentIds, recipientIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
+    const mode = (req.body?.mode ?? 'collaboration') as string;
     if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
-    if (mode !== 'pipeline' && mode !== 'supervisor') throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
+    if (!RUN_MODES.includes(mode as RunMode)) throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
     if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
-    const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode, agentIds, supervisorId, defaultReviewerId);
+    if (recipientIds !== undefined && (!Array.isArray(recipientIds) || recipientIds.length === 0 || recipientIds.length > config.collaboration.maxTargets || !recipientIds.every((id) => typeof id === 'string' && agentIds.includes(id)))) throw httpError(400, `recipientIds 必须包含 1～${config.collaboration.maxTargets} 位聊天室成员`);
+    const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode as RunMode, agentIds, supervisorId, defaultReviewerId);
     if (workspace && (isExternalWorkspace(workspace) ? !getExternal(externalId(workspace)!) : !WORKSPACE_RE.test(workspace))) throw httpError(400, 'workspace 无效或未注册');
-    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null, stableWorkspace: true });
-    const run = createRun(goal.trim(), mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
+    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode: mode as RunMode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null, stableWorkspace: true });
+    const run = createRun(goal.trim(), mode as RunMode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
     touchConversation(conversation.id);
-    enqueueConversationRun(run.id);
+    enqueueConversationRun(run.id, { recipientIds });
     reply.code(201);
     return { run, conversation: getConversation(conversation.id)! };
   });
@@ -156,6 +170,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
     return { conversation, runs: listRunsByConversation(conversation.id), messages: listByConversation(conversation.id) };
+  });
+  app.get<{ Params: { id: string } }>('/api/conversations/:id/collaboration', async (req) => {
+    const conversation = getConversation(req.params.id);
+    if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+    const runs = listRunsByConversation(conversation.id).filter((item) => item.mode === 'collaboration');
+    return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id), budget: budgetSnapshot(item.id) })) };
   });
   app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
     if (req.body?.agentIds) {
@@ -189,6 +209,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       if (recipientIds !== undefined && (!Array.isArray(recipientIds) || !recipientIds.every((id) => typeof id === 'string' && conversation.agentIds.includes(id)))) {
         throw httpError(400, 'recipientIds 必须全部属于当前聊天室');
       }
+      if (conversation.mode === 'collaboration' && (recipientIds?.length ?? 0) > config.collaboration.maxTargets) throw httpError(400, `recipientIds 最多 ${config.collaboration.maxTargets} 个`);
       const existing = listByConversation(conversation.id).find((message) => message.clientMessageId === clientMessageId);
       if (existing) {
         const existingRun = getRun(existing.runId);
@@ -210,6 +231,39 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       return { run, message };
     },
   );
+
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/collaboration', async (req) => {
+    const item = getRun(req.params.runId);
+    if (!item) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    if (item.mode !== 'collaboration') throw httpError(409, 'Run 不是 collaboration 模式');
+    const attempts = listCollaborationAttempts(item.id);
+    return { dispatches: listCollaborationDispatches(item.id), attempts, batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
+      activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
+      budget: budgetSnapshot(item.id) };
+  });
+  app.get<{ Params: { id: string } }>('/api/collaboration/dispatches/:id', async (req) => {
+    const item = getDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); return item;
+  });
+  app.post<{ Params: { id: string } }>('/api/collaboration/dispatches/:id/cancel', async (req) => {
+    const item = cancelDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); settleCollaborationRun(item.runId); return item;
+  });
+  app.post<{ Params: { runId: string } }>('/api/collaboration/runs/:runId/stop', async (req) => {
+    const item = getRun(req.params.runId); if (!item) throw httpError(404, 'Run 不存在');
+    cancelCollaborationRun(item.id); finishRun(item.id, 'failed'); return getRun(item.id)!;
+  });
+  app.post<{ Params: { agentId: string }; Body: { conversationId?: string } }>('/api/collaboration/agents/:agentId/stop', async (req) => {
+    if (typeof req.body?.conversationId !== 'string') throw httpError(400, 'conversationId 必填');
+    const conversation = getConversation(req.body.conversationId); if (!conversation) throw httpError(404, '聊天室不存在');
+    if (!conversation.agentIds.includes(req.params.agentId)) throw httpError(400, 'Agent 不属于当前聊天室');
+    const affected = listCollaborationDispatchesForConversation(conversation.id).filter((item) => item.targetAgentId === req.params.agentId && (item.status === 'queued' || item.status === 'running')).map((item) => item.runId);
+    const cancelled = cancelAgentWork(conversation.id, req.params.agentId);
+    for (const runId of new Set(affected)) settleCollaborationRun(runId);
+    return { cancelled };
+  });
+  app.post<{ Params: { decisionId: string }; Body: ResolveCollaborationDecision }>('/api/collaboration/decisions/:decisionId/resolve', async (req) => {
+    try { return resolveCollaborationDecision(req.params.decisionId, req.body); }
+    catch (err) { if (err instanceof CollaborationDecisionError) throw httpError(err.status, err.message); throw err; }
+  });
 
   // ---- 任务（三态 + 认领事务锁）----
 
@@ -298,9 +352,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>(
     '/api/runs',
     async (req, reply) => {
-      const { goal, mode, agentIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
+      const { goal, agentIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
+      const mode = (req.body?.mode ?? 'collaboration') as string;
       if (typeof goal !== 'string' || goal.length === 0) throw httpError(400, 'goal 必填');
-      if (mode !== 'pipeline' && mode !== 'supervisor') {
+      if (!RUN_MODES.includes(mode as RunMode)) {
         throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
       }
       if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((a) => typeof a === 'string')) {
@@ -316,11 +371,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           throw httpError(400, 'workspace 只允许字母/数字/下划线/连字符（或外部约定 ext:<id>），长度 1-32');
         }
       }
-      const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode, agentIds, supervisorId, defaultReviewerId);
+      const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode as RunMode, agentIds, supervisorId, defaultReviewerId);
       const conversation = createConversation({
-        title: goal.trim().slice(0, 80), mode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null,
+        title: goal.trim().slice(0, 80), mode: mode as RunMode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null,
       });
-      const run = createRun(goal, mode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
+      const run = createRun(goal, mode as RunMode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
       touchConversation(conversation.id);
       enqueueConversationRun(run.id);
     reply.code(201);

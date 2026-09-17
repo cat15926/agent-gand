@@ -88,6 +88,43 @@ CREATE TABLE IF NOT EXISTS approvals (
   status TEXT NOT NULL DEFAULT 'pending',         -- pending|approved|rejected|edited
   edited_input TEXT, decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS collaboration_dispatches (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+  source_message_id TEXT NOT NULL, parent_dispatch_id TEXT, batch_id TEXT,
+  kind TEXT NOT NULL, from_actor TEXT NOT NULL, target_agent_id TEXT NOT NULL,
+  reason TEXT, status TEXT NOT NULL, priority TEXT NOT NULL DEFAULT 'normal',
+  depth INTEGER NOT NULL DEFAULT 0, idempotency_key TEXT NOT NULL,
+  output_message_id TEXT, error TEXT, created_at TEXT NOT NULL,
+  started_at TEXT, finished_at TEXT,
+  UNIQUE(run_id, idempotency_key)
+);
+CREATE TABLE IF NOT EXISTS collaboration_attempts (
+  id TEXT PRIMARY KEY, dispatch_id TEXT NOT NULL, run_id TEXT NOT NULL,
+  conversation_id TEXT NOT NULL, agent_id TEXT NOT NULL, attempt_no INTEGER NOT NULL,
+  status TEXT NOT NULL, input_context TEXT, output TEXT, control_action TEXT, error TEXT,
+  lease_owner TEXT, lease_expires_at TEXT, created_at TEXT NOT NULL,
+  started_at TEXT, ended_at TEXT,
+  UNIQUE(dispatch_id, attempt_no)
+);
+CREATE TABLE IF NOT EXISTS collaboration_batches (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+  initiator_agent_id TEXT NOT NULL, source_dispatch_id TEXT NOT NULL,
+  question TEXT NOT NULL, target_agent_ids TEXT NOT NULL, result_dispatch_id TEXT,
+  status TEXT NOT NULL, timeout_at TEXT NOT NULL, created_at TEXT NOT NULL,
+  completed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS collaboration_user_decisions (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+  dispatch_id TEXT, idempotency_key TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', prompt_message_id TEXT NOT NULL,
+  payload TEXT NOT NULL, resolution TEXT, linked_run_id TEXT,
+  created_at TEXT NOT NULL, resolved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS collaboration_budget_revisions (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, decision_id TEXT NOT NULL UNIQUE,
+  increase_percent INTEGER NOT NULL, previous_limits TEXT NOT NULL,
+  new_limits TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
 CREATE INDEX IF NOT EXISTS idx_events_run ON run_events(run_id);
@@ -95,3 +132,9 @@ CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 CREATE INDEX IF NOT EXISTS idx_attempts_task ON task_attempts(task_id, attempt_no);
 CREATE INDEX IF NOT EXISTS idx_attempts_status_lease ON task_attempts(status, lease_expires_at);
 CREATE INDEX IF NOT EXISTS idx_reviews_task ON task_reviews(task_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_collab_dispatch_run_status ON collaboration_dispatches(run_id, status, priority, created_at);
+CREATE INDEX IF NOT EXISTS idx_collab_dispatch_agent_status ON collaboration_dispatches(conversation_id, target_agent_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_collab_attempt_lease ON collaboration_attempts(status, lease_expires_at);
+CREATE INDEX IF NOT EXISTS idx_collab_batch_status ON collaboration_batches(run_id, status, timeout_at);
+CREATE INDEX IF NOT EXISTS idx_collab_decision_status ON collaboration_user_decisions(conversation_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_collab_budget_run ON collaboration_budget_revisions(run_id, created_at);

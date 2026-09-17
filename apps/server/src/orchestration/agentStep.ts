@@ -15,10 +15,10 @@
  *
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
-import type { AgentDefinition, Run } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationControlAction, Run } from '@agent-gand/shared';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { resolveProvider } from '../llm/router.ts';
-import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse } from '../llm/provider.ts';
+import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse, LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit } from '../messaging/bus.ts';
 import { endSpan, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
@@ -79,6 +79,9 @@ export interface AgentTurnOptions {
   taskId?: string;
   attemptId?: string;
   displayKind?: 'message' | 'review_protocol';
+  /** Collaboration 等编排器注入的服务端控制工具，不进入普通权限白名单。 */
+  controlTools?: LlmToolSchema[];
+  handleControlCalls?: (calls: LlmToolCall[]) => CollaborationControlAction;
 }
 
 export interface AgentTurnResult {
@@ -88,6 +91,7 @@ export interface AgentTurnResult {
   toolRounds: number;
   /** 是否因空正文失败 */
   emptyResponse: boolean;
+  controlAction: CollaborationControlAction | null;
 }
 
 /**
@@ -145,7 +149,9 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const { run, agent, parentSpanId } = opts;
   const provider = resolveProvider(agent.model);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
-  const tools = toolsForAgent(agent);
+  const ordinaryTools = toolsForAgent(agent);
+  const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
+  const controlNames = new Set((opts.controlTools ?? []).map((tool) => tool.name));
   const toolNames = tools.map((t) => t.name);
   const messages = [...opts.messages];
   // 工具调用指令：插入到首条 system 之后（无 system 则置顶）
@@ -158,6 +164,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const maxRounds = opts.maxToolRounds ?? 6;
   let toolRounds = 0;
   let nudged = false; // 空正文/伪调用 nudge 只重试一次
+  let controlNudged = false;
 
   for (let round = 0; ; round += 1) {
     const llmSpan = startSpan(run.id, {
@@ -197,17 +204,45 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         agent.id,
         `LLM 返回空正文（已重试一次；可能 thinking 耗尽 token 预算，可调大 LLM_MAX_TOKENS）`,
       );
-      return { content: '', toolRounds, emptyResponse: true };
+      return { content: '', toolRounds, emptyResponse: true, controlAction: null };
     }
 
     endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok' });
 
-    if (res.toolCalls.length === 0) return { content: res.content, toolRounds, emptyResponse: false };
+    if (res.toolCalls.length === 0) return { content: res.content, toolRounds, emptyResponse: false, controlAction: null };
+
+    const controlCalls = res.toolCalls.filter((call) => controlNames.has(call.name));
+    const ordinaryCalls = res.toolCalls.filter((call) => !controlNames.has(call.name));
+    if (controlCalls.length > 0) {
+      if (ordinaryCalls.length > 0 || controlCalls.length !== 1 || !opts.handleControlCalls) {
+        if (!controlNudged) {
+          controlNudged = true;
+          messages.push({ role: 'assistant', content: res.content || '（控制动作格式不合法）' });
+          messages.push({ role: 'user', content: '一次只能调用一个协作控制工具，且不能与普通工具混合。请重新选择一个控制动作。' });
+          continue;
+        }
+        await postSystem(run.id, agent.id, '协作控制工具连续两次格式不合法，本次执行失败');
+        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null };
+      }
+      try {
+        return { content: res.content, toolRounds, emptyResponse: false, controlAction: opts.handleControlCalls(controlCalls) };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!controlNudged) {
+          controlNudged = true;
+          messages.push({ role: 'assistant', content: res.content || '（控制动作参数不合法）' });
+          messages.push({ role: 'user', content: `协作控制动作无效：${message}。请修正后只调用一个控制工具。` });
+          continue;
+        }
+        await postSystem(run.id, agent.id, `协作控制动作失败：${message}`);
+        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null };
+      }
+    }
     if (round >= maxRounds) {
       await postSystem(run.id, agent.id, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
       // 无 tools 的收尾调用：基于已获工具结果给最终结论（保证结论完整性，比调大上限省 token）
       const closing = await closingCall(run, agent, parentSpanId, messages);
-      return { content: closing.trim().length > 0 ? closing : res.content, toolRounds, emptyResponse: false };
+      return { content: closing.trim().length > 0 ? closing : res.content, toolRounds, emptyResponse: false, controlAction: null };
     }
 
     toolRounds += 1;

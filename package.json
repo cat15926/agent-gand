@@ -14,6 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "verify:scheduler": "node scripts/verify-scheduler.mjs",
     "verify:agents": "node scripts/verify-agent-management.mjs",
+    "verify:p0-tools": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-p0-toolchain.mjs",
+    "verify:collaboration": "node scripts/verify-collaboration.mjs",
     "db:reset": "rm -f apps/server/data/*.sqlite*"
   },
   "devDependencies": {

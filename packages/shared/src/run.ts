@@ -2,12 +2,13 @@
  * 运行（Run）与可观测性事件（RunEvent = span）（P0-2 / P0-6 / P0-7）
  */
 
-export type RunMode = 'pipeline' | 'supervisor';
+export type RunMode = 'pipeline' | 'supervisor' | 'collaboration';
 
 export type RunStatus =
   | 'pending'
   | 'running'
   | 'awaiting_approval'
+  | 'waiting_for_user'
   | 'completed'
   | 'failed';
 

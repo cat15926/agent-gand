@@ -52,7 +52,7 @@ export interface AgentTemplate {
 }
 
 export interface AgentOptions {
-  tools: Array<{ name: string; description: string; readonly: boolean }>;
+  tools: Array<{ name: string; description: string; readonly: boolean; source: 'builtin' | 'mcp' }>;
   capabilities: Array<{ value: AgentCapability; label: string }>;
   providers: Array<{ value: 'mock' | 'openai' | 'anthropic'; label: string; configured: boolean }>;
   templates: AgentTemplate[];

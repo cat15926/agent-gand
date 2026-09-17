@@ -5,6 +5,7 @@ import { useStore } from '../store';
 
 const DOT: Record<string, string> = {
   pending: 'bg-amber-400', running: 'bg-sky-400 animate-pulse', awaiting_approval: 'bg-amber-400 animate-pulse',
+  waiting_for_user: 'bg-violet-400 animate-pulse',
   completed: 'bg-emerald-400', failed: 'bg-red-500',
 };
 
@@ -65,7 +66,7 @@ export function SessionSidebar(props: {
               </div>
               <p className="mt-1 truncate pl-4 text-[11px] text-zinc-500">{room.latestMessage ?? `${room.runCount} 轮执行`}</p>
               <div className="mt-1.5 flex gap-1.5 pl-4 text-[10px] text-zinc-600">
-                <span>{room.mode === 'supervisor' ? '主管委派' : '顺序流水线'}</span><span>·</span><span>{room.agentIds.length} 位成员</span>
+                <span>{room.mode === 'supervisor' ? '主管委派' : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'}</span><span>·</span><span>{room.agentIds.length} 位成员</span>
               </div>
             </>}
           </button>;

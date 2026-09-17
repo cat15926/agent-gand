@@ -23,6 +23,11 @@ import type {
   TaskReview,
   UsageSummary,
   Conversation,
+  CollaborationAttempt,
+  CollaborationBatch,
+  CollaborationDispatch,
+  CollaborationUserDecision,
+  CollaborationBudgetSnapshot,
 } from '@agent-gand/shared';
 import * as api from './services/api';
 import { armPermissionRequest, notifyApproval } from './services/notify';
@@ -45,6 +50,12 @@ export interface State {
   /** 活动 llm span 的流式增量累积（spanId → 已到文本；span 结束即折叠清除，§8.1） */
   streams: Record<string, string>;
   scheduler: { runId: string; active: number; queued: number } | null;
+  collaborationDispatches: CollaborationDispatch[];
+  collaborationAttempts: CollaborationAttempt[];
+  collaborationBatches: CollaborationBatch[];
+  collaborationDecisions: CollaborationUserDecision[];
+  collaborationBudgets: Record<string, CollaborationBudgetSnapshot>;
+  collaborationScheduler: { conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number } | null;
 }
 
 type Action =
@@ -55,6 +66,7 @@ type Action =
   | { type: 'setActiveRun'; runId: string | null }
   | { type: 'setActiveConversation'; conversationId: string | null; runId: string | null }
   | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
+  | { type: 'collaborationDetail'; conversationId: string; details: api.CollaborationRunDetail[] }
   | { type: 'serverEvent'; event: ServerEvent };
 
 const initialState: State = {
@@ -73,6 +85,7 @@ const initialState: State = {
   usage: [],
   streams: {},
   scheduler: null,
+  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null,
 };
 
 function upsertBy<T extends { id: string }>(list: T[], item: T): T[] {
@@ -103,10 +116,20 @@ function reducer(state: State, action: Action): State {
     case 'setActiveRun':
       return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
     case 'setActiveConversation':
-      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
+      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {} };
+    case 'collaborationDetail':
+      if (action.conversationId !== state.activeConversationId) return state;
+      return { ...state,
+        collaborationDispatches: action.details.flatMap((item) => item.dispatches),
+        collaborationAttempts: action.details.flatMap((item) => item.attempts),
+        collaborationBatches: action.details.flatMap((item) => item.batches),
+        collaborationDecisions: action.details.flatMap((item) => item.decisions),
+        collaborationBudgets: Object.fromEntries(action.details.flatMap((item) => item.run ? [[item.run.id, item.budget] as const] : [])),
+      };
     case 'runDetail':
       // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
       if (action.runId !== state.activeRunId) return state;
@@ -154,6 +177,16 @@ function reducer(state: State, action: Action): State {
             : state;
         case 'scheduler.updated':
           return e.runId === state.activeRunId ? { ...state, scheduler: e } : state;
+        case 'collaboration.dispatch.updated':
+          return e.dispatch.conversationId === state.activeConversationId ? { ...state, collaborationDispatches: upsertBy(state.collaborationDispatches, e.dispatch) } : state;
+        case 'collaboration.attempt.updated':
+          return e.attempt.conversationId === state.activeConversationId ? { ...state, collaborationAttempts: upsertBy(state.collaborationAttempts, e.attempt) } : state;
+        case 'collaboration.batch.updated':
+          return e.batch.conversationId === state.activeConversationId ? { ...state, collaborationBatches: upsertBy(state.collaborationBatches, e.batch) } : state;
+        case 'collaboration.decision.updated':
+          return e.decision.conversationId === state.activeConversationId ? { ...state, collaborationDecisions: upsertBy(state.collaborationDecisions, e.decision) } : state;
+        case 'collaboration.scheduler.updated':
+          return e.conversationId === state.activeConversationId ? { ...state, collaborationScheduler: e } : state;
         case 'run.updated':
           {
           const rooms = state.conversations.map((room) => {
@@ -200,11 +233,12 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
 }
 
 async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
-  const room = await api.getConversation(conversationId);
+  const [room, collaboration] = await Promise.all([api.getConversation(conversationId), api.getConversationCollaboration(conversationId)]);
   const latest = room.runs.at(-1);
   const detail = latest ? await api.getRun(latest.id) : null;
   dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: room.messages,
     events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [] });
+  dispatch({ type: 'collaborationDetail', conversationId, details: collaboration.runs });
 }
 
 const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void> }>({

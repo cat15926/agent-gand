@@ -6,3 +6,5 @@ export * from './approval.ts';
 export * from './review.ts';
 export * from './events.ts';
 export * from './conversation.ts';
+export * from './tool.ts';
+export * from './collaboration.ts';

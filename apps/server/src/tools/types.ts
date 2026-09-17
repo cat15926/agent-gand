@@ -16,6 +16,8 @@ export interface ToolContext {
 export interface Tool {
   name: string;
   description: string;
+  /** 工具来源，用于管理界面和诊断；内置工具缺省为 builtin。 */
+  source?: 'builtin' | 'mcp';
   /** JSON Schema（传给真实 LLM 的 tools 字段，规格 §7.1） */
   inputSchema: Record<string, unknown>;
   run(input: unknown, ctx: ToolContext): Promise<string>;

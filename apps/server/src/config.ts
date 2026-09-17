@@ -49,6 +49,30 @@ function firstInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+export interface ModelPrice {
+  inputPerMillion: number;
+  outputPerMillion: number;
+}
+
+function parsePricing(raw: string | undefined): Record<string, ModelPrice> {
+  if (!raw?.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, Partial<ModelPrice>>;
+    const result: Record<string, ModelPrice> = {};
+    for (const [model, price] of Object.entries(parsed)) {
+      const input = price?.inputPerMillion;
+      const output = price?.outputPerMillion;
+      if (typeof input === 'number' && Number.isFinite(input) && input >= 0
+        && typeof output === 'number' && Number.isFinite(output) && output >= 0) {
+        result[model] = { inputPerMillion: input, outputPerMillion: output };
+      }
+    }
+    return result;
+  } catch {
+    throw new Error('LLM_PRICING_JSON 必须是合法 JSON，格式见 apps/server/.env.example');
+  }
+}
+
 export const config = {
   port: firstInt(process.env.PORT, 3010),
   logLevel: process.env.LOG_LEVEL ?? 'info',
@@ -70,10 +94,13 @@ export const config = {
     maxTokens: firstInt(process.env.LLM_MAX_TOKENS, 8192),
     /** 单次请求超时毫秒（thinking 模型长生成需要更长时间） */
     timeoutMs: firstInt(process.env.LLM_TIMEOUT_MS, 180_000),
+    /** 每百万 token 美元价格；支持完整路由名或 openai:* / anthropic:* 兜底。 */
+    pricing: parsePricing(process.env.LLM_PRICING_JSON),
   },
   mcp: {
     command: process.env.MCP_SERVER_CMD ?? null,
     args: (process.env.MCP_SERVER_ARGS ?? '').split(/\s+/).filter(Boolean),
+    heartbeatMs: Math.max(5_000, firstInt(process.env.MCP_HEARTBEAT_MS, 30_000)),
   },
   /** 审批等待超时毫秒（规格 §8.2；默认 300s，0 = 不超时；超时置 expired 按拒绝处理） */
   approvalTimeoutMs: firstInt(process.env.APPROVAL_TIMEOUT_MS, 300_000),
@@ -81,6 +108,21 @@ export const config = {
   orchestratorConcurrency: Math.max(1, firstInt(process.env.ORCHESTRATOR_CONCURRENCY, 2)),
   taskMaxAttempts: Math.max(1, firstInt(process.env.TASK_MAX_ATTEMPTS, 3)),
   taskLeaseMs: Math.max(10_000, firstInt(process.env.TASK_LEASE_MS, 300_000)),
+  collaboration: {
+    maxDepth: Math.max(1, firstInt(process.env.COLLAB_MAX_DEPTH, 12)),
+    maxDispatches: Math.max(1, firstInt(process.env.COLLAB_MAX_DISPATCHES, 20)),
+    maxTargets: Math.min(3, Math.max(1, firstInt(process.env.COLLAB_MAX_TARGETS, 3))),
+    maxConcurrency: Math.max(1, firstInt(process.env.COLLAB_MAX_CONCURRENCY, 3)),
+    maxAttempts: Math.max(1, firstInt(process.env.COLLAB_MAX_ATTEMPTS, 2)),
+    batchTimeoutMs: Math.max(10_000, firstInt(process.env.COLLAB_BATCH_TIMEOUT_MS, 300_000)),
+    runTimeoutMs: Math.max(60_000, firstInt(process.env.COLLAB_RUN_TIMEOUT_MS, 1_800_000)),
+    maxTokens: Math.max(1_000, firstInt(process.env.COLLAB_MAX_TOKENS, 100_000)),
+    maxCostUsd: Math.max(0.01, Number(process.env.COLLAB_MAX_COST_USD ?? 5) || 5),
+    maxBudgetMultiplier: Math.max(1, Number(process.env.COLLAB_MAX_BUDGET_MULTIPLIER ?? 4) || 4),
+    pingPongWarn: Math.max(1, firstInt(process.env.COLLAB_PINGPONG_WARN, 2)),
+    pingPongBlock: Math.max(2, firstInt(process.env.COLLAB_PINGPONG_BLOCK, 4)),
+    attemptLeaseMs: Math.max(10_000, firstInt(process.env.COLLAB_ATTEMPT_LEASE_MS, 300_000)),
+  },
 } as const;
 
 export type AppConfig = typeof config;

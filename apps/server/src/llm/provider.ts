@@ -137,8 +137,13 @@ async function* sseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerator<s
   }
 }
 
-/** TODO: 真实 Provider 的 costUsd 记账（需按模型维护价格表；当前记 0） */
-const ZERO_COST = 0;
+/** 完整路由优先、provider:* 兜底；未知价格保持 0，避免伪造供应商账单。 */
+export function calculateCostUsd(model: string, tokensIn: number, tokensOut: number): number {
+  const provider = model.split(':', 1)[0] ?? '';
+  const price = config.llm.pricing[model] ?? config.llm.pricing[`${provider}:*`];
+  if (!price) return 0;
+  return Math.round(((tokensIn * price.inputPerMillion + tokensOut * price.outputPerMillion) / 1_000_000) * 1e9) / 1e9;
+}
 
 function toInt(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
@@ -160,7 +165,15 @@ const MOCK_TOOL_INPUTS: Record<string, string> = {
 };
 
 /** 从最后一条 user 消息提取 [tool:name] 标记（演示工具链/审批门控用） */
-function extractToolCall(lastUserContent: string): LlmToolCall | null {
+function extractToolCall(lastUserContent: string, tools: LlmToolSchema[] = []): LlmToolCall | null {
+  const available = new Set(tools.map((tool) => tool.name));
+  const send = /\[collab:send:([\w-]+)\]/.exec(lastUserContent);
+  if (send?.[1] && available.has('agent.send_message')) return { name: 'agent.send_message', input: JSON.stringify({ target: send[1], message: `请继续处理：${lastUserContent.replace(send[0], '').trim()}`, reason: 'mock 协作交接' }) };
+  const ask = /\[collab:ask:([\w,-]+)\]/.exec(lastUserContent);
+  if (ask?.[1] && available.has('agent.ask_many')) return { name: 'agent.ask_many', input: JSON.stringify({ targets: ask[1].split(',').filter(Boolean), question: lastUserContent.replace(ask[0], '').trim() || '请给出独立意见', reason: 'mock 并行征询' }) };
+  if (lastUserContent.includes('[collab:wait]') && available.has('agent.wait_for_user')) return { name: 'agent.wait_for_user', input: JSON.stringify({ question: '请确认下一步如何处理？', reason: 'mock 等待用户' }) };
+  const proposal = /\[collab:propose:([\w,-]+)\]/.exec(lastUserContent);
+  if (proposal?.[1] && available.has('agent.propose_supervisor_task')) return { name: 'agent.propose_supervisor_task', input: JSON.stringify({ title: '正式实施任务', goal: lastUserContent.replace(proposal[0], '').trim() || '完成正式实施', acceptanceCriteria: ['实现完成并通过验证'], suggestedAssigneeIds: proposal[1].split(',').filter(Boolean), reason: 'mock 正式任务提议' }) };
   const match = /\[tool:([a-zA-Z0-9_.-]+)\]/.exec(lastUserContent);
   const name = match?.[1];
   if (!name) return null;
@@ -188,6 +201,28 @@ const ROLE_LINES: Array<{ keyword: string; label: string; lines: string[] }> = [
   },
 ];
 
+interface MockCollaborationContext {
+  agentId: string;
+  agentName: string;
+  memberIds: string[];
+  message: string;
+}
+
+function extractMockCollaborationContext(goal: string): MockCollaborationContext | null {
+  const prefix = '__AGENT_GAND_CURRENT__=';
+  const lines = goal.split('\n').filter((line) => line.startsWith(prefix));
+  const encoded = lines.at(-1)?.slice(prefix.length);
+  if (!encoded) return null;
+  try {
+    const value = JSON.parse(encoded) as Partial<MockCollaborationContext>;
+    if (typeof value.agentId !== 'string' || typeof value.agentName !== 'string' || !Array.isArray(value.memberIds) ||
+      !value.memberIds.every((item) => typeof item === 'string') || typeof value.message !== 'string') return null;
+    return value as MockCollaborationContext;
+  } catch {
+    return null;
+  }
+}
+
 function buildContent(model: string, goal: string): string {
   if (goal.includes('__AGENT_GAND_REVIEW_JSON__')) {
     if (goal.includes('__MOCK_REVIEW_FAIL_ONCE__') && goal.includes('当前实现轮次：1')) {
@@ -206,10 +241,41 @@ function buildContent(model: string, goal: string): string {
     return JSON.stringify({ verdict: 'PASS', summary: 'mock 审查通过', issues: [] });
   }
   const role = model.split(':')[1] ?? model;
+  const collaboration = extractMockCollaborationContext(goal);
+  if (collaboration) {
+    const currentItem = collaboration.message.trim();
+    if (currentItem.startsWith('并行征询结果已汇总：')) {
+      const report = currentItem.slice('并行征询结果已汇总：'.length).trim();
+      return `我已经检查完团队其他成员的情况，汇总如下：\n\n${report}`;
+    }
+    if (/(?:状态|在忙|忙吗|空闲|在线|怎么样|还好吗|进展如何)/u.test(currentItem)) {
+      return `你好，我是${collaboration.agentName}。我当前在线，已经收到你的消息，正在处理本轮对话；目前没有等待中的工具调用或用户确认。`;
+    }
+    if (/^(?:@[^\s，,：:]+[\s，,：:]*)?(?:你好|嗨|hello|hi)[！!。.]?$/iu.test(currentItem)) {
+      return `你好，我是${collaboration.agentName}。我已收到你的消息，可以继续告诉我需要一起处理的事项。`;
+    }
+    return `我是${collaboration.agentName}。当前角色使用的是 Mock 演示模型，只能验证消息路由和预设协作动作，无法可靠处理「${currentItem.slice(0, 80)}」。请在角色管理中为我配置真实模型后继续。`;
+  }
   const matched = ROLE_LINES.find((r) => role.includes(r.keyword));
   const label = matched?.label ?? '【处理】';
   const lines = matched?.lines ?? ['1. 已理解目标', '2. 已给出处理结果', '3. 交付完成'];
   return [`${label}（mock:${role}）已处理目标「${goal.slice(0, 40)}」`, ...lines].join('\n');
+}
+
+function inferMockCollaborationToolCall(context: MockCollaborationContext | null, tools: LlmToolSchema[] = []): LlmToolCall | null {
+  if (!context || !tools.some((tool) => tool.name === 'agent.ask_many')) return null;
+  const asksForTeamStatus = /(?:(?:团队|队友|其他成员|其余成员).*(?:状态|情况|进展)|(?:状态|情况|进展).*(?:团队|队友|其他成员|其余成员))/u.test(context.message);
+  if (!asksForTeamStatus) return null;
+  const targets = context.memberIds.filter((id) => id !== context.agentId).slice(0, 3);
+  if (targets.length === 0) return null;
+  return {
+    name: 'agent.ask_many',
+    input: JSON.stringify({
+      targets,
+      question: '请分别汇报你当前的工作状态、正在处理的事项，以及是否存在阻塞。',
+      reason: '用户要求检查团队其他成员的情况',
+    }),
+  };
 }
 
 export class MockProvider implements LLMProvider {
@@ -217,11 +283,13 @@ export class MockProvider implements LLMProvider {
     await delay(200); // 模拟网络延迟
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
     const goal = lastUser?.content ?? '';
+    const collaboration = extractMockCollaborationContext(goal);
+    const currentInput = collaboration?.message ?? goal;
     const content = buildContent(req.model, goal);
     // 假 token：按字符数折算（确定性）
     const tokensIn = Math.ceil(req.messages.reduce((n, m) => n + m.content.length, 0) / 4);
     const tokensOut = Math.ceil(content.length / 4);
-    const toolCall = extractToolCall(goal);
+    const toolCall = extractToolCall(currentInput, req.tools) ?? inferMockCollaborationToolCall(collaboration, req.tools);
     return {
       content,
       usage: {
@@ -323,7 +391,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('text/event-stream')) {
       const data = (await res.json()) as OpenAIChatResponse;
-      return parseOpenAIFullResponse(data, onDelta);
+      return parseOpenAIFullResponse(data, onDelta, req.model);
     }
     if (res.body === null) throw new Error('openai-compatible 流式响应无 body');
 
@@ -366,7 +434,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     }
     return {
       content,
-      usage: { tokensIn, tokensOut, costUsd: ZERO_COST },
+      usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
       toolCalls: finishToolAccs(toolAccs),
       stopReason,
     };
@@ -374,7 +442,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
 }
 
 /** 兼容端点忽略 stream 参数时的整体 JSON 解析（内容一次性交给 onDelta） */
-function parseOpenAIFullResponse(data: OpenAIChatResponse, onDelta?: DeltaHandler): LlmResponse {
+function parseOpenAIFullResponse(data: OpenAIChatResponse, onDelta?: DeltaHandler, model = 'openai:unknown'): LlmResponse {
   const choice = data.choices?.[0];
   const message = choice?.message;
   const content = message?.content ?? '';
@@ -390,7 +458,7 @@ function parseOpenAIFullResponse(data: OpenAIChatResponse, onDelta?: DeltaHandle
     usage: {
       tokensIn: toInt(data.usage?.prompt_tokens),
       tokensOut: toInt(data.usage?.completion_tokens),
-      costUsd: ZERO_COST,
+      costUsd: calculateCostUsd(model, toInt(data.usage?.prompt_tokens), toInt(data.usage?.completion_tokens)),
     },
     toolCalls: finishToolAccs(toolAccs),
     stopReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
@@ -480,7 +548,7 @@ export class AnthropicProvider implements LLMProvider {
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('text/event-stream')) {
       const data = (await res.json()) as AnthropicMessagesResponse;
-      return parseAnthropicFullResponse(data, onDelta);
+      return parseAnthropicFullResponse(data, onDelta, req.model);
     }
     if (res.body === null) throw new Error('anthropic 流式响应无 body');
 
@@ -550,7 +618,7 @@ export class AnthropicProvider implements LLMProvider {
       .map((b) => ({ name: b.toolName, input: b.json.trim().length > 0 ? b.json : '{}' }));
     return {
       content: text,
-      usage: { tokensIn, tokensOut, costUsd: ZERO_COST },
+      usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
       toolCalls,
       stopReason,
     };
@@ -561,6 +629,7 @@ export class AnthropicProvider implements LLMProvider {
 function parseAnthropicFullResponse(
   data: AnthropicMessagesResponse,
   onDelta?: DeltaHandler,
+  model = 'anthropic:unknown',
 ): LlmResponse {
   const blocks = data.content ?? [];
   const text = blocks
@@ -576,7 +645,7 @@ function parseAnthropicFullResponse(
     usage: {
       tokensIn: toInt(data.usage?.input_tokens),
       tokensOut: toInt(data.usage?.output_tokens),
-      costUsd: ZERO_COST,
+      costUsd: calculateCostUsd(model, toInt(data.usage?.input_tokens), toInt(data.usage?.output_tokens)),
     },
     toolCalls,
     stopReason: typeof data.stop_reason === 'string' ? data.stop_reason : null,

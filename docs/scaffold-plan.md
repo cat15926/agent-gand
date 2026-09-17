@@ -16,7 +16,7 @@
 | 数据 | SQLite：`apps/server/data/agent-gand.sqlite`（WAL，gitignore）|
 | Agent 定义 | `agents/*.agent.md`：YAML frontmatter + 正文=system prompt |
 | 模型路由 | model 字符串前缀路由：`mock:*` → MockProvider（演示可跑通）；`openai:*` / `anthropic:*` → 留 TODO 骨架 |
-| MCP | `@modelcontextprotocol/sdk` stdio client 骨架（可连、可列出工具、标注 TODO）|
+| MCP | `@modelcontextprotocol/sdk` stdio client（动态发现、统一注册、权限/Trace、心跳与重连）|
 
 ## 2. 目录树（全仓库）
 
@@ -124,7 +124,7 @@ CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 | `llm/router.ts` | 路由 | `mock:` → Mock；其他前缀 throw `LLM provider not configured (TODO)` |
 | `tools/types.ts` | 工具契约 | `interface Tool { name; run(input, ctx) }`；`checkPermission(agent, toolName): 'allow'|'deny'|'need_approval'`（readonly→只读类工具；auto→allowlist 内直过；confirm→非 allowlist 需审批）|
 | `tools/builtin/index.ts` | 内置工具 | `fs.read`/`fs.write`（沙箱限定 `apps/server/data/sandbox/`）、`http.get`、`shell.run`（仅白名单 echo/date/pwd）、`search.files`（对 data/ 做 grep）；每次调用记 tool span |
-| `tools/mcp/client.ts` | MCP 骨架 | 用 SDK stdio transport 连一个配置的 server，listTools + callTool 薄封装；未配置时返回空；TODO 标注 |
+| `tools/mcp/client.ts` | MCP Client | 用 SDK stdio transport 懒连接配置的 server；动态发现并以 `mcp.*` 注册到统一工具目录，复用权限/审批/Trace；提供心跳、状态、刷新和断线后重连，不自动重放失败调用 |
 | `hitl/approvals.ts` | 审批 | `create/list/decide(id, {decision, editedInput?, by})`；decide 后 emit `approval.updated`；编排器轮询 pending 审批（500ms，scaffold 级；TODO: durable pause/resume）|
 | `runs/trace.ts` | 运行与观测 | createRun/startSpan/endSpan/finishRun；usage 按 run 汇总（SUM tokens/cost + llm/tool 调用数）|
 | `api/routes.ts` | REST | 见 §4.3 |

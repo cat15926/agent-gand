@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentDefinition, Message } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationUserDecision, Message, RunMode } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
@@ -9,6 +9,8 @@ import { SessionSidebar } from '../SessionSidebar';
 const TYPE_LABEL: Record<string, string> = {
   assignment: '任务指派', result: '任务结果', review_request: '请求审查', review_result: '审查结论',
   revision_request: '需要修改', handoff: '工作交接', informational: '讨论',
+  collaboration_result: '协作结果', collaboration_handoff: '协作交接', collaboration_question: '并行征询',
+  collaboration_wait_user: '等待用户', collaboration_routing: '路由状态', collaboration_task_proposal: '正式任务提议',
 };
 const DELIVERY_LABEL: Record<string, string> = {
   received: '已接收', queued: '已排队', processing: '处理中', responded: '已回应', failed: '处理失败',
@@ -33,6 +35,38 @@ function agentName(id: string, agents: AgentDefinition[]): string {
   return id.split(',').map((part) => agents.find((agent) => agent.id === part)?.name ?? part).join('、');
 }
 
+function mentionAliases(agent: AgentDefinition): string[] {
+  const plainName = agent.name.replace(/[^\p{L}\p{N}_-]+$/gu, '');
+  return [...new Set([agent.id, agent.name, plainName].filter(Boolean))];
+}
+
+/** 只解析消息开头连续出现的 @，避免把正文中的普通引用误当成路由指令。 */
+function leadingMentionRecipientIds(text: string, agents: AgentDefinition[], allowedIds: string[]): string[] {
+  const allowed = new Set(allowedIds);
+  const candidates = agents.filter((agent) => allowed.has(agent.id)).flatMap((agent) =>
+    mentionAliases(agent).map((alias) => ({ alias, agentId: agent.id })),
+  ).sort((left, right) => right.alias.length - left.alias.length);
+  const recipients: string[] = [];
+  let remaining = text.trimStart();
+  while (remaining.startsWith('@')) {
+    const matching = candidates.filter(({ alias }) => {
+      if (!remaining.startsWith(`@${alias}`)) return false;
+      const boundary = remaining.slice(alias.length + 1, alias.length + 2);
+      return boundary === '' || /[\s,，:：;；、]/u.test(boundary);
+    });
+    const longest = matching[0]?.alias.length ?? 0;
+    const ids = [...new Set(matching.filter(({ alias }) => alias.length === longest).map(({ agentId }) => agentId))];
+    if (ids.length !== 1) break;
+    if (!recipients.includes(ids[0]!)) recipients.push(ids[0]!);
+    remaining = remaining.slice(longest + 1).replace(/^[\s,，:：;；、]+/u, '');
+  }
+  return recipients;
+}
+
+function combineRecipients(mentioned: string[], selected: string[]): string[] {
+  return [...new Set([...mentioned, ...selected])];
+}
+
 function ReviewIssues({ message }: { message: Message }) {
   const issues = Array.isArray(message.payload?.issues) ? message.payload.issues as Array<Record<string, unknown>> : [];
   if (issues.length === 0) return null;
@@ -45,6 +79,50 @@ function ReviewIssues({ message }: { message: Message }) {
       <p className="mt-1 text-zinc-300">{String(issue.problem ?? '')}</p>
       <p className="mt-1 text-zinc-500">建议：{String(issue.suggestion ?? '')}</p>
     </div>)}
+  </div>;
+}
+
+function DecisionCard({ decision }: { decision: CollaborationUserDecision }) {
+  const { state, refreshConversation } = useStore();
+  const room = state.conversations.find((item) => item.id === decision.conversationId);
+  const proposal = decision.payload.proposal as { title?: string; goal?: string; acceptanceCriteria?: string[]; suggestedAssigneeIds?: string[]; suggestedReviewerId?: string } | undefined;
+  const [answer, setAnswer] = useState('');
+  const [percent, setPercent] = useState(25);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const candidates = state.agents.filter((agent) => room?.agentIds.includes(agent.id));
+  const [supervisorId, setSupervisorId] = useState(candidates.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
+  const [agentIds, setAgentIds] = useState<string[]>(room?.agentIds ?? []);
+  const [reviewerId, setReviewerId] = useState(proposal?.suggestedReviewerId ?? room?.defaultReviewerId ?? '');
+  async function resolve(input: Parameters<typeof api.resolveCollaborationDecision>[1]) {
+    setBusy(true); setError('');
+    try { await api.resolveCollaborationDecision(decision.id, input); await refreshConversation(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
+  }
+  if (decision.status !== 'pending') return <div className="mt-3 rounded-lg bg-zinc-950/40 px-3 py-2 text-xs text-zinc-500">已处理：{decision.status}</div>;
+  if (decision.kind === 'agent_question') return <div className="mt-3 space-y-2 rounded-xl border border-violet-500/20 bg-zinc-950/40 p-3">
+    <div className="text-xs font-medium text-violet-200">Agent 正在等待你的回答</div>
+    <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={2} className="w-full rounded-lg bg-zinc-900 p-2 text-xs outline-none ring-1 ring-zinc-700 focus:ring-violet-500" />
+    <button disabled={busy || !answer.trim()} onClick={() => void resolve({ action: 'answer', message: answer.trim() })} className="rounded-lg bg-violet-500 px-3 py-1.5 text-xs text-white disabled:opacity-40">回复并继续</button>
+    {error && <p className="text-xs text-red-300">{error}</p>}
+  </div>;
+  if (decision.kind === 'budget_exhausted') return <div className="mt-3 space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+    <div className="text-xs font-medium text-amber-200">协作预算已达到上限</div>
+    <div className="flex flex-wrap gap-2">{[25, 50, 100].map((value) => <button key={value} disabled={busy} onClick={() => void resolve({ action: 'increase_budget', increasePercent: value })} className="rounded bg-amber-500/15 px-2.5 py-1 text-xs text-amber-200">增加 {value}%</button>)}</div>
+    <div className="flex items-center gap-2"><input type="number" min={10} max={200} value={percent} onChange={(event) => setPercent(Number(event.target.value))} className="w-20 rounded bg-zinc-900 px-2 py-1 text-xs" /><button disabled={busy || percent < 10 || percent > 200} onClick={() => void resolve({ action: 'increase_budget', increasePercent: percent })} className="rounded bg-zinc-800 px-2.5 py-1 text-xs">自定义扩容</button></div>
+    <button disabled={busy} onClick={() => void resolve({ action: 'terminate_at_budget' })} className="text-xs text-zinc-400 hover:text-zinc-200">按当前部分结果终止</button>
+    {error && <p className="text-xs text-red-300">{error}</p>}
+  </div>;
+  return <div className="mt-3 space-y-2 rounded-xl border border-sky-500/30 bg-sky-500/5 p-3">
+    <div className="text-xs font-medium text-sky-200">提议创建正式 Supervisor Task</div>
+    <p className="text-xs text-zinc-300">{proposal?.title}</p>
+    {proposal?.acceptanceCriteria?.length ? <ul className="list-disc pl-4 text-[11px] text-zinc-400">{proposal.acceptanceCriteria.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+    <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="w-full rounded bg-zinc-900 px-2 py-1.5 text-xs"><option value="">选择主管</option>{candidates.filter((agent) => agent.capabilities.includes('coordinate')).map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select>
+    <div className="flex flex-wrap gap-1">{candidates.map((agent) => <button key={agent.id} onClick={() => setAgentIds((ids) => ids.includes(agent.id) ? ids.filter((id) => id !== agent.id) : [...ids, agent.id])} className={`rounded-full px-2 py-1 text-[11px] ${agentIds.includes(agent.id) ? 'bg-sky-500/20 text-sky-200' : 'bg-zinc-900 text-zinc-500'}`}>{agent.name}</button>)}</div>
+    <select value={reviewerId} onChange={(event) => setReviewerId(event.target.value)} className="w-full rounded bg-zinc-900 px-2 py-1.5 text-xs"><option value="">不设 Reviewer</option>{candidates.filter((agent) => agent.capabilities.includes('review')).map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select>
+    <div className="flex gap-2"><button disabled={busy || !supervisorId || agentIds.length === 0} onClick={() => void resolve({ action: 'approve_task', supervisorId, agentIds, ...(reviewerId ? { defaultReviewerId: reviewerId } : {}) })} className="rounded bg-sky-500 px-3 py-1.5 text-xs text-white disabled:opacity-40">批准并启动</button><button disabled={busy} onClick={() => void resolve({ action: 'reject_task' })} className="rounded bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400">拒绝</button></div>
+    {error && <p className="text-xs text-red-300">{error}</p>}
   </div>;
 }
 
@@ -68,10 +146,11 @@ function MessageItem({
   const referenced = message.replyTo ? allMessages.find((item) => item.id === message.replyTo) : undefined;
   const isReview = message.messageType === 'review_result' || message.messageType === 'revision_request';
   const verdict = typeof message.payload?.verdict === 'string' ? message.payload.verdict : null;
-  if (message.kind === 'system' || message.kind === 'tool') return <details className="mx-auto max-w-3xl rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-500">
+  const decision = state.collaborationDecisions.find((item) => item.promptMessageId === message.id);
+  if (message.kind === 'system' || message.kind === 'tool') return <div className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-500" open={Boolean(decision)}>
     <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-[11px] text-zinc-400">{message.body}</pre>
-  </details>;
+  </details>{decision && <DecisionCard decision={decision} />}</div>;
 
   const meta = <>
     <span className="font-medium" style={{ color: mine ? '#c4b5fd' : (author?.color ?? '#d4d4d8') }}>{mine ? '你' : (author?.name ?? message.from)}</span>
@@ -105,6 +184,7 @@ function MessageItem({
         {isReview && verdict && <div className={`mb-1 text-xs font-medium ${verdict === 'PASS' ? 'text-emerald-300' : 'text-red-300'}`}>{verdict === 'PASS' ? '✓ 审查通过' : '✗ 审查未通过'}</div>}
         <div className="[overflow-wrap:anywhere] text-sm leading-6"><MarkdownBody text={message.body} /></div>
         <ReviewIssues message={message} />
+        {decision && <DecisionCard decision={decision} />}
       </div>
       {groupEnd && <div className={`mt-1 flex items-center gap-2 text-[11px] text-zinc-600 ${mine ? 'justify-end' : 'justify-start'}`}>
         <time>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time>
@@ -133,14 +213,17 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
 function NewRoomComposer() {
   const { state, setActiveConversation } = useStore();
   const [goal, setGoal] = useState('');
-  const [mode, setMode] = useState<'pipeline' | 'supervisor'>('supervisor');
+  const [mode, setMode] = useState<RunMode>('collaboration');
   const [selected, setSelected] = useState<string[]>(state.agents.map((agent) => agent.id));
+  const [initialTargets, setInitialTargets] = useState<string[]>([]);
   const initialized = useRef(state.agents.length > 0);
   const [supervisorId, setSupervisorId] = useState(state.agents.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
   const [defaultReviewerId, setDefaultReviewerId] = useState(state.agents.find((agent) => agent.capabilities.includes('review'))?.id ?? '');
   const [workspace, setWorkspace] = useState('');
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const mentionedTargets = useMemo(() => leadingMentionRecipientIds(goal, state.agents, selected), [goal, state.agents, selected]);
+  const effectiveTargets = useMemo(() => combineRecipients(mentionedTargets, initialTargets), [mentionedTargets, initialTargets]);
   useEffect(() => {
     if (!initialized.current && state.agents.length > 0) { setSelected(state.agents.map((agent) => agent.id)); initialized.current = true; }
     if (!state.agents.some((agent) => agent.id === supervisorId && agent.capabilities.includes('coordinate'))) setSupervisorId(state.agents.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
@@ -148,9 +231,11 @@ function NewRoomComposer() {
   }, [state.agents, supervisorId, defaultReviewerId]);
   async function create() {
     if (!goal.trim() || selected.length === 0 || busy) return;
+    if (effectiveTargets.length > 3) return;
     setBusy(true);
     try {
       const created = await api.createConversation({ goal: goal.trim(), mode, agentIds: selected,
+        ...(mode === 'collaboration' && effectiveTargets.length > 0 ? { recipientIds: effectiveTargets.filter((id) => selected.includes(id)) } : {}),
         ...(mode === 'supervisor' && selected.includes(supervisorId) ? { supervisorId } : {}),
         ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}),
         ...(workspace ? { workspace } : {}) });
@@ -162,7 +247,7 @@ function NewRoomComposer() {
     <textarea id="goal-input" value={goal} onChange={(event) => setGoal(event.target.value)} rows={5} placeholder="描述希望团队完成的目标…"
       className="resize-none rounded-2xl bg-zinc-900 p-4 text-sm outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500" />
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-      <select value={mode} onChange={(event) => setMode(event.target.value as 'pipeline' | 'supervisor')} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
+      <select value={mode} onChange={(event) => setMode(event.target.value as RunMode)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="collaboration">自由协作</option><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
       {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('coordinate')).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
       <select value={defaultReviewerId} onChange={(event) => setDefaultReviewerId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="">不设默认评审</option>{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('review')).map((agent) => <option key={agent.id} value={agent.id}>评审：{agent.name}</option>)}</select>
       <button onClick={() => setWorkspaceOpen(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-zinc-400">🗂 {workspace || '自动创建房间工作区'} ▾</button>
@@ -170,6 +255,7 @@ function NewRoomComposer() {
         className="rounded-full px-3 py-1.5" style={{ color: selected.includes(agent.id) ? agent.color : '#71717a', backgroundColor: selected.includes(agent.id) ? `${agent.color}20` : 'transparent' }}>{agent.name}</button>)}
       <button disabled={busy || !goal.trim() || selected.length === 0} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">创建并发送</button>
     </div>
+    {mode === 'collaboration' && <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs"><div className="mb-2 text-zinc-500">初始发送对象（可点选或在消息开头输入 @名称，最多 3 位；不选则发送给最近回复者）</div><div className="flex flex-wrap gap-2">{state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => <button key={agent.id} onClick={() => setInitialTargets((ids) => ids.includes(agent.id) ? ids.filter((id) => id !== agent.id) : ids.length < 3 ? [...ids, agent.id] : ids)} className={`rounded-full px-3 py-1.5 ${effectiveTargets.includes(agent.id) ? 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-500/40' : 'bg-zinc-800 text-zinc-500'}`}>{agent.name}</button>)}</div>{effectiveTargets.length > 3 && <p className="mt-2 text-red-300">发送对象超过 3 位，请减少点选或 @ 对象。</p>}</div>}
     <WorkspacePanel open={workspaceOpen} onClose={() => setWorkspaceOpen(false)} current={workspace} onSelect={setWorkspace} goal={goal} />
   </div>;
 }
@@ -179,27 +265,34 @@ function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyC
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [recipients, setRecipients] = useState<string[]>([]);
   const room = state.conversations.find((item) => item.id === state.activeConversationId);
-  const mentioned = [...text.matchAll(/@([\w-]+)/g)].map((match) => match[1] ?? '').filter((id) => room?.agentIds.includes(id));
+  const mentionedRecipients = useMemo(() => leadingMentionRecipientIds(text, state.agents, room?.agentIds ?? []), [text, state.agents, room?.agentIds]);
+  const effectiveRecipients = useMemo(() => combineRecipients(mentionedRecipients, recipients), [mentionedRecipients, recipients]);
+  const replyDecision = reply ? state.collaborationDecisions.find((item) => item.promptMessageId === reply.id && item.status === 'pending') : undefined;
   async function send() {
     if (!room || !text.trim() || busy) return;
+    if (effectiveRecipients.length > 3) { setError('发送对象超过 3 位，请减少点选或 @ 对象。'); return; }
     const body = text.trim();
     setBusy(true); setError('');
     try {
-      await api.sendConversationMessage(room.id, { body, recipientIds: [...new Set(mentioned)], replyTo: reply?.id ?? null,
-        taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID() });
-      setText(''); onReplyClear(); await refreshConversation();
+      if (replyDecision?.kind === 'agent_question') await api.resolveCollaborationDecision(replyDecision.id, { action: 'answer', message: body });
+      else await api.sendConversationMessage(room.id, { body, ...(room.mode === 'collaboration' && effectiveRecipients.length > 0 ? { recipientIds: effectiveRecipients } : {}), replyTo: reply?.id ?? null,
+          taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID() });
+      setText(''); setRecipients([]); onReplyClear(); await refreshConversation();
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setBusy(false); }
   }
+  if (!room) return null;
   return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/90 p-3">
     <div className="mx-auto max-w-3xl rounded-2xl bg-zinc-900 ring-1 ring-zinc-700 focus-within:ring-violet-500">
-      {reply && <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500"><span className="min-w-0 flex-1 truncate">回复 {agentName(reply.from, state.agents)}：{reply.body}</span><button onClick={onReplyClear}>×</button></div>}
-      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} placeholder="发送消息；使用 @coder 定向交流，Shift+Enter 换行"
+      {reply && <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500"><span className="min-w-0 flex-1 truncate">{replyDecision?.kind === 'agent_question' ? '回答并恢复本轮' : `回复 ${agentName(reply.from, state.agents)}`}：{reply.body}</span><button onClick={onReplyClear}>×</button></div>}
+      {room.mode === 'collaboration' && <div className="flex flex-wrap gap-1 border-b border-zinc-800 px-4 py-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <button key={id} onClick={() => setRecipients((items) => items.includes(id) ? items.filter((item) => item !== id) : items.length < 3 ? [...items, id] : items)} className={`rounded-full px-2 py-1 text-[11px] ${effectiveRecipients.includes(id) ? 'bg-violet-500/20 text-violet-200' : 'bg-zinc-800 text-zinc-500'}`}>@{agent?.name ?? id}</button>; })}</div>}
+      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} placeholder="发送消息；可选择最多 3 位 Agent，Shift+Enter 换行"
         onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         className="w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-zinc-600" />
       <div className="flex items-center gap-2 px-4 pb-3 text-xs">
-        {mentioned.length > 0 ? <span className="text-violet-300">发送给 {mentioned.map((id) => agentName(id, state.agents)).join('、')}</span> : <span className="text-zinc-600">发送给团队，由主管协调</span>}
+        {effectiveRecipients.length > 0 ? <span className={effectiveRecipients.length > 3 ? 'text-red-300' : 'text-violet-300'}>{effectiveRecipients.length > 1 ? '并行发送给 ' : '发送给 '}{effectiveRecipients.map((id) => agentName(id, state.agents)).join('、')}</span> : <span className="text-zinc-600">{room.mode === 'collaboration' ? '发送给最近回复者' : '发送给团队，由编排器协调'}</span>}
         {error && <span className="truncate text-red-300">{error}</span>}
         <button onClick={() => void send()} disabled={!text.trim() || busy} className="ml-auto rounded-lg bg-violet-500 px-4 py-1.5 text-white disabled:opacity-40">{busy ? '发送中…' : '发送'}</button>
       </div>
@@ -227,11 +320,12 @@ export function RunView() {
     <div className="flex min-w-0 flex-1 flex-col">
       {!room ? <NewRoomComposer /> : <>
         <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3">
-          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
+          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'waiting_for_user' ? '等待你的决定' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
             <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <div key={id} title={`${agent?.name ?? id} · ${agent?.description ?? 'Agent'}`} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-zinc-950 text-xs text-white" style={{ backgroundColor: agent?.color ?? '#52525b' }}>{(agent?.name ?? id).slice(0, 1)}</div>; })}</div>
             <button onClick={() => void archiveRoom()} className="rounded-lg px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="归档聊天室">•••</button>
           </div>
           {state.scheduler && <div className="mt-2 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full animate-pulse rounded bg-violet-500" style={{ width: `${Math.max(20, 100 * state.scheduler.active / Math.max(1, state.scheduler.active + state.scheduler.queued))}%` }} /></div>}
+          {state.collaborationScheduler && <div className="mt-2 flex gap-3 text-[10px] text-zinc-500"><span>活跃 Agent {state.collaborationScheduler.activeAgentIds.length}</span><span>排队 {state.collaborationScheduler.queued}</span>{state.collaborationScheduler.blocked > 0 && <span className="text-amber-300">阻断 {state.collaborationScheduler.blocked}</span>}</div>}
         </header>
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto max-w-4xl space-y-1">
@@ -239,7 +333,7 @@ export function RunView() {
               const run = roomRuns.find((item) => item.id === message.runId);
               const showDivider = index === 0 || state.messages[index - 1]?.runId !== message.runId;
               return <div key={message.id}>
-                {showDivider && run && <div className="my-5 flex items-center gap-3 text-[11px] text-zinc-600"><span className="h-px flex-1 bg-zinc-800" /><span>第 {run.turnNo} 轮 · {run.status === 'pending' ? '等待执行' : run.status === 'running' ? '进行中' : run.status === 'completed' ? '已完成' : run.status}</span><span className="h-px flex-1 bg-zinc-800" /></div>}
+                {showDivider && run && <div className="my-5 flex items-center gap-3 text-[11px] text-zinc-600"><span className="h-px flex-1 bg-zinc-800" /><span>第 {run.turnNo} 轮 · {run.status === 'pending' ? '等待执行' : run.status === 'running' ? '进行中' : run.status === 'waiting_for_user' ? '等待你的决定' : run.status === 'completed' ? '已完成' : run.status}</span><span className="h-px flex-1 bg-zinc-800" /></div>}
                 <MessageItem
                   message={message}
                   allMessages={state.messages}

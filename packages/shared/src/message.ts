@@ -12,6 +12,12 @@ export type AgentMessageType =
   | 'review_result'
   | 'revision_request'
   | 'handoff'
+  | 'collaboration_result'
+  | 'collaboration_handoff'
+  | 'collaboration_question'
+  | 'collaboration_wait_user'
+  | 'collaboration_routing'
+  | 'collaboration_task_proposal'
   | 'informational';
 
 export interface Message {

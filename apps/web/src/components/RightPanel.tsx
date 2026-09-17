@@ -25,7 +25,7 @@ const DECIDED_LABEL: Record<string, string> = {
 
 export function RightPanel() {
   const { state } = useStore();
-  const [tab, setTab] = useState<'tasks' | 'approvals' | 'trace' | 'usage'>('tasks');
+  const [tab, setTab] = useState<'collaboration' | 'tasks' | 'approvals' | 'trace' | 'usage'>('collaboration');
   const [actingTask, setActingTask] = useState<string | null>(null);
 
   async function taskAction(taskId: string, action: 'retry' | 'cancel') {
@@ -51,6 +51,7 @@ export function RightPanel() {
       <div className="flex shrink-0 border-b border-zinc-800 text-xs">
         {(
           [
+            ['collaboration', '协作'],
             ['tasks', '任务'],
             ['approvals', `审批${pending.length ? ` (${pending.length})` : ''}`],
             ['trace', 'Trace'],
@@ -70,6 +71,12 @@ export function RightPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {tab === 'collaboration' && <div className="space-y-3 text-xs">
+          {state.collaborationScheduler && <div className="rounded-lg bg-violet-500/10 p-2 text-violet-200">活跃 {state.collaborationScheduler.activeAgentIds.length} · 排队 {state.collaborationScheduler.queued} · 阻断 {state.collaborationScheduler.blocked}</div>}
+          <div className="space-y-2">{state.collaborationDispatches.map((dispatch) => <div key={dispatch.id} className="rounded-lg bg-zinc-800/60 p-2"><div className="flex justify-between gap-2"><span className="text-zinc-300">{dispatch.from} → {dispatch.targetAgentId}</span><span className={dispatch.status === 'failed' || dispatch.status === 'blocked' ? 'text-red-300' : dispatch.status === 'running' ? 'text-sky-300' : 'text-zinc-500'}>{dispatch.status}</span></div><div className="mt-1 text-[11px] text-zinc-500">{dispatch.kind} · 深度 {dispatch.depth}{dispatch.reason ? ` · ${dispatch.reason}` : ''}</div>{dispatch.status === 'queued' && <button onClick={() => void api.cancelCollaborationDispatch(dispatch.id)} className="mt-2 text-[11px] text-red-300">取消排队</button>}{dispatch.status === 'running' && state.activeConversationId && <button onClick={() => void api.stopCollaborationAgent(dispatch.targetAgentId, state.activeConversationId!)} className="mt-2 text-[11px] text-red-300">停止该 Agent</button>}</div>)}</div>
+          {state.collaborationDispatches.length === 0 && <p className="text-zinc-600">当前聊天室暂无 Collaboration 调度记录</p>}
+          {state.activeRunId && state.collaborationBudgets[state.activeRunId] && (() => { const budget = state.collaborationBudgets[state.activeRunId]!; return <div className="rounded-lg border border-zinc-800 p-2 text-[11px] text-zinc-500"><div className="mb-1 text-zinc-300">本轮预算</div><div>Dispatch {budget.dispatches.used}/{budget.dispatches.currentLimit}</div><div>Token {budget.tokens.used}/{budget.tokens.currentLimit}</div><div>成本 ${budget.costUsd.used.toFixed(4)}/${budget.costUsd.currentLimit.toFixed(2)}</div><div>累计倍数 {budget.cumulativeMultiplier.toFixed(2)}× / {budget.maxMultiplier}×</div></div>; })()}
+        </div>}
         {tab === 'tasks' && (
           <div className="space-y-2">
             {state.scheduler && (

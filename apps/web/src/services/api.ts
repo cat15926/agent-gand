@@ -16,6 +16,14 @@ import type {
   UsageSummary,
   Conversation,
   SendConversationMessageInput,
+  McpStatus,
+  CollaborationAttempt,
+  CollaborationBatch,
+  CollaborationBudgetSnapshot,
+  CollaborationDispatch,
+  CollaborationUserDecision,
+  ResolveCollaborationDecision,
+  RunMode,
 } from '@agent-gand/shared';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -56,7 +64,7 @@ export interface ConversationDetail {
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
-export function createConversation(input: { goal: string; mode: 'pipeline' | 'supervisor'; agentIds: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
+export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 }
 export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
@@ -68,9 +76,26 @@ export const sendConversationMessage = (id: string, input: SendConversationMessa
   request<{ run: Run; message: Message }>(`/api/conversations/${encodeURIComponent(id)}/messages`, {
     method: 'POST', body: JSON.stringify(input),
   });
+export interface CollaborationRunDetail {
+  run?: Run;
+  dispatches: CollaborationDispatch[];
+  attempts: CollaborationAttempt[];
+  batches: CollaborationBatch[];
+  decisions: CollaborationUserDecision[];
+  budget: CollaborationBudgetSnapshot;
+  activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
+}
+export const getConversationCollaboration = (id: string) => request<{ runs: CollaborationRunDetail[] }>(`/api/conversations/${encodeURIComponent(id)}/collaboration`);
+export const getRunCollaboration = (id: string) => request<CollaborationRunDetail>(`/api/runs/${encodeURIComponent(id)}/collaboration`);
+export const resolveCollaborationDecision = (id: string, input: ResolveCollaborationDecision) => request<{ decision: CollaborationUserDecision; linkedRun: Run | null }>(`/api/collaboration/decisions/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify(input) });
+export const cancelCollaborationDispatch = (id: string) => request<CollaborationDispatch>(`/api/collaboration/dispatches/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+export const stopCollaborationAgent = (agentId: string, conversationId: string) => request<{ cancelled: number }>(`/api/collaboration/agents/${encodeURIComponent(agentId)}/stop`, { method: 'POST', body: JSON.stringify({ conversationId }) });
+export const stopCollaborationRun = (runId: string) => request<Run>(`/api/collaboration/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 
 export const getAgents = (includeDisabled = false) => request<AgentDefinition[]>(`/api/agents${includeDisabled ? '?includeDisabled=1' : ''}`);
 export const getAgentOptions = () => request<AgentOptions>('/api/agent-options');
+export const getMcpStatus = () => request<McpStatus>('/api/tools/mcp/status');
+export const refreshMcpTools = () => request<McpStatus>('/api/tools/mcp/refresh', { method: 'POST' });
 export const createAgent = (input: AgentInput) => request<AgentDefinition>('/api/agents', { method: 'POST', body: JSON.stringify(input) });
 export const updateAgent = (id: string, input: AgentInput, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...input, expectedVersion }) });
 export const setAgentEnabled = (id: string, enabled: boolean, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ enabled, expectedVersion }) });
@@ -187,7 +212,7 @@ export const updateExternalLabel = (id: string, label: string) =>
 
 export function startRun(input: {
   goal: string;
-  mode: 'pipeline' | 'supervisor';
+  mode: RunMode;
   agentIds: string[];
   supervisorId?: string;
   /** 命名工作区（§10.2）：缺省 = 每次 run 专属目录 */

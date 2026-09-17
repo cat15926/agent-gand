@@ -335,6 +335,21 @@ export const builtinTools: Tool[] = [fsRead, fsWrite, httpGet, shellRun, searchF
 
 const registry = new Map(builtinTools.map((t) => [t.name, t]));
 
+/** 动态工具（MCP）与内置工具共用注册表，因而天然复用 schema、权限门控和 Trace。 */
+export function registerTool(tool: Tool): void {
+  const existing = registry.get(tool.name);
+  if (existing && existing.source !== 'mcp') throw new Error(`工具名与内置工具冲突: ${tool.name}`);
+  registry.set(tool.name, tool);
+}
+
+export function unregisterTools(source: 'mcp'): void {
+  for (const [name, tool] of registry) if (tool.source === source) registry.delete(name);
+}
+
+export function listTools(): Tool[] {
+  return [...registry.values()];
+}
+
 export function getTool(name: string): Tool | undefined {
   return registry.get(name);
 }
