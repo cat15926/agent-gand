@@ -8,6 +8,7 @@ tools:
   - shell.run
 permissionMode: auto
 color: '#2f9e6e'
+avatar: '🧑‍💻'
 ---
 
 你是团队中的 Coder（执行者）。你的职责：

@@ -5,10 +5,12 @@ import type { AgentDefinition, Run } from '@agent-gand/shared';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { createTask } from '../messaging/tasks.ts';
 import { endSpan, finishRun, getRun, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
+import { saveCheckpoint } from '../runs/checkpoints.ts';
 import { chatOnce } from './agentStep.ts';
 import { buildSupervisorSummaryContext } from './contextBuilder.ts';
 import { runTaskSchedule } from './scheduler.ts';
 import type { Orchestrator } from './types.ts';
+import { tx } from '../db/database.ts';
 
 interface DecomposedTask {
   title: string;
@@ -156,7 +158,9 @@ async function scheduleAndSummarize(
   supervisor: AgentDefinition,
   parentSpanId: string,
 ): Promise<void> {
+  saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'scheduling', state: {} });
   const scheduled = await runTaskSchedule({ run, agents, parentSpanId });
+  saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'summarizing', state: { failed: scheduled.failed } });
   const summaryPrompt = buildSupervisorSummaryContext(run, scheduled.tasks);
   const summary = await chatOnce(supervisor, run.id, parentSpanId, summaryPrompt);
   if (summary.trim() !== '') {
@@ -168,9 +172,11 @@ async function scheduleAndSummarize(
       messageType: 'result',
       body: summary,
       payload: { failed: scheduled.failed },
+      clientMessageId: `durable:${run.id}:supervisor:summary`,
     });
   }
   finishRun(run.id, scheduled.failed ? 'failed' : 'completed');
+  saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'completed', status: 'completed', state: { failed: scheduled.failed } });
 }
 
 /** 人工重试与启动恢复入口：复用已落库任务，不重复规划。 */
@@ -188,7 +194,8 @@ export async function resumeSupervisorRun(runId: string): Promise<void> {
   const ordered = [supervisor, ...agents.filter((agent) => agent.id !== supervisor.id)];
   activeSchedules.add(runId);
   setRunStatus(runId, 'running');
-  const span = startSpan(runId, { spanKind: 'orchestration', name: `resume:${supervisor.id}`, input: '恢复已落库任务' });
+  const span = startSpan(runId, { spanKind: 'orchestration', name: `resume:${supervisor.id}`, input: '恢复已落库任务',
+    attributes: { 'agent.id': supervisor.id, 'agent.role': 'supervisor', 'orchestration.phase': 'supervisor.resume' } });
   try {
     await scheduleAndSummarize(run, ordered, supervisor, span.id);
     endSpan(span, { output: '恢复调度完成', status: 'ok' });
@@ -218,7 +225,9 @@ export const supervisorOrchestrator: Orchestrator = {
         spanKind: 'orchestration',
         name: `supervisor:${supervisor.id}`,
         input: goal,
+        attributes: { 'agent.id': supervisor.id, 'agent.role': 'supervisor', 'orchestration.phase': 'supervisor.schedule' },
       });
+      saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'planning', state: { supervisorId: supervisor.id } });
 
       let specs: DecomposedTask[] | null = null;
       if (!supervisor.model.startsWith('mock:')) {
@@ -237,21 +246,25 @@ export const supervisorOrchestrator: Orchestrator = {
       }
 
       const titleToId = new Map<string, string>();
-      for (const spec of specs) {
-        const task = createTask({
-          runId: run.id,
-          title: spec.title,
-          body: spec.body,
-          createdBy: supervisor.id,
-          assignee: spec.assignee,
-          reviewerId: spec.reviewer,
-          acceptanceCriteria: spec.acceptanceCriteria,
-          blockedBy: spec.blockedByTitles
-            .map((title) => titleToId.get(title))
-            .filter((id): id is string => id !== undefined),
-        });
-        titleToId.set(spec.title, task.id);
-      }
+      // 规划任务必须原子落库：进程在循环中崩溃时 SQLite 回滚，恢复器不会调度半张 DAG。
+      tx(() => {
+        for (const spec of specs) {
+          const task = createTask({
+            runId: run.id,
+            title: spec.title,
+            body: spec.body,
+            createdBy: supervisor.id,
+            assignee: spec.assignee,
+            reviewerId: spec.reviewer,
+            acceptanceCriteria: spec.acceptanceCriteria,
+            blockedBy: spec.blockedByTitles
+              .map((title) => titleToId.get(title))
+              .filter((id): id is string => id !== undefined),
+          });
+          titleToId.set(spec.title, task.id);
+        }
+      });
+      saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'tasks_created', state: { taskCount: specs.length } });
 
       activeSchedules.add(run.id);
       try {

@@ -56,6 +56,7 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
     disallowedTools: strArray(fields.disallowedTools),
     permissionMode,
     color: str(fields.color) ?? '#7c8a9c',
+    avatar: str(fields.avatar) ?? '',
     source: 'file',
   });
 }

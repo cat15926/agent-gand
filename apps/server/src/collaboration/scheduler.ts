@@ -140,9 +140,12 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     if (run) finalizeRun(run.id);
     return;
   }
-  const span = startSpan(run.id, { spanKind: 'agent', name: `agent:${agent.id}`, input: JSON.stringify({ dispatchId: dispatch.id, sourceMessageId: dispatch.sourceMessageId, depth: dispatch.depth, budget: budgetSnapshot(run.id) }) });
+  const span = startSpan(run.id, { spanKind: 'agent', name: `agent:${agent.id}`, input: JSON.stringify({ dispatchId: dispatch.id, sourceMessageId: dispatch.sourceMessageId, depth: dispatch.depth, budget: budgetSnapshot(run.id) }),
+    attributes: { 'agent.id': agent.id, 'agent.role': 'collaborator', 'collaboration.dispatch.id': dispatch.id,
+      ...(dispatch.batchId ? { 'collaboration.batch.id': dispatch.batchId } : {}), 'orchestration.phase': 'collaboration.dispatch' } });
   try {
     const turn = await runAgentTurn({ run, agent, parentSpanId: span.id, agentId: agent.id, attemptId,
+      executionScopeId: `collaboration:${dispatch.id}`,
       messages: [{ role: 'system', content: agent.systemPrompt }, { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE }, { role: 'user', content: buildContext(run, dispatch, agent) }],
       controlTools: COLLABORATION_CONTROL_TOOLS,
       handleControlCalls: (calls) => parseControlCall(calls[0]!, run.agentIds, agent.id),

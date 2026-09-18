@@ -21,10 +21,13 @@ import { resolveProvider } from '../llm/router.ts';
 import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse, LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit } from '../messaging/bus.ts';
-import { endSpan, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
+import { endSpan, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
 import { getTool, isExternalRun, toolsForAgent } from '../tools/builtin/index.ts';
 import { externalId, getExternalByIdOrThrow } from '../workspaces/external.ts';
 import { checkPermission, type Tool } from '../tools/types.ts';
+import { READONLY_TOOLS } from '../tools/types.ts';
+import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
+import { executeToolOnce, toolExecutionKey } from '../tools/executions.ts';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
@@ -64,7 +67,14 @@ function llmSpanOutput(res: LlmResponse): string {
 
 /** llm.delta 转发器（§8.1）：span 运行期间把文本增量经 bus 广播 */
 function deltaForwarder(runId: string, spanId: string, meta: Pick<AgentTurnOptions, 'agentId' | 'taskId' | 'attemptId' | 'displayKind'> = {}): DeltaHandler {
-  return (text) => emit({ type: 'llm.delta', runId, spanId, text, ...meta });
+  let first = true;
+  return (text) => {
+    if (first && text.length > 0) {
+      first = false;
+      markSpanFirstToken(spanId);
+    }
+    emit({ type: 'llm.delta', runId, spanId, text, ...meta });
+  };
 }
 
 export interface AgentTurnOptions {
@@ -82,6 +92,8 @@ export interface AgentTurnOptions {
   /** Collaboration 等编排器注入的服务端控制工具，不进入普通权限白名单。 */
   controlTools?: LlmToolSchema[];
   handleControlCalls?: (calls: LlmToolCall[]) => CollaborationControlAction;
+  /** 跨进程稳定的逻辑执行范围；用于审批与工具幂等键。 */
+  executionScopeId?: string;
 }
 
 export interface AgentTurnResult {
@@ -116,6 +128,8 @@ export async function chatOnce(
       spanKind: 'llm',
       name: `llm:${agent.model}`,
       input: llmSpanInput(messages, []),
+      attributes: { 'agent.id': agent.id, 'llm.model': agent.model, 'llm.round': attempt,
+        'orchestration.phase': displayKind === 'review_protocol' ? 'supervisor.protocol' : 'agent.chat' },
     });
     let res: LlmResponse;
     try {
@@ -131,15 +145,15 @@ export async function chatOnce(
       costUsd: res.usage.costUsd,
     };
     if ((res.content.trim().length > 0 && !isPseudoToolCallText(res.content)) || res.toolCalls.length > 0) {
-      endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok' });
+      endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
       return res.content;
     }
     if (attempt === 0) {
-      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok' });
+      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
       messages.push({ role: 'user', content: EMPTY_NUDGE });
       continue;
     }
-    endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍为空）`, status: 'error' });
+    endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍为空）`, status: 'error', attributes: { 'llm.stop_reason': res.stopReason } });
     await postSystem(runId, agent.id, `LLM 返回空正文（已重试一次；可能 thinking 耗尽 token 预算，可调大 LLM_MAX_TOKENS）`);
     return '';
   }
@@ -153,7 +167,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set((opts.controlTools ?? []).map((tool) => tool.name));
   const toolNames = tools.map((t) => t.name);
-  const messages = [...opts.messages];
+  let messages = [...opts.messages];
   // 工具调用指令：插入到首条 system 之后（无 system 则置顶）
   if (tools.length > 0) {
     const sysIdx = messages.findIndex((m) => m.role === 'system');
@@ -161,23 +175,46 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     if (sysIdx >= 0) messages.splice(sysIdx + 1, 0, directive);
     else messages.unshift(directive);
   }
+  const scope = opts.executionScopeId ?? `agent:${agent.id}`;
+  const durable = latestCheckpoint(run.id, 'agent_turn');
+  const durableState = durable?.state as { executionScopeId?: string; round?: number; nextRound?: number; messages?: LlmMessage[]; response?: LlmResponse; result?: AgentTurnResult } | undefined;
+  if (durableState?.executionScopeId === scope && durable?.phase === 'completed' && durableState.result) return durableState.result;
+  let startRound = 0;
+  let replayResponse: LlmResponse | null = null;
+  if (durableState?.executionScopeId === scope && Array.isArray(durableState.messages)) {
+    messages = durableState.messages;
+    if (durable?.phase === 'tool_calls_ready' && durableState.response && typeof durableState.round === 'number') {
+      startRound = durableState.round;
+      replayResponse = { ...durableState.response, usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 } };
+    } else if (durable?.phase === 'tool_results' && typeof durableState.nextRound === 'number') {
+      startRound = durableState.nextRound;
+    }
+  }
   const maxRounds = opts.maxToolRounds ?? 6;
   let toolRounds = 0;
   let nudged = false; // 空正文/伪调用 nudge 只重试一次
   let controlNudged = false;
 
-  for (let round = 0; ; round += 1) {
+  for (let round = startRound; ; round += 1) {
     const llmSpan = startSpan(run.id, {
       parentId: parentSpanId,
       spanKind: 'llm',
       name: `llm:${agent.model}`,
       input: llmSpanInput(messages, toolNames),
+      attributes: { 'agent.id': opts.agentId ?? agent.id, 'llm.model': agent.model, 'llm.round': round,
+        ...(opts.taskId ? { 'task.id': opts.taskId } : {}),
+        ...(opts.attemptId ? { 'task.attempt.id': opts.attemptId } : {}) },
     });
     let res: LlmResponse;
     try {
-      res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id, {
-        agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
-      }));
+      if (replayResponse) {
+        res = replayResponse;
+        replayResponse = null;
+      } else {
+        res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id, {
+          agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
+        }));
+      }
     } catch (err) {
       // 流式中途超时/网络异常（R5）：增量已广播不回收，span 记 error 后向上抛（run 走 failed）
       const message = err instanceof Error ? err.message : String(err);
@@ -194,11 +231,11 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     if (res.toolCalls.length === 0 && (res.content.trim().length === 0 || isPseudoToolCallText(res.content))) {
       if (!nudged) {
         nudged = true;
-        endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok' });
+        endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
         messages.push({ role: 'user', content: EMPTY_NUDGE });
         continue;
       }
-      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍空）`, status: 'error' });
+      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍空）`, status: 'error', attributes: { 'llm.stop_reason': res.stopReason } });
       await postSystem(
         run.id,
         agent.id,
@@ -207,9 +244,13 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       return { content: '', toolRounds, emptyResponse: true, controlAction: null };
     }
 
-    endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok' });
+    endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
 
-    if (res.toolCalls.length === 0) return { content: res.content, toolRounds, emptyResponse: false, controlAction: null };
+    if (res.toolCalls.length === 0) {
+      const result = { content: res.content, toolRounds, emptyResponse: false, controlAction: null };
+      saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'completed', status: 'completed', state: { executionScopeId: scope, result } });
+      return result;
+    }
 
     const controlCalls = res.toolCalls.filter((call) => controlNames.has(call.name));
     const ordinaryCalls = res.toolCalls.filter((call) => !controlNames.has(call.name));
@@ -246,16 +287,23 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     }
 
     toolRounds += 1;
+    saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'tool_calls_ready', state: {
+      executionScopeId: scope, round, messages, response: res,
+    } });
     // §8.4：一轮多个 toolCalls——逐个门控（审批并行创建、等全部决策）→ 通过的并行执行。
     // 单个被拒/超时只跳过该工具，不连坐整轮（部分拒绝语义，inspector R6）。
     const gated = await Promise.all(
-      res.toolCalls.map((toolCall) => gateToolCall(run, agent, parentSpanId, toolCall)),
+      res.toolCalls.map((toolCall, index) => {
+        const key = toolExecutionKey({ runId: run.id, scope: opts.executionScopeId ?? `agent:${agent.id}`,
+          round, index, toolName: toolCall.name, input: toolCall.input });
+        return gateToolCall(run, agent, parentSpanId, toolCall, key, opts);
+      }),
     );
     if (gated.some((g) => g.hadApproval)) setRunStatus(run.id, 'running');
     const outcomes = await Promise.all(
       gated.map((g) =>
         g.allowed && g.tool
-          ? runTool(run, agent, parentSpanId, g.tool, g.input)
+          ? runTool(run, agent, parentSpanId, g.tool, g.input, g.executionKey, opts)
           : Promise.resolve(g.note ?? '已跳过'),
       ),
     );
@@ -271,6 +319,9 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       role: 'user',
       content: gated.map((g, i) => `【工具结果】${g.toolCall.name}：\n${outcomes[i]}`).join('\n\n'),
     });
+    saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'tool_results', state: {
+      executionScopeId: scope, nextRound: round + 1, messages,
+    } });
   }
 }
 
@@ -291,6 +342,7 @@ async function closingCall(
     spanKind: 'llm',
     name: `llm:${agent.model}（收尾）`,
     input: llmSpanInput(final, []),
+    attributes: { 'agent.id': agent.id, 'llm.model': agent.model, 'orchestration.phase': 'agent.closing' },
   });
   let res: LlmResponse;
   try {
@@ -304,6 +356,7 @@ async function closingCall(
   endSpan(llmSpan, {
     output: llmSpanOutput(res),
     status: 'ok',
+    attributes: { 'llm.stop_reason': res.stopReason },
     tokensIn: res.usage.tokensIn,
     tokensOut: res.usage.tokensOut,
     costUsd: res.usage.costUsd,
@@ -321,6 +374,7 @@ interface GatedToolCall {
   /** 是否经过了审批等待（轮级用于统一恢复 run 状态） */
   hadApproval: boolean;
   note: string | null;
+  executionKey: string;
 }
 
 /**
@@ -334,18 +388,20 @@ async function gateToolCall(
   agent: AgentDefinition,
   parentSpanId: string,
   toolCall: LlmToolCall,
+  executionKey: string,
+  opts: AgentTurnOptions,
 ): Promise<GatedToolCall> {
   const tool = getTool(toolCall.name);
   if (!tool) {
     const note = `工具 ${toolCall.name} 不存在，已跳过`;
     await postSystem(run.id, agent.id, note);
-    return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note };
+    return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
   const decision = checkPermission(agent, tool.name);
   if (decision === 'deny') {
     const note = `工具 ${tool.name} 被权限门控拒绝（模式 ${agent.permissionMode}${agent.disallowedTools.includes(tool.name) ? '，命中 disallowedTools' : ''}）`;
     await postSystem(run.id, agent.id, note);
-    return { toolCall, tool, input: toolCall.input, allowed: false, hadApproval: false, note };
+    return { toolCall, tool, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
 
   // 团队共享区写保护（2026-09-06 用户需求）：fs.write 目标为 shared/ 前缀 → 无论权限档一律人工审批
@@ -372,6 +428,9 @@ async function gateToolCall(
 
   let inputRaw = toolCall.input;
   if (effectiveDecision === 'need_approval') {
+    const checkpoint = saveCheckpoint({ runId: run.id, kind: 'approval', phase: 'waiting_tool_approval', status: 'waiting',
+      state: { executionScopeId: opts.executionScopeId ?? null, toolName: tool.name, input: inputRaw,
+        agentId: agent.id, taskId: opts.taskId ?? null, attemptId: opts.attemptId ?? null } });
     const approval = createApproval({
       runId: run.id,
       agentId: agent.id,
@@ -382,13 +441,19 @@ async function gateToolCall(
         : externalWrite
           ? `写入外部工作区（本机目录 ${externalRoot}）需用户审批`
           : `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
+      idempotencyKey: `approval:${executionKey}`,
+      checkpointId: checkpoint.id,
     });
+    saveCheckpoint({ runId: run.id, kind: 'approval', phase: 'waiting_tool_approval', status: approval.status === 'pending' ? 'waiting' : 'active',
+      waitingOn: approval.id, state: { approvalId: approval.id, executionScopeId: opts.executionScopeId ?? null,
+        toolName: tool.name, input: inputRaw, agentId: agent.id, taskId: opts.taskId ?? null, attemptId: opts.attemptId ?? null } });
     setRunStatus(run.id, 'awaiting_approval');
     const approvalSpan = startSpan(run.id, {
       parentId: parentSpanId,
       spanKind: 'approval',
       name: `approval:${tool.name}`,
       input: inputRaw,
+      attributes: { 'agent.id': agent.id, 'tool.name': tool.name, 'approval.id': approval.id },
     });
     try {
       const decided = await waitForDecision(approval.id);
@@ -397,12 +462,12 @@ async function gateToolCall(
       if (decided.status === 'rejected') {
         const note = `人工已拒绝工具 ${tool.name} 的调用`;
         await postSystem(run.id, agent.id, note);
-        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note };
+        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note, executionKey };
       }
       if (decided.status === 'expired') {
         const note = `等待审批超时（已置 expired），工具 ${tool.name} 按拒绝处理`;
         await postSystem(run.id, agent.id, note);
-        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note };
+        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note, executionKey };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -415,11 +480,12 @@ async function gateToolCall(
         allowed: false,
         hadApproval: true,
         note: `审批流程异常：${message}`,
+        executionKey,
       };
     }
-    return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: true, note: null };
+    return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: true, note: null, executionKey };
   }
-  return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: false, note: null };
+  return { toolCall, tool, input: inputRaw, allowed: true, hadApproval: false, note: null, executionKey };
 }
 
 /**
@@ -433,21 +499,26 @@ async function runTool(
   parentSpanId: string,
   tool: Tool,
   inputRaw: string,
+  executionKey: string,
+  opts: AgentTurnOptions,
 ): Promise<string> {
   const toolSpan = startSpan(run.id, {
     parentId: parentSpanId,
     spanKind: 'tool',
     name: `tool:${tool.name}`,
     input: inputRaw,
+    attributes: { 'agent.id': agent.id, 'tool.name': tool.name },
   });
   try {
     const parsed: unknown = JSON.parse(inputRaw);
     // workspace 透传（§10.2）：命名工作区时无前缀路径落 workspaces/<name>/
-    const output = await tool.run(parsed, {
-      runId: run.id,
-      agentId: agent.id,
-      workspace: run.workspace ?? null,
-    });
+    const replayPolicy = tool.replayPolicy ?? (READONLY_TOOLS.has(tool.name) ? 'safe' : tool.name === 'fs.write' ? 'idempotent' : 'manual');
+    const executed = await executeToolOnce({ runId: run.id, agentId: agent.id, taskId: opts.taskId,
+      attemptId: opts.attemptId, toolName: tool.name, input: inputRaw, idempotencyKey: executionKey,
+      replayPolicy, spanId: toolSpan.id, execute: () => tool.run(parsed, {
+        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null,
+      }) });
+    const output = executed.output;
     endSpan(toolSpan, { output, status: 'ok' });
     await post({
       runId: run.id,
@@ -455,7 +526,7 @@ async function runTool(
       to: 'all',
       kind: 'tool',
       body: output.slice(0, 500),
-      meta: { tool: tool.name, spanId: toolSpan.id },
+      meta: { tool: tool.name, spanId: toolSpan.id, replayed: executed.replayed },
     });
     return output;
   } catch (err) {

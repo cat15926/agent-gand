@@ -15,7 +15,7 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
 2. 在“运行”视图创建聊天室；新聊天室默认使用自由协作，可选择最多 3 位初始 Agent，也可切换主管委派或顺序流水线；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
-4. 在“舰队 → 角色管理”从模板创建、复制、编辑或停用 Agent；保存后无需重启即可用于新聊天室；
+4. 在“舰队 → 角色管理”从模板创建、复制、编辑或停用 Agent；点击头像可选择或拖入本地图片，也可使用预设 Emoji、短文字或 HTTPS 图片 URL；保存后无需重启即可用于新聊天室；
 5. “舰队 → 执行状态”查看各 Agent 状态（待输入置顶），“观测”查看运行历史与事件时间线。
 
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm db:reset`（清空 SQLite 重 seed）。
@@ -95,14 +95,15 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 
 - **契约优先**：跨端类型一律改 `packages/shared`，不得在 server/web 私有定义；
 - **模型路由**：`mock:*` 走 MockProvider（无 key 演示），`openai:*` 走 OpenAI 兼容端点、`anthropic:*` 走 Anthropic（`llm/router.ts`，纯 fetch 实现，支持 `LLM_PROXY` 代理）；
-- **后续演进点**：以 `// TODO:` 标注（durable pause/resume、只读画布、瀑布 trace 等）；
+- **后续演进点**：以 `// TODO:` 标注（durable pause/resume、Docker ToolRunner、触发器等）；
 - 数据库为本地 SQLite（`apps/server/data/`，已 gitignore），**只增不删**；
 - **沙箱工作区（§9/§10）**：无前缀路径 = 当前工作区（默认每次 run 独立 `sandbox/runs/<runId>/`，或 `POST /api/runs` 指定命名工作区 `sandbox/workspaces/<name>/` 跨 run 复用）；`shared/` = 团队共享区（写入强制人工审批）；`archive/` = 根级历史归档只读。并发写同一命名工作区在 MVP 下接受（单用户场景），不设锁。
 
 ## 路线图
 
-- **P1**：按 [docs/p1-implementation-roadmap.md](./docs/p1-implementation-roadmap.md) 的 8 个计划推进；计划 1（P0 工具链收口）已完成
-- **P2**：可编辑画布、多渠道发布、RBAC/多租户、评测体系、回放分享、time-travel 调试（详见调研报告 §7.2）
+- **P1**：按 [docs/p1-implementation-roadmap.md](./docs/p1-implementation-roadmap.md) 的 8 个计划推进；计划 1–3 已完成，下一项为 durable execution
+- **完整编排**：可编辑画布、版本化 DSL、Durable Runtime、发布与触发的实施路径见 [docs/full-orchestration-implementation-plan.md](./docs/full-orchestration-implementation-plan.md)
+- **P2**：RBAC/多租户、评测体系、回放分享、time-travel 调试（详见调研报告 §7.2）
 
 ## 团队协作
 

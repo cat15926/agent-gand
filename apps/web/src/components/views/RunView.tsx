@@ -5,6 +5,7 @@ import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
 import { WorkspacePanel } from '../WorkspacePanel';
 import { SessionSidebar } from '../SessionSidebar';
+import { AgentAvatar } from '../AgentAvatar';
 
 const TYPE_LABEL: Record<string, string> = {
   assignment: '任务指派', result: '任务结果', review_request: '请求审查', review_result: '审查结论',
@@ -33,6 +34,23 @@ function agentName(id: string, agents: AgentDefinition[]): string {
   if (id === 'user') return '你';
   if (id === 'system') return '系统';
   return id.split(',').map((part) => agents.find((agent) => agent.id === part)?.name ?? part).join('、');
+}
+
+async function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  if (!copied) throw new Error('复制失败');
 }
 
 function mentionAliases(agent: AgentDefinition): string[] {
@@ -140,6 +158,7 @@ function MessageItem({
   groupEnd: boolean;
 }) {
   const { state } = useStore();
+  const [copied, setCopied] = useState(false);
   const author = state.agents.find((agent) => agent.id === message.from);
   // 气泡方向由真实发送者决定，避免未来扩展 kind 后把非用户消息放到右侧。
   const mine = message.from === 'user';
@@ -147,6 +166,15 @@ function MessageItem({
   const isReview = message.messageType === 'review_result' || message.messageType === 'revision_request';
   const verdict = typeof message.payload?.verdict === 'string' ? message.payload.verdict : null;
   const decision = state.collaborationDecisions.find((item) => item.promptMessageId === message.id);
+  async function copyMessage(): Promise<void> {
+    try {
+      await copyText(message.body);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_500);
+    } catch {
+      setCopied(false);
+    }
+  }
   if (message.kind === 'system' || message.kind === 'tool') return <div className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-500" open={Boolean(decision)}>
     <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-[11px] text-zinc-400">{message.body}</pre>
@@ -161,21 +189,26 @@ function MessageItem({
   </>;
 
   const avatar = groupStart
-    ? <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${mine ? 'max-[420px]:hidden' : ''}`}
-        style={{ backgroundColor: mine ? '#7c3aed' : (author?.color ?? '#52525b') }}>{mine ? '你' : (author?.name ?? message.from).slice(0, 1).toUpperCase()}</div>
+    ? mine
+      ? <AgentAvatar label="你" color="#7c3aed" className="h-9 w-9 text-sm max-[420px]:hidden" />
+      : <AgentAvatar agent={author} label={message.from} className="h-9 w-9 text-sm" />
     : <div className={`h-9 w-9 shrink-0 ${mine ? 'max-[420px]:hidden' : ''}`} aria-hidden="true" />;
 
   return <article id={`message-${message.id}`} className={`group flex w-full items-start gap-2.5 px-3 ${groupStart ? 'pt-3' : 'pt-1'} ${groupEnd ? 'pb-3' : 'pb-1'} ${mine ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
     {avatar}
     <div className={`min-w-0 ${isReview ? 'w-fit max-w-[92%] sm:max-w-[88%] md:max-w-[82%] xl:max-w-[840px]' : mine ? 'w-fit max-w-[90%] sm:max-w-[84%] md:max-w-[76%] xl:max-w-[680px]' : 'w-fit max-w-[92%] sm:max-w-[86%] md:max-w-[80%] xl:max-w-[720px]'}`}>
       {groupStart && <div className={`mb-1 flex flex-wrap items-center gap-2 text-xs ${mine ? 'justify-end' : 'justify-start'}`}>{meta}</div>}
-      <div className={`min-w-0 overflow-hidden border px-4 py-2.5 text-left shadow-sm ${
+      <div className={`relative min-w-0 overflow-hidden border px-4 py-2.5 pr-11 text-left shadow-sm ${
         mine
           ? 'rounded-2xl rounded-br-md border-violet-400/20 bg-violet-500/25 text-zinc-100'
           : isReview
             ? `${verdict === 'PASS' ? 'border-emerald-500/30' : 'border-red-500/30'} rounded-2xl rounded-bl-md bg-zinc-900 text-zinc-200`
             : 'rounded-2xl rounded-bl-md border-zinc-700/70 bg-zinc-800/90 text-zinc-200'
       }`}>
+        <button type="button" onClick={() => void copyMessage()} aria-label={copied ? '已复制消息' : '复制消息内容'} title={copied ? '已复制' : '复制'}
+          className={`absolute right-2 top-2 rounded-md px-2 py-1 text-[11px] transition ${copied ? 'bg-emerald-500/15 text-emerald-300 opacity-100' : 'bg-black/20 text-zinc-400 opacity-70 hover:bg-black/35 hover:text-zinc-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'}`}>
+          {copied ? '已复制' : '⧉'}
+        </button>
         {referenced && <button onClick={() => document.getElementById(`message-${referenced.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
           className="mb-2 block w-full truncate rounded-lg border-l-2 bg-zinc-950/30 px-3 py-2 text-left text-xs text-zinc-400"
           style={{ borderColor: state.agents.find((item) => item.id === referenced.from)?.color ?? '#71717a' }}>
@@ -202,7 +235,7 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
   const rawId = parent?.name.startsWith('agent:') ? parent.name.slice(6).split('（')[0] : '';
   const agent = state.agents.find((item) => item.id === rawId);
   return <div className="flex gap-3 rounded-xl px-3 py-3">
-    <div className="flex h-9 w-9 shrink-0 animate-pulse items-center justify-center rounded-full text-sm text-white" style={{ backgroundColor: agent?.color ?? '#52525b' }}>{(agent?.name ?? 'A').slice(0, 1)}</div>
+    <AgentAvatar agent={agent} className="h-9 w-9 animate-pulse text-sm" />
     <div className="max-w-3xl rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-3">
       <p className="mb-1 text-xs text-zinc-500">{agent?.name ?? 'Agent'} 正在回复…</p>
       <div className="text-sm text-zinc-400"><MarkdownBody text={text} /><span className="animate-pulse">▍</span></div>
@@ -321,7 +354,7 @@ export function RunView() {
       {!room ? <NewRoomComposer /> : <>
         <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3">
           <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'waiting_for_user' ? '等待你的决定' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
-            <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <div key={id} title={`${agent?.name ?? id} · ${agent?.description ?? 'Agent'}`} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-zinc-950 text-xs text-white" style={{ backgroundColor: agent?.color ?? '#52525b' }}>{(agent?.name ?? id).slice(0, 1)}</div>; })}</div>
+            <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <AgentAvatar key={id} agent={agent} label={id} className="h-8 w-8 border-2 border-zinc-950 text-xs" />; })}</div>
             <button onClick={() => void archiveRoom()} className="rounded-lg px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="归档聊天室">•••</button>
           </div>
           {state.scheduler && <div className="mt-2 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full animate-pulse rounded bg-violet-500" style={{ width: `${Math.max(20, 100 * state.scheduler.active / Math.max(1, state.scheduler.active + state.scheduler.queued))}%` }} /></div>}

@@ -2,6 +2,9 @@
  * REST API（规格 §4.3 全部端点）
  */
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { AgentDefinition, AgentInput, AgentMessageType, MessageKind, ResolveCollaborationDecision, RunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
@@ -33,6 +36,10 @@ import {
   softDeleteRun,
   usageSummary,
 } from '../runs/trace.ts';
+import { getRunObservability, getRunObservabilitySummary, getSpanDetail } from '../runs/observability.ts';
+import { listCheckpoints } from '../runs/checkpoints.ts';
+import { listToolExecutions } from '../tools/executions.ts';
+import { wakeRun } from '../runs/recovery.ts';
 import {
   externalId,
   getExternal,
@@ -60,6 +67,15 @@ const MESSAGE_TYPES: readonly AgentMessageType[] = ['assignment', 'result', 'rev
 const RUN_MODES: readonly RunMode[] = ['pipeline', 'supervisor', 'collaboration'];
 /** 命名工作区名（§10.2）：与 resolver 侧同规 */
 const WORKSPACE_RE = /^[\w-]{1,32}$/;
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+function matchesImageSignature(content: Buffer, mimeType: string): boolean {
+  if (mimeType === 'image/png') return content.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (mimeType === 'image/jpeg') return content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff;
+  if (mimeType === 'image/webp') return content.subarray(0, 4).toString('ascii') === 'RIFF' && content.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (mimeType === 'image/gif') return ['GIF87a', 'GIF89a'].includes(content.subarray(0, 6).toString('ascii'));
+  return false;
+}
 
 /** 带状态码的错误（errorHandler 统一映射） */
 function httpError(status: number, message: string): Error & { status: number } {
@@ -113,6 +129,33 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   }));
 
   app.get<{ Querystring: { includeDisabled?: string } }>('/api/agents', async (req) => registry.list(req.query.includeDisabled === '1'));
+  app.post<{ Body: { mimeType?: string; data?: string } }>('/api/agent-avatars', { bodyLimit: 7_500_000 }, async (req, reply) => {
+    const mimeType = req.body?.mimeType ?? '';
+    const extension = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' } as Record<string, string>)[mimeType];
+    if (!extension) throw httpError(400, '头像仅支持 PNG、JPEG、WebP 或 GIF');
+    const encoded = req.body?.data ?? '';
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw httpError(400, '头像数据格式无效');
+    const content = Buffer.from(encoded, 'base64');
+    if (content.length === 0 || content.length > MAX_AVATAR_BYTES) throw httpError(400, '头像文件必须小于 5 MB');
+    if (!matchesImageSignature(content, mimeType)) throw httpError(400, '头像文件内容与图片类型不匹配');
+    const fileName = `${randomUUID()}.${extension}`;
+    const avatarDir = path.join(path.dirname(config.dbPath), 'avatars');
+    await mkdir(avatarDir, { recursive: true });
+    await writeFile(path.join(avatarDir, fileName), content, { flag: 'wx' });
+    reply.code(201);
+    return { avatar: `/api/agent-avatars/${fileName}` };
+  });
+  app.get<{ Params: { fileName: string } }>('/api/agent-avatars/:fileName', async (req, reply) => {
+    if (!/^[0-9a-f-]+\.(?:png|jpg|webp|gif)$/i.test(req.params.fileName)) throw httpError(404, '头像不存在');
+    const extension = path.extname(req.params.fileName).slice(1).toLowerCase();
+    const mimeType = ({ png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' } as Record<string, string>)[extension];
+    try {
+      const content = await readFile(path.join(path.dirname(config.dbPath), 'avatars', req.params.fileName));
+      return reply.type(mimeType ?? 'application/octet-stream').header('cache-control', 'public, max-age=31536000, immutable').send(content);
+    } catch {
+      throw httpError(404, '头像不存在');
+    }
+  });
   app.get('/api/agent-options', async () => ({
     tools: listTools().map((tool) => ({ name: tool.name, description: tool.description, readonly: READONLY_TOOLS.has(tool.name), source: tool.source ?? 'builtin' })),
     capabilities: [{ value: 'execute', label: '执行' }, { value: 'review', label: '审查' }, { value: 'coordinate', label: '协调' }],
@@ -122,10 +165,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       { value: 'anthropic', label: 'Anthropic', configured: Boolean(config.llm.anthropicApiKey) },
     ],
     templates: [
-      { id: 'blank', name: '空白角色', description: '从最小配置开始', input: { description: '自定义团队角色', capabilities: ['execute'], systemPrompt: '你是团队中的专业执行者。请根据目标完成任务，并清楚说明结果。', model: 'mock:agent', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff' } },
-      { id: 'planner', name: '规划主管', description: '拆解目标并协调成员', input: { description: '负责拆解目标和协调团队', capabilities: ['coordinate', 'execute'], systemPrompt: '你负责理解目标、拆解任务、分配成员并汇总最终结果。', model: 'mock:planner', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff' } },
-      { id: 'executor', name: '执行者', description: '实现任务并交付产物', input: { description: '负责实现任务并交付可验证产物', capabilities: ['execute'], systemPrompt: '你负责按任务要求完成实现，报告产物位置和验证结果。', model: 'mock:coder', tools: ['fs.read', 'fs.write', 'shell.run'], disallowedTools: [], permissionMode: 'auto', color: '#2f9e6e' } },
-      { id: 'reviewer', name: '评审者', description: '检查结果并推动返工', input: { description: '负责审查产出并给出明确结论', capabilities: ['review'], systemPrompt: '你负责对照验收标准审查产出。发现问题时给出具体、可执行的修改建议。', model: 'mock:reviewer', tools: ['fs.read', 'search.files'], disallowedTools: [], permissionMode: 'readonly', color: '#e0a13c' } },
+      { id: 'blank', name: '空白角色', description: '从最小配置开始', input: { description: '自定义团队角色', capabilities: ['execute'], systemPrompt: '你是团队中的专业执行者。请根据目标完成任务，并清楚说明结果。', model: 'mock:agent', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff', avatar: '🤖' } },
+      { id: 'planner', name: '规划主管', description: '拆解目标并协调成员', input: { description: '负责拆解目标和协调团队', capabilities: ['coordinate', 'execute'], systemPrompt: '你负责理解目标、拆解任务、分配成员并汇总最终结果。', model: 'mock:planner', tools: [], disallowedTools: [], permissionMode: 'confirm', color: '#7c5cff', avatar: '🧭' } },
+      { id: 'executor', name: '执行者', description: '实现任务并交付产物', input: { description: '负责实现任务并交付可验证产物', capabilities: ['execute'], systemPrompt: '你负责按任务要求完成实现，报告产物位置和验证结果。', model: 'mock:coder', tools: ['fs.read', 'fs.write', 'shell.run'], disallowedTools: [], permissionMode: 'auto', color: '#2f9e6e', avatar: '🧑‍💻' } },
+      { id: 'reviewer', name: '评审者', description: '检查结果并推动返工', input: { description: '负责审查产出并给出明确结论', capabilities: ['review'], systemPrompt: '你负责对照验收标准审查产出。发现问题时给出具体、可执行的修改建议。', model: 'mock:reviewer', tools: ['fs.read', 'search.files'], disallowedTools: [], permissionMode: 'readonly', color: '#e0a13c', avatar: '🔍' } },
     ],
   }));
   app.get('/api/tools/mcp/status', async () => getMcpStatus());
@@ -509,6 +552,34 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return detail;
   });
 
+  app.get<{ Params: { id: string }; Querystring: { payload?: string } }>('/api/runs/:id/observability', async (req) => {
+    if (req.query.payload !== undefined && req.query.payload !== 'summary' && req.query.payload !== 'full') {
+      throw httpError(400, "payload 必须是 'summary' 或 'full'");
+    }
+    const observability = req.query.payload === 'summary'
+      ? getRunObservabilitySummary(req.params.id)
+      : getRunObservability(req.params.id);
+    if (!observability) throw httpError(404, `run 不存在: ${req.params.id}`);
+    return observability;
+  });
+
+  app.get<{ Params: { id: string; spanId: string } }>('/api/runs/:id/spans/:spanId', async (req) => {
+    if (!getRun(req.params.id)) throw httpError(404, `run 不存在: ${req.params.id}`);
+    const span = getSpanDetail(req.params.id, req.params.spanId);
+    if (!span) throw httpError(404, `span 不存在: ${req.params.spanId}`);
+    return span;
+  });
+
+  app.get<{ Params: { id: string } }>('/api/runs/:id/checkpoints', async (req) => {
+    if (!getRun(req.params.id)) throw httpError(404, `run 不存在: ${req.params.id}`);
+    return listCheckpoints(req.params.id);
+  });
+
+  app.get<{ Params: { id: string } }>('/api/runs/:id/tool-executions', async (req) => {
+    if (!getRun(req.params.id)) throw httpError(404, `run 不存在: ${req.params.id}`);
+    return listToolExecutions(req.params.id);
+  });
+
   // ---- 审批 ----
 
   app.get<{ Querystring: { status?: string } }>('/api/approvals', async (req) =>
@@ -523,11 +594,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         throw httpError(400, "decision 必须是 'approve'|'reject'|'edit'");
       }
       try {
-        return decideApproval(req.params.id, {
+        const approval = decideApproval(req.params.id, {
           decision,
           editedInput: typeof editedInput === 'string' ? editedInput : undefined,
           by: typeof by === 'string' && by.length > 0 ? by : 'user',
         });
+        wakeRun(approval.runId);
+        return approval;
       } catch (err) {
         if (err instanceof ApprovalError) throw httpError(err.status, err.message);
         throw err;

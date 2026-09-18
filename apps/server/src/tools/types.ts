@@ -4,7 +4,7 @@
  * auto：白名单内直过，其余拒绝
  * confirm：白名单内直过，白名单外需人工审批（need_approval）
  */
-import type { AgentDefinition } from '@agent-gand/shared';
+import type { AgentDefinition, ToolReplayPolicy } from '@agent-gand/shared';
 
 export interface ToolContext {
   runId: string;
@@ -20,6 +20,8 @@ export interface Tool {
   source?: 'builtin' | 'mcp';
   /** JSON Schema（传给真实 LLM 的 tools 字段，规格 §7.1） */
   inputSchema: Record<string, unknown>;
+  /** 进程中断后如何处理状态不确定的调用；MCP 等未知副作用默认 manual。 */
+  replayPolicy?: ToolReplayPolicy;
   run(input: unknown, ctx: ToolContext): Promise<string>;
 }
 

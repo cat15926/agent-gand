@@ -5,6 +5,7 @@ model: anthropic:glm-5.3
 tools: []
 permissionMode: confirm
 color: '#7c5cff'
+avatar: '🧭'
 ---
 
 你是团队中的 Planner（规划者）。你的职责：

@@ -21,6 +21,8 @@ interface ApprovalRow {
   decided_by: string | null;
   decided_at: string | null;
   created_at: string;
+  idempotency_key: string | null;
+  checkpoint_id: string | null;
 }
 
 function rowToApproval(row: ApprovalRow): ApprovalRequest {
@@ -55,30 +57,42 @@ export interface CreateApprovalInput {
   toolName: string;
   input: string | null; // JSON 序列化的工具入参
   reason: string | null;
+  idempotencyKey?: string;
+  checkpointId?: string;
 }
 
 export function createApproval(input: CreateApprovalInput): ApprovalRequest {
+  if (input.idempotencyKey) {
+    const existing = get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', input.idempotencyKey);
+    if (existing) return rowToApproval(existing);
+  }
   const approval: ApprovalRequest = {
     id: randomUUID(),
-    ...input,
+    runId: input.runId,
+    agentId: input.agentId,
+    toolName: input.toolName,
+    input: input.input,
+    reason: input.reason,
     status: 'pending',
     editedInput: null,
     decidedBy: null,
     decidedAt: null,
     createdAt: new Date().toISOString(),
   };
-  run(
-    `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)`,
-    approval.id,
-    approval.runId,
-    approval.agentId,
-    approval.toolName,
-    approval.input,
-    approval.reason,
-    approval.status,
-    approval.createdAt,
-  );
+  try {
+    run(
+      `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at, idempotency_key, checkpoint_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+      approval.id, approval.runId, approval.agentId, approval.toolName, approval.input, approval.reason,
+      approval.status, approval.createdAt, input.idempotencyKey ?? null, input.checkpointId ?? null,
+    );
+  } catch (err) {
+    const concurrent = input.idempotencyKey
+      ? get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', input.idempotencyKey)
+      : undefined;
+    if (concurrent) return rowToApproval(concurrent);
+    throw err;
+  }
   emit({ type: 'approval.updated', approval });
   return approval;
 }

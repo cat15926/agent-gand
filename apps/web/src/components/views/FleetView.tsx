@@ -5,6 +5,7 @@
 import { useStore } from '../../store';
 import { useState } from 'react';
 import { AgentManager } from '../AgentManager';
+import { AgentAvatar } from '../AgentAvatar';
 
 type AgentStatus = 'needs_input' | 'working' | 'idle';
 
@@ -60,7 +61,7 @@ export function FleetView() {
               </td>
               <td className="py-2.5">
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: agent.color }} />
+                  <AgentAvatar agent={agent} className="h-8 w-8 text-sm" />
                   <span className="text-zinc-200">{agent.name}</span>
                   <span className="text-xs text-zinc-600">{agent.model}</span>
                 </span>

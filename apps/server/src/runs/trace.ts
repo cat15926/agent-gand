@@ -10,6 +10,8 @@ import type {
   RunEvent,
   RunMode,
   RunStatus,
+  SpanAttributes,
+  SpanAttributeValue,
   SpanKind,
   SpanStatus,
   Task,
@@ -53,11 +55,33 @@ interface RunEventRow {
   input: string | null;
   output: string | null;
   status: string;
+  attributes: string;
   tokens_in: number;
   tokens_out: number;
   cost_usd: number;
   started_at: string;
+  first_token_at: string | null;
   ended_at: string | null;
+}
+
+function legacySpanAttributes(row: RunEventRow): SpanAttributes {
+  const attributes: SpanAttributes = { 'observability.version': 1, 'run.id': row.run_id };
+  const separator = row.name.indexOf(':');
+  const value = separator >= 0 ? row.name.slice(separator + 1).split(/[（(]/u)[0]?.trim() : '';
+  if (row.span_kind === 'agent' && value) attributes['agent.id'] = value;
+  if (row.span_kind === 'llm' && value) attributes['llm.model'] = value;
+  if (row.span_kind === 'tool' && value) attributes['tool.name'] = value;
+  return attributes;
+}
+
+function parseSpanAttributes(row: RunEventRow): SpanAttributes {
+  try {
+    const parsed = JSON.parse(row.attributes || '{}') as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { ...legacySpanAttributes(row), ...(parsed as SpanAttributes) };
+    }
+  } catch { /* 旧库中的损坏属性按兼容规则回退，不影响 trace 查询。 */ }
+  return legacySpanAttributes(row);
 }
 
 function rowToRun(row: RunRow): Run {
@@ -89,10 +113,12 @@ function rowToRunEvent(row: RunEventRow): RunEvent {
     input: row.input,
     output: row.output,
     status: row.status as SpanStatus,
+    attributes: parseSpanAttributes(row),
     tokensIn: row.tokens_in,
     tokensOut: row.tokens_out,
     costUsd: row.cost_usd,
     startedAt: row.started_at,
+    firstTokenAt: row.first_token_at ?? null,
     endedAt: row.ended_at,
   };
 }
@@ -231,9 +257,36 @@ export interface StartSpanInput {
   spanKind: SpanKind;
   name: string;
   input?: string | null;
+  attributes?: SpanAttributes;
+}
+
+const INHERITED_ATTRIBUTE_KEYS = [
+  'agent.id', 'agent.role', 'task.id', 'task.attempt.id', 'task.attempt.no',
+  'collaboration.dispatch.id', 'collaboration.batch.id',
+] as const;
+
+function inheritedSpanAttributes(parentId: string | null | undefined): SpanAttributes {
+  if (!parentId) return {};
+  const parent = get<RunEventRow>('SELECT * FROM run_events WHERE id = ?', parentId);
+  if (!parent) return {};
+  const source = parseSpanAttributes(parent);
+  const inherited: SpanAttributes = {};
+  for (const key of INHERITED_ATTRIBUTE_KEYS) {
+    const value = source[key];
+    if (value !== undefined) (inherited as Record<string, SpanAttributeValue | undefined>)[key] = value;
+  }
+  return inherited;
 }
 
 export function startSpan(runId: string, input: StartSpanInput): RunEvent {
+  const owner = getRun(runId);
+  const attributes: SpanAttributes = {
+    ...inheritedSpanAttributes(input.parentId),
+    ...input.attributes,
+    'observability.version': 1,
+    'run.id': runId,
+    ...(owner ? { 'run.mode': owner.mode } : {}),
+  };
   const event: RunEvent = {
     id: randomUUID(),
     runId,
@@ -243,15 +296,17 @@ export function startSpan(runId: string, input: StartSpanInput): RunEvent {
     input: input.input ?? null,
     output: null,
     status: 'running',
+    attributes,
     tokensIn: 0,
     tokensOut: 0,
     costUsd: 0,
     startedAt: new Date().toISOString(),
+    firstTokenAt: null,
     endedAt: null,
   };
   run(
-    `INSERT INTO run_events (id, run_id, parent_id, span_kind, name, input, output, status, tokens_in, tokens_out, cost_usd, started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 0, 0, 0, ?, NULL)`,
+    `INSERT INTO run_events (id, run_id, parent_id, span_kind, name, input, output, status, attributes, tokens_in, tokens_out, cost_usd, started_at, first_token_at, ended_at)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, 0, 0, ?, NULL, NULL)`,
     event.id,
     event.runId,
     event.parentId,
@@ -259,6 +314,7 @@ export function startSpan(runId: string, input: StartSpanInput): RunEvent {
     event.name,
     event.input,
     event.status,
+    JSON.stringify(event.attributes),
     event.startedAt,
   );
   emit({ type: 'run.event', event });
@@ -271,24 +327,30 @@ export interface EndSpanInput {
   tokensIn?: number;
   tokensOut?: number;
   costUsd?: number;
+  /** 结束时补充的结果属性（如 stop_reason），与开始属性合并。 */
+  attributes?: SpanAttributes;
 }
 
 export function endSpan(span: RunEvent, input: EndSpanInput = {}): RunEvent {
+  const persistedTiming = get<{ first_token_at: string | null }>('SELECT first_token_at FROM run_events WHERE id = ?', span.id);
   const ended: RunEvent = {
     ...span,
     output: input.output ?? null,
     status: input.status ?? 'ok',
+    attributes: { ...span.attributes, ...input.attributes },
     tokensIn: input.tokensIn ?? 0,
     tokensOut: input.tokensOut ?? 0,
     costUsd: input.costUsd ?? 0,
+    firstTokenAt: persistedTiming?.first_token_at ?? span.firstTokenAt,
     endedAt: new Date().toISOString(),
   };
   run(
     `UPDATE run_events
-     SET output = ?, status = ?, tokens_in = ?, tokens_out = ?, cost_usd = ?, ended_at = ?
+     SET output = ?, status = ?, attributes = ?, tokens_in = ?, tokens_out = ?, cost_usd = ?, ended_at = ?
      WHERE id = ?`,
     ended.output,
     ended.status,
+    JSON.stringify(ended.attributes),
     ended.tokensIn,
     ended.tokensOut,
     ended.costUsd,
@@ -304,6 +366,17 @@ export function endSpan(span: RunEvent, input: EndSpanInput = {}): RunEvent {
   return ended;
 }
 
+/** 首个 LLM 正文增量只记录一次；同时广播更新，让活动轨迹可以展示 TTFT。 */
+export function markSpanFirstToken(spanId: string): RunEvent | undefined {
+  const at = new Date().toISOString();
+  const changed = run('UPDATE run_events SET first_token_at = ? WHERE id = ? AND first_token_at IS NULL', at, spanId);
+  const row = get<RunEventRow>('SELECT * FROM run_events WHERE id = ?', spanId);
+  if (!row) return undefined;
+  const event = rowToRunEvent(row);
+  if (changed > 0) emit({ type: 'run.event', event });
+  return event;
+}
+
 export function finishRun(runId: string, status: 'completed' | 'failed'): void {
   run('UPDATE runs SET status = ?, finished_at = ? WHERE id = ?', status, new Date().toISOString(), runId);
   const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
@@ -315,6 +388,11 @@ export function listEvents(runId: string): RunEvent[] {
     'SELECT * FROM run_events WHERE run_id = ? ORDER BY started_at ASC, rowid ASC',
     runId,
   ).map(rowToRunEvent);
+}
+
+export function getEvent(runId: string, spanId: string): RunEvent | undefined {
+  const row = get<RunEventRow>('SELECT * FROM run_events WHERE run_id = ? AND id = ?', runId, spanId);
+  return row ? rowToRunEvent(row) : undefined;
 }
 
 interface UsageRow {

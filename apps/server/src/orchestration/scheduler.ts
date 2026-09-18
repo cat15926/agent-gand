@@ -76,6 +76,8 @@ async function executeTask(
     spanKind: 'agent',
     name: `agent:${agent.id}（task:${claimed.id.slice(0, 8)} attempt:${claimed.attempt}）`,
     input: context,
+    attributes: { 'agent.id': agent.id, 'agent.role': 'worker', 'task.id': claimed.id,
+      'task.attempt.id': attempt.id, 'task.attempt.no': claimed.attempt, 'orchestration.phase': 'task.execute' },
   });
   await sendAgentMessage({
     runId: run.id,
@@ -88,6 +90,7 @@ async function executeTask(
       ? `任务指派：${claimed.title}`
       : `返工指派：${claimed.title}（第 ${claimed.attempt}/${claimed.maxAttempts} 次）`,
     payload: { attemptId: attempt.id, attemptNo: claimed.attempt },
+    clientMessageId: `durable:${run.id}:task:${claimed.id}:work:${claimed.attempt}:assignment`,
     replyTo: claimed.attempt > 1 ? listForTask(claimed.id).filter((message) => message.messageType === 'revision_request').at(-1)?.id : null,
   });
 
@@ -106,6 +109,7 @@ async function executeTask(
       taskId: claimed.id,
       attemptId: attempt.id,
       displayKind: 'message',
+      executionScopeId: `task:${claimed.id}:work:${claimed.attempt}`,
     });
     output = turn.content.trim();
     if (turn.emptyResponse || output === '') throw new Error('Agent 未返回可用结果');
@@ -136,6 +140,7 @@ async function executeTask(
     messageType: claimed.reviewerId ? 'review_request' : 'result',
     body: output,
     payload: { attemptId: attempt.id, attemptNo: claimed.attempt },
+    clientMessageId: `durable:${run.id}:task:${claimed.id}:work:${claimed.attempt}:submission`,
   });
 
   if (!claimed.reviewerId) {
@@ -163,6 +168,8 @@ async function executeTask(
     spanKind: 'agent',
     name: `agent:${reviewer.id}（review:${awaiting.id.slice(0, 8)} attempt:${awaiting.attempt}）`,
     input: reviewContext,
+    attributes: { 'agent.id': reviewer.id, 'agent.role': 'reviewer', 'task.id': awaiting.id,
+      'task.attempt.id': reviewAttempt.id, 'task.attempt.no': awaiting.attempt, 'orchestration.phase': 'task.review' },
   });
   try {
     const parsed = await reviewTask({ run, task: awaiting, workAttempt: attempt, reviewer, parentSpanId: reviewSpan.id });
@@ -184,6 +191,7 @@ async function executeTask(
       body: `${parsed.verdict}：${parsed.summary}`,
       payload: reviewPayload(review),
       replyTo: submissionMessage.id,
+      clientMessageId: `durable:${run.id}:task:${awaiting.id}:review:${awaiting.attempt}:result`,
     });
     if (parsed.verdict === 'PASS') {
       transitionTask(awaiting.id, { from: 'awaiting_review', to: 'completed', result: output });

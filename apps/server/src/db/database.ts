@@ -76,6 +76,14 @@ ensureColumns('conversations', [
   { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
   { name: 'members_version', sql: 'members_version INTEGER NOT NULL DEFAULT 1' },
 ]);
+ensureColumns('run_events', [
+  { name: 'attributes', sql: "attributes TEXT NOT NULL DEFAULT '{}'" },
+  { name: 'first_token_at', sql: 'first_token_at TEXT' },
+]);
+ensureColumns('approvals', [
+  { name: 'idempotency_key', sql: 'idempotency_key TEXT' },
+  { name: 'checkpoint_id', sql: 'checkpoint_id TEXT' },
+]);
 db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
   agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,
   created_at TEXT NOT NULL, PRIMARY KEY(agent_id, version))`);
@@ -87,6 +95,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_messages_task ON messages(task_id, creat
 db.exec('CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_id, turn_no)');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_seq ON messages(conversation_id, seq)');
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client ON messages(conversation_id, client_message_id) WHERE client_message_id IS NOT NULL");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approvals_idempotency ON approvals(idempotency_key) WHERE idempotency_key IS NOT NULL");
 
 export function all<T>(sql: string, ...params: unknown[]): T[] {
   return db.prepare(sql).all(...params) as T[];

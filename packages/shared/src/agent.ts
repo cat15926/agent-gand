@@ -24,6 +24,8 @@ export interface AgentDefinition {
   permissionMode: PermissionMode;
   /** 前端展示用的主题色 */
   color: string;
+  /** 头像：短文字/Emoji，或 HTTPS 图片 URL。空值时回退到名称首字。 */
+  avatar?: string;
   source: 'file' | 'db';
   enabled: boolean;
   /** 每次有效配置变更递增，用于乐观锁和运行快照。 */
@@ -42,6 +44,7 @@ export interface AgentInput {
   disallowedTools: string[];
   permissionMode: PermissionMode;
   color: string;
+  avatar: string;
 }
 
 export interface AgentTemplate {

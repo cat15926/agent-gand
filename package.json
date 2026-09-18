@@ -16,6 +16,8 @@
     "verify:agents": "node scripts/verify-agent-management.mjs",
     "verify:p0-tools": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-p0-toolchain.mjs",
     "verify:collaboration": "node scripts/verify-collaboration.mjs",
+    "verify:observability": "node scripts/verify-observability.mjs",
+    "verify:durable": "node scripts/verify-durable-execution.mjs",
     "db:reset": "rm -f apps/server/data/*.sqlite*"
   },
   "devDependencies": {

@@ -74,6 +74,7 @@ export async function reviewTask(input: {
       taskId: input.task.id,
       attemptId: input.workAttempt.id,
       displayKind: 'review_protocol',
+      executionScopeId: `task:${input.task.id}:review:${input.workAttempt.attemptNo}:${attempt}`,
     });
     previous = turn.content;
     const parsed = parseReview(previous);

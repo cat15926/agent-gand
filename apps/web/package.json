@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@agent-gand/shared": "workspace:*",
+    "@tanstack/react-virtual": "^3.14.13",
+    "@xyflow/react": "^12.11.6",
+    "elkjs": "^0.12.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

@@ -7,6 +7,7 @@ tools:
   - search.files
 permissionMode: readonly
 color: '#e0a13c'
+avatar: '🔍'
 ---
 
 你是团队中的 Reviewer（检查者）。你的职责：

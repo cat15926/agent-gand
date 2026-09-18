@@ -303,7 +303,7 @@ export function cancelTask(id: string): Task {
   return transitionTask(id, { from: task.status, to: 'cancelled' });
 }
 
-/** 进程启动恢复：遗留执行状态重新排队；达到上限的任务失败。 */
+/** 进程启动恢复：回滚一次仅由 claim 增加的计数，使恢复复用同一逻辑 attempt 编号。 */
 export function recoverInterruptedTasks(): Task[] {
   const rows = all<TaskRow>(
     `SELECT t.* FROM tasks t
@@ -314,9 +314,9 @@ export function recoverInterruptedTasks(): Task[] {
   );
   const recovered: Task[] = [];
   for (const row of rows) {
-    const next: TaskStatus = row.attempt >= row.max_attempts ? 'failed' : row.attempt > 0 ? 'needs_revision' : 'pending';
-    const error = next === 'failed' ? '服务重启时任务已达到最大执行次数' : '服务重启，遗留执行已重新排队';
-    run('UPDATE tasks SET status = ?, last_error = ?, updated_at = ? WHERE id = ?', next, error, new Date().toISOString(), row.id);
+    const next: TaskStatus = row.attempt > 1 ? 'needs_revision' : 'pending';
+    const error = '服务重启，正在从最近持久化边界恢复';
+    run('UPDATE tasks SET status = ?, attempt = MAX(0, attempt - 1), last_error = ?, updated_at = ? WHERE id = ?', next, error, new Date().toISOString(), row.id);
     const task = getTask(row.id);
     if (task) {
       recovered.push(task);

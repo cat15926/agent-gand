@@ -79,14 +79,31 @@ CREATE TABLE IF NOT EXISTS run_events (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, parent_id TEXT,
   span_kind TEXT NOT NULL, name TEXT NOT NULL,    -- llm|tool|agent|message|approval|orchestration
   input TEXT, output TEXT, status TEXT NOT NULL,  -- running|ok|error
+  attributes TEXT NOT NULL DEFAULT '{}',
   tokens_in INTEGER DEFAULT 0, tokens_out INTEGER DEFAULT 0, cost_usd REAL DEFAULT 0,
-  started_at TEXT NOT NULL, ended_at TEXT
+  started_at TEXT NOT NULL, first_token_at TEXT, ended_at TEXT
 );
 CREATE TABLE IF NOT EXISTS approvals (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, agent_id TEXT NOT NULL,
   tool_name TEXT NOT NULL, input TEXT, reason TEXT,
   status TEXT NOT NULL DEFAULT 'pending',         -- pending|approved|rejected|edited
-  edited_input TEXT, decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL
+  edited_input TEXT, decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL,
+  idempotency_key TEXT, checkpoint_id TEXT
+);
+CREATE TABLE IF NOT EXISTS run_checkpoints (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, seq INTEGER NOT NULL,
+  kind TEXT NOT NULL, status TEXT NOT NULL, phase TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT '{}', waiting_on TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(run_id, seq)
+);
+CREATE TABLE IF NOT EXISTS tool_executions (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, agent_id TEXT NOT NULL,
+  task_id TEXT, attempt_id TEXT, tool_name TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE, input TEXT NOT NULL,
+  replay_policy TEXT NOT NULL, status TEXT NOT NULL,
+  output TEXT, error TEXT, span_id TEXT,
+  created_at TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT
 );
 CREATE TABLE IF NOT EXISTS collaboration_dispatches (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
@@ -129,6 +146,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
 CREATE INDEX IF NOT EXISTS idx_events_run ON run_events(run_id);
 CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_run ON run_checkpoints(run_id, seq DESC);
+CREATE INDEX IF NOT EXISTS idx_tool_executions_run ON tool_executions(run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_attempts_task ON task_attempts(task_id, attempt_no);
 CREATE INDEX IF NOT EXISTS idx_attempts_status_lease ON task_attempts(status, lease_expires_at);
 CREATE INDEX IF NOT EXISTS idx_reviews_task ON task_reviews(task_id, created_at);

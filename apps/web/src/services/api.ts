@@ -24,6 +24,9 @@ import type {
   CollaborationUserDecision,
   ResolveCollaborationDecision,
   RunMode,
+  RunObservability,
+  RunObservabilitySummary,
+  SpanDetail,
 } from '@agent-gand/shared';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -93,6 +96,15 @@ export const stopCollaborationAgent = (agentId: string, conversationId: string) 
 export const stopCollaborationRun = (runId: string) => request<Run>(`/api/collaboration/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 
 export const getAgents = (includeDisabled = false) => request<AgentDefinition[]>(`/api/agents${includeDisabled ? '?includeDisabled=1' : ''}`);
+export async function uploadAgentAvatar(file: File): Promise<{ avatar: string }> {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取头像文件失败'));
+    reader.onload = () => resolve(String(reader.result ?? '').split(',', 2)[1] ?? '');
+    reader.readAsDataURL(file);
+  });
+  return request('/api/agent-avatars', { method: 'POST', body: JSON.stringify({ mimeType: file.type, data }) });
+}
 export const getAgentOptions = () => request<AgentOptions>('/api/agent-options');
 export const getMcpStatus = () => request<McpStatus>('/api/tools/mcp/status');
 export const refreshMcpTools = () => request<McpStatus>('/api/tools/mcp/refresh', { method: 'POST' });
@@ -115,6 +127,9 @@ export const renameRun = (id: string, title: string) =>
 export const softDeleteRun = (id: string) =>
   request<Run>(`/api/runs/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getRun = (id: string) => request<RunDetail>(`/api/runs/${id}`);
+export const getRunObservability = (id: string) => request<RunObservability>(`/api/runs/${encodeURIComponent(id)}/observability`);
+export const getRunObservabilitySummary = (id: string) => request<RunObservabilitySummary>(`/api/runs/${encodeURIComponent(id)}/observability?payload=summary`);
+export const getSpanDetail = (runId: string, spanId: string) => request<SpanDetail>(`/api/runs/${encodeURIComponent(runId)}/spans/${encodeURIComponent(spanId)}`);
 export const getTasks = (runId?: string) =>
   request<Task[]>(runId ? `/api/tasks?runId=${encodeURIComponent(runId)}` : '/api/tasks');
 export const getTask = (taskId: string) => request<Task>(`/api/tasks/${encodeURIComponent(taskId)}`);
