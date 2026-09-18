@@ -103,6 +103,7 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 
 - **P1**：按 [docs/p1-implementation-roadmap.md](./docs/p1-implementation-roadmap.md) 的 8 个计划推进；计划 1–3 已完成，下一项为 durable execution
 - **完整编排**：可编辑画布、版本化 DSL、Durable Runtime、发布与触发的实施路径见 [docs/full-orchestration-implementation-plan.md](./docs/full-orchestration-implementation-plan.md)
+- **Collaboration 实测问题**：三轮辩论的调度、上下文、终局、预算和聊天体验分析见 [docs/collaboration-debate-test-problem-report.md](./docs/collaboration-debate-test-problem-report.md)
 - **P2**：RBAC/多租户、评测体系、回放分享、time-travel 调试（详见调研报告 §7.2）
 
 ## 团队协作
