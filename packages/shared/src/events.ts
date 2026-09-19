@@ -12,6 +12,7 @@ import type { Run, RunEvent, UsageSummary } from './run.ts';
 import type { ApprovalRequest } from './approval.ts';
 import type { Conversation } from './conversation.ts';
 import type { CollaborationAttempt, CollaborationBatch, CollaborationDispatch, CollaborationUserDecision } from './collaboration.ts';
+import type { CoordinationStepState } from './coordination.ts';
 
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
@@ -27,6 +28,7 @@ export type ServerEvent =
   | { type: 'collaboration.batch.updated'; batch: CollaborationBatch }
   | { type: 'collaboration.decision.updated'; decision: CollaborationUserDecision }
   | { type: 'collaboration.scheduler.updated'; conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number }
+  | { type: 'coordination.step.updated'; step: CoordinationStepState }
   | { type: 'run.updated'; run: Run }
   | { type: 'run.event'; event: RunEvent }
   | { type: 'llm.delta'; runId: string; spanId: string; text: string; agentId?: string; taskId?: string; attemptId?: string; displayKind?: 'message' | 'review_protocol' }

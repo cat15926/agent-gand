@@ -23,6 +23,19 @@ const DECIDED_LABEL: Record<string, string> = {
   expired: '已超时',
 };
 
+const COORDINATION_STATUS: Record<string, { label: string; color: string; marker: string }> = {
+  pending: { label: '等待依赖', color: 'text-zinc-500', marker: '○' },
+  ready: { label: '已就绪', color: 'text-violet-300', marker: '◇' },
+  running: { label: '运行中', color: 'text-sky-300', marker: '◌' },
+  completed: { label: '已完成', color: 'text-emerald-400', marker: '✓' },
+  failed: { label: '失败', color: 'text-red-400', marker: '✗' },
+  interrupted: { label: '已中断', color: 'text-amber-300', marker: '!' },
+};
+
+const STEP_TYPE_LABEL: Record<string, string> = {
+  agent_turn: 'Agent 执行', fanout: '并行分支', aggregate: '汇总', review: '独立审查', completion_gate: '完成屏障',
+};
+
 export function RightPanel() {
   const { state } = useStore();
   const [tab, setTab] = useState<'collaboration' | 'tasks' | 'approvals' | 'trace' | 'usage'>('collaboration');
@@ -45,6 +58,8 @@ export function RightPanel() {
     .filter((a) => a.status !== 'pending' && a.runId === state.activeRunId)
     .sort((x, y) => (y.decidedAt ?? y.createdAt).localeCompare(x.decidedAt ?? x.createdAt))
     .slice(0, 5);
+  const coordinationCompleted = state.coordinationSteps.filter((step) => step.status === 'completed').length;
+  const legacyTasks = state.tasks.filter((task) => task.runId === state.activeRunId);
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-800 bg-zinc-900/60">
@@ -72,9 +87,22 @@ export function RightPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'collaboration' && <div className="space-y-3 text-xs">
+          {state.coordinationPlan && <>
+            <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 p-2.5">
+              <div className="flex items-center justify-between gap-2"><span className="font-medium text-fuchsia-200">Coordination Plan</span><span className={state.coordinationPlan.status === 'failed' ? 'text-red-300' : state.coordinationPlan.status === 'completed' ? 'text-emerald-300' : 'text-sky-300'}>{state.coordinationPlan.status}</span></div>
+              <div className="mt-1 text-[11px] text-zinc-500">{state.coordinationPlan.protocols.map((item) => item.protocol).join(' → ')}</div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-fuchsia-400 transition-all" style={{ width: `${state.coordinationSteps.length > 0 ? coordinationCompleted / state.coordinationSteps.length * 100 : 0}%` }} /></div>
+              <div className="mt-1 text-right text-[10px] text-zinc-600">{coordinationCompleted}/{state.coordinationSteps.length} 步</div>
+            </div>
+            <div className="space-y-1.5">{state.coordinationSteps.map((step) => {
+              const definition = state.coordinationPlan?.steps.find((item) => item.id === step.stepId);
+              const meta = COORDINATION_STATUS[step.status] ?? COORDINATION_STATUS.pending!;
+              return <div key={`${step.revision}:${step.stepId}`} className="rounded-lg bg-zinc-800/60 p-2"><div className="flex items-start gap-2"><span className={meta.color}>{meta.marker}</span><div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><span className="truncate text-zinc-300">{definition?.actorRole ?? step.stepId}</span><span className={`shrink-0 ${meta.color}`}>{meta.label}</span></div><div className="mt-0.5 text-[10px] text-zinc-600">{definition ? STEP_TYPE_LABEL[definition.type] ?? definition.type : step.stepId}{definition?.agentId ? ` · ${definition.agentId}` : ''}{definition?.dependsOn.length ? ` · 等待 ${definition.dependsOn.length} 项` : ''}</div></div></div></div>;
+            })}</div>
+          </>}
           {state.collaborationScheduler && <div className="rounded-lg bg-violet-500/10 p-2 text-violet-200">活跃 {state.collaborationScheduler.activeAgentIds.length} · 排队 {state.collaborationScheduler.queued} · 阻断 {state.collaborationScheduler.blocked}</div>}
           <div className="space-y-2">{state.collaborationDispatches.map((dispatch) => <div key={dispatch.id} className="rounded-lg bg-zinc-800/60 p-2"><div className="flex justify-between gap-2"><span className="text-zinc-300">{dispatch.from} → {dispatch.targetAgentId}</span><span className={dispatch.status === 'failed' || dispatch.status === 'blocked' ? 'text-red-300' : dispatch.status === 'running' ? 'text-sky-300' : 'text-zinc-500'}>{dispatch.status}</span></div><div className="mt-1 text-[11px] text-zinc-500">{dispatch.kind} · 深度 {dispatch.depth}{dispatch.reason ? ` · ${dispatch.reason}` : ''}</div>{dispatch.status === 'queued' && <button onClick={() => void api.cancelCollaborationDispatch(dispatch.id)} className="mt-2 text-[11px] text-red-300">取消排队</button>}{dispatch.status === 'running' && state.activeConversationId && <button onClick={() => void api.stopCollaborationAgent(dispatch.targetAgentId, state.activeConversationId!)} className="mt-2 text-[11px] text-red-300">停止该 Agent</button>}</div>)}</div>
-          {state.collaborationDispatches.length === 0 && <p className="text-zinc-600">当前聊天室暂无 Collaboration 调度记录</p>}
+          {!state.coordinationPlan && state.collaborationDispatches.length === 0 && <p className="text-zinc-600">当前聊天室暂无 Collaboration 调度记录</p>}
           {state.activeRunId && state.collaborationBudgets[state.activeRunId] && (() => { const budget = state.collaborationBudgets[state.activeRunId]!; return <div className="rounded-lg border border-zinc-800 p-2 text-[11px] text-zinc-500"><div className="mb-1 text-zinc-300">本轮预算</div><div>Dispatch {budget.dispatches.used}/{budget.dispatches.currentLimit}</div><div>Token {budget.tokens.used}/{budget.tokens.currentLimit}</div><div>成本 ${budget.costUsd.used.toFixed(4)}/${budget.costUsd.currentLimit.toFixed(2)}</div><div>累计倍数 {budget.cumulativeMultiplier.toFixed(2)}× / {budget.maxMultiplier}×</div></div>; })()}
         </div>}
         {tab === 'tasks' && (
@@ -84,7 +112,22 @@ export function RightPanel() {
                 调度中 {state.scheduler.active} · 排队 {state.scheduler.queued}
               </div>
             )}
-            {state.tasks.filter((task) => task.runId === state.activeRunId).map((task) => {
+            {state.coordinationPlan && state.coordinationSteps.map((step) => {
+              const definition = state.coordinationPlan?.steps.find((item) => item.id === step.stepId);
+              const attempts = state.coordinationAttempts.filter((attempt) => attempt.stepId === step.stepId && attempt.revision === step.revision);
+              const meta = COORDINATION_STATUS[step.status] ?? COORDINATION_STATUS.pending!;
+              return <details key={`coordination:${step.revision}:${step.stepId}`} open={step.status === 'running' || step.status === 'ready' || step.status === 'failed'} className="rounded-lg border border-fuchsia-500/10 bg-zinc-800/60 p-2.5 text-xs">
+                <summary className="cursor-pointer list-none"><div className="flex items-start justify-between gap-2"><span className="text-zinc-200">{definition?.completion ?? step.stepId}</span><span className={meta.color}>{meta.label}</span></div><div className="mt-1 text-[11px] text-zinc-500">{definition?.actorRole ?? '计划步骤'}{definition?.agentId ? ` · ${definition.agentId}` : ''} · 第 {step.attemptNo}/{definition?.maxAttempts ?? '—'} 次</div></summary>
+                <div className="mt-2 space-y-1 border-t border-zinc-700/70 pt-2 text-[11px] text-zinc-400">
+                  <div>{STEP_TYPE_LABEL[definition?.type ?? ''] ?? definition?.type ?? 'Coordination Step'} · {step.stepId}</div>
+                  {definition?.dependsOn.length ? <div className="text-zinc-500">依赖：{definition.dependsOn.join('、')}</div> : <div className="text-zinc-600">无前置依赖</div>}
+                  {attempts.map((attempt) => { const attemptMeta = COORDINATION_STATUS[attempt.status] ?? COORDINATION_STATUS.pending!; return <div key={attempt.id} className={attemptMeta.color}>{attemptMeta.marker} Attempt #{attempt.attemptNo} · {attemptMeta.label}</div>; })}
+                  {step.error && <div className="rounded bg-red-500/10 p-1.5 text-red-300">{step.error}</div>}
+                  {step.output && <div className="line-clamp-3 whitespace-pre-wrap rounded bg-zinc-950/60 p-1.5 text-zinc-500">{step.output}</div>}
+                </div>
+              </details>;
+            })}
+            {legacyTasks.map((task) => {
               const attempts = state.attempts.filter((attempt) => attempt.taskId === task.id);
               const review = state.reviews.filter((item) => item.taskId === task.id).at(-1);
               return (
@@ -130,7 +173,7 @@ export function RightPanel() {
                 </details>
               );
             })}
-            {state.tasks.every((task) => task.runId !== state.activeRunId) && <p className="text-xs text-zinc-600">暂无调度任务</p>}
+            {!state.coordinationPlan && legacyTasks.length === 0 && <p className="text-xs text-zinc-600">暂无调度任务</p>}
           </div>
         )}
         {tab === 'approvals' && (

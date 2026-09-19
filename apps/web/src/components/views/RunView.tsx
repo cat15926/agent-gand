@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentDefinition, CollaborationUserDecision, Message, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationUserDecision, CoordinationPreview, CoordinationProtocolId, Message, RunMode } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
@@ -246,7 +246,7 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
 function NewRoomComposer() {
   const { state, setActiveConversation } = useStore();
   const [goal, setGoal] = useState('');
-  const [mode, setMode] = useState<RunMode>('collaboration');
+  const [modeChoice, setModeChoice] = useState<'auto' | RunMode>('auto');
   const [selected, setSelected] = useState<string[]>(state.agents.map((agent) => agent.id));
   const [initialTargets, setInitialTargets] = useState<string[]>([]);
   const initialized = useRef(state.agents.length > 0);
@@ -255,39 +255,77 @@ function NewRoomComposer() {
   const [workspace, setWorkspace] = useState('');
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const [planPreview, setPlanPreview] = useState<CoordinationPreview | null>(null);
+  const [error, setError] = useState('');
   const mentionedTargets = useMemo(() => leadingMentionRecipientIds(goal, state.agents, selected), [goal, state.agents, selected]);
   const effectiveTargets = useMemo(() => combineRecipients(mentionedTargets, initialTargets), [mentionedTargets, initialTargets]);
+  const mode = modeChoice === 'auto' ? planPreview?.draft.runtimeMode ?? null : modeChoice;
   useEffect(() => {
     if (!initialized.current && state.agents.length > 0) { setSelected(state.agents.map((agent) => agent.id)); initialized.current = true; }
     if (!state.agents.some((agent) => agent.id === supervisorId && agent.capabilities.includes('coordinate'))) setSupervisorId(state.agents.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? '');
     if (!state.agents.some((agent) => agent.id === defaultReviewerId && agent.capabilities.includes('review'))) setDefaultReviewerId(state.agents.find((agent) => agent.capabilities.includes('review'))?.id ?? '');
   }, [state.agents, supervisorId, defaultReviewerId]);
+  useEffect(() => { setPlanPreview(null); setError(''); }, [goal, selected, defaultReviewerId]);
+  async function preview(requestedProtocol?: CoordinationProtocolId): Promise<CoordinationPreview | null> {
+    if (!goal.trim() || selected.length === 0 || planning) return null;
+    setPlanning(true); setError('');
+    try {
+      const result = await api.previewCoordination({ goal: goal.trim(), agentIds: selected,
+        ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}), ...(requestedProtocol ? { requestedProtocol } : {}) });
+      setPlanPreview(result);
+      return result;
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); return null; }
+    finally { setPlanning(false); }
+  }
   async function create() {
     if (!goal.trim() || selected.length === 0 || busy) return;
     if (effectiveTargets.length > 3) return;
+    let activePreview = planPreview;
+    if (modeChoice === 'auto' && !activePreview) {
+      activePreview = await preview();
+      if (!activePreview || activePreview.draft.decision !== 'auto_start') return;
+    }
+    if (modeChoice === 'auto' && activePreview?.draft.decision === 'clarify') { setError('请先回答计划卡中的关键问题。'); return; }
+    if (modeChoice === 'auto' && activePreview?.draft.decision === 'unavailable') { setError('当前建议未通过安全校验，请调整团队或任务约束。'); return; }
+    const effectiveMode = modeChoice === 'auto' ? activePreview?.draft.runtimeMode ?? null : modeChoice;
+    if (!effectiveMode) { setError('当前建议使用的协议尚未接入统一协调运行时。你可以调整任务或切换为手动协作方式。'); return; }
     setBusy(true);
+    setError('');
     try {
-      const created = await api.createConversation({ goal: goal.trim(), mode, agentIds: selected,
-        ...(mode === 'collaboration' && effectiveTargets.length > 0 ? { recipientIds: effectiveTargets.filter((id) => selected.includes(id)) } : {}),
-        ...(mode === 'supervisor' && selected.includes(supervisorId) ? { supervisorId } : {}),
+      const created = await api.createConversation({ goal: goal.trim(), mode: effectiveMode, agentIds: selected,
+        ...(effectiveMode === 'collaboration' && effectiveTargets.length > 0 ? { recipientIds: effectiveTargets.filter((id) => selected.includes(id)) } : {}),
+        ...(effectiveMode === 'supervisor' && selected.includes(supervisorId) ? { supervisorId } : {}),
         ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}),
+        ...(modeChoice === 'auto' && activePreview ? { coordinationDraftId: activePreview.draft.id } : {}),
         ...(workspace ? { workspace } : {}) });
       setActiveConversation(created.conversation.id);
-    } finally { setBusy(false); }
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
   }
   return <div className="mx-auto flex h-full max-w-3xl flex-col justify-center px-6">
     <div className="mb-6 text-center"><h2 className="text-xl font-semibold text-zinc-100">创建 Agent 聊天室</h2><p className="mt-2 text-sm text-zinc-500">选择团队与协作方式，之后可在同一房间继续交流。</p></div>
     <textarea id="goal-input" value={goal} onChange={(event) => setGoal(event.target.value)} rows={5} placeholder="描述希望团队完成的目标…"
       className="resize-none rounded-2xl bg-zinc-900 p-4 text-sm outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500" />
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-      <select value={mode} onChange={(event) => setMode(event.target.value as RunMode)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="collaboration">自由协作</option><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
+      <select value={modeChoice} onChange={(event) => { setModeChoice(event.target.value as 'auto' | RunMode); setPlanPreview(null); }} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="auto">✨ 智能匹配</option><option value="collaboration">自由协作</option><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
       {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('coordinate')).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
       <select value={defaultReviewerId} onChange={(event) => setDefaultReviewerId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="">不设默认评审</option>{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('review')).map((agent) => <option key={agent.id} value={agent.id}>评审：{agent.name}</option>)}</select>
       <button onClick={() => setWorkspaceOpen(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-zinc-400">🗂 {workspace || '自动创建房间工作区'} ▾</button>
       {state.agents.map((agent) => <button key={agent.id} onClick={() => setSelected((items) => items.includes(agent.id) ? items.filter((id) => id !== agent.id) : [...items, agent.id])}
         className="rounded-full px-3 py-1.5" style={{ color: selected.includes(agent.id) ? agent.color : '#71717a', backgroundColor: selected.includes(agent.id) ? `${agent.color}20` : 'transparent' }}>{agent.name}</button>)}
-      <button disabled={busy || !goal.trim() || selected.length === 0} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">创建并发送</button>
+      <button disabled={busy || planning || !goal.trim() || selected.length === 0 || (modeChoice === 'auto' && Boolean(planPreview) && (!mode || planPreview?.draft.decision === 'clarify' || planPreview?.draft.decision === 'unavailable'))} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">{planning ? '正在分析…' : busy ? '正在创建…' : modeChoice === 'auto' && !planPreview ? '智能规划并开始' : modeChoice === 'auto' && planPreview?.draft.decision === 'auto_start' ? '自动开始' : modeChoice === 'auto' ? '确认并开始' : '创建并发送'}</button>
     </div>
+    {modeChoice === 'auto' && planPreview && <div className={`mt-3 rounded-2xl border p-4 text-sm ${planPreview.draft.validationErrors.length > 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5'}`}>
+      <div className="flex items-start gap-3"><div className="mt-0.5 rounded-lg bg-violet-500/15 px-2 py-1 text-violet-200">{planPreview.draft.decision === 'auto_start' ? '可自动开始' : planPreview.draft.decision === 'clarify' ? '需要确认' : planPreview.draft.decision === 'unavailable' ? '暂不可用' : '推荐'}</div><div className="min-w-0 flex-1"><div className="font-medium text-zinc-100">{planPreview.draft.displayName}</div><p className="mt-1 text-xs text-zinc-400">{planPreview.draft.summary}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>置信度 {Math.round(planPreview.draft.platformConfidence * 100)}%</span><span>风险：{planPreview.draft.risk === 'low' ? '低' : planPreview.draft.risk === 'medium' ? '中' : '高'}</span><span>{planPreview.snapshot.agents.length} 位 Agent</span><span>{planPreview.plan.steps.length} 个计划步骤</span></div></div></div>
+      {planPreview.draft.clarificationQuestion && <div className="mt-3 rounded-xl bg-zinc-950/50 p-3 text-xs text-zinc-200"><p>{planPreview.draft.clarificationQuestion}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => void preview('parallel_fanout')} className="rounded-full bg-violet-500/20 px-3 py-1.5 text-violet-200">各自分析后汇总</button><button type="button" onClick={() => void preview('dynamic_collaboration')} className="rounded-full bg-zinc-800 px-3 py-1.5 text-zinc-300">共同讨论</button></div></div>}
+      {planPreview.draft.validationIssues.some((item) => item.severity === 'error') && <div className="mt-3 rounded-lg bg-zinc-950/50 px-3 py-2 text-xs text-amber-200">{planPreview.draft.validationIssues.filter((item) => item.severity === 'error').map((item) => item.message).join('；')}</div>}
+      {!planPreview.draft.runtimeMode && planPreview.draft.validationErrors.length === 0 && <div className="mt-3 rounded-lg bg-zinc-950/50 px-3 py-2 text-xs text-amber-200">计划已通过结构校验，但对应协议尚未接入统一协调运行时。</div>}
+      {planPreview.draft.decision !== 'clarify' && planPreview.draft.alternatives.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className="text-zinc-500">也可以：</span>{planPreview.draft.alternatives.map((alternative) => <button key={alternative.displayName} type="button" title={alternative.suitableWhen} onClick={() => void preview(alternative.protocols[0]?.protocol)} className="rounded-full bg-zinc-800 px-3 py-1.5 text-zinc-300 hover:bg-zinc-700">{alternative.displayName}</button>)}</div>}
+      <details className="mt-3 text-xs text-zinc-400"><summary className="cursor-pointer hover:text-zinc-200">查看计划</summary><ol className="mt-2 space-y-1 pl-4">{planPreview.plan.steps.map((step) => <li key={step.id}>{step.id} · {step.completion}</li>)}</ol></details>
+      <button type="button" onClick={() => { setPlanPreview(null); setError(''); }} className="mt-3 text-xs text-zinc-500 hover:text-zinc-300">重新分析</button>
+    </div>}
+    {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
     {mode === 'collaboration' && <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs"><div className="mb-2 text-zinc-500">初始发送对象（可点选或在消息开头输入 @名称，最多 3 位；不选则发送给最近回复者）</div><div className="flex flex-wrap gap-2">{state.agents.filter((agent) => selected.includes(agent.id)).map((agent) => <button key={agent.id} onClick={() => setInitialTargets((ids) => ids.includes(agent.id) ? ids.filter((id) => id !== agent.id) : ids.length < 3 ? [...ids, agent.id] : ids)} className={`rounded-full px-3 py-1.5 ${effectiveTargets.includes(agent.id) ? 'bg-violet-500/20 text-violet-200 ring-1 ring-violet-500/40' : 'bg-zinc-800 text-zinc-500'}`}>{agent.name}</button>)}</div>{effectiveTargets.length > 3 && <p className="mt-2 text-red-300">发送对象超过 3 位，请减少点选或 @ 对象。</p>}</div>}
     <WorkspacePanel open={workspaceOpen} onClose={() => setWorkspaceOpen(false)} current={workspace} onSelect={setWorkspace} goal={goal} />
   </div>;
@@ -353,7 +391,7 @@ export function RunView() {
     <div className="flex min-w-0 flex-1 flex-col">
       {!room ? <NewRoomComposer /> : <>
         <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3">
-          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'waiting_for_user' ? '等待你的决定' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
+          <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{state.coordinationPlan ? '智能匹配' : room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'waiting_for_user' ? '等待你的决定' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
             <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <AgentAvatar key={id} agent={agent} label={id} className="h-8 w-8 border-2 border-zinc-950 text-xs" />; })}</div>
             <button onClick={() => void archiveRoom()} className="rounded-lg px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="归档聊天室">•••</button>
           </div>

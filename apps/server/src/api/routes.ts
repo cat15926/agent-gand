@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { AgentDefinition, AgentInput, AgentMessageType, MessageKind, ResolveCollaborationDecision, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, AgentInput, AgentMessageType, CoordinationPreviewInput, MessageKind, ResolveCollaborationDecision, RunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
 import { listTools } from '../tools/builtin/index.ts';
@@ -40,6 +40,10 @@ import { getRunObservability, getRunObservabilitySummary, getSpanDetail } from '
 import { listCheckpoints } from '../runs/checkpoints.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { wakeRun } from '../runs/recovery.ts';
+import { compileCoordinationPlan, CoordinationError, previewCoordination } from '../coordination/service.ts';
+import { getCapabilitySnapshot, getCoordinationDraft, getCoordinationPlan, getRunCoordinationPlan, listCoordinationEvents, listCoordinationPlanRevisions, listCoordinationStepAttempts, listCoordinationStepStates } from '../coordination/store.ts';
+import { isProtocolId, listProtocols } from '../coordination/protocols.ts';
+import { tx } from '../db/database.ts';
 import {
   externalId,
   getExternal,
@@ -177,6 +181,65 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (status.configured && !status.connected) reply.code(503);
     return status;
   });
+
+  // ---- 通用协作规划器：能力目录、任务预览与已编译计划 ----
+
+  app.get('/api/coordination/protocols', async () => listProtocols());
+  app.post<{ Body: Partial<CoordinationPreviewInput> }>('/api/coordination/preview', async (req, reply) => {
+    const { goal, agentIds, defaultReviewerId, requestedProtocol } = req.body ?? {};
+    if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
+    if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
+    if (requestedProtocol !== undefined && !isProtocolId(requestedProtocol)) throw httpError(400, 'requestedProtocol 不受支持');
+    try {
+      const result = previewCoordination({ goal, agentIds, ...(typeof defaultReviewerId === 'string' && defaultReviewerId ? { defaultReviewerId } : {}), ...(requestedProtocol ? { requestedProtocol } : {}) });
+      reply.code(201);
+      return result;
+    } catch (error) {
+      if (error instanceof CoordinationError) throw httpError(error.status, error.message);
+      throw error;
+    }
+  });
+  app.get<{ Params: { id: string } }>('/api/coordination/drafts/:id', async (req) => {
+    const draft = getCoordinationDraft(req.params.id);
+    if (!draft) throw httpError(404, `Coordination Draft 不存在: ${req.params.id}`);
+    return draft;
+  });
+  app.get<{ Params: { id: string } }>('/api/coordination/capability-snapshots/:id', async (req) => {
+    const snapshot = getCapabilitySnapshot(req.params.id);
+    if (!snapshot) throw httpError(404, `Capability Snapshot 不存在: ${req.params.id}`);
+    return snapshot;
+  });
+  app.get<{ Params: { id: string } }>('/api/coordination/plans/:id', async (req) => {
+    const plan = getCoordinationPlan(req.params.id);
+    if (!plan) throw httpError(404, `Coordination Plan 不存在: ${req.params.id}`);
+    return plan;
+  });
+  app.get<{ Params: { id: string } }>('/api/coordination/plans/:id/revisions', async (req) => {
+    if (!getCoordinationPlan(req.params.id)) throw httpError(404, `Coordination Plan 不存在: ${req.params.id}`);
+    return listCoordinationPlanRevisions(req.params.id);
+  });
+  app.get<{ Params: { id: string } }>('/api/coordination/drafts/:id/events', async (req) => {
+    if (!getCoordinationDraft(req.params.id)) throw httpError(404, `Coordination Draft 不存在: ${req.params.id}`);
+    return listCoordinationEvents({ draftId: req.params.id });
+  });
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/coordination-plan', async (req) => {
+    if (!getRun(req.params.runId)) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    const plan = getRunCoordinationPlan(req.params.runId);
+    if (!plan) throw httpError(404, '该 Run 没有关联 Coordination Plan');
+    return plan;
+  });
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/coordination', async (req) => {
+    if (!getRun(req.params.runId)) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    const plan = getRunCoordinationPlan(req.params.runId);
+    if (!plan) throw httpError(404, '该 Run 没有关联 Coordination Plan');
+    return {
+      plan,
+      steps: listCoordinationStepStates(plan.id),
+      attempts: listCoordinationStepAttempts(plan.id),
+      events: listCoordinationEvents({ planId: plan.id }),
+    };
+  });
+
   app.post<{ Body: unknown }>('/api/agents/validate', async (req) => ({ valid: true, normalized: validateAgentInput(req.body) }));
   app.post<{ Body: AgentInput }>('/api/agents', async (req, reply) => { const agent = registry.createAgent(req.body); reply.code(201); return agent; });
   app.get<{ Params: { id: string } }>('/api/agents/:id', async (req) => { const agent = registry.getAnyAgent(req.params.id); if (!agent) throw httpError(404, `角色不存在: ${req.params.id}`); return agent; });
@@ -193,21 +256,36 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 聊天室：一个房间包含多轮 Run ----
 
   app.get('/api/conversations', async () => listConversations());
-  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string } }>('/api/conversations', async (req, reply) => {
-    const { goal, agentIds, recipientIds, supervisorId, defaultReviewerId, workspace } = req.body ?? {};
+  app.post<{ Body: { goal?: string; mode?: string; agentIds?: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string } }>('/api/conversations', async (req, reply) => {
+    const { goal, agentIds, recipientIds, supervisorId, defaultReviewerId, workspace, coordinationDraftId } = req.body ?? {};
     const mode = (req.body?.mode ?? 'collaboration') as string;
     if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
     if (!RUN_MODES.includes(mode as RunMode)) throw httpError(400, `mode 必须是 ${RUN_MODES.join('|')}`);
     if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
+    const coordinationDraft = coordinationDraftId ? getCoordinationDraft(coordinationDraftId) : undefined;
+    if (coordinationDraftId && !coordinationDraft) throw httpError(404, `Coordination Draft 不存在: ${coordinationDraftId}`);
+    if (coordinationDraft) {
+      if (coordinationDraft.validationErrors.length > 0) throw httpError(409, `当前协作方案未通过校验: ${coordinationDraft.validationErrors.join(', ')}`);
+      if (!coordinationDraft.runtimeMode) throw httpError(409, '当前协议尚未接入统一协调运行时');
+      if (coordinationDraft.runtimeMode !== mode) throw httpError(409, 'mode 与协作方案不一致');
+      if (coordinationDraft.taskBrief.objective !== goal.trim()) throw httpError(409, '任务内容已改变，请重新生成协作建议');
+      const planned = new Set(coordinationDraft.taskBrief.participantIds);
+      if (planned.size !== new Set(agentIds).size || agentIds.some((id) => !planned.has(id))) throw httpError(409, '团队成员已改变，请重新生成协作建议');
+    }
     if (recipientIds !== undefined && (!Array.isArray(recipientIds) || recipientIds.length === 0 || recipientIds.length > config.collaboration.maxTargets || !recipientIds.every((id) => typeof id === 'string' && agentIds.includes(id)))) throw httpError(400, `recipientIds 必须包含 1～${config.collaboration.maxTargets} 位聊天室成员`);
     const { effectiveSupervisorId, effectiveReviewerId } = validateTeam(mode as RunMode, agentIds, supervisorId, defaultReviewerId);
     if (workspace && (isExternalWorkspace(workspace) ? !getExternal(externalId(workspace)!) : !WORKSPACE_RE.test(workspace))) throw httpError(400, 'workspace 无效或未注册');
-    const conversation = createConversation({ title: goal.trim().slice(0, 80), mode: mode as RunMode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null, stableWorkspace: true });
-    const run = createRun(goal.trim(), mode as RunMode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
-    touchConversation(conversation.id);
+    const created = tx(() => {
+      const conversation = createConversation({ title: goal.trim().slice(0, 80), mode: mode as RunMode, agentIds, supervisorId: effectiveSupervisorId, defaultReviewerId: effectiveReviewerId, workspace: workspace || null, stableWorkspace: true });
+      const run = createRun(goal.trim(), mode as RunMode, agentIds, conversation.workspace, effectiveSupervisorId, conversation.id, 1, effectiveReviewerId);
+      const plan = coordinationDraftId ? compileCoordinationPlan(coordinationDraftId, run.id, goal, agentIds.map((id) => registry.getAgent(id)!).filter(Boolean)) : null;
+      touchConversation(conversation.id);
+      return { conversation, run, plan };
+    });
+    const { conversation, run, plan } = created;
     enqueueConversationRun(run.id, { recipientIds });
     reply.code(201);
-    return { run, conversation: getConversation(conversation.id)! };
+    return { run, conversation: getConversation(conversation.id)!, plan };
   });
   app.get<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
     const conversation = getConversation(req.params.id);

@@ -1,7 +1,7 @@
 # agent-gand 脚手架规格说明（v0.1）
 
 > 本文档是脚手架搭建的**唯一权威规格**。由 manager 制定，worker 按 §4 实现 server，manager 实现 §5 web。所有类型契约以 `packages/shared`（已由 manager 落盘）为准，不得擅自修改；如确需变更，先在 squad 中发给 manager 确认。
-> 需求来源：`多Agent协作平台需求调研报告.md` §7.2 P0 清单、§7.4 技术选型。
+> 需求来源：[`docs/requirements/multi-agent-platform-requirements-research.md`](../requirements/multi-agent-platform-requirements-research.md) §7.2 P0 清单、§7.4 技术选型。
 
 ## 1. 技术栈与约定
 
@@ -23,8 +23,8 @@
 ```
 agent-gand/
 ├── package.json  pnpm-workspace.yaml  tsconfig.base.json  .gitignore  README.md
-├── docs/scaffold-plan.md            # 本文档
-├── 多Agent协作平台需求调研报告.md
+├── docs/architecture/scaffold-plan.md # 本文档
+├── docs/requirements/                 # 需求与产品范围
 ├── agents/                          # agent 定义（入库共享）
 │   ├── planner.agent.md  coder.agent.md  reviewer.agent.md
 ├── packages/shared/                 # ★契约（manager 已完成，勿动）

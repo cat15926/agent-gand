@@ -142,6 +142,42 @@ CREATE TABLE IF NOT EXISTS collaboration_budget_revisions (
   increase_percent INTEGER NOT NULL, previous_limits TEXT NOT NULL,
   new_limits TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS capability_snapshots (
+  id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coordination_drafts (
+  id TEXT PRIMARY KEY, capability_snapshot_id TEXT NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coordination_plans (
+  id TEXT PRIMARY KEY, run_id TEXT UNIQUE, draft_id TEXT NOT NULL,
+  capability_snapshot_id TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL, payload TEXT NOT NULL,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coordination_plan_revisions (
+  plan_id TEXT NOT NULL, revision INTEGER NOT NULL,
+  trigger_kind TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(plan_id, revision)
+);
+CREATE TABLE IF NOT EXISTS coordination_events (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL,
+  draft_id TEXT, plan_id TEXT, run_id TEXT,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coordination_step_states (
+  plan_id TEXT NOT NULL, run_id TEXT NOT NULL, revision INTEGER NOT NULL,
+  step_id TEXT NOT NULL, status TEXT NOT NULL, attempt_no INTEGER NOT NULL DEFAULT 0,
+  output TEXT, error TEXT, started_at TEXT, completed_at TEXT, updated_at TEXT NOT NULL,
+  PRIMARY KEY(plan_id, revision, step_id)
+);
+CREATE TABLE IF NOT EXISTS coordination_step_attempts (
+  id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, run_id TEXT NOT NULL, revision INTEGER NOT NULL,
+  step_id TEXT NOT NULL, attempt_no INTEGER NOT NULL, status TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE, input TEXT, output TEXT, error TEXT, span_id TEXT,
+  created_at TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
+  UNIQUE(plan_id, revision, step_id, attempt_no)
+);
 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
 CREATE INDEX IF NOT EXISTS idx_events_run ON run_events(run_id);
@@ -157,3 +193,11 @@ CREATE INDEX IF NOT EXISTS idx_collab_attempt_lease ON collaboration_attempts(st
 CREATE INDEX IF NOT EXISTS idx_collab_batch_status ON collaboration_batches(run_id, status, timeout_at);
 CREATE INDEX IF NOT EXISTS idx_collab_decision_status ON collaboration_user_decisions(conversation_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_collab_budget_run ON collaboration_budget_revisions(run_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_drafts_snapshot ON coordination_drafts(capability_snapshot_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_plans_status ON coordination_plans(status, updated_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_coordination_plans_draft ON coordination_plans(draft_id);
+CREATE INDEX IF NOT EXISTS idx_coordination_events_draft ON coordination_events(draft_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_events_plan ON coordination_events(plan_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_events_run ON coordination_events(run_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_step_states_run ON coordination_step_states(run_id, status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_coordination_step_attempts_run ON coordination_step_attempts(run_id, step_id, attempt_no);

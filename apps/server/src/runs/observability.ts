@@ -16,6 +16,7 @@ import {
 import { listApprovals } from '../hitl/approvals.ts';
 import { listTasks } from '../messaging/tasks.ts';
 import { getEvent, getRun, listEvents, listRunAgentSnapshots } from './trace.ts';
+import { getRunCoordinationPlan, listCoordinationStepStates } from '../coordination/store.ts';
 
 function nodeId(kind: RunGraphNode['kind'], id: string): string {
   return `${kind}:${id}`;
@@ -31,6 +32,8 @@ export function buildRunGraph(runId: string): RunGraph | null {
   const agents = listRunAgentSnapshots(runId);
   const tasks = listTasks(runId);
   const approvals = listApprovals().filter((item) => item.runId === runId);
+  const coordinationPlan = getRunCoordinationPlan(runId);
+  const coordinationStates = coordinationPlan ? new Map(listCoordinationStepStates(coordinationPlan.id).map((state) => [state.stepId, state])) : new Map();
   const rootId = nodeId('run', run.id);
   const nodes: RunGraphNode[] = [{
     id: rootId, kind: 'run', entityId: run.id, label: run.title ?? run.goal,
@@ -72,6 +75,20 @@ export function buildRunGraph(runId: string): RunGraph | null {
     if (task.assignee) edges.push(edge(id, nodeId('agent', task.assignee), 'assigned_to'));
     if (task.reviewerId) edges.push(edge(id, nodeId('agent', task.reviewerId), 'reviewed_by'));
     for (const blockerId of task.blockedBy) edges.push(edge(id, nodeId('task', blockerId), 'depends_on'));
+  }
+
+  if (coordinationPlan) {
+    for (const step of coordinationPlan.steps) {
+      const id = nodeId('coordination_step', step.id);
+      const state = coordinationStates.get(step.id);
+      nodes.push({ id, kind: 'coordination_step', entityId: step.id, label: `${step.actorRole} · ${step.completion}`, status: state?.status ?? 'pending', attributes: {
+        'run.id': run.id, 'run.mode': run.mode, 'coordination.plan.id': coordinationPlan.id,
+        'coordination.step.id': step.id, ...(step.agentId ? { 'agent.id': step.agentId } : {}),
+      } });
+      edges.push(edge(rootId, id, 'contains'));
+      if (step.agentId) edges.push(edge(nodeId('agent', step.agentId), id, 'executes'));
+      for (const dependency of step.dependsOn) edges.push(edge(id, nodeId('coordination_step', dependency), 'depends_on'));
+    }
   }
 
   for (const approval of approvals) {
@@ -166,6 +183,7 @@ type GroupSemantics = {
   attemptId?: string;
   dispatchId?: string;
   phase?: string;
+  coordinationStepId?: string;
 };
 
 function parseLegacyInput(input: string | null): Record<string, unknown> {
@@ -190,8 +208,10 @@ function groupSemantics(node: TraceTreeNode, taskIds: string[]): GroupSemantics 
   return {
     ...(typeof attributes['agent.id'] === 'string' ? { agentId: attributes['agent.id'] } : {}),
     ...(typeof attributes['task.id'] === 'string' ? { taskId: attributes['task.id'] } : inferredTaskId ? { taskId: inferredTaskId } : {}),
-    ...(typeof attributes['task.attempt.id'] === 'string' ? { attemptId: attributes['task.attempt.id'] } : {}),
+    ...(typeof attributes['coordination.attempt.id'] === 'string' ? { attemptId: attributes['coordination.attempt.id'] }
+      : typeof attributes['task.attempt.id'] === 'string' ? { attemptId: attributes['task.attempt.id'] } : {}),
     ...(dispatchId ? { dispatchId } : {}),
+    ...(typeof attributes['coordination.step.id'] === 'string' ? { coordinationStepId: attributes['coordination.step.id'] } : {}),
     ...(typeof attributes['orchestration.phase'] === 'string'
       ? { phase: attributes['orchestration.phase'] }
       : legacyName?.[1] === 'review' ? { phase: 'task.review' } : {}),
@@ -207,6 +227,7 @@ export function buildTrajectoryGroups(runId: string, trace: TraceTree): Trajecto
   const anchors = nodes.filter((node) => {
     if (node.span.spanKind !== 'agent') return false;
     const semantic = semantics.get(node.span.id)!;
+    if (semantic.coordinationStepId) return true;
     if (owner.mode === 'pipeline') return node.span.parentId === null;
     if (owner.mode === 'supervisor') return Boolean(semantic.taskId);
     return Boolean(semantic.dispatchId);
@@ -215,17 +236,19 @@ export function buildTrajectoryGroups(runId: string, trace: TraceTree): Trajecto
   const groups = anchors.map((node): TrajectoryGroup => {
     const spanIds = collectSpanIds(node);
     spanIds.forEach((id) => claimed.add(id));
-    const { agentId, taskId, attemptId, dispatchId, phase } = semantics.get(node.span.id)!;
-    const kind = owner.mode === 'pipeline' ? 'pipeline_step'
+    const { agentId, taskId, attemptId, dispatchId, phase, coordinationStepId } = semantics.get(node.span.id)!;
+    const kind = coordinationStepId ? 'coordination_step' : owner.mode === 'pipeline' ? 'pipeline_step'
       : owner.mode === 'collaboration' ? 'dispatch'
         : phase === 'task.review' ? 'review_attempt' : 'task_attempt';
     const task = taskId ? tasks.get(taskId) : undefined;
-    const label = owner.mode === 'pipeline' ? `${agentId ?? node.span.name} · 流水线步骤`
+    const label = coordinationStepId ? `${coordinationStepId} · Coordination Step`
+      : owner.mode === 'pipeline' ? `${agentId ?? node.span.name} · 流水线步骤`
       : owner.mode === 'collaboration' ? `${agentId ?? node.span.name} · Dispatch ${dispatchId?.slice(0, 8) ?? ''}`
         : `${task?.title ?? taskId?.slice(0, 8) ?? '任务'} · ${kind === 'review_attempt' ? '审查' : '执行'}`;
     return { id: `group:${node.span.id}`, kind, label, status: node.span.status, spanIds,
       ...(agentId ? { agentId } : {}), ...(taskId ? { taskId } : {}),
-      ...(attemptId ? { attemptId } : {}), ...(dispatchId ? { dispatchId } : {}) };
+      ...(attemptId ? { attemptId } : {}), ...(dispatchId ? { dispatchId } : {}),
+      ...(coordinationStepId ? { coordinationStepId } : {}) };
   });
   const unclaimed = nodes.filter((node) => !claimed.has(node.span.id));
   if (unclaimed.length > 0) groups.unshift({

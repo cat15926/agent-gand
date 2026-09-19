@@ -18,6 +18,8 @@
     "verify:collaboration": "node scripts/verify-collaboration.mjs",
     "verify:observability": "node scripts/verify-observability.mjs",
     "verify:durable": "node scripts/verify-durable-execution.mjs",
+    "verify:coordination": "node scripts/verify-coordination.mjs",
+    "verify:docs": "node scripts/verify-doc-links.mjs",
     "db:reset": "rm -f apps/server/data/*.sqlite*"
   },
   "devDependencies": {

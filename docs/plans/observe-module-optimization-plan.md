@@ -2,7 +2,7 @@
 
 方案日期：2026-09-18  
 前置条件：统一观测协议 v1 已完成  
-参考报告：`docs/research-deepseek-harness-trajectory.md`
+参考报告：[DeepSeek Harness 轨迹模块调研](../research/deepseek-harness-trajectory-research.md)
 
 实施状态：阶段 A、B、C、D 已完成，计划 3 已收口。
 

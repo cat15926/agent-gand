@@ -1,7 +1,7 @@
 # agent-gand · 多 Agent 协作工具平台
 
-基于《[多Agent协作平台需求调研报告](./多Agent协作平台需求调研报告.md)》§7.2 的 **P0 需求清单**搭建的脚手架（v0.1）。
-架构规格见 [docs/scaffold-plan.md](./docs/scaffold-plan.md)（唯一权威规格）。
+基于《[多 Agent 协作工具平台需求调研](./docs/requirements/multi-agent-platform-requirements-research.md)》§7.2 的 **P0 需求清单**搭建的脚手架（v0.1）。
+架构规格见 [P0 权威架构规格](./docs/architecture/scaffold-plan.md)，完整文档索引与归属规则见 [docs/README.md](./docs/README.md)。
 
 ## 快速开始
 
@@ -26,7 +26,7 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 
 自由协作模式使用结构化控制工具让 Agent 动态交接、并行征询队友、等待用户或提议创建正式 Supervisor Run。不同 Agent 可以并行，同一 Agent 在同一聊天室保持串行。达到 Token、成本、时长或 Dispatch 预算时会进入 `waiting_for_user`，用户可接受部分结果或按比例增加预算。
 
-聊天室包含多轮 Run，并绑定稳定工作区。Collaboration 中的新消息可启动并行 Run；无显式目标时优先交给最近成功回复的 Agent。消息使用客户端 ID 幂等写入，主消息流展示引用关系、动态路由、用户决策、审查问题和处理状态，完整 Trace 在右侧查看。实现计划见 [docs/collaboration-mode-implementation-plan.md](./docs/collaboration-mode-implementation-plan.md)。
+聊天室包含多轮 Run，并绑定稳定工作区。Collaboration 中的新消息可启动并行 Run；无显式目标时优先交给最近成功回复的 Agent。消息使用客户端 ID 幂等写入，主消息流展示引用关系、动态路由、用户决策、审查问题和处理状态，完整 Trace 在右侧查看。实现计划见 [Collaboration 模式实施计划](./docs/plans/collaboration-mode-implementation-plan.md)。
 
 ### 接入真实 LLM（可选）
 
@@ -101,9 +101,11 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 
 ## 路线图
 
-- **P1**：按 [docs/p1-implementation-roadmap.md](./docs/p1-implementation-roadmap.md) 的 8 个计划推进；计划 1–3 已完成，下一项为 durable execution
-- **完整编排**：可编辑画布、版本化 DSL、Durable Runtime、发布与触发的实施路径见 [docs/full-orchestration-implementation-plan.md](./docs/full-orchestration-implementation-plan.md)
-- **Collaboration 实测问题**：三轮辩论的调度、上下文、终局、预算和聊天体验分析见 [docs/collaboration-debate-test-problem-report.md](./docs/collaboration-debate-test-problem-report.md)
+- **P1**：按 [P1 实施路线](./docs/plans/p1-implementation-roadmap.md) 的 8 个计划推进；计划 1–4 已完成，下一项为 Docker ToolRunner
+- **完整编排**：可编辑画布、版本化 DSL、Durable Runtime、发布与触发见 [完整编排功能实施方案](./docs/plans/full-orchestration-implementation-plan.md)
+- **通用协作规划**：根据输入选择协议并编译 Coordination Plan 的设计见 [通用协作规划器方案](./docs/plans/coordination-planner-design.md)
+- **Coordination 实测问题**：阶段 C 后两场辩论实测暴露的产物冻结失效、max_tokens 截断与跨 run 工作区污染等 7 项问题见 [实测问题报告](./docs/reports/coordination-debate-test-problem-report.md)
+- **Collaboration 实测问题**：三轮辩论的调度、上下文、终局、预算和聊天体验分析见 [实测问题报告](./docs/reports/collaboration-debate-test-problem-report.md)
 - **P2**：RBAC/多租户、评测体系、回放分享、time-travel 调试（详见调研报告 §7.2）
 
 ## 团队协作

@@ -35,7 +35,7 @@ export interface Run {
   finishedAt: string | null;
 }
 
-export type RunCheckpointKind = 'pipeline' | 'supervisor' | 'collaboration' | 'agent_turn' | 'approval';
+export type RunCheckpointKind = 'pipeline' | 'supervisor' | 'collaboration' | 'coordination' | 'agent_turn' | 'approval';
 export type RunCheckpointStatus = 'active' | 'waiting' | 'completed' | 'superseded';
 
 /** Durable execution 的恢复边界。state 是编排器可重放的最小状态，不保存模型内部状态。 */
@@ -112,6 +112,10 @@ export interface SpanAttributes {
   'approval.id'?: string;
   'collaboration.dispatch.id'?: string;
   'collaboration.batch.id'?: string;
+  'coordination.plan.id'?: string;
+  'coordination.step.id'?: string;
+  'coordination.attempt.id'?: string;
+  'coordination.attempt.no'?: number;
   'orchestration.phase'?: string;
   [key: string]: SpanAttributeValue | undefined;
 }
@@ -149,7 +153,7 @@ export interface SpanSummary extends Omit<RunEvent, 'input' | 'output'> {
 
 export type SpanDetail = RunEvent;
 
-export type RunGraphNodeKind = 'run' | 'agent' | 'task' | 'approval';
+export type RunGraphNodeKind = 'run' | 'agent' | 'task' | 'coordination_step' | 'approval';
 export type RunGraphEdgeKind =
   | 'contains'
   | 'next'
@@ -157,6 +161,7 @@ export type RunGraphEdgeKind =
   | 'creates'
   | 'assigned_to'
   | 'reviewed_by'
+  | 'executes'
   | 'depends_on';
 
 export interface RunGraphNode {
@@ -226,6 +231,7 @@ export type TrajectoryGroupKind =
   | 'task_attempt'
   | 'review_attempt'
   | 'dispatch'
+  | 'coordination_step'
   | 'system';
 
 export interface TrajectoryGroup {
@@ -237,6 +243,7 @@ export interface TrajectoryGroup {
   taskId?: string;
   attemptId?: string;
   dispatchId?: string;
+  coordinationStepId?: string;
   spanIds: string[];
 }
 

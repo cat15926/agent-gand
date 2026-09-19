@@ -5,6 +5,8 @@ import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
 import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
 import { finishRun, getRun, listPendingRunsByConversation, listRunAgentSnapshots } from '../runs/trace.ts';
 import { admitCollaborationRun } from '../collaboration/scheduler.ts';
+import { getRunCoordinationPlan } from '../coordination/store.ts';
+import { runCoordinationPlan } from '../coordination/runtime.ts';
 
 const active = new Set<string>();
 const inputs = new Map<string, { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }>();
@@ -35,6 +37,25 @@ async function drain(conversationId: string): Promise<void> {
         continue;
       }
       const messageInput = inputs.get(current.id);
+      const coordinationPlan = getRunCoordinationPlan(current.id);
+      if (coordinationPlan) {
+        const history = conversationHistory(conversationId, current.turnNo);
+        const recipientHint = messageInput?.recipientIds?.length
+          ? `本轮用户公开定向给：${messageInput.recipientIds.join('、')}。保持完整团队与既定审查关系，由被提及成员优先回应。\n\n`
+          : '';
+        const contextGoal = history
+          ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${recipientHint}本轮用户消息：\n${current.goal}`
+          : `${recipientHint}${current.goal}`;
+        try {
+          await runCoordinationPlan(current, contextGoal, current.goal, messageInput);
+        } catch {
+          try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* runtime 已尽力留痕 */ }
+        } finally {
+          inputs.delete(current.id);
+          touchConversation(conversationId);
+        }
+        continue;
+      }
       if (current.mode === 'collaboration') {
         try {
           admitCollaborationRun(current, conversation, messageInput);

@@ -47,13 +47,14 @@ function pretty(value: string | null): string {
 
 function matchesGraphNode(node: TraceTreeSummaryNode, graphNode: RunGraphNode | null): boolean {
   if (!graphNode || graphNode.kind === 'run') return true;
-  const key = graphNode.kind === 'agent' ? 'agent.id' : graphNode.kind === 'task' ? 'task.id' : 'approval.id';
+  const key = graphNode.kind === 'agent' ? 'agent.id' : graphNode.kind === 'task' ? 'task.id' : graphNode.kind === 'coordination_step' ? 'coordination.step.id' : 'approval.id';
   return node.span.attributes[key] === graphNode.entityId;
 }
 
 function graphNodeIdForSpan(runId: string, node: TraceTreeSummaryNode): string {
   const attributes = node.span.attributes;
   if (typeof attributes['approval.id'] === 'string') return `approval:${attributes['approval.id']}`;
+  if (typeof attributes['coordination.step.id'] === 'string') return `coordination_step:${attributes['coordination.step.id']}`;
   if (typeof attributes['task.id'] === 'string') return `task:${attributes['task.id']}`;
   if (typeof attributes['agent.id'] === 'string') return `agent:${attributes['agent.id']}`;
   return `run:${runId}`;

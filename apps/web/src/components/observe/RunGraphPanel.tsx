@@ -14,6 +14,7 @@ const NODE_META: Record<RunGraphNode['kind'], { label: string; color: string; bo
   run: { label: 'Run', color: '#c4b5fd', border: '#7c3aed', background: '#24163d' },
   agent: { label: 'Agent', color: '#7dd3fc', border: '#0284c7', background: '#102839' },
   task: { label: '任务', color: '#6ee7b7', border: '#059669', background: '#102d25' },
+  coordination_step: { label: '计划步骤', color: '#f0abfc', border: '#c026d3', background: '#321337' },
   approval: { label: '审批', color: '#fcd34d', border: '#d97706', background: '#34260f' },
 };
 

@@ -4,7 +4,7 @@
 
 ## 一、工程概况
 
-**定位**：多 Agent 协作工具平台——后端编排引擎 + 前端 "1+3" 观测界面，支持顺序流水线 / 主管委派两种编排、HITL 审批、审查-返工闭环与全链路 trace。权威规格 `docs/scaffold-plan.md`（v0.1 + 增量 §7~§13）。
+**定位**：多 Agent 协作工具平台——后端编排引擎 + 前端 "1+3" 观测界面，支持顺序流水线 / 主管委派两种编排、HITL 审批、审查-返工闭环与全链路 trace。权威规格 [`docs/architecture/scaffold-plan.md`](../architecture/scaffold-plan.md)（v0.1 + 增量 §7~§13）。
 
 **形态**：pnpm workspace monorepo，4 包（root 编排 + `packages/shared` 契约包 + `apps/server` 后端 + `apps/web` 前端）；`pnpm-workspace.yaml`、三个包 `package.json` 均实读。
 

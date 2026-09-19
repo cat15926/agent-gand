@@ -1,6 +1,6 @@
 # 工程结构与模块清单梳理：agent-gand（依赖任务产物补写）
 
-> 定位：多 Agent 协作工具平台（pnpm workspace monorepo），后端编排引擎 + 前端 "1+3" 观测界面；支持顺序流水线 / 主管委派两种编排、HITL 审批、审查-返工闭环与全链路 trace。权威规格 `docs/scaffold-plan.md`。
+> 定位：多 Agent 协作工具平台（pnpm workspace monorepo），后端编排引擎 + 前端 "1+3" 观测界面；支持顺序流水线 / 主管委派两种编排、HITL 审批、审查-返工闭环与全链路 trace。权威规格为同目录的 [`scaffold-plan.md`](./scaffold-plan.md)。
 > 核实方式：依赖任务直接读取约 22 个关键文件交叉验证；本次补写按架构评估轮新增实读（main.tsx/store.tsx/App.tsx）修正前端口径。
 
 ## 1. 目录树（含职责）
@@ -8,8 +8,9 @@
 ```
 agent-gand/
 ├── package.json / pnpm-workspace.yaml / tsconfig.base.json   # 工作区根：dev/typecheck/verify:scheduler/db:reset
-├── README.md / 多Agent协作平台需求调研报告.md
-├── docs/scaffold-plan.md                # 权威规格（v0.1 + 增量 §7~§13）
+├── README.md
+├── docs/requirements/                   # 需求与产品范围
+├── docs/architecture/scaffold-plan.md   # 权威规格（v0.1 + 增量 §7~§13）
 ├── agents/                              # Agent 定义：Markdown+YAML frontmatter（正文=system prompt）
 │   ├── planner.agent.md                 # 规划者（当前配 anthropic:glm-5.3）
 │   ├── coder.agent.md                   # 执行者

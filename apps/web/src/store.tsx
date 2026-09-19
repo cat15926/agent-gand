@@ -28,6 +28,10 @@ import type {
   CollaborationDispatch,
   CollaborationUserDecision,
   CollaborationBudgetSnapshot,
+  CoordinationEvent,
+  CoordinationPlan,
+  CoordinationStepAttempt,
+  CoordinationStepState,
 } from '@agent-gand/shared';
 import * as api from './services/api';
 import { armPermissionRequest, notifyApproval } from './services/notify';
@@ -56,17 +60,22 @@ export interface State {
   collaborationDecisions: CollaborationUserDecision[];
   collaborationBudgets: Record<string, CollaborationBudgetSnapshot>;
   collaborationScheduler: { conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number } | null;
+  coordinationPlan: CoordinationPlan | null;
+  coordinationSteps: CoordinationStepState[];
+  coordinationAttempts: CoordinationStepAttempt[];
+  coordinationEvents: CoordinationEvent[];
 }
 
 type Action =
   | { type: 'ws'; connected: boolean }
   | { type: 'hydrate'; runs: Run[]; conversations: Conversation[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
   | { type: 'agents'; agents: AgentDefinition[] }
-  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
+  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null }
   | { type: 'setActiveRun'; runId: string | null }
   | { type: 'setActiveConversation'; conversationId: string | null; runId: string | null }
-  | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[] }
+  | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null }
   | { type: 'collaborationDetail'; conversationId: string; details: api.CollaborationRunDetail[] }
+  | { type: 'coordinationDetail'; runId: string; detail: api.CoordinationRunDetail | null }
   | { type: 'serverEvent'; event: ServerEvent };
 
 const initialState: State = {
@@ -86,6 +95,7 @@ const initialState: State = {
   streams: {},
   scheduler: null,
   collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null,
+  coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [],
 };
 
 function upsertBy<T extends { id: string }>(list: T[], item: T): T[] {
@@ -114,13 +124,17 @@ function reducer(state: State, action: Action): State {
     case 'agents':
       return { ...state, agents: action.agents };
     case 'setActiveRun':
-      return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null };
+      return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+        coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
       return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
-        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null };
+        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null,
+        coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
-      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {} };
+      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
+        coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
+        coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [] };
     case 'collaborationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state,
@@ -133,7 +147,13 @@ function reducer(state: State, action: Action): State {
     case 'runDetail':
       // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
       if (action.runId !== state.activeRunId) return state;
-      return { ...state, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {} };
+      return { ...state, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
+        coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
+        coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [] };
+    case 'coordinationDetail':
+      if (action.runId !== state.activeRunId) return state;
+      return { ...state, coordinationPlan: action.detail?.plan ?? null, coordinationSteps: action.detail?.steps ?? [],
+        coordinationAttempts: action.detail?.attempts ?? [], coordinationEvents: action.detail?.events ?? [] };
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
@@ -187,6 +207,10 @@ function reducer(state: State, action: Action): State {
           return e.decision.conversationId === state.activeConversationId ? { ...state, collaborationDecisions: upsertBy(state.collaborationDecisions, e.decision) } : state;
         case 'collaboration.scheduler.updated':
           return e.conversationId === state.activeConversationId ? { ...state, collaborationScheduler: e } : state;
+        case 'coordination.step.updated':
+          return e.step.runId === state.activeRunId
+            ? { ...state, coordinationSteps: upsertByStepId(state.coordinationSteps, e.step) }
+            : state;
         case 'run.updated':
           {
           const rooms = state.conversations.map((room) => {
@@ -220,8 +244,25 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+function upsertByStepId(list: CoordinationStepState[], item: CoordinationStepState): CoordinationStepState[] {
+  const index = list.findIndex((step) => step.planId === item.planId && step.revision === item.revision && step.stepId === item.stepId);
+  if (index === -1) return [...list, item];
+  const next = [...list];
+  next[index] = item;
+  return next;
+}
+
+async function loadCoordinationDetail(runId: string): Promise<api.CoordinationRunDetail | null> {
+  try {
+    return await api.getRunCoordination(runId);
+  } catch (error) {
+    if (error instanceof api.ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Promise<void> {
-  const detail = await api.getRun(runId);
+  const [detail, coordination] = await Promise.all([api.getRun(runId), loadCoordinationDetail(runId)]);
   dispatch({
     type: 'runDetail',
     runId,
@@ -229,15 +270,18 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
     events: detail.events,
     attempts: detail.attempts,
     reviews: detail.reviews,
+    coordination,
   });
 }
 
 async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
   const [room, collaboration] = await Promise.all([api.getConversation(conversationId), api.getConversationCollaboration(conversationId)]);
   const latest = room.runs.at(-1);
-  const detail = latest ? await api.getRun(latest.id) : null;
+  const [detail, coordination] = latest
+    ? await Promise.all([api.getRun(latest.id), loadCoordinationDetail(latest.id)])
+    : [null, null];
   dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: room.messages,
-    events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [] });
+    events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [], coordination });
   dispatch({ type: 'collaborationDetail', conversationId, details: collaboration.runs });
 }
 
@@ -298,6 +342,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         notifyApproval(event.approval);
       }
       dispatch({ type: 'serverEvent', event });
+      if (event.type === 'coordination.step.updated' && event.step.runId === activeRunRef.current) {
+        void loadCoordinationDetail(event.step.runId)
+          .then((detail) => dispatch({ type: 'coordinationDetail', runId: event.step.runId, detail }))
+          .catch(() => { /* 断线期间由下一次 hydrate 回补。 */ });
+      }
+      if (event.type === 'run.updated' && event.run.id === activeRunRef.current) {
+        void loadCoordinationDetail(event.run.id)
+          .then((detail) => dispatch({ type: 'coordinationDetail', runId: event.run.id, detail }))
+          .catch(() => { /* 断线期间由下一次 hydrate 回补。 */ });
+      }
     });
     return () => {
       offStatus();

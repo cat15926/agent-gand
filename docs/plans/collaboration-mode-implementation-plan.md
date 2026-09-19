@@ -6,7 +6,7 @@
 >
 > 评审结论：2026-09-16 已确认 6 项产品决策，详见第 20 节。
 >
-> 前置调研：[Clowder AI Agent 交互模式调研报告](./clowder-agent-interaction-research.md)
+> 前置调研：[Clowder AI Agent 交互模式调研报告](../research/clowder-agent-interaction-research.md)
 >
 > 目标：在保留顺序流水线和主管委派模式的基础上，增加由 Agent 动态交接、受控并行、可恢复且可观测的自由协作模式。
 

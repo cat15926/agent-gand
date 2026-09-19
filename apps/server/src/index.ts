@@ -20,6 +20,7 @@ import { closeMcp, refreshMcpTools } from './tools/mcp/client.ts';
 import { interruptExpiredAttempts } from './collaboration/store.ts';
 import { recoverCollaborationRuns } from './collaboration/scheduler.ts';
 import { recoverDurableRuns } from './runs/recovery.ts';
+import { recoverInterruptedCoordinationSteps } from './coordination/store.ts';
 
 const app = Fastify({ logger: { level: config.logLevel } });
 await app.register(cors, { origin: true });
@@ -38,6 +39,7 @@ backfillConversations();
 interruptRunningAttempts();
 interruptExpiredAttempts();
 recoverInterruptedTasks();
+recoverInterruptedCoordinationSteps();
 recoverPendingConversationRuns();
 recoverCollaborationRuns();
 recoverDurableRuns();

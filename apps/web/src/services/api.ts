@@ -22,6 +22,14 @@ import type {
   CollaborationBudgetSnapshot,
   CollaborationDispatch,
   CollaborationUserDecision,
+  CapabilitySnapshot,
+  CoordinationEvent,
+  CoordinationPlan,
+  CoordinationPlanRevision,
+  CoordinationPreview,
+  CoordinationPreviewInput,
+  CoordinationStepAttempt,
+  CoordinationStepState,
   ResolveCollaborationDecision,
   RunMode,
   RunObservability,
@@ -66,10 +74,24 @@ export interface ConversationDetail {
   messages: Message[];
 }
 
+export interface CoordinationRunDetail {
+  plan: CoordinationPlan;
+  steps: CoordinationStepState[];
+  attempts: CoordinationStepAttempt[];
+  events: CoordinationEvent[];
+}
+
 export const getConversations = () => request<Conversation[]>('/api/conversations');
-export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string }): Promise<{ run: Run; conversation: Conversation }> {
+export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 }
+export const previewCoordination = (input: CoordinationPreviewInput) => request<CoordinationPreview>('/api/coordination/preview', { method: 'POST', body: JSON.stringify(input) });
+export const getCapabilitySnapshot = (id: string) => request<CapabilitySnapshot>(`/api/coordination/capability-snapshots/${encodeURIComponent(id)}`);
+export const getCoordinationPlan = (id: string) => request<CoordinationPlan>(`/api/coordination/plans/${encodeURIComponent(id)}`);
+export const getCoordinationPlanRevisions = (id: string) => request<CoordinationPlanRevision[]>(`/api/coordination/plans/${encodeURIComponent(id)}/revisions`);
+export const getCoordinationDraftEvents = (id: string) => request<CoordinationEvent[]>(`/api/coordination/drafts/${encodeURIComponent(id)}/events`);
+export const getRunCoordinationPlan = (runId: string) => request<CoordinationPlan>(`/api/runs/${encodeURIComponent(runId)}/coordination-plan`);
+export const getRunCoordination = (runId: string) => request<CoordinationRunDetail>(`/api/runs/${encodeURIComponent(runId)}/coordination`);
 export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
 export const renameConversation = (id: string, title: string) =>
   request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });

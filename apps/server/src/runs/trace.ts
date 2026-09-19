@@ -263,6 +263,7 @@ export interface StartSpanInput {
 const INHERITED_ATTRIBUTE_KEYS = [
   'agent.id', 'agent.role', 'task.id', 'task.attempt.id', 'task.attempt.no',
   'collaboration.dispatch.id', 'collaboration.batch.id',
+  'coordination.plan.id', 'coordination.step.id', 'coordination.attempt.id', 'coordination.attempt.no',
 ] as const;
 
 function inheritedSpanAttributes(parentId: string | null | undefined): SpanAttributes {
