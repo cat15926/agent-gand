@@ -252,6 +252,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 300));
   const settledDebate = await api(`/api/runs/${debateStarted.run.id}`);
   assert.equal(settledDebate.data.messages.filter(isFinalAgent).length, 7, '完成后不得出现迟到输出');
+  assert.ok(debateMessages.length > 0 && debateDetail.messages.some((message) => message.kind === 'agent' && message.messageType === 'informational' && message.meta?.round !== undefined), '工具轮中间正文应落库为过程消息');
   const observed = await api(`/api/runs/${debateStarted.run.id}/observability`);
   assert.equal(observed.status, 200);
   assert.equal(observed.data.graph.nodes.filter((node) => node.kind === 'coordination_step').length, debate.plan.steps.length);

@@ -242,10 +242,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       costUsd: res.usage.costUsd,
     };
 
-    // AG-COORD-02 截断防御：优先于空正文判定（截断响应可能恰好非空）。
-    // 截断的 toolCalls 参数可能是不完整 JSON、正文必然不完整 → 一律不执行，先升预算重发一次；
-    // 仍截断则带 truncated 标记结束轮次，由调用方决定重试/失败（真机 run 6c3aa6c4 的 35 字符 stub 实证）。
-    if (res.truncated) {
+    // AG-COORD-02 截断防御：只处理"有正文的截断"（半个产物比没有更危险，且 toolCalls 参数可能是不完整 JSON）。
+    // 空正文 + max_tokens 是"thinking 耗尽预算只思考不出正文"（§8.1 既有防御的目标形态），
+    // 继续走下方空正文 nudge 路径，不被截断分支劫持。
+    if (res.truncated && res.content.trim().length > 0) {
       if (!truncBumped) {
         truncBumped = true;
         maxTokensOverride = Math.min(config.llm.maxTokens * 2, 32_768);
@@ -318,6 +318,17 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     }
 
     toolRounds += 1;
+    // 工具轮的中间正文落库为过程消息（真机实测反馈：否则流式气泡在 llm span 结束时被前端清除，
+    // 又无正式消息补位，"先说思路再调工具"的过程回复出现即消失、刷新后不可追溯）。
+    // 顺序与最终轮一致（endSpan 已完成 → post），clientMessageId 绑定 scope+round 保证重启重放不重复。
+    const roundBody = res.content.trim();
+    if (roundBody.length > 0 && !isPseudoToolCallText(res.content)) {
+      await post({
+        runId: run.id, from: agent.id, to: 'all', kind: 'agent', body: res.content,
+        messageType: 'informational', meta: { round, toolRounds },
+        clientMessageId: `round:${scope}:${round}`,
+      });
+    }
     saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'tool_calls_ready', state: {
       executionScopeId: scope, round, messages, response: res,
     } });
