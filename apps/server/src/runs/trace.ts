@@ -378,7 +378,7 @@ export function markSpanFirstToken(spanId: string): RunEvent | undefined {
   return event;
 }
 
-export function finishRun(runId: string, status: 'completed' | 'failed'): void {
+export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): void {
   run('UPDATE runs SET status = ?, finished_at = ? WHERE id = ?', status, new Date().toISOString(), runId);
   const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
   if (row) emit({ type: 'run.updated', run: rowToRun(row) });

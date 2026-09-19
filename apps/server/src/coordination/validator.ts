@@ -68,6 +68,18 @@ export function validateCoordinationPlan(plan: CoordinationPlan, draft: Coordina
         }
       }
     }
+    // AG-COORD-01：产物声明只允许相对 run 工作区的安全路径（与 resolver 规则一致）
+    for (const [artifactIndex, artifactPath] of (step.expectedArtifacts ?? []).entries()) {
+      if (
+        typeof artifactPath !== 'string' || artifactPath.length === 0
+        || artifactPath.startsWith('/')
+        || artifactPath.split(/[\\/]+/).includes('..')
+        || artifactPath === 'shared' || artifactPath.startsWith('shared/')
+        || artifactPath === 'archive' || artifactPath.startsWith('archive/')
+      ) {
+        issues.push(issue('EXPECTED_ARTIFACT_PATH_INVALID', `步骤 ${step.id} 的产物路径非法: ${artifactPath}`, `${path}.expectedArtifacts.${artifactIndex}`));
+      }
+    }
   }
   for (const [index, step] of plan.steps.entries()) {
     for (const dependency of step.dependsOn) {

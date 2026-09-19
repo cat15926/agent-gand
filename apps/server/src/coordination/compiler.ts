@@ -33,15 +33,17 @@ function makeStep(
   agentId: string | null,
   dependsOn: string[],
   completion: string,
-  options: Partial<Pick<CoordinationPlanStep, 'maxAttempts' | 'onFailure' | 'metadata'>> = {},
+  options: Partial<Pick<CoordinationPlanStep, 'maxAttempts' | 'onFailure' | 'metadata' | 'expectedArtifacts'>> = {},
 ): CoordinationPlanStep {
   return {
     id, protocol, type, actorRole, actorCapability: capability, agentId, dependsOn, completion,
-    maxAttempts: options.maxAttempts ?? 1,
+    // AG-COORD-02：默认 2——截断/产物校验失败给一次重试（真机 35 字符 stub 单次即"成功"的实证）
+    maxAttempts: options.maxAttempts ?? 2,
     tokenBudget: Math.min(4_000, snapshot.policy.maximumTokensPerStep),
     timeoutMs: 300_000,
     onFailure: options.onFailure ?? 'fail_plan',
     toolPolicy: actorTools(agentId, snapshot),
+    ...(options.expectedArtifacts && options.expectedArtifacts.length > 0 ? { expectedArtifacts: options.expectedArtifacts } : {}),
     metadata: options.metadata ?? {},
   };
 }
@@ -107,9 +109,17 @@ function compileDebate(state: BuildState, draft: CoordinationDraft, snapshot: Ca
   const allDebateSteps: string[] = [];
   for (let round = 1; round <= rounds; round += 1) {
     const proId = `debate-r${round}-pro`;
-    state.steps.push(makeStep(snapshot, 'debate', proId, 'agent_turn', 'pro', 'execute', pro, tail, `正方第 ${round} 轮发言已冻结`, { metadata: { round, position: 'pro', positionsFixed: true, independent: true } }));
+    state.steps.push(makeStep(snapshot, 'debate', proId, 'agent_turn', 'pro', 'execute', pro, tail, `正方第 ${round} 轮发言已冻结`, {
+      metadata: { round, position: 'pro', positionsFixed: true, independent: true },
+      // AG-COORD-01/03：产物路径由编译器统一定义，不再依赖模型自选文件名（真机两次辩论出现
+      // r2-con.md / r1-pro-codex.md 两套命名混写同一目录）；完成前由 Runtime 校验落盘
+      expectedArtifacts: [`debate/r${round}-pro.md`],
+    }));
     const conId = `debate-r${round}-con`;
-    state.steps.push(makeStep(snapshot, 'debate', conId, 'agent_turn', 'con', 'execute', con, [proId], `反方第 ${round} 轮发言已冻结`, { metadata: { round, position: 'con', positionsFixed: true, independent: true } }));
+    state.steps.push(makeStep(snapshot, 'debate', conId, 'agent_turn', 'con', 'execute', con, [proId], `反方第 ${round} 轮发言已冻结`, {
+      metadata: { round, position: 'con', positionsFixed: true, independent: true },
+      expectedArtifacts: [`debate/r${round}-con.md`],
+    }));
     allDebateSteps.push(proId, conId);
     tail = [conId];
   }

@@ -15,9 +15,9 @@ export type CoordinationProtocolId =
 
 export type CoordinationRisk = 'low' | 'medium' | 'high';
 export type CoordinationDecision = 'auto_start' | 'recommend' | 'clarify' | 'unavailable';
-export type CoordinationPlanStatus = 'draft' | 'validated' | 'active' | 'completed' | 'failed' | 'superseded';
+export type CoordinationPlanStatus = 'draft' | 'validated' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'superseded';
 export type CoordinationStepStatus = 'pending' | 'ready' | 'running' | 'completed' | 'failed';
-export type CoordinationAttemptStatus = 'running' | 'completed' | 'failed' | 'interrupted';
+export type CoordinationAttemptStatus = 'running' | 'completed' | 'failed' | 'interrupted' | 'paused';
 export type CoordinationConstraintValue = string | number | boolean | string[];
 
 export interface CoordinationConstraintEvidence {
@@ -161,6 +161,11 @@ export interface CoordinationPlanStep {
   timeoutMs: number;
   onFailure: 'fail_plan' | 'retry' | 'request_user' | 'retry_dependencies';
   toolPolicy: CoordinationStepToolPolicy;
+  /**
+   * AG-COORD-01：本步骤承诺冻结的产物路径（相对 run 工作区，含 workspaceScope 时先经 scope 映射）。
+   * Runtime 在步骤完成前校验存在且非 stub；review/aggregate 步骤启动前校验全部祖先产物。
+   */
+  expectedArtifacts?: string[];
   metadata: Record<string, string | number | boolean | string[]>;
 }
 
@@ -257,6 +262,10 @@ export type CoordinationEventKind =
   | 'step_completed'
   | 'step_retry_scheduled'
   | 'step_failed'
+  | 'step_paused'
+  | 'plan_paused'
+  | 'plan_resumed'
+  | 'plan_cancelled'
   | 'plan_completed'
   | 'plan_failed';
 
@@ -281,4 +290,6 @@ export interface CoordinationPreview {
   snapshot: CapabilitySnapshot;
   draft: CoordinationDraft;
   plan: CoordinationPlan;
+  /** AG-COORD-07：用户可见提示（如目标提到的参与者不在所选团队），计划卡原样展示 */
+  notices?: string[];
 }

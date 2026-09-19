@@ -19,6 +19,7 @@ function formatDuration(ms: number): string {
 const STATUS_STYLE: Record<Run['status'], string> = {
   pending: 'bg-zinc-500/10 text-zinc-400', running: 'bg-sky-500/10 text-sky-300', awaiting_approval: 'bg-amber-500/10 text-amber-300',
   waiting_for_user: 'bg-orange-500/10 text-orange-300', completed: 'bg-emerald-500/10 text-emerald-300', failed: 'bg-rose-500/10 text-rose-300',
+  cancelled: 'bg-zinc-500/10 text-zinc-400',
 };
 
 export function ObserveView() {

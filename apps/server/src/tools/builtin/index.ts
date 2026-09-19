@@ -33,10 +33,16 @@ const WORKSPACE_NAME_RE = /^[\w-]{1,32}$/;
  * - 缺省 → sandbox/runs/<runId>/（run 专属）
  * shell.run 的 cwd、search.files 的本区范围共用此函数。
  */
-export function workspaceRootDir(ctx: { runId: string; workspace?: string | null }): string {
+export function workspaceRootDir(ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null }): string {
   const ws = ctx.workspace ?? null;
   if (isExternalWorkspace(ws)) {
-    return getExternalByIdOrThrow(externalId(ws)!).absPath; // 未注册 → ToolError 语义的领域错误
+    const root = getExternalByIdOrThrow(externalId(ws)!).absPath; // 未注册 → ToolError 语义的领域错误
+    // AG-COORD-03：Coordination run 传 workspaceScope（planId 前 8 位）时映射到子目录，
+    // 隔离并发 run 的产物（真机 run ea1af766 裁判读到另一 run 文件的污染实证）。
+    // scope 仅允许安全字符，防路径注入；内部/命名工作区本就按 run 或房间隔离，不适用。
+    const scope = ctx.workspaceScope ?? null;
+    if (scope && /^[A-Za-z0-9_-]{1,64}$/.test(scope)) return path.join(root, scope);
+    return root;
   }
   if (ws !== null && !WORKSPACE_NAME_RE.test(ws)) {
     throw new ToolError(`工作区名非法（只允许字母/数字/下划线/连字符，1-32 位）: ${ws}`);
@@ -83,7 +89,7 @@ function resolveReal(absPath: string): string {
  */
 export function resolveSandboxPath(
   relPath: string,
-  ctx: { runId: string; workspace?: string | null },
+  ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null },
 ): ResolvedSandboxPath {
   if (
     path.isAbsolute(relPath) ||
@@ -132,6 +138,23 @@ export function resolveSandboxPath(
     throw new ToolError(`路径越出沙箱目录: ${relPath}`);
   }
   return { area, absPath, readOnly: area === 'archive' };
+}
+
+/**
+ * 产物落盘检查（AG-COORD-01）：Coordination Runtime 在步骤完成前/终局屏障前调用，
+ * 与工具执行共用同一套路径解析（含外部工作区 workspaceScope），确保"校验的路径 = Agent 写的路径"。
+ */
+export function artifactStat(
+  relPath: string,
+  ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null },
+): { exists: boolean; size: number } {
+  try {
+    const { absPath } = resolveSandboxPath(relPath, ctx);
+    const stat = statSync(absPath);
+    return stat.isFile() ? { exists: true, size: stat.size } : { exists: false, size: 0 };
+  } catch {
+    return { exists: false, size: 0 };
+  }
 }
 
 /** 三段路径语义的 schema 描述（告知模型，减少试错——规格 §9.2） */

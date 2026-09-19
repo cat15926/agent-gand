@@ -41,6 +41,7 @@ import { listCheckpoints } from '../runs/checkpoints.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { wakeRun } from '../runs/recovery.ts';
 import { compileCoordinationPlan, CoordinationError, previewCoordination } from '../coordination/service.ts';
+import { cancelCoordinationRun, resumeCoordinationRun } from '../coordination/runtime.ts';
 import { getCapabilitySnapshot, getCoordinationDraft, getCoordinationPlan, getRunCoordinationPlan, listCoordinationEvents, listCoordinationPlanRevisions, listCoordinationStepAttempts, listCoordinationStepStates } from '../coordination/store.ts';
 import { isProtocolId, listProtocols } from '../coordination/protocols.ts';
 import { tx } from '../db/database.ts';
@@ -238,6 +239,23 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       attempts: listCoordinationStepAttempts(plan.id),
       events: listCoordinationEvents({ planId: plan.id }),
     };
+  });
+  // AG-COORD-04：恢复/取消审批暂停中的 Coordination run（后台续跑，不阻塞响应；失败已落库）
+  app.post<{ Params: { runId: string } }>('/api/runs/:runId/coordination/resume', async (req) => {
+    const run = getRun(req.params.runId);
+    if (!run) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    const plan = getRunCoordinationPlan(req.params.runId);
+    if (!plan) throw httpError(404, '该 Run 没有关联 Coordination Plan');
+    if (run.status !== 'waiting_for_user' || plan.status !== 'paused') throw httpError(409, '只有审批暂停中的运行可以恢复');
+    void resumeCoordinationRun(req.params.runId).catch(() => { /* 失败已在 execute 内落库，仅防 unhandled rejection */ });
+    return getRun(req.params.runId);
+  });
+  app.post<{ Params: { runId: string } }>('/api/runs/:runId/coordination/cancel', async (req) => {
+    const run = getRun(req.params.runId);
+    if (!run) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    if (!getRunCoordinationPlan(req.params.runId)) throw httpError(404, '该 Run 没有关联 Coordination Plan');
+    if (run.status !== 'waiting_for_user') throw httpError(409, '只有暂停中的运行可以取消');
+    return cancelCoordinationRun(req.params.runId);
   });
 
   app.post<{ Body: unknown }>('/api/agents/validate', async (req) => ({ valid: true, normalized: validateAgentInput(req.body) }));

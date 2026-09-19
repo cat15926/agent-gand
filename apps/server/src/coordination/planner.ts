@@ -11,6 +11,7 @@ import type {
   RunMode,
   TaskBrief,
 } from '@agent-gand/shared';
+import * as registry from '../agents/registry.ts';
 
 const includes = (text: string, pattern: RegExp): boolean => pattern.test(text);
 
@@ -168,6 +169,22 @@ function validateDraft(taskBrief: TaskBrief, selected: CoordinationProtocolId[],
 function isAmbiguousComplexGoal(goal: string, selected: CoordinationProtocolId[], requested?: CoordinationProtocolId): boolean {
   if (requested || selected[0] !== 'dynamic_collaboration') return false;
   return includes(goal, /(?:分析|研究|比较|方案|设计|实现|修复|决策|评估|规划)/u);
+}
+
+/**
+ * AG-COORD-07：目标文本点名了不在所选团队里的成员时生成提示（真机会话 f33007c5：
+ * 指令说"coder和🍗"，团队却是 coder-jitui+planner，静默按选择顺序绑定）。
+ * 子串匹配（如 coder 命中 coder-jitui 的提及）只多不少提示，不作为错误。
+ */
+export function participantNotices(goal: string, snapshot: CapabilitySnapshot): string[] {
+  const selected = new Set(snapshot.agents.map((agent) => agent.id));
+  const mentioned = registry.list().filter((agent) => {
+    if (selected.has(agent.id) || !agent.enabled) return false;
+    return [agent.id, agent.name].some((name) => name.length >= 2 && goal.includes(name));
+  });
+  if (mentioned.length === 0) return [];
+  const teamNames = snapshot.agents.map((agent) => agent.name).join('、');
+  return [`目标提到 ${mentioned.map((agent) => `「${agent.name}」`).join('、')}，但当前团队为 ${teamNames}；实际角色绑定以所选团队为准，如需调整请先修改团队成员`];
 }
 
 export function createCoordinationDraft(input: CoordinationPreviewInput, snapshot: CapabilitySnapshot): CoordinationDraft {

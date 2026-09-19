@@ -10,7 +10,8 @@ export type RunStatus =
   | 'awaiting_approval'
   | 'waiting_for_user'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'cancelled';
 
 export interface Run {
   id: string;

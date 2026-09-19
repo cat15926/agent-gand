@@ -132,7 +132,21 @@
 
 **验收标准**：指称与团队不一致时，计划卡展示"实际参与：鸡腿（正方）、planner（反方）"级别的明确信息；不出现未被用户确认的静默替换。
 
-## 4. 结构正确的部分（回归基线）
+## 4. 修复记录（2026-09-19）
+
+| 编号 | 状态 | 实现要点 |
+|---|---|---|
+| AG-COORD-01 | ✅ 已修复 | `CoordinationPlanStep.expectedArtifacts` 结构化声明产物路径；编译器为辩论发言步骤定义 `debate/rN-<side>.md` 并在 prompt 下达冻结指令；Runtime 在步骤完成前校验产物存在且 ≥64 字节，review/aggregate 启动前校验全部祖先产物（终局屏障） |
+| AG-COORD-02 | ✅ 已修复 | `LlmResponse.truncated`（openai `length` / anthropic `max_tokens`）；agentStep 截断时不执行其 toolCalls、升预算（2×，上限 32768）重发一次；仍截断则标记 `truncated` 由 Runtime 判 attempt 失败；`makeStep` 默认 `maxAttempts: 2` |
+| AG-COORD-03 | ✅ 已修复 | 外部工作区对 Coordination run 按 `planId` 前 8 位映射子目录（`workspaceScope` 贯穿 tool ctx → `workspaceRootDir`，fs/search/shell 一并隔离）；其他编排模式保持直访注册根 |
+| AG-COORD-04 | ✅ 已修复 | `APPROVAL_MAX_EXPIRIES`（默认 2）计数同一轮内审批超时，达到即中止轮次；步骤 attempt 置 `paused` 释放回 ready，run 置 `waiting_for_user`、plan 置 `paused`，残留 pending 审批清空；`POST /api/runs/:id/coordination/resume` / `cancel` + 聊天室横幅按钮；恢复复用原 attempt，不烧重试次数。审批幂等键顺延（终态旧卡不复用），避免恢复后立即再次熔断的死锁 |
+| AG-COORD-05 | ✅ 已修复 | 工具输出 >200 字符时聊天流只发一行摘要（完整内容在 Trace/Trajectory）；步骤 prompt 注入"前序产物已注入上文，不要 fs.read 重读"指令 |
+| AG-COORD-06 | ✅ 已修复 | `lookupPricing` 区分"未计价"与"价格为 0"，llm span 记 `llm.pricing: priced/unpriced`；计价仍需用户配置 `LLM_PRICING_JSON` |
+| AG-COORD-07 | ✅ 已修复 | `participantNotices` 比对目标文本点名与所选团队，`CoordinationPreview.notices` 随计划卡展示 ⚠ 提示，不再静默替换 |
+
+验证：`pnpm verify:coordination` 新增四个场景——缺产物阻断（步骤失败、裁判不得启动、run failed）、截断重试（首次 attempt 记 `max_tokens 截断`、重试后落盘）、外部工作区 plan 隔离（产物仅在 `<extRoot>/<planId8>/` 下）、暂停→恢复→完成与取消终态。全量回归（durable / scheduler / agents / collaboration / observability / p0-tools / llm-stubs 135 项 / typecheck）通过。
+
+## 5. 结构正确的部分（回归基线）
 
 以下阶段 C 保证在本轮实测成立，修复上述问题时不得破坏：
 
@@ -143,7 +157,7 @@
 - HITL 正常路径：会话 2 中 1 次审批被用户编辑后通过，写入内容与编辑一致；
 - coordination_events 完整记录 step_ready/started/completed 与 plan_completed 生命周期。
 
-## 5. 修复优先级建议
+## 6. 修复优先级建议（修复前存档）
 
 1. **进入阶段 D 前必须修复**：AG-COORD-01、02（执行反馈的完整性是模型规划置信度评分的输入）、AG-COORD-03（工作区归属污染会直接污染裁判证据链）；
 2. **可与阶段 D 并行**：AG-COORD-04、05（升级路径与聊天流治理）；

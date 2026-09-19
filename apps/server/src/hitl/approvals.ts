@@ -61,10 +61,22 @@ export interface CreateApprovalInput {
   checkpointId?: string;
 }
 
+/** 审批卡是否仍可复用：pending 等待中 / approved / edited 已放行；expired 与 rejected 是终态裁定，重放需发新卡 */
+function usableApproval(row: ApprovalRow): boolean {
+  return row.status === 'pending' || row.status === 'approved' || row.status === 'edited';
+}
+
 export function createApproval(input: CreateApprovalInput): ApprovalRequest {
-  if (input.idempotencyKey) {
-    const existing = get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', input.idempotencyKey);
-    if (existing) return rowToApproval(existing);
+  let idempotencyKey = input.idempotencyKey ?? null;
+  if (idempotencyKey) {
+    // AG-COORD-04：同一逻辑调用的重放（暂停恢复/进程重启）复用未决或已放行的卡；
+    // 旧卡已 expired/rejected 时不得把旧裁定强加给新执行——顺延 #2/#3… 发一张新卡
+    for (let sequence = 1; ; sequence += 1) {
+      const key = sequence === 1 ? idempotencyKey : `${idempotencyKey}#${sequence}`;
+      const existing = get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', key);
+      if (!existing) { idempotencyKey = key; break; }
+      if (usableApproval(existing)) return rowToApproval(existing);
+    }
   }
   const approval: ApprovalRequest = {
     id: randomUUID(),
@@ -79,20 +91,12 @@ export function createApproval(input: CreateApprovalInput): ApprovalRequest {
     decidedAt: null,
     createdAt: new Date().toISOString(),
   };
-  try {
-    run(
-      `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at, idempotency_key, checkpoint_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
-      approval.id, approval.runId, approval.agentId, approval.toolName, approval.input, approval.reason,
-      approval.status, approval.createdAt, input.idempotencyKey ?? null, input.checkpointId ?? null,
-    );
-  } catch (err) {
-    const concurrent = input.idempotencyKey
-      ? get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', input.idempotencyKey)
-      : undefined;
-    if (concurrent) return rowToApproval(concurrent);
-    throw err;
-  }
+  run(
+    `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at, idempotency_key, checkpoint_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+    approval.id, approval.runId, approval.agentId, approval.toolName, approval.input, approval.reason,
+    approval.status, approval.createdAt, idempotencyKey, input.checkpointId ?? null,
+  );
   emit({ type: 'approval.updated', approval });
   return approval;
 }
@@ -174,6 +178,26 @@ function expireApproval(id: string): ApprovalRequest {
   if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
   emit({ type: 'approval.updated', approval });
   return approval;
+}
+
+/**
+ * AG-COORD-04：run 暂停/取消时把该 run 残留的 pending 审批一并置 expired，
+ * 避免界面遗留无人处理的审批卡（每张都会等满 APPROVAL_TIMEOUT_MS 才消失）。
+ */
+export function expirePendingApprovalsForRun(runId: string, decidedBy = 'system:paused'): void {
+  const rows = all<ApprovalRow>("SELECT id FROM approvals WHERE run_id = ? AND status = 'pending'", runId);
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    run(
+      `UPDATE approvals SET status = 'expired', edited_input = NULL, decided_by = ?, decided_at = ?
+       WHERE id = ? AND status = 'pending'`,
+      decidedBy,
+      now,
+      row.id,
+    );
+    const approval = getApproval(row.id);
+    if (approval) emit({ type: 'approval.updated', approval });
+  }
 }
 
 /**

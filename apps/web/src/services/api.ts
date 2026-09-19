@@ -92,6 +92,8 @@ export const getCoordinationPlanRevisions = (id: string) => request<Coordination
 export const getCoordinationDraftEvents = (id: string) => request<CoordinationEvent[]>(`/api/coordination/drafts/${encodeURIComponent(id)}/events`);
 export const getRunCoordinationPlan = (runId: string) => request<CoordinationPlan>(`/api/runs/${encodeURIComponent(runId)}/coordination-plan`);
 export const getRunCoordination = (runId: string) => request<CoordinationRunDetail>(`/api/runs/${encodeURIComponent(runId)}/coordination`);
+export const resumeCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/resume`, { method: 'POST' });
+export const cancelCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/cancel`, { method: 'POST' });
 export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
 export const renameConversation = (id: string, title: string) =>
   request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });

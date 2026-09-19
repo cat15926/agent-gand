@@ -310,6 +310,16 @@ Plan 是运行时唯一可执行输入。它不保存模型思维过程，只保
 
 每个步骤还可以声明输入选择器、产物类型、工具策略、最大 Attempt、Token 上限、超时、失败策略和是否允许重规划。
 
+**产物冻结声明（2026-09-19 实测修复，AG-COORD-01）**：步骤可声明 `expectedArtifacts`（相对 run 工作区的路径列表）。声明后：
+
+- 步骤 prompt 会下达"必须用 fs.write 冻结到 `<路径>`"的明确指令，产物路径由编译器统一定义，不依赖模型自选文件名；
+- Runtime 在步骤标记 `completed` 前校验每个产物存在且 ≥64 字节，缺失即判 attempt 失败并重试；
+- review/aggregate 步骤启动前校验全部祖先步骤的声明产物（终局屏障），证据缺失时裁判不得出具裁决。
+
+**外部工作区隔离（AG-COORD-03）**：绑定外部目录的 run，Coordination Runtime 按 `planId` 前 8 位把无前缀路径映射到 `<extRoot>/<planId8>/` 子目录（fs/search/shell 一致），跨 run 产物不混写；其他编排模式保持直访注册根。
+
+**审批暂停/恢复（AG-COORD-04）**：同一 Agent 轮次内审批连续超时达到 `APPROVAL_MAX_EXPIRIES`（默认 2）即中止轮次，run 置 `waiting_for_user`、plan 置 `paused`，由用户经 `POST /api/runs/:id/coordination/resume|cancel` 显式恢复或取消；恢复复用原 attempt 继续执行。
+
 对于组合协议，Plan 额外保存 `protocolComposition` 和模板展开映射，使每个运行时步骤都能追溯到来源协议。模型草案与正式 Plan 分开存储，运行时只能读取通过校验的 Plan revision。
 
 ## 9. 服务端校验

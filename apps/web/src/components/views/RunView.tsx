@@ -318,6 +318,7 @@ function NewRoomComposer() {
     </div>
     {modeChoice === 'auto' && planPreview && <div className={`mt-3 rounded-2xl border p-4 text-sm ${planPreview.draft.validationErrors.length > 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5'}`}>
       <div className="flex items-start gap-3"><div className="mt-0.5 rounded-lg bg-violet-500/15 px-2 py-1 text-violet-200">{planPreview.draft.decision === 'auto_start' ? '可自动开始' : planPreview.draft.decision === 'clarify' ? '需要确认' : planPreview.draft.decision === 'unavailable' ? '暂不可用' : '推荐'}</div><div className="min-w-0 flex-1"><div className="font-medium text-zinc-100">{planPreview.draft.displayName}</div><p className="mt-1 text-xs text-zinc-400">{planPreview.draft.summary}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>置信度 {Math.round(planPreview.draft.platformConfidence * 100)}%</span><span>风险：{planPreview.draft.risk === 'low' ? '低' : planPreview.draft.risk === 'medium' ? '中' : '高'}</span><span>{planPreview.snapshot.agents.length} 位 Agent</span><span>{planPreview.plan.steps.length} 个计划步骤</span></div></div></div>
+      {planPreview.notices?.map((notice) => <div key={notice} className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">⚠ {notice}</div>)}
       {planPreview.draft.clarificationQuestion && <div className="mt-3 rounded-xl bg-zinc-950/50 p-3 text-xs text-zinc-200"><p>{planPreview.draft.clarificationQuestion}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => void preview('parallel_fanout')} className="rounded-full bg-violet-500/20 px-3 py-1.5 text-violet-200">各自分析后汇总</button><button type="button" onClick={() => void preview('dynamic_collaboration')} className="rounded-full bg-zinc-800 px-3 py-1.5 text-zinc-300">共同讨论</button></div></div>}
       {planPreview.draft.validationIssues.some((item) => item.severity === 'error') && <div className="mt-3 rounded-lg bg-zinc-950/50 px-3 py-2 text-xs text-amber-200">{planPreview.draft.validationIssues.filter((item) => item.severity === 'error').map((item) => item.message).join('；')}</div>}
       {!planPreview.draft.runtimeMode && planPreview.draft.validationErrors.length === 0 && <div className="mt-3 rounded-lg bg-zinc-950/50 px-3 py-2 text-xs text-amber-200">计划已通过结构校验，但对应协议尚未接入统一协调运行时。</div>}
@@ -372,7 +373,7 @@ function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyC
 }
 
 export function RunView() {
-  const { state, setActiveConversation } = useStore();
+  const { state, setActiveConversation, refreshConversation } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [reply, setReply] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -384,6 +385,17 @@ export function RunView() {
     if (!room || !window.confirm(`归档聊天室“${room.title}”？历史运行和证据仍会保留。`)) return;
     await api.archiveConversation(room.id);
     setActiveConversation(null);
+  }
+  // AG-COORD-04：审批暂停中的 Coordination run 显式恢复/取消
+  async function resumePausedRun() {
+    if (!activeRun) return;
+    try { await api.resumeCoordinationRun(activeRun.id); await refreshConversation(); }
+    catch (reason) { window.alert(reason instanceof Error ? reason.message : String(reason)); }
+  }
+  async function cancelPausedRun() {
+    if (!activeRun || !window.confirm('取消本次运行？已冻结的产物会保留，运行不可恢复。')) return;
+    try { await api.cancelCoordinationRun(activeRun.id); await refreshConversation(); }
+    catch (reason) { window.alert(reason instanceof Error ? reason.message : String(reason)); }
   }
   return <div className="flex h-full">
     <SessionSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((value) => !value)} activeConversationId={state.activeConversationId}
@@ -398,6 +410,13 @@ export function RunView() {
           {state.scheduler && <div className="mt-2 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full animate-pulse rounded bg-violet-500" style={{ width: `${Math.max(20, 100 * state.scheduler.active / Math.max(1, state.scheduler.active + state.scheduler.queued))}%` }} /></div>}
           {state.collaborationScheduler && <div className="mt-2 flex gap-3 text-[10px] text-zinc-500"><span>活跃 Agent {state.collaborationScheduler.activeAgentIds.length}</span><span>排队 {state.collaborationScheduler.queued}</span>{state.collaborationScheduler.blocked > 0 && <span className="text-amber-300">阻断 {state.collaborationScheduler.blocked}</span>}</div>}
         </header>
+        {activeRun?.status === 'waiting_for_user' && state.coordinationPlan?.status === 'paused' && <div className="shrink-0 border-b border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-200">
+          <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3">
+            <span className="min-w-0 flex-1">⏸ 审批连续超时，本轮运行已暂停；处理完右侧审批卡后可恢复，或直接取消。</span>
+            <button onClick={() => void resumePausedRun()} className="rounded-lg bg-amber-400/90 px-3 py-1.5 font-medium text-zinc-900">恢复运行</button>
+            <button onClick={() => void cancelPausedRun()} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-zinc-300">取消运行</button>
+          </div>
+        </div>}
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto max-w-4xl space-y-1">
             {state.messages.map((message, index) => {

@@ -1,9 +1,11 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
-import { updateRunUserMessageStatus, post } from '../messaging/inbox.ts';
+import { expirePendingApprovalsForRun } from '../hitl/approvals.ts';
+import { post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
 import { endSpan, finishRun, getRun, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
+import { artifactStat } from '../tools/builtin/index.ts';
 import {
   claimCoordinationStep,
   completeCoordinationStep,
@@ -12,6 +14,7 @@ import {
   listCoordinationStepStates,
   prepareCoordinationReadySteps,
   recordCoordinationEvent,
+  releaseCoordinationStep,
   scheduleCoordinationRevision,
   setCoordinationAttemptSpan,
   setCoordinationPlanStatus,
@@ -25,6 +28,23 @@ interface RuntimeMessageInput {
 }
 
 const activeRuns = new Set<string>();
+
+/** AG-COORD-01：产物最小字节数——存在但只有几十字节的"承诺式 stub"同样视为未冻结（真机 35 字符 stub 实证） */
+const MIN_ARTIFACT_BYTES = 64;
+
+function workspaceCtxOf(run: Run, plan: CoordinationPlan): { runId: string; workspace?: string | null; workspaceScope?: string | null } {
+  // 与工具执行共用同一映射：ext 工作区下无前缀路径先落 <extRoot>/<planId8>/，再拼产物相对路径
+  return { runId: run.id, workspace: run.workspace ?? null, workspaceScope: plan.id.slice(0, 8) };
+}
+
+/** 校验一组声明产物已落盘且非 stub；返回缺失/过短清单（空数组 = 通过） */
+function missingArtifacts(run: Run, plan: CoordinationPlan, paths: string[]): string[] {
+  const ctx = workspaceCtxOf(run, plan);
+  return paths.filter((artifactPath) => {
+    const stat = artifactStat(artifactPath, ctx);
+    return !stat.exists || stat.size < MIN_ARTIFACT_BYTES;
+  });
+}
 
 function ancestorIds(plan: CoordinationPlan, step: CoordinationPlanStep): string[] {
   const byId = new Map(plan.steps.map((item) => [item.id, item]));
@@ -59,6 +79,14 @@ function stepPrompt(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep
     `前序冻结产物：\n${dependencyTranscript(plan, step, states)}`,
   ];
   if (current?.error) base.push(`上一次反馈（必须处理）：\n${current.error}`);
+  // AG-COORD-01：产物路径由计划结构化声明，prompt 明确指令，不再依赖模型自选文件名
+  if (step.expectedArtifacts && step.expectedArtifacts.length > 0) {
+    base.push(`本步骤产物必须使用 fs.write 完整冻结到 ${step.expectedArtifacts.map((artifactPath) => `\`${artifactPath}\``).join('、')}；完成后在回复中确认已写入，未写入即视为未完成。`);
+  }
+  // AG-COORD-05：前序产物已全文注入，抑制重复 fs.read（真机每步重读全部历史文件，双倍上下文+聊天刷屏）
+  if (ancestorIds(plan, step).length > 0) {
+    base.push('前序冻结产物已完整注入上文，不要再用 fs.read 重读已冻结文件；引用时直接引用上文内容。');
+  }
   if (step.protocol === 'debate') {
     const position = step.metadata.position;
     if (position === 'pro') base.push('你是正方，立场在整个辩论期间固定。独立完成本轮论证，并回应已冻结的前序观点。');
@@ -98,7 +126,7 @@ function messageType(step: CoordinationPlanStep): 'result' | 'review_result' | '
   return 'result';
 }
 
-async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string): Promise<void> {
+async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string): Promise<'paused' | void> {
   const before = listCoordinationStepStates(plan.id);
   const input = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, contextGoal);
   const claimed = claimCoordinationStep(plan, step, input);
@@ -124,6 +152,18 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       endSpan(span, { output: 'completion gate passed', status: 'ok' });
       return;
     }
+    // AG-COORD-01 终局屏障：review/aggregate 启动前校验全部祖先声明产物已真实落盘——
+    // 即使上游步骤状态被误标 completed，缺产物也在此阻断，不允许裁判在证据缺失时出具裁决
+    if (step.type === 'review' || step.type === 'aggregate') {
+      const ancestors = ancestorIds(plan, step);
+      const required = plan.steps
+        .filter((item) => ancestors.includes(item.id))
+        .flatMap((item) => item.expectedArtifacts ?? []);
+      const missing = missingArtifacts(run, plan, required);
+      if (missing.length > 0) {
+        throw new Error(`终局屏障阻止：前序产物缺失或过短（${missing.join('、')}），不能进入 ${step.id}`);
+      }
+    }
     const agent = step.agentId ? agents.get(step.agentId) : undefined;
     if (!agent) throw new Error(`步骤 ${step.id} 的 Agent 不存在于 Run 快照`);
     const turn = await runAgentTurn({
@@ -139,7 +179,19 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       attemptId: claimed.attempt.id,
       displayKind: step.type === 'review' ? 'review_protocol' : 'message',
       executionScopeId: claimed.attempt.idempotencyKey,
+      // AG-COORD-03：外部工作区按 plan 隔离；内部/命名工作区忽略 scope（本就按 run/房间隔离）
+      workspaceScope: plan.id.slice(0, 8),
     });
+    // AG-COORD-04：审批连续超时 → 释放步骤（不烧 attempt 失败）并上抛暂停信号，由 execute() 暂停 run
+    if (turn.approvalStarved) {
+      releaseCoordinationStep(plan, step, claimed.attempt.id, '审批连续超时，等待用户处理后恢复');
+      endSpan(span, { output: '审批连续超时，步骤已暂停', status: 'ok' });
+      return 'paused';
+    }
+    // AG-COORD-02：升预算重发后仍截断 → 判定 attempt 失败（走既有重试），不得把截断正文当产物
+    if (turn.truncated) {
+      throw new Error('LLM 响应被 max_tokens 截断（升预算重发后仍不完整）；可调大 LLM_MAX_TOKENS');
+    }
     const output = turn.content.trim();
     if (!output) throw new Error(`步骤 ${step.id} 返回空结果`);
     await post({
@@ -162,6 +214,13 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
         return;
       }
     }
+    // AG-COORD-01 完成校验：声明产物的步骤必须真实落盘且非 stub 才允许标记 completed
+    if (step.expectedArtifacts && step.expectedArtifacts.length > 0) {
+      const missing = missingArtifacts(run, plan, step.expectedArtifacts);
+      if (missing.length > 0) {
+        throw new Error(`产物未冻结或过短（${missing.join('、')}）：必须先用 fs.write 写入完整内容`);
+      }
+    }
     completeCoordinationStep(plan, step.id, claimed.attempt.id, output);
     endSpan(span, { output, status: 'ok' });
   } catch (error) {
@@ -172,17 +231,19 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
   }
 }
 
-async function mapWithLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+async function mapWithLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<'paused' | void>): Promise<Array<'paused' | void>> {
   let cursor = 0;
+  const results: Array<'paused' | void> = [];
   const workers = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
     for (;;) {
       const index = cursor; cursor += 1;
       const item = items[index];
       if (item === undefined) return;
-      await fn(item);
+      results.push(await fn(item));
     }
   });
   await Promise.all(workers);
+  return results;
 }
 
 async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, displayGoal: string, userMessage?: RuntimeMessageInput): Promise<void> {
@@ -194,7 +255,7 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
   });
   try {
     setRunStatus(run.id, 'running');
-    if (plan.status === 'validated') setCoordinationPlanStatus(plan.id, 'active');
+    if (plan.status === 'validated' || plan.status === 'paused') setCoordinationPlanStatus(plan.id, 'active');
     await post({
       runId: run.id, from: 'user', to: userMessage?.recipientIds?.join(',') || 'all', kind: 'user', body: displayGoal,
       replyTo: userMessage?.replyTo, taskId: userMessage?.taskId,
@@ -223,7 +284,19 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
         if (latest.some((state) => state.status === 'running')) return;
         throw new Error('Coordination Runtime 无可运行步骤：依赖死锁或状态损坏');
       }
-      await mapWithLimit(ready, config.orchestratorConcurrency, (step) => executeStep(run, currentPlan, step, agents, root.id, contextGoal));
+      const results = await mapWithLimit(ready, config.orchestratorConcurrency, (step) => executeStep(run, currentPlan, step, agents, root.id, contextGoal));
+      // AG-COORD-04：批次内出现暂停信号 → run 置 waiting_for_user（plan 置 paused），由用户显式恢复/取消。
+      // 不 finishRun、不清 activeRuns 之外的执行态：步骤已释放回 ready，恢复时复用原 attempt 继续。
+      if (results.includes('paused')) {
+        setRunStatus(run.id, 'waiting_for_user');
+        setCoordinationPlanStatus(currentPlan.id, 'paused');
+        saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'waiting_for_user', status: 'waiting', state: { planId: currentPlan.id, revision: currentPlan.revision, contextGoal, reason: 'approval_starved' } });
+        recordCoordinationEvent({ kind: 'plan_paused', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { reason: 'approval_starved', approvalMaxExpiries: config.approvalMaxExpiries } });
+        expirePendingApprovalsForRun(run.id);
+        await postSystem(run.id, 'system', `审批连续超时（上限 ${config.approvalMaxExpiries} 次），运行已暂停；处理完审批卡后可恢复运行，或直接取消。`);
+        endSpan(root, { output: '审批连续超时，等待用户恢复', status: 'ok' });
+        return;
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -245,11 +318,29 @@ export async function runCoordinationPlan(run: Run, contextGoal: string, display
   await execute(run, plan, contextGoal, displayGoal, userMessage);
 }
 
-export async function resumeCoordinationRun(runId: string): Promise<void> {
+export async function resumeCoordinationRun(runId: string): Promise<Run | null> {
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
-  if (!run || !plan || plan.status === 'completed' || plan.status === 'failed') return;
+  if (!run || !plan || plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run ?? null;
   const checkpoint = latestCheckpoint(runId, 'coordination');
   const contextGoal = typeof checkpoint?.state.contextGoal === 'string' ? checkpoint.state.contextGoal : run.goal;
+  if (plan.status === 'paused') {
+    recordCoordinationEvent({ kind: 'plan_resumed', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
+  }
   await execute(run, plan, contextGoal, run.goal);
+  return run;
+}
+
+/** AG-COORD-04：用户显式取消暂停中的 Coordination run（终态，不可恢复）。 */
+export function cancelCoordinationRun(runId: string): Run | null {
+  const run = getRun(runId);
+  const plan = getRunCoordinationPlan(runId);
+  if (!run || !plan) return run ?? null;
+  if (plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run;
+  setCoordinationPlanStatus(plan.id, 'cancelled');
+  recordCoordinationEvent({ kind: 'plan_cancelled', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
+  expirePendingApprovalsForRun(runId, 'system:cancelled');
+  finishRun(runId, 'cancelled');
+  try { updateRunUserMessageStatus(runId, 'failed'); } catch { /* user message may not exist */ }
+  return getRun(runId) ?? run;
 }

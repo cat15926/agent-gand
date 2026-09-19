@@ -154,14 +154,14 @@ export function claimCoordinationStep(plan: CoordinationPlan, step: Coordination
   const result = tx(() => {
     const state = get<StepStateRow>("SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=? AND status='ready'", plan.id, plan.revision, step.id);
     if (!state || !plan.runId) return null;
-    // interrupted（进程重启）复用同一 attempt 行，不额外烧 attempt 号
-    const interrupted = state.attempt_no > 0 ? get<StepAttemptRow>("SELECT * FROM coordination_step_attempts WHERE plan_id=? AND revision=? AND step_id=? AND attempt_no=? AND status='interrupted'", plan.id, plan.revision, step.id, state.attempt_no) : undefined;
-    const attemptNo = interrupted ? state.attempt_no : state.attempt_no + 1;
+    // interrupted（进程重启）/ paused（审批暂停，AG-COORD-04）复用同一 attempt 行，不额外烧 attempt 号
+    const reusable = state.attempt_no > 0 ? get<StepAttemptRow>("SELECT * FROM coordination_step_attempts WHERE plan_id=? AND revision=? AND step_id=? AND attempt_no=? AND status IN ('interrupted','paused')", plan.id, plan.revision, step.id, state.attempt_no) : undefined;
+    const attemptNo = reusable ? state.attempt_no : state.attempt_no + 1;
     const now = new Date().toISOString();
     let attempt: StepAttemptRow;
-    if (interrupted) {
-      run("UPDATE coordination_step_attempts SET status='running',input=?,output=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", input, now, interrupted.id);
-      attempt = get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', interrupted.id)!;
+    if (reusable) {
+      run("UPDATE coordination_step_attempts SET status='running',input=?,output=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", input, now, reusable.id);
+      attempt = get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', reusable.id)!;
     } else {
       const id = randomUUID();
       const key = `coordination:${plan.id}:${plan.revision}:${step.id}:${attemptNo}`;
@@ -203,6 +203,22 @@ export function failCoordinationStep(plan: CoordinationPlan, step: CoordinationP
   });
   const state = emitStep(row);
   recordCoordinationEvent({ kind: retry ? 'step_retry_scheduled' : 'step_failed', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId: step.id, attemptNo: state.attemptNo, error: message } });
+  return state;
+}
+
+/**
+ * AG-COORD-04：暂停时释放步骤——attempt 置 paused、状态回 ready，
+ * 不烧 attempt 失败、不占 maxAttempts；恢复时 claimCoordinationStep 复用原 attempt 行。
+ */
+export function releaseCoordinationStep(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string, reason: string): CoordinationStepState {
+  const row = tx(() => {
+    const now = new Date().toISOString();
+    run("UPDATE coordination_step_attempts SET status='paused',error=?,ended_at=? WHERE id=?", reason, now, attemptId);
+    run("UPDATE coordination_step_states SET status='ready',error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", reason, now, plan.id, plan.revision, step.id);
+    return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!;
+  });
+  const state = emitStep(row);
+  recordCoordinationEvent({ kind: 'step_paused', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId: step.id, attemptNo: state.attemptNo, reason } });
   return state;
 }
 

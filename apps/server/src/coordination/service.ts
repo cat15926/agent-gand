@@ -7,7 +7,7 @@ import type {
 } from '@agent-gand/shared';
 import { createCapabilitySnapshot } from './capabilities.ts';
 import { buildCoordinationPlan } from './compiler.ts';
-import { createCoordinationDraft } from './planner.ts';
+import { createCoordinationDraft, participantNotices } from './planner.ts';
 import {
   activateCoordinationPlan,
   getCapabilitySnapshot,
@@ -43,7 +43,9 @@ export function previewCoordination(input: CoordinationPreviewInput): Coordinati
     draft.platformConfidence = Math.max(0, draft.platformConfidence - planErrors.length * 0.08);
   }
   savePlanningResult(snapshot, draft, plan);
-  return { snapshot, draft, plan };
+  // AG-COORD-07：参与者指称与所选团队不一致时在计划卡显著提示，不做静默替换
+  const notices = participantNotices(input.goal, snapshot);
+  return notices.length > 0 ? { snapshot, draft, plan, notices } : { snapshot, draft, plan };
 }
 
 export function compileCoordinationPlan(draftId: string, runId: string, goal: string, agents: AgentDefinition[]): CoordinationPlan {

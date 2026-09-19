@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -9,8 +9,9 @@ const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-coordination-'));
 const agentsDir = path.join(root, 'agents');
 await mkdir(agentsDir);
 
+// AG-COORD-01：辩论步骤现在声明产物并强制落盘校验，辩手需要可写的 fs 工具（auto 档免审批）
 function agent(name, capabilities) {
-  return `---\nname: ${name}\ndescription: ${name} coordination fixture\nmodel: mock:${name.toLowerCase()}\ncapabilities: ${JSON.stringify(capabilities)}\ntools: []\npermissionMode: readonly\ncolor: '#6677aa'\n---\n${name} fixture`;
+  return `---\nname: ${name}\ndescription: ${name} coordination fixture\nmodel: mock:${name.toLowerCase()}\ncapabilities: ${JSON.stringify(capabilities)}\ntools: ["fs.read", "fs.write"]\npermissionMode: auto\ncolor: '#6677aa'\n---\n${name} fixture`;
 }
 await Promise.all([
   writeFile(path.join(agentsDir, 'planner.agent.md'), agent('Planner', ['coordinate', 'execute'])),
@@ -25,11 +26,11 @@ let child = null;
 let childExit = null;
 let logs = '';
 
-function startServer() {
+function startServer(extraEnv = {}) {
   assert.equal(child, null, 'server already running');
   child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
     cwd: repo,
-    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, AGENTS_DIR: agentsDir, LOG_LEVEL: 'error' },
+    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, AGENTS_DIR: agentsDir, LOG_LEVEL: 'error', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const current = child;
@@ -120,6 +121,28 @@ function attemptsFor(detail, stepId) {
   return detail.attempts.filter((attempt) => attempt.stepId === stepId);
 }
 
+/** run 工作区磁盘目录：命名/room 工作区 → workspaces/<name>；null → runs/<runId> */
+function sandboxDirOf(run) {
+  return run.workspace ? path.join(repo, 'apps/server/data/sandbox/workspaces', run.workspace) : path.join(repo, 'apps/server/data/sandbox/runs', run.id);
+}
+
+/** 外部工作区写入会强制审批：持续批准该 run 的 pending 审批直到终态（C/D 场景共用） */
+async function approveUntilDone(runId, timeoutMs = 30_000) {
+  const deadline = Date.now() + timeoutMs;
+  let latest = null;
+  while (Date.now() < deadline) {
+    latest = await api(`/api/runs/${runId}`);
+    if (['completed', 'failed'].includes(latest.data?.run?.status)) return latest;
+    const list = (await api('/api/approvals?status=pending')).data ?? [];
+    for (const item of list.filter((approval) => approval.runId === runId)) {
+      await api(`/api/approvals/${item.id}/decide`, 'POST', { decision: 'approve', by: 'coordination-verifier' });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const runtime = await coordination(runId);
+  throw new Error(`approveUntilDone 超时：${JSON.stringify(latest?.data?.run)}\nsteps=${JSON.stringify(runtime.steps.map((s) => [s.stepId, s.status]))}\nattempts=${JSON.stringify(runtime.attempts.map((a) => [a.stepId, a.attemptNo, a.status, a.error?.slice(0, 60)]))}\nevents=${JSON.stringify(runtime.events.slice(-12).map((e) => [e.kind, e.payload?.stepId ?? '']))}\n${logs}`);
+}
+
 startServer();
 try {
   await waitForServer();
@@ -203,7 +226,8 @@ try {
   assert.equal(attemptsFor(reviewRuntime, 'review-independent').length, 2, '返工后必须重新独立审查');
   assert.ok(reviewRuntime.steps.every((step) => step.status === 'completed'));
 
-  const debateGoal = '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判';
+  // [tool:fs.write]：mock 依据步骤 prompt 里的"冻结到 `<path>`"指令写入产物（AG-COORD-01 落盘链路）
+  const debateGoal = '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]';
   const debate = await preview({
     goal: debateGoal, agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
   });
@@ -230,6 +254,12 @@ try {
   assert.equal(observed.status, 200);
   assert.equal(observed.data.graph.nodes.filter((node) => node.kind === 'coordination_step').length, debate.plan.steps.length);
   assert.equal(observed.data.groups.filter((group) => group.kind === 'coordination_step').length, 7);
+  // AG-COORD-01：六篇发言产物必须真实落盘且非 stub（run 工作区 debate/ 下）
+  const debateSandbox = sandboxDirOf(debateDetail.run);
+  for (const rel of ['debate/r1-pro.md', 'debate/r1-con.md', 'debate/r2-pro.md', 'debate/r2-con.md', 'debate/r3-pro.md', 'debate/r3-con.md']) {
+    const content = await readFile(path.join(debateSandbox, rel), 'utf8');
+    assert.ok(content.length >= 64, `产物过短或未落盘：${rel}`);
+  }
 
   const ambiguous = await preview({ goal: '分析认证方案的取舍', agentIds: ['planner', 'coder'] });
   assert.equal(ambiguous.draft.decision, 'clarify');
@@ -260,7 +290,7 @@ try {
   assert.deepEqual(shape(repeat), shape(debate));
 
   const recovery = await preview({
-    goal: '进行10轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判',
+    goal: '进行10轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]',
     agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
   });
   const recoveryStarted = await startDraft(recovery, { defaultReviewerId: 'reviewer' });
@@ -281,7 +311,109 @@ try {
   assert.equal(recoveredMessages.length, 21, '十轮辩论恢复后应恰好有二十次发言和一次裁决');
   assert.equal(new Set(recoveredMessages.map((message) => message.payload.coordinationStepId)).size, 21);
 
-  console.log('coordination verification passed: planning, execution, barriers, review revision, debate, recovery, observability');
+  // ---- AG-COORD-01：承诺冻结但未落盘 → 步骤失败、裁判不得启动、plan 失败 ----
+  const noFreeze = await preview({
+    goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [no-freeze]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const noFreezeStarted = await startDraft(noFreeze, { defaultReviewerId: 'reviewer' });
+  const noFreezeFinal = await poll(
+    async () => api(`/api/runs/${noFreezeStarted.run.id}`),
+    (value) => ['completed', 'failed'].includes(value.data?.run?.status),
+    '缺产物 run 到达终态',
+  );
+  assert.equal(noFreezeFinal.data.run.status, 'failed', '产物未冻结的 run 不得标记 completed');
+  const noFreezeRuntime = await coordination(noFreezeStarted.run.id);
+  const noFreezePro = noFreezeRuntime.steps.find((step) => step.stepId === 'debate-r1-pro');
+  assert.equal(noFreezePro.status, 'failed');
+  assert.ok(noFreezePro.error.includes('产物未冻结'), `错误应说明产物缺失，实际：${noFreezePro.error}`);
+  assert.equal(attemptsFor(noFreezeRuntime, 'debate-r1-pro').length, 2, '产物缺失必须重试一次后终止');
+  assert.equal(noFreezeRuntime.steps.find((step) => step.stepId === 'debate-judge').status, 'pending', '裁判不得启动');
+  assert.ok(noFreezeRuntime.events.some((event) => event.kind === 'plan_failed'));
+
+  // ---- AG-COORD-02：max_tokens 截断 → attempt 失败并重试，第二次产出完整产物 ----
+  const truncate = await preview({
+    goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [truncate] [tool:fs.write]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const truncateStarted = await startDraft(truncate, { defaultReviewerId: 'reviewer' });
+  const truncateDetail = await waitForRun(truncateStarted.run.id, 30_000);
+  const truncateRuntime = await coordination(truncateStarted.run.id);
+  const truncateAttempts = attemptsFor(truncateRuntime, 'debate-r1-pro');
+  assert.equal(truncateAttempts.length, 2, '截断必须触发步骤级重试');
+  assert.ok(truncateAttempts[0].error.includes('max_tokens 截断'), `首次 attempt 应记截断错误，实际：${truncateAttempts[0].error}`);
+  assert.equal(truncateAttempts[1].status, 'completed');
+  const truncatedContent = await readFile(path.join(sandboxDirOf(truncateDetail.run), 'debate/r1-pro.md'), 'utf8');
+  assert.ok(truncatedContent.length >= 64, '重试后产物必须真实落盘');
+
+  // ---- AG-COORD-03：外部工作区按 plan 子目录隔离，跨 run 产物不混写 ----
+  const extRoot = path.join(root, 'ext-ws');
+  await mkdir(extRoot, { recursive: true });
+  const register = await api('/api/workspaces/register', 'POST', { path: extRoot, label: 'isolation' });
+  assert.ok([200, 201].includes(register.status), JSON.stringify(register.data));
+  const extId = register.data.id;
+  const iso = await preview({
+    goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const isoStarted = await startDraft(iso, { defaultReviewerId: 'reviewer', workspace: `ext:${extId}` });
+  const isoFinal = await approveUntilDone(isoStarted.run.id);
+  assert.equal(isoFinal.data.run.status, 'completed');
+  const isoRuntime = await coordination(isoStarted.run.id);
+  const isoScope = isoRuntime.plan.id.slice(0, 8);
+  for (const rel of ['debate/r1-pro.md', 'debate/r2-con.md', 'debate/r3-con.md']) {
+    const content = await readFile(path.join(extRoot, isoScope, rel), 'utf8');
+    assert.ok(content.length >= 64, `ext 产物必须落在 plan 隔离子目录：${isoScope}/${rel}`);
+  }
+  await assert.rejects(() => readFile(path.join(extRoot, 'debate/r1-pro.md')), '外部根目录不得直接出现产物（无隔离会跨 run 混写）');
+
+  // ---- AG-COORD-04：审批连续超时 → 暂停待恢复；恢复复用原 attempt；取消走终态 ----
+  await stopServer();
+  startServer({ APPROVAL_TIMEOUT_MS: '400', APPROVAL_MAX_EXPIRIES: '1' });
+  await waitForServer();
+  const pause = await preview({
+    goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const pauseStarted = await startDraft(pause, { defaultReviewerId: 'reviewer', workspace: `ext:${extId}` });
+  await poll(
+    async () => api(`/api/runs/${pauseStarted.run.id}`),
+    (value) => value.data?.run?.status === 'waiting_for_user',
+    '审批超时后 run 应进入 waiting_for_user',
+    10_000,
+  );
+  const pausedRuntime = await coordination(pauseStarted.run.id);
+  assert.equal(pausedRuntime.plan.status, 'paused');
+  assert.equal(pausedRuntime.steps.find((step) => step.stepId === 'debate-r1-pro').status, 'ready', '暂停的步骤应释放回 ready');
+  assert.ok(pausedRuntime.attempts.some((attempt) => attempt.stepId === 'debate-r1-pro' && attempt.status === 'paused'));
+  assert.ok(pausedRuntime.events.some((event) => event.kind === 'plan_paused'));
+  const pendingAfterPause = ((await api('/api/approvals?status=pending')).data ?? []).filter((item) => item.runId === pauseStarted.run.id);
+  assert.equal(pendingAfterPause.length, 0, '暂停后不得遗留 pending 审批卡');
+  const resume = await api(`/api/runs/${pauseStarted.run.id}/coordination/resume`, 'POST');
+  assert.ok([200, 201].includes(resume.status), JSON.stringify(resume.data));
+  const resumedFinal = await approveUntilDone(pauseStarted.run.id);
+  assert.equal(resumedFinal.data.run.status, 'completed', '恢复后应能跑完整个计划');
+  const resumedRuntime = await coordination(pauseStarted.run.id);
+  assert.ok(resumedRuntime.events.some((event) => event.kind === 'plan_resumed'));
+  assert.equal(attemptsFor(resumedRuntime, 'debate-r1-pro').length, 1, '恢复必须复用暂停的 attempt，不得烧新 attempt');
+  // 取消路径：再造一次暂停后直接取消 → run 终态 cancelled
+  const cancelPrev = await preview({
+    goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const cancelStarted = await startDraft(cancelPrev, { defaultReviewerId: 'reviewer', workspace: `ext:${extId}` });
+  await poll(
+    async () => api(`/api/runs/${cancelStarted.run.id}`),
+    (value) => value.data?.run?.status === 'waiting_for_user',
+    '取消场景：等待暂停',
+    10_000,
+  );
+  const cancelResult = await api(`/api/runs/${cancelStarted.run.id}/coordination/cancel`, 'POST');
+  assert.ok([200, 201].includes(cancelResult.status), JSON.stringify(cancelResult.data));
+  assert.equal(cancelResult.data.status, 'cancelled');
+  assert.equal((await coordination(cancelStarted.run.id)).plan.status, 'cancelled');
+
+  console.log('coordination verification passed: planning, execution, barriers, review revision, debate freeze, truncation retry, isolation, pause/resume, recovery, observability');
 } finally {
   await stopServer();
   await rm(root, { recursive: true, force: true });

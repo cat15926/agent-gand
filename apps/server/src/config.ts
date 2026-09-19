@@ -104,6 +104,8 @@ export const config = {
   },
   /** 审批等待超时毫秒（规格 §8.2；默认 300s，0 = 不超时；超时置 expired 按拒绝处理） */
   approvalTimeoutMs: firstInt(process.env.APPROVAL_TIMEOUT_MS, 300_000),
+  /** 单个 Agent 轮次内审批连续超时上限（AG-COORD-04；达到即中止轮次，Coordination run 转入暂停待恢复） */
+  approvalMaxExpiries: Math.max(1, firstInt(process.env.APPROVAL_MAX_EXPIRIES, 2)),
   /** Supervisor 调度并发、任务返工上限与执行租约。 */
   orchestratorConcurrency: Math.max(1, firstInt(process.env.ORCHESTRATOR_CONCURRENCY, 2)),
   taskMaxAttempts: Math.max(1, firstInt(process.env.TASK_MAX_ATTEMPTS, 3)),

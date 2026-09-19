@@ -42,6 +42,8 @@ export interface LlmRequest {
   model: string; // 完整路由串，如 'openai:gpt-4o' / 'anthropic:claude-...' / 'mock:x'
   messages: LlmMessage[];
   tools?: LlmToolSchema[];
+  /** 单次调用覆盖 max_tokens（截断重试升预算用）；缺省用 config.llm.maxTokens */
+  maxTokens?: number;
 }
 
 export interface LlmResponse {
@@ -51,6 +53,8 @@ export interface LlmResponse {
   toolCalls: LlmToolCall[];
   /** 终止原因（anthropic stop_reason / openai finish_reason），记入 llm span 供诊断 */
   stopReason: string | null;
+  /** 因 max_tokens 截断（openai finish_reason=length / anthropic stop_reason=max_tokens）；消费侧不得把截断正文当完整结果 */
+  truncated: boolean;
 }
 
 /** §8.1：文本增量回调（thinking 增量不经过此处） */
@@ -137,10 +141,15 @@ async function* sseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerator<s
   }
 }
 
-/** 完整路由优先、provider:* 兜底；未知价格保持 0，避免伪造供应商账单。 */
-export function calculateCostUsd(model: string, tokensIn: number, tokensOut: number): number {
+/** 完整路由优先、provider:* 兜底；查不到返回 null（区别于"价格为 0"）。 */
+export function lookupPricing(model: string): { inputPerMillion: number; outputPerMillion: number } | null {
   const provider = model.split(':', 1)[0] ?? '';
-  const price = config.llm.pricing[model] ?? config.llm.pricing[`${provider}:*`];
+  return config.llm.pricing[model] ?? config.llm.pricing[`${provider}:*`] ?? null;
+}
+
+/** 未知价格保持 0，避免伪造供应商账单。 */
+export function calculateCostUsd(model: string, tokensIn: number, tokensOut: number): number {
+  const price = lookupPricing(model);
   if (!price) return 0;
   return Math.round(((tokensIn * price.inputPerMillion + tokensOut * price.outputPerMillion) / 1_000_000) * 1e9) / 1e9;
 }
@@ -167,6 +176,8 @@ const MOCK_TOOL_INPUTS: Record<string, string> = {
 /** 从最后一条 user 消息提取 [tool:name] 标记（演示工具链/审批门控用） */
 function extractToolCall(lastUserContent: string, tools: LlmToolSchema[] = []): LlmToolCall | null {
   const available = new Set(tools.map((tool) => tool.name));
+  // [no-freeze]：验证"承诺冻结但未落盘"场景——抑制一切工具调用，只输出正文
+  if (lastUserContent.includes('[no-freeze]')) return null;
   const send = /\[collab:send:([\w-]+)\]/.exec(lastUserContent);
   if (send?.[1] && available.has('agent.send_message')) return { name: 'agent.send_message', input: JSON.stringify({ target: send[1], message: `请继续处理：${lastUserContent.replace(send[0], '').trim()}`, reason: 'mock 协作交接' }) };
   const ask = /\[collab:ask:([\w,-]+)\]/.exec(lastUserContent);
@@ -177,6 +188,14 @@ function extractToolCall(lastUserContent: string, tools: LlmToolSchema[] = []): 
   const match = /\[tool:([a-zA-Z0-9_.-]+)\]/.exec(lastUserContent);
   const name = match?.[1];
   if (!name) return null;
+  // Coordination 步骤的冻结路径感知：prompt 声明"冻结到 `<path>`"时，mock 按该路径写入足量正文
+  if (name === 'fs.write') {
+    const freezePath = /冻结到\s*`([^`]+)`/.exec(lastUserContent)?.[1];
+    if (freezePath) {
+      const content = `【mock 冻结产物】${freezePath}\n\n${'这是 mock 生成的冻结正文，用于验证产物落盘与终局屏障机制。'.repeat(4)}`;
+      return { name, input: JSON.stringify({ path: freezePath, content }) };
+    }
+  }
   const input = Object.prototype.hasOwnProperty.call(MOCK_TOOL_INPUTS, name)
     ? MOCK_TOOL_INPUTS[name]!
     : JSON.stringify({ note: 'mock 未提供该工具的默认入参' });
@@ -285,6 +304,18 @@ export class MockProvider implements LLMProvider {
     const goal = lastUser?.content ?? '';
     const collaboration = extractMockCollaborationContext(goal);
     const currentInput = collaboration?.message ?? goal;
+    // [truncate]：验证 max_tokens 截断防御——首访返回截断正文；runtime 重试会注入
+    // "上一次反馈（必须处理）"，带该前缀的重试视为已修复，返回完整正文（天然 once 语义）
+    if (currentInput.includes('[truncate]') && !currentInput.includes('上一次反馈')) {
+      const stub = '收到，我是 mock，正在生成本步骤产';
+      return {
+        content: stub,
+        usage: { tokensIn: Math.ceil(stub.length / 2), tokensOut: req.maxTokens ?? 8192, costUsd: 0 },
+        toolCalls: [],
+        stopReason: 'max_tokens',
+        truncated: true,
+      };
+    }
     const content = buildContent(req.model, goal);
     // 假 token：按字符数折算（确定性）
     const tokensIn = Math.ceil(req.messages.reduce((n, m) => n + m.content.length, 0) / 4);
@@ -299,6 +330,7 @@ export class MockProvider implements LLMProvider {
       },
       toolCalls: toolCall === null ? [] : [toolCall],
       stopReason: null,
+      truncated: false,
     };
   }
 }
@@ -364,7 +396,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const body: Record<string, unknown> = {
       model,
       messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
-      max_tokens: config.llm.maxTokens, // thinking 模型思考也耗预算（规格 §7 返工①）
+      max_tokens: req.maxTokens ?? config.llm.maxTokens, // thinking 模型思考也耗预算（规格 §7 返工①）
       stream: true, // §8.1：一律流式请求
     };
     if (req.tools && req.tools.length > 0) {
@@ -437,6 +469,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
       toolCalls: finishToolAccs(toolAccs),
       stopReason,
+      truncated: stopReason === 'length',
     };
   }
 }
@@ -462,6 +495,7 @@ function parseOpenAIFullResponse(data: OpenAIChatResponse, onDelta?: DeltaHandle
     },
     toolCalls: finishToolAccs(toolAccs),
     stopReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
+    truncated: choice?.finish_reason === 'length',
   };
 }
 
@@ -522,7 +556,7 @@ export class AnthropicProvider implements LLMProvider {
       .map((m) => ({ role: m.role, content: m.content }));
     const body: Record<string, unknown> = {
       model,
-      max_tokens: config.llm.maxTokens,
+      max_tokens: req.maxTokens ?? config.llm.maxTokens,
       messages: turns,
       stream: true, // §8.1：一律流式请求
     };
@@ -621,6 +655,7 @@ export class AnthropicProvider implements LLMProvider {
       usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
       toolCalls,
       stopReason,
+      truncated: stopReason === 'max_tokens',
     };
   }
 }
@@ -649,5 +684,6 @@ function parseAnthropicFullResponse(
     },
     toolCalls,
     stopReason: typeof data.stop_reason === 'string' ? data.stop_reason : null,
+    truncated: data.stop_reason === 'max_tokens',
   };
 }

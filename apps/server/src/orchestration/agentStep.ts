@@ -16,9 +16,10 @@
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
 import type { AgentDefinition, CollaborationControlAction, Run } from '@agent-gand/shared';
+import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { resolveProvider } from '../llm/router.ts';
-import type { DeltaHandler, LlmMessage, LlmToolCall, LlmResponse, LlmToolSchema } from '../llm/provider.ts';
+import { lookupPricing, type DeltaHandler, type LlmMessage, type LlmToolCall, type LlmResponse, type LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit } from '../messaging/bus.ts';
 import { endSpan, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
@@ -94,6 +95,11 @@ export interface AgentTurnOptions {
   handleControlCalls?: (calls: LlmToolCall[]) => CollaborationControlAction;
   /** 跨进程稳定的逻辑执行范围；用于审批与工具幂等键。 */
   executionScopeId?: string;
+  /**
+   * 外部工作区隔离（AG-COORD-03）：Coordination run 传 planId 前 8 位，
+   * ext 工作区根下映射到 <extRoot>/<scope>/ 子目录；其他编排器不传保持直访注册根。
+   */
+  workspaceScope?: string | null;
 }
 
 export interface AgentTurnResult {
@@ -103,6 +109,10 @@ export interface AgentTurnResult {
   toolRounds: number;
   /** 是否因空正文失败 */
   emptyResponse: boolean;
+  /** 最终响应被 max_tokens 截断（升预算重发后仍截断）；正文不完整，调用方不得当成功结果 */
+  truncated?: boolean;
+  /** 本轮审批连续超时达到上限被中止（AG-COORD-04）；Coordination 据此暂停 run */
+  approvalStarved?: boolean;
   controlAction: CollaborationControlAction | null;
 }
 
@@ -194,6 +204,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   let toolRounds = 0;
   let nudged = false; // 空正文/伪调用 nudge 只重试一次
   let controlNudged = false;
+  // AG-COORD-02：max_tokens 截断只升预算重发一次；AG-COORD-04：审批连续超时计数
+  let truncBumped = false;
+  let maxTokensOverride: number | undefined;
+  let approvalExpiries = 0;
 
   for (let round = startRound; ; round += 1) {
     const llmSpan = startSpan(run.id, {
@@ -202,6 +216,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       name: `llm:${agent.model}`,
       input: llmSpanInput(messages, toolNames),
       attributes: { 'agent.id': opts.agentId ?? agent.id, 'llm.model': agent.model, 'llm.round': round,
+        'llm.pricing': lookupPricing(agent.model) ? 'priced' : 'unpriced',
         ...(opts.taskId ? { 'task.id': opts.taskId } : {}),
         ...(opts.attemptId ? { 'task.attempt.id': opts.attemptId } : {}) },
     });
@@ -211,7 +226,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         res = replayResponse;
         replayResponse = null;
       } else {
-        res = await provider.chat({ model: agent.model, messages, tools }, deltaForwarder(run.id, llmSpan.id, {
+        res = await provider.chat({ model: agent.model, messages, tools, ...(maxTokensOverride ? { maxTokens: maxTokensOverride } : {}) }, deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
         }));
       }
@@ -226,6 +241,22 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       tokensOut: res.usage.tokensOut,
       costUsd: res.usage.costUsd,
     };
+
+    // AG-COORD-02 截断防御：优先于空正文判定（截断响应可能恰好非空）。
+    // 截断的 toolCalls 参数可能是不完整 JSON、正文必然不完整 → 一律不执行，先升预算重发一次；
+    // 仍截断则带 truncated 标记结束轮次，由调用方决定重试/失败（真机 run 6c3aa6c4 的 35 字符 stub 实证）。
+    if (res.truncated) {
+      if (!truncBumped) {
+        truncBumped = true;
+        maxTokensOverride = Math.min(config.llm.maxTokens * 2, 32_768);
+        endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（max_tokens 截断，加倍预算重发一次）`, status: 'ok', attributes: { 'llm.stop_reason': res.stopReason, 'llm.truncated': true } });
+        continue;
+      }
+      endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（升预算后仍截断）`, status: 'error', attributes: { 'llm.stop_reason': res.stopReason, 'llm.truncated': true } });
+      const result = { content: res.content, toolRounds, emptyResponse: false, truncated: true, controlAction: null };
+      saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'completed', status: 'completed', state: { executionScopeId: scope, result } });
+      return result;
+    }
 
     // 空正文/伪调用防御：无 toolCalls 且（正文为空 或 整条正文是伪调用文本）
     if (res.toolCalls.length === 0 && (res.content.trim().length === 0 || isPseudoToolCallText(res.content))) {
@@ -300,6 +331,13 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       }),
     );
     if (gated.some((g) => g.hadApproval)) setRunStatus(run.id, 'running');
+    // AG-COORD-04：本轮累计审批超时次数；达到上限即中止（真机 run ea1af766 曾空转 30 分钟烧 74K token）。
+    // 不 checkpoint：轮次未完成，恢复时按新轮次重跑。
+    approvalExpiries += gated.filter((g) => g.expired).length;
+    if (approvalExpiries >= config.approvalMaxExpiries) {
+      await postSystem(run.id, agent.id, `连续 ${approvalExpiries} 次审批超时（上限 ${config.approvalMaxExpiries}），本轮执行已中止，等待人工处理`);
+      return { content: '', toolRounds, emptyResponse: false, approvalStarved: true, controlAction: null };
+    }
     const outcomes = await Promise.all(
       gated.map((g) =>
         g.allowed && g.tool
@@ -373,6 +411,8 @@ interface GatedToolCall {
   allowed: boolean;
   /** 是否经过了审批等待（轮级用于统一恢复 run 状态） */
   hadApproval: boolean;
+  /** 本次审批因超时 expired 被拒（AG-COORD-04 计数用） */
+  expired?: boolean;
   note: string | null;
   executionKey: string;
 }
@@ -467,7 +507,7 @@ async function gateToolCall(
       if (decided.status === 'expired') {
         const note = `等待审批超时（已置 expired），工具 ${tool.name} 按拒绝处理`;
         await postSystem(run.id, agent.id, note);
-        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note, executionKey };
+        return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, expired: true, note, executionKey };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -516,17 +556,20 @@ async function runTool(
     const executed = await executeToolOnce({ runId: run.id, agentId: agent.id, taskId: opts.taskId,
       attemptId: opts.attemptId, toolName: tool.name, input: inputRaw, idempotencyKey: executionKey,
       replayPolicy, spanId: toolSpan.id, execute: () => tool.run(parsed, {
-        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null,
+        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null,
       }) });
     const output = executed.output;
     endSpan(toolSpan, { output, status: 'ok' });
+    // AG-COORD-05：长输出（fs.read 文件正文等）只发一行摘要进聊天流，完整内容在 Trace/Trajectory 可查；
+    // 短输出（fs.write 确认、错误提示）保持原文，避免每次读取把整份冻结文件刷进聊天室
+    const collapsed = output.length > 200;
     await post({
       runId: run.id,
       from: agent.id,
       to: 'all',
       kind: 'tool',
-      body: output.slice(0, 500),
-      meta: { tool: tool.name, spanId: toolSpan.id, replayed: executed.replayed },
+      body: collapsed ? `${tool.name} 输出 ${output.length} 字符（已折叠，详见 Trace）` : output,
+      meta: { tool: tool.name, spanId: toolSpan.id, replayed: executed.replayed, ...(collapsed ? { collapsed: true } : {}) },
     });
     return output;
   } catch (err) {
