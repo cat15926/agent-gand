@@ -34,6 +34,7 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null); // 待删除确认的工作区名
   const [renaming, setRenaming] = useState<{ from: string; to: string } | null>(null);
   const [editingLabel, setEditingLabel] = useState<{ id: string; label: string } | null>(null); // §12.3 外部 label 内联编辑
+  const [riskTrusted, setRiskTrusted] = useState(false); // 注册时可勾选信任（写入免逐次审批）
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
@@ -253,7 +254,7 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
                     <div className="mt-1 truncate text-[11px] text-zinc-500" title={x.absPath}>
                       {x.absPath}
                     </div>
-                    <div className="mt-1 text-[11px] text-sky-300/70">写入逐次审批 · 目录外不可触碰</div>
+                    <div className="mt-1 text-[11px] text-sky-300/70">{x.trusted ? '🤝 信任目录：写入免审批 · 目录外不可触碰' : '写入逐次审批 · 目录外不可触碰'}</div>
                   </button>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
                     {editingLabel?.id === x.id ? (
@@ -291,6 +292,13 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
                         <button className="text-zinc-400 hover:text-zinc-100" onClick={() => void op(() => api.revealExternal(x.id))}>
                           在 Finder 中显示
                         </button>
+                        <button
+                          className={x.trusted ? 'text-emerald-300 hover:text-emerald-200' : 'text-zinc-400 hover:text-emerald-300'}
+                          title={x.trusted ? '已信任：目录内写入免审批，点击恢复逐次审批' : '信任此目录：agent 写入免逐次审批（目录外仍不可触碰）'}
+                          onClick={() => void op(() => api.setExternalTrusted(x.id, !x.trusted))}
+                        >
+                          {x.trusted ? '🤝 已信任' : '信任目录'}
+                        </button>
                         <button className="text-zinc-400 hover:text-zinc-100" onClick={() => setEditingLabel({ id: x.id, label: x.label })}>
                           改名
                         </button>
@@ -326,20 +334,25 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
           onClose={() => setBrowserOpen(false)}
           onPick={(picked) => {
             setBrowserOpen(false);
+            setRiskTrusted(false);
             setRiskPath(picked);
           }}
         />
       )}
 
-      {/* 风险确认（§11.3 文案与实际权限一致） */}
+      {/* 风险确认（§11.3 文案与实际权限一致；信任勾选 = 目录内写入免逐次审批） */}
       {riskPath && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-6" onClick={() => setRiskPath(null)}>
           <div className="w-full max-w-md rounded-2xl border border-amber-500/40 bg-zinc-900 p-5" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-amber-300">⚠ 注册外部目录</h3>
             <p className="mt-2 text-xs leading-relaxed text-zinc-300">
-              agent 将能读写此目录内文件（写入逐次审批），目录外不可触碰。
+              agent 将能读写此目录内文件，目录外不可触碰。{riskTrusted ? '你勾选了信任：目录内写入将免逐次审批。' : '未信任时目录内写入需逐次审批。'}
             </p>
             <p className="mt-2 break-all rounded-lg bg-zinc-800 p-2 font-mono text-[11px] text-zinc-400">{riskPath}</p>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
+              <input type="checkbox" checked={riskTrusted} onChange={(e) => setRiskTrusted(e.target.checked)} className="h-3.5 w-3.5 accent-emerald-500" />
+              信任此目录（写入免逐次审批；适合临时调研/产物目录，随时可在列表中关闭）
+            </label>
             <div className="mt-4 flex justify-end gap-2">
               <button className="rounded-md px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200" onClick={() => setRiskPath(null)}>
                 取消
@@ -351,7 +364,7 @@ export function WorkspacePanel({ open, onClose, current, onSelect, goal }: Works
                   setRiskPath(null);
                   void (async () => {
                     try {
-                      const reg = await api.registerExternal(p);
+                      const reg = await api.registerExternal(p, undefined, riskTrusted);
                       onSelect(`ext:${reg.id}`); // §12.3 注册成功自动选中
                       onClose(); // 并关闭面板，可直接发起 run
                     } catch (e) {

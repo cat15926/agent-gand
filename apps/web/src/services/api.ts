@@ -202,6 +202,8 @@ export interface ExternalWorkspaceInfo {
   id: string;
   label: string;
   absPath: string;
+  /** 信任目录：fs.write 免逐次审批（仍受 plan 子目录隔离约束） */
+  trusted: boolean;
   createdAt: string;
 }
 
@@ -222,10 +224,16 @@ export const deleteWorkspace = (name: string) =>
     method: 'POST',
     body: JSON.stringify({ confirm: true }),
   });
-export const registerExternal = (path: string, label?: string) =>
+export const registerExternal = (path: string, label?: string, trusted?: boolean) =>
   request<ExternalWorkspaceInfo>('/api/workspaces/register', {
     method: 'POST',
-    body: JSON.stringify({ path, label }),
+    body: JSON.stringify({ path, label, trusted }),
+  });
+/** 信任开关：开启后该外部目录内写入免逐次审批 */
+export const setExternalTrusted = (id: string, trusted: boolean) =>
+  request<ExternalWorkspaceInfo>(`/api/workspaces/register/${encodeURIComponent(id)}/trust`, {
+    method: 'POST',
+    body: JSON.stringify({ trusted }),
   });
 export const unregisterExternal = (id: string) =>
   request<{ ok: boolean }>(`/api/workspaces/register/${encodeURIComponent(id)}`, { method: 'DELETE' });

@@ -206,7 +206,7 @@ async function drain(conversationId: string): Promise<void> {
       const history = conversationHistory(conversationId, current.turnNo);
       if (directed.length > 0) {
         // 显式定向（回复/@）且无编排诉求：仅目标 Agent 回应，不重跑编排
-        const hint = `本轮用户定向${directed.length > 1 ? `（并行征询 ${directed.map((agent) => agent.name).join('、')}）` : `给${directed[0]!.name}`}，请直接回应；如需团队协作请明确说明。`;
+        const hint = `本轮用户定向${directed.length > 1 ? `（并行征询 ${directed.map((agent) => agent.name).join('、')}）` : `给${directed[0]!.name}`}，请直接回应；如需团队协作请明确说明。直接在回复中给出完整内容，除非用户明确要求，不要用 fs.write 落盘存档。`;
         const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
         await runFastPathTurn(current, directed, contextGoal, messageInput, 'directed');
         inputs.delete(current.id);
@@ -218,7 +218,8 @@ async function drain(conversationId: string): Promise<void> {
           ?? members.find((agent) => agent.capabilities.includes('execute'))
           ?? members[0];
         if (target) {
-          const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n本轮用户消息（简单追问，直接回应）：\n${current.goal}` : `本轮用户消息（简单追问，直接回应）：\n${current.goal}`;
+          const hint = '本轮为简单追问，直接在回复中给出完整内容即可；除非用户明确要求，不要用 fs.write 落盘存档。';
+          const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
           await runFastPathTurn(current, [target], contextGoal, messageInput, 'simple');
           inputs.delete(current.id);
           continue;

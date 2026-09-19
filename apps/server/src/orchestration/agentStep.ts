@@ -467,13 +467,18 @@ async function gateToolCall(
       sharedWrite = false;
     }
   }
-  // §11.3 外部工作区写保护（用户裁定：逐次审批）：run 绑定外部目录时 fs.write 一律人工审批
-  // （auto/白名单内不豁免——本机目录写入由用户逐次拍板；外部内 shared/archive 前缀在 resolver 层已拒）
+  // §11.3 外部工作区写保护（用户裁定：逐次审批）：run 绑定外部目录时 fs.write 人工审批
+  // （auto/白名单内不豁免——本机目录写入由用户逐次拍板；外部内 shared/archive 前缀在 resolver 层已拒）。
+  // 信任目录例外：注册时标记 trusted 的目录免逐次审批（真机反馈：调研类任务每次落盘都弹卡），
+  // 隔离不变——仍受 Coordination plan 子目录与 resolver 包含性检查约束。
   let externalWrite = false;
   let externalRoot = '';
   if (decision === 'allow' && tool.name === 'fs.write' && isExternalRun({ workspace: run.workspace ?? null })) {
-    externalWrite = true;
-    externalRoot = getExternalByIdOrThrow(externalId(run.workspace) ?? '').absPath;
+    const external = getExternalByIdOrThrow(externalId(run.workspace) ?? '');
+    if (!external.trusted) {
+      externalWrite = true;
+      externalRoot = external.absPath;
+    }
   }
   const effectiveDecision = sharedWrite || externalWrite ? 'need_approval' : decision;
 

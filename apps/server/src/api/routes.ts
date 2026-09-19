@@ -52,6 +52,7 @@ import {
   listExternal,
   registerExternal,
   revealExternal,
+  setExternalTrusted,
   unregisterExternal,
   updateExternalLabel,
   ExternalWorkspaceError,
@@ -579,11 +580,20 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // 外部目录注册表（§11.2）
   app.get('/api/workspaces/external', async () => listExternal());
-  app.post<{ Body: { path?: string; label?: string } }>('/api/workspaces/register', async (req) => {
-    const { path: p, label } = req.body ?? {};
+  app.post<{ Body: { path?: string; label?: string; trusted?: boolean } }>('/api/workspaces/register', async (req) => {
+    const { path: p, label, trusted } = req.body ?? {};
     if (typeof p !== 'string' || p.length === 0) throw httpError(400, 'path 必填');
     try {
-      return registerExternal({ path: p, label });
+      return registerExternal({ path: p, label, trusted: trusted === true });
+    } catch (err) {
+      if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
+      throw err;
+    }
+  });
+  app.post<{ Params: { id: string }; Body: { trusted?: boolean } }>('/api/workspaces/register/:id/trust', async (req) => {
+    if (typeof req.body?.trusted !== 'boolean') throw httpError(400, 'trusted 必填');
+    try {
+      return setExternalTrusted(req.params.id, req.body.trusted);
     } catch (err) {
       if (err instanceof ExternalWorkspaceError) throw httpError(err.status, err.message);
       throw err;

@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS run_agent_snapshots (
 CREATE TABLE IF NOT EXISTS external_workspaces (
   id TEXT PRIMARY KEY, label TEXT NOT NULL,
   abs_path TEXT NOT NULL UNIQUE,                  -- realpath 后的本机目录（§11.2）
+  trusted INTEGER NOT NULL DEFAULT 0,             -- 信任目录：fs.write 免逐次审批（仍受 plan 子目录隔离）
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tasks (

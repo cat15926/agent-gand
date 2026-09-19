@@ -84,6 +84,9 @@ ensureColumns('approvals', [
   { name: 'idempotency_key', sql: 'idempotency_key TEXT' },
   { name: 'checkpoint_id', sql: 'checkpoint_id TEXT' },
 ]);
+ensureColumns('external_workspaces', [
+  { name: 'trusted', sql: 'trusted INTEGER NOT NULL DEFAULT 0' },
+]);
 db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
   agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,
   created_at TEXT NOT NULL, PRIMARY KEY(agent_id, version))`);

@@ -13,6 +13,8 @@ export interface ExternalWorkspace {
   id: string;
   label: string;
   absPath: string;
+  /** 信任目录：fs.write 免逐次审批（仍受 plan 子目录隔离与包含性检查约束） */
+  trusted: boolean;
   createdAt: string;
 }
 
@@ -20,11 +22,12 @@ interface ExternalRow {
   id: string;
   label: string;
   abs_path: string;
+  trusted: number;
   created_at: string;
 }
 
 function rowToExternal(row: ExternalRow): ExternalWorkspace {
-  return { id: row.id, label: row.label, absPath: row.abs_path, createdAt: row.created_at };
+  return { id: row.id, label: row.label, absPath: row.abs_path, trusted: row.trusted === 1, createdAt: row.created_at };
 }
 
 export class ExternalWorkspaceError extends Error {
@@ -67,7 +70,7 @@ export function getExternalByIdOrThrow(id: string): ExternalWorkspace {
  * 注册本机目录：必须存在且为目录；取 realpath 登记（唯一）。
  * 同一路径重复注册 → 409（返回既有记录由调用方决定文案）。
  */
-export function registerExternal(input: { path: string; label?: string }): ExternalWorkspace {
+export function registerExternal(input: { path: string; label?: string; trusted?: boolean }): ExternalWorkspace {
   let real: string;
   try {
     real = realpathSync(path.resolve(input.path));
@@ -90,16 +93,25 @@ export function registerExternal(input: { path: string; label?: string }): Exter
     id: randomUUID().replace(/-/g, '').slice(0, 8),
     label: input.label && input.label.trim().length > 0 ? input.label.trim() : path.basename(real),
     absPath: real,
+    trusted: input.trusted === true,
     createdAt: new Date().toISOString(),
   };
   run(
-    'INSERT INTO external_workspaces (id, label, abs_path, created_at) VALUES (?, ?, ?, ?)',
+    'INSERT INTO external_workspaces (id, label, abs_path, trusted, created_at) VALUES (?, ?, ?, ?, ?)',
     record.id,
     record.label,
     record.absPath,
+    record.trusted ? 1 : 0,
     record.createdAt,
   );
   return record;
+}
+
+/** 信任开关：开启后该目录内 fs.write 免逐次审批；关闭恢复逐次审批。id 不存在 → 404 */
+export function setExternalTrusted(id: string, trusted: boolean): ExternalWorkspace {
+  const changes = run('UPDATE external_workspaces SET trusted = ? WHERE id = ?', trusted ? 1 : 0, id);
+  if (changes === 0) throw new ExternalWorkspaceError(`外部工作区未注册: ${id}`, 404);
+  return getExternalByIdOrThrow(id);
 }
 
 /** 解除注册（不动磁盘文件）；id 不存在 → 404 */

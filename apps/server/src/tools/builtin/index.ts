@@ -189,7 +189,7 @@ const fsRead: Tool = {
 const fsWrite: Tool = {
   name: 'fs.write',
   description:
-    '写入沙箱内文本文件（无前缀=当前 run 工作区，自动建目录）。注意：写入 shared/ 前缀（团队共享区）或本次运行使用外部工作区时，一律触发人工审批；shared/ 只存放跨 run 复用的持久团队资产（模板/词典/规范），任务看板与一次性产物请写本 run 工作区。历史产物在 archive/ 前缀下只读。',
+    '写入沙箱内文本文件（无前缀=当前 run 工作区，自动建目录）。注意：写入 shared/ 前缀（团队共享区）或本次运行使用未信任的外部工作区时，触发人工审批（外部目录标记信任后免审批）；shared/ 只存放跨 run 复用的持久团队资产（模板/词典/规范），任务看板与一次性产物请写本 run 工作区。历史产物在 archive/ 前缀下只读。',
   inputSchema: {
     type: 'object',
     properties: {

@@ -479,6 +479,29 @@ try {
   assert.equal(cancelResult.data.status, 'cancelled');
   assert.equal((await coordination(cancelStarted.run.id)).plan.status, 'cancelled');
 
+  // ---- 信任目录：注册 trusted 外部工作区 → fs.write 免逐次审批，隔离不变 ----
+  const trustedRoot = path.join(root, 'trusted-ws');
+  await mkdir(trustedRoot, { recursive: true });
+  const trustedReg = await api('/api/workspaces/register', 'POST', { path: trustedRoot, label: 'trusted', trusted: true });
+  assert.ok([200, 201].includes(trustedReg.status), JSON.stringify(trustedReg.data));
+  assert.equal(trustedReg.data.trusted, true, '注册时应持久化 trusted 标记');
+  const toggleOff = await api(`/api/workspaces/register/${trustedReg.data.id}/trust`, 'POST', { trusted: false });
+  assert.equal(toggleOff.data.trusted, false, '信任开关可关闭');
+  await api(`/api/workspaces/register/${trustedReg.data.id}/trust`, 'POST', { trusted: true });
+  const trusted = await preview({
+    goal: '进行1轮辩论，正方支持方案 E，反方支持方案 F，最后由 Reviewer 裁判 [tool:fs.write]',
+    agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
+  });
+  const trustedStarted = await startDraft(trusted, { defaultReviewerId: 'reviewer', workspace: `ext:${trustedReg.data.id}` });
+  const trustedDetail = await waitForRun(trustedStarted.run.id, 30_000);
+  assert.equal(trustedDetail.run.status, 'completed');
+  const trustedApprovals = ((await api('/api/approvals')).data ?? []).filter((item) => item.runId === trustedStarted.run.id);
+  assert.equal(trustedApprovals.length, 0, '信任目录内写入不得产生审批卡');
+  const trustedRuntime = await coordination(trustedStarted.run.id);
+  const trustedScope = trustedRuntime.plan.id.slice(0, 8);
+  const trustedContent = await readFile(path.join(trustedRoot, trustedScope, 'debate/r1-pro.md'), 'utf8');
+  assert.ok(trustedContent.length >= 64, '信任目录仍须按 plan 子目录隔离落盘');
+
   console.log('coordination verification passed: planning, execution, barriers, review revision, debate freeze, truncation retry, isolation, pause/resume, recovery, observability');
 } finally {
   await stopServer();
