@@ -36,7 +36,7 @@ export interface Run {
   finishedAt: string | null;
 }
 
-export type RunCheckpointKind = 'pipeline' | 'supervisor' | 'collaboration' | 'coordination' | 'agent_turn' | 'approval';
+export type RunCheckpointKind = 'pipeline' | 'supervisor' | 'collaboration' | 'coordination' | 'fastpath' | 'agent_turn' | 'approval';
 export type RunCheckpointStatus = 'active' | 'waiting' | 'completed' | 'superseded';
 
 /** Durable execution 的恢复边界。state 是编排器可重放的最小状态，不保存模型内部状态。 */

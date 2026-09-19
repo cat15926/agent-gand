@@ -12,6 +12,8 @@ interface BuildState {
   steps: CoordinationPlanStep[];
   actorBindings: Record<string, string>;
   tail: string[];
+  /** 任务目标原文：点名聚合等确定性启发式的判定输入 */
+  goal: string | null;
 }
 
 function actorTools(agentId: string | null, snapshot: CapabilitySnapshot): CoordinationPlanStep['toolPolicy'] {
@@ -70,9 +72,21 @@ function compileParallel(state: BuildState, snapshot: CapabilitySnapshot): void 
     branchIds.push(id);
     state.steps.push(makeStep(snapshot, 'parallel_fanout', id, 'fanout', role, 'execute', bind(state, role, worker.id), [...state.tail], '独立分支产物已提交', { metadata: { independent: true } }));
   }
-  const coordinator = snapshot.agents.find((agent) => agent.capabilities.includes('coordinate')) ?? workers[0];
+  // 点名聚合（真机会话 31ec5657："@coder @鸡腿 分别调研…，最后由 @reviewer 进行汇总"）：
+  // 成员名出现在汇总词前邻近位置（"由 @X 进行汇总"）→ 绑定该成员为聚合者。
+  // 邻近要求排除"仅被提及"的分支成员（如 @planner 出现在句首）。确定性 MVP；阶段 D 由 TaskBrief 显式角色约束替代。
+  const goal = state.goal;
+  const namedAggregator = goal === null ? undefined : snapshot.agents.find((agent) =>
+    [agent.id, agent.name]
+      .filter((name) => name.length >= 2)
+      .some((name) => new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.{0,12}(?:汇总|总结|整合|统一结论)`, 'u').test(goal!)));
+  const coordinator = namedAggregator
+    ?? snapshot.agents.find((agent) => agent.capabilities.includes('coordinate'))
+    ?? workers[0];
   const aggregateId = 'parallel-aggregate';
-  state.steps.push(makeStep(snapshot, 'parallel_fanout', aggregateId, 'aggregate', 'aggregator', coordinator?.capabilities.includes('coordinate') ? 'coordinate' : 'execute', bind(state, 'aggregator', coordinator?.id), branchIds, '所有必需分支已形成统一结果'));
+  state.steps.push(makeStep(snapshot, 'parallel_fanout', aggregateId, 'aggregate', 'aggregator',
+    coordinator?.capabilities.includes('coordinate') ? 'coordinate' : coordinator?.capabilities[0] ?? 'execute',
+    bind(state, 'aggregator', coordinator?.id), branchIds, '所有必需分支已形成统一结果'));
   state.tail = [aggregateId];
 }
 
@@ -163,6 +177,7 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
     steps: [],
     actorBindings: Object.fromEntries(snapshot.agents.map((agent, index) => [`team-${index + 1}`, agent.id])),
     tail: [],
+    goal: draft.taskBrief.objective,
   };
   for (const selected of draft.protocols) {
     switch (selected.protocol) {

@@ -242,14 +242,16 @@ try {
   assert.ok(debate.plan.steps.at(-1).dependsOn.includes('debate-judge'));
   const debateStarted = await startDraft(debate, { defaultReviewerId: 'reviewer' });
   const debateDetail = await waitForRun(debateStarted.run.id);
-  const debateMessages = debateDetail.messages.filter((message) => message.kind === 'agent');
+  // 过程消息（工具轮中间正文，informational）与结论消息（result/review_result）分开计
+  const isFinalAgent = (message) => message.kind === 'agent' && message.meta?.round === undefined; // meta.round = 工具轮过程消息
+  const debateMessages = debateDetail.messages.filter(isFinalAgent);
   assert.equal(debateMessages.length, 7, '三轮辩论必须形成六次独立发言和一次裁决');
   assert.deepEqual(debateMessages.map((message) => message.payload.coordinationStepId), [
     'debate-r1-pro', 'debate-r1-con', 'debate-r2-pro', 'debate-r2-con', 'debate-r3-pro', 'debate-r3-con', 'debate-judge',
   ]);
   await new Promise((resolve) => setTimeout(resolve, 300));
   const settledDebate = await api(`/api/runs/${debateStarted.run.id}`);
-  assert.equal(settledDebate.data.messages.filter((message) => message.kind === 'agent').length, 7, '完成后不得出现迟到输出');
+  assert.equal(settledDebate.data.messages.filter(isFinalAgent).length, 7, '完成后不得出现迟到输出');
   const observed = await api(`/api/runs/${debateStarted.run.id}/observability`);
   assert.equal(observed.status, 200);
   assert.equal(observed.data.graph.nodes.filter((node) => node.kind === 'coordination_step').length, debate.plan.steps.length);
@@ -260,6 +262,69 @@ try {
     const content = await readFile(path.join(debateSandbox, rel), 'utf8');
     assert.ok(content.length >= 64, `产物过短或未落盘：${rel}`);
   }
+
+  // ---- Follow-up Router（docs/plans/followup-routing-plan.md）----
+  const conversationId = debateStarted.conversation.id;
+  const judgeMessage = debateDetail.messages.find((message) => message.kind === 'agent' && message.payload?.coordinationStepId === 'debate-judge');
+  assert.ok(judgeMessage, '找不到裁判裁决消息');
+  const askUrl = `/api/conversations/${conversationId}/messages`;
+
+  // 显式定向：回复裁判消息 → 仅 reviewer 回应，不重跑编排
+  const directed = await api(askUrl, 'POST', { body: '请用一句话总结你的裁决结论', replyTo: judgeMessage.id, clientMessageId: crypto.randomUUID() });
+  assert.equal(directed.status, 202, JSON.stringify(directed.data));
+  const directedDetail = await waitForRun(directed.data.run.id);
+  const directedAnswers = directedDetail.messages.filter(isFinalAgent);
+  assert.equal(directedAnswers.length, 1, `定向追问应只有一个 Agent 回应，实际 ${directedAnswers.length}`);
+  assert.equal(directedAnswers[0].from, 'reviewer', `回复裁判应由 reviewer 回应，实际 ${directedAnswers[0]?.from}`);
+  const directedRuntime = await api(`/api/runs/${directed.data.run.id}/coordination-plan`);
+  assert.equal(directedRuntime.status, 404, '定向快速路径不得创建 Coordination Plan');
+
+  // 无定向简单追问 → 最近成功回复者（裁判 reviewer），单 turn 完成
+  const simple = await api(askUrl, 'POST', { body: '介绍一下这个裁决的背景知识', clientMessageId: crypto.randomUUID() });
+  assert.equal(simple.status, 202, JSON.stringify(simple.data));
+  const simpleDetail = await waitForRun(simple.data.run.id);
+  const simpleAnswers = simpleDetail.messages.filter(isFinalAgent);
+  assert.equal(simpleAnswers.length, 1, `简单追问应走最近回复者快速路径，实际 ${simpleAnswers.length} 条 agent 消息`);
+  assert.equal(simpleAnswers[0].from, 'reviewer', `最近成功回复者应为 reviewer，实际 ${simpleAnswers[0]?.from}`);
+
+  // 结构化追问（再进行1轮辩论）→ 协调房间服务端重新规划新 Plan，而非 pipeline 重跑
+  const structured = await api(askUrl, 'POST', { body: '进行1轮辩论，正方支持方案 C，反方支持方案 D，最后由 Reviewer 裁判 [tool:fs.write]', clientMessageId: crypto.randomUUID() });
+  assert.equal(structured.status, 202, JSON.stringify(structured.data));
+  await waitForRun(structured.data.run.id, 30_000);
+  const structuredPlan = await api(`/api/runs/${structured.data.run.id}/coordination-plan`);
+  assert.equal(structuredPlan.status, 200, '结构化追问应生成新 Coordination Plan');
+  assert.ok(structuredPlan.data.protocols.some((item) => item.protocol === 'debate'));
+  assert.notEqual(structuredPlan.data.id, debate.plan.id, '必须是新 Plan 而非复用上一轮');
+  const structuredRuntime = await coordination(structured.data.run.id);
+  assert.ok(structuredRuntime.steps.every((step) => step.status === 'completed'));
+  const structuredSandbox = sandboxDirOf(structured.data.run);
+  for (const rel of ['debate/r1-pro.md', 'debate/r1-con.md']) {
+    const content = await readFile(path.join(structuredSandbox, rel), 'utf8');
+    assert.ok(content.length >= 64, `新 Plan 产物未落盘：${rel}`);
+  }
+
+  // 定向 + 结构化复合诉求（真机会话 31ec5657 seq30 形态）："@A @B 分别调研…最后由 @reviewer 汇总"
+  // → 必须走编排（汇总步骤等待全部分支），@提及不得短路成并行问答；点名成员绑定聚合步骤
+  const hybrid = await api(askUrl, 'POST', {
+    body: '@planner @coder 分别调研两个方案的优劣，最后由 @reviewer 进行汇总',
+    recipientIds: ['planner', 'coder'], clientMessageId: crypto.randomUUID(),
+  });
+  assert.equal(hybrid.status, 202, JSON.stringify(hybrid.data));
+  await waitForRun(hybrid.data.run.id, 30_000);
+  const hybridPlan = await api(`/api/runs/${hybrid.data.run.id}/coordination-plan`);
+  assert.equal(hybridPlan.status, 200, '定向+结构化复合诉求必须生成 Coordination Plan，不得短路成定向问答');
+  assert.ok(hybridPlan.data.protocols.some((item) => item.protocol === 'parallel_fanout'));
+  const aggregateStep = hybridPlan.data.steps.find((step) => step.id === 'parallel-aggregate');
+  assert.equal(aggregateStep.agentId, 'reviewer', `点名汇总者应绑定聚合步骤，实际 ${aggregateStep.agentId}`);
+  const hybridRuntime = await coordination(hybrid.data.run.id);
+  assert.ok(hybridRuntime.steps.every((step) => step.status === 'completed'));
+  const hybridBranches = hybridRuntime.steps.filter((step) => step.stepId.startsWith('parallel-branch-'));
+  const hybridAggregate = hybridRuntime.steps.find((step) => step.stepId === 'parallel-aggregate');
+  assert.equal(hybridBranches.length, 2);
+  assert.ok(hybridBranches.every((step) => new Date(hybridAggregate.startedAt) >= new Date(step.completedAt)), '汇总步骤必须等待全部调研分支完成');
+  const hybridAnswers = (await api(`/api/runs/${hybrid.data.run.id}`)).data.messages.filter(isFinalAgent);
+  assert.equal(hybridAnswers.length, 3, '两个调研分支 + 一次汇总');
+  assert.equal(hybridAnswers[2].from, 'reviewer', '最后一条必须是 reviewer 的汇总');
 
   const ambiguous = await preview({ goal: '分析认证方案的取舍', agentIds: ['planner', 'coder'] });
   assert.equal(ambiguous.draft.decision, 'clarify');
@@ -307,7 +372,7 @@ try {
   assert.ok(recoveredRuntime.steps.every((step) => step.status === 'completed'));
   assert.equal(recoveredRuntime.attempts.length, recovery.plan.steps.length, '重启后必须复用 interrupted attempt，不得重复增加 attempt');
   assert.equal(new Set(recoveredRuntime.attempts.map((attempt) => attempt.idempotencyKey)).size, recoveredRuntime.attempts.length);
-  const recoveredMessages = recoveredDetail.messages.filter((message) => message.kind === 'agent');
+  const recoveredMessages = recoveredDetail.messages.filter(isFinalAgent);
   assert.equal(recoveredMessages.length, 21, '十轮辩论恢复后应恰好有二十次发言和一次裁决');
   assert.equal(new Set(recoveredMessages.map((message) => message.payload.coordinationStepId)).size, 21);
 

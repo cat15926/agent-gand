@@ -59,7 +59,10 @@ export function normalizeTask(input: CoordinationPreviewInput, snapshot: Capabil
     hardConstraints.maximumSteps = maximumSteps;
     constraintEvidence.push({ constraint: 'maximumSteps', source: 'user_input', value: maximumSteps, excerpt: `最多${maximumSteps}步骤` });
   }
-  if (includes(goal, /(?:最后|最终).{0,12}(?:reviewer|评审|裁判)/iu)) {
+  // 末位审查硬约束：必须"成员词 + 审查/裁决类动词"同现（真机会话 31ec5657 seq30 实证：
+  // "最后由 @reviewer 进行汇总"是点名聚合而非终审——仅"最后+reviewer"同现会误设约束，
+  // 导致 parallel 编译因无 review 步骤被 HARD_CONSTRAINT_DROPPED 拒绝）
+  if (includes(goal, /(?:最后|最终).{0,16}(?:reviewer|评审员?|裁判).{0,8}(?:裁决|审查|评审|裁定|判定|裁判|结论)/iu)) {
     hardConstraints.reviewAfterCompletion = true;
     constraintEvidence.push({ constraint: 'reviewAfterCompletion', source: 'user_input', value: true, excerpt: '最终由评审或裁判检查' });
   }
@@ -98,6 +101,17 @@ function chooseProtocols(goal: string, agentCount: number, requested?: Coordinat
   if (includes(goal, /(?:先.{1,30}再|然后|依次|按顺序|流水线)/u)) return ['sequential_pipeline'];
   if (includes(goal, /(?:自由讨论|自由协作|开放探索)/u)) return ['dynamic_collaboration'];
   return agentCount === 1 ? ['single_agent'] : ['dynamic_collaboration'];
+}
+
+/**
+ * 追问路由判定（docs/plans/followup-routing-plan.md）：消息是否指向结构化协作任务。
+ * 只有明确命中协议关键词才算结构化（辩论/审查/并行/投票/共识/主管/顺序…）；
+ * single_agent 与 dynamic_collaboration（一般对话/开放交流）都算"简单"——
+ * 误判成本不对称：误轻可 @ 升级补救，误重要白等一整轮编排。
+ */
+export function isStructuredFollowupGoal(goal: string): boolean {
+  const selected = chooseProtocols(goal, 2); // agentCount=2 避免单人房间误判 single_agent
+  return selected.some((id) => id !== 'single_agent' && id !== 'dynamic_collaboration');
 }
 
 function runtimeFor(protocols: CoordinationProtocolId[], snapshot: CapabilitySnapshot): RunMode | null {

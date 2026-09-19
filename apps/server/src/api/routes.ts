@@ -348,7 +348,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       if (recipientIds !== undefined && (!Array.isArray(recipientIds) || !recipientIds.every((id) => typeof id === 'string' && conversation.agentIds.includes(id)))) {
         throw httpError(400, 'recipientIds 必须全部属于当前聊天室');
       }
-      if (conversation.mode === 'collaboration' && (recipientIds?.length ?? 0) > config.collaboration.maxTargets) throw httpError(400, `recipientIds 最多 ${config.collaboration.maxTargets} 个`);
+      if ((recipientIds?.length ?? 0) > config.collaboration.maxTargets) throw httpError(400, `recipientIds 最多 ${config.collaboration.maxTargets} 个`);
       const existing = listByConversation(conversation.id).find((message) => message.clientMessageId === clientMessageId);
       if (existing) {
         const existingRun = getRun(existing.runId);

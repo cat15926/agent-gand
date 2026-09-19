@@ -96,6 +96,15 @@ export function getRunCoordinationPlan(runId: string): CoordinationPlan | undefi
   return parse<CoordinationPlan>(get<PayloadRow>('SELECT payload FROM coordination_plans WHERE run_id=?', runId));
 }
 
+/** Follow-up Router 用：该聊天室是否有过 Coordination Plan（结构化追问值得重新规划的历史信号） */
+export function conversationHasCoordinationPlan(conversationId: string): boolean {
+  const row = get<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM coordination_plans p JOIN runs r ON r.id = p.run_id WHERE r.conversation_id = ?',
+    conversationId,
+  );
+  return (row?.n ?? 0) > 0;
+}
+
 export function activateCoordinationPlan(planId: string, runId: string): CoordinationPlan | undefined {
   return tx(() => {
     const plan = getCoordinationPlan(planId);

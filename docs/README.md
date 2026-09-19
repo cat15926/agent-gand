@@ -29,6 +29,7 @@
 - [P1 实施路线与验收状态](./plans/p1-implementation-roadmap.md)
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
 - [通用协作规划器与 Coordination Plan 设计](./plans/coordination-planner-design.md)
+- [聊天室追问路由与任务级编排方案](./plans/followup-routing-plan.md)
 - [Collaboration 模式实施计划](./plans/collaboration-mode-implementation-plan.md)
 - [Agent 通信与调度方案](./plans/agent-communication-scheduling-plan.md)
 - [Agent 角色管理实施指导](./plans/agent-role-management-implementation-guide.md)

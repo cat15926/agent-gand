@@ -349,7 +349,7 @@ function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyC
     setBusy(true); setError('');
     try {
       if (replyDecision?.kind === 'agent_question') await api.resolveCollaborationDecision(replyDecision.id, { action: 'answer', message: body });
-      else await api.sendConversationMessage(room.id, { body, ...(room.mode === 'collaboration' && effectiveRecipients.length > 0 ? { recipientIds: effectiveRecipients } : {}), replyTo: reply?.id ?? null,
+      else await api.sendConversationMessage(room.id, { body, ...(effectiveRecipients.length > 0 ? { recipientIds: effectiveRecipients } : {}), replyTo: reply?.id ?? null,
           taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID() });
       setText(''); setRecipients([]); onReplyClear(); await refreshConversation();
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
