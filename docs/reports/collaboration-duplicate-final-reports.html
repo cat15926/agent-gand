@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>collaboration 重复最终报告 · 可视化分析</title>
+<style>
+  :root {
+    --ink: #18181b; --sub: #52525b; --line: #e4e4e7; --bg: #fafafa;
+    --red: #dc2626; --blue: #2563eb; --green: #059669; --amber: #d97706; --purple: #7c3aed;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 24px 64px; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .meta { color: var(--sub); font-size: 13px; margin-bottom: 24px; }
+  .meta code { background: #f4f4f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .stat .n { font-size: 26px; font-weight: 700; }
+  .stat .t { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .stat.bad .n { color: var(--red); }
+  h2 { font-size: 17px; margin: 32px 0 12px; }
+  .figure { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; }
+  svg { display: block; margin: 0 auto; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .cause { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; border-top: 4px solid var(--accent); }
+  .cause h3 { margin: 0 0 8px; font-size: 14px; }
+  .cause p { margin: 0; font-size: 13px; color: var(--sub); line-height: 1.6; }
+  .cause code { background: #f4f4f5; padding: 0 4px; border-radius: 3px; font-size: 12px; color: var(--ink); }
+  table { border-collapse: collapse; width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  th { background: #f4f4f5; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.q { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .done { color: var(--green); font-weight: 600; }
+  .dupe { color: var(--red); font-weight: 600; }
+  ol.fix li { margin-bottom: 8px; font-size: 14px; line-height: 1.6; }
+  ol.fix li b { font-weight: 600; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-right: 6px; }
+  .tag.must { background: #fee2e2; color: #b91c1c; }
+  .tag.nice { background: #e0e7ff; color: #4338ca; }
+  @media (max-width: 900px) { .stats, .cards { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>collaboration 汇总者被重复触发：最终报告连发三份</h1>
+  <div class="meta">
+    run <code>b4a0f9ec-c5f0-45a2-99ca-3772c79e3be4</code> · 2026-09-20 02:38–02:44 · collaboration 模式 ·
+    issue 详见 <code>docs/issues/collaboration-duplicate-final-reports.md</code>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n">5</div><div class="t">条排队 dispatch 全部指向 reviewer</div></div>
+    <div class="stat bad"><div class="n">3</div><div class="t">份近似相同的最终报告发给用户</div></div>
+    <div class="stat bad"><div class="n">2×</div><div class="t">每条调研正文在上下文中出现两次</div></div>
+    <div class="stat bad"><div class="n">2</div><div class="t">次无效往返（重征询 + 二次提交）</div></div>
+  </div>
+
+  <h2>① 消息时序（泳道图，时间向下）</h2>
+  <div class="figure">
+  <svg viewBox="0 0 1160 780" width="100%" height="auto" font-family="inherit">
+    <defs>
+      <marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+      <marker id="m-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker>
+      <marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker>
+      <marker id="m-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    </defs>
+
+    <!-- 泳道头 -->
+    <g font-size="13" font-weight="600" text-anchor="middle">
+      <rect x="95" y="16" width="110" height="30" rx="15" fill="#e2e8f0"/><text x="150" y="36" fill="#334155">用户</text>
+      <rect x="365" y="16" width="130" height="30" rx="15" fill="#dbeafe"/><text x="430" y="36" fill="#1d4ed8">Reviewer</text>
+      <rect x="625" y="16" width="110" height="30" rx="15" fill="#d1fae5"/><text x="680" y="36" fill="#047857">jitui</text>
+      <rect x="835" y="16" width="110" height="30" rx="15" fill="#fef3c7"/><text x="890" y="36" fill="#b45309">nim</text>
+      <rect x="1000" y="16" width="120" height="30" rx="15" fill="#ede9fe"/><text x="1060" y="36" fill="#6d28d9">调度器</text>
+    </g>
+    <!-- 生命线 -->
+    <g stroke="#cbd5e1" stroke-dasharray="4 4" stroke-width="1.5">
+      <line x1="150" y1="52" x2="150" y2="730"/><line x1="430" y1="52" x2="430" y2="730"/>
+      <line x1="680" y1="52" x2="680" y2="730"/><line x1="890" y1="52" x2="890" y2="730"/>
+      <line x1="1060" y1="52" x2="1060" y2="730"/>
+    </g>
+
+    <!-- 激活条：正在处理某条 dispatch -->
+    <g>
+      <rect x="676" y="142" width="9" height="124" fill="#a7f3d0"/>
+      <rect x="886" y="142" width="9" height="176" fill="#fde68a"/>
+      <rect x="424" y="246" width="12" height="176" fill="#bfdbfe"/>
+      <rect x="424" y="422" width="12" height="156" fill="#bfdbfe"/>
+      <rect x="424" y="578" width="12" height="52" fill="#bfdbfe"/>
+      <rect x="424" y="630" width="12" height="52" fill="#bfdbfe"/>
+      <rect x="886" y="452" width="9" height="74" fill="#fde68a"/>
+      <g font-size="10.5" fill="#3b82f6" text-anchor="end" font-weight="600">
+        <text x="418" y="340">#1 执行中</text><text x="418" y="505">#3 执行中</text>
+        <text x="418" y="608">#2</text><text x="418" y="660">#5</text>
+      </g>
+    </g>
+
+    <!-- R 标记 -->
+    <g font-size="11" font-weight="700" text-anchor="middle">
+      <circle cx="782" cy="300" r="9" fill="#dc2626"/><text x="782" y="304" fill="#fff">R1</text>
+      <circle cx="960" cy="364" r="9" fill="#dc2626"/><text x="960" y="368" fill="#fff">R1</text>
+      <circle cx="700" cy="426" r="9" fill="#dc2626"/><text x="700" y="430" fill="#fff">R3</text>
+      <circle cx="980" cy="478" r="9" fill="#dc2626"/><text x="980" y="482" fill="#fff">R3</text>
+      <circle cx="300" cy="634" r="9" fill="#dc2626"/><text x="300" y="638" fill="#fff">R2</text>
+      <circle cx="300" cy="686" r="9" fill="#dc2626"/><text x="300" y="690" fill="#fff">R2</text>
+    </g>
+
+    <!-- 时间刻度 -->
+    <g font-size="11.5" fill="#71717a" text-anchor="start" font-family="ui-monospace, Menlo, monospace">
+      <text x="12" y="114">02:38:23</text><text x="12" y="166">02:38:58</text><text x="12" y="218">02:39:1–32</text>
+      <text x="12" y="270">02:40:12</text><text x="12" y="322">02:40:55</text><text x="12" y="374">02:40:55</text>
+      <text x="12" y="426">02:41:48</text><text x="12" y="478">02:41:48</text><text x="12" y="530">02:42:24</text>
+      <text x="12" y="582">02:42:31</text><text x="12" y="634">02:43:10</text><text x="12" y="686">02:44:03</text>
+    </g>
+
+    <!-- 消息箭头 -->
+    <g font-size="12" text-anchor="middle">
+      <!-- 1 任务 -->
+      <line x1="150" y1="110" x2="424" y2="110" stroke="#475569" stroke-width="1.8" marker-end="url(#m-gray)"/>
+      <text x="287" y="100" fill="#334155">调研任务（直接汇报 · 不落盘）</text>
+
+      <!-- 2 ask_many -->
+      <line x1="430" y1="162" x2="674" y2="162" stroke="#059669" stroke-width="1.8" marker-end="url(#m-green)"/>
+      <line x1="430" y1="162" x2="884" y2="162" stroke="#059669" stroke-width="1.8" marker-end="url(#m-green)"/>
+      <text x="657" y="152" fill="#047857">ask_many 并行征询（建 batch · 海外线/国内线分工）</text>
+
+      <!-- 3 http.get 失败 -->
+      <rect x="628" y="200" width="304" height="34" rx="6" fill="#f4f4f5" stroke="#d4d4d8" stroke-dasharray="4 3"/>
+      <text x="780" y="221" fill="#71717a">http.get 联网核实失败 ×6 → 改用训练知识</text>
+
+      <!-- 4 jitui handoff -->
+      <line x1="680" y1="266" x2="436" y2="266" stroke="#059669" stroke-width="1.8" marker-end="url(#m-green)"/>
+      <text x="558" y="256" fill="#047857">handoff：海外线正文（入队 #1）</text>
+
+      <!-- 5 nim handoff 首次 -->
+      <line x1="890" y1="318" x2="436" y2="318" stroke="#d97706" stroke-width="1.8" marker-end="url(#m-amber)"/>
+      <text x="663" y="308" fill="#b45309">handoff：国内线正文 · 首次提交（入队 #2）</text>
+
+      <!-- 6 aggregate -->
+      <line x1="1060" y1="370" x2="436" y2="370" stroke="#7c3aed" stroke-width="1.8" marker-end="url(#m-purple)"/>
+      <text x="748" y="360" fill="#6d28d9">aggregate：并行征询汇总 · 已含两线全文（入队 #3）</text>
+
+      <!-- 7 重征询 -->
+      <line x1="436" y1="422" x2="884" y2="422" stroke="#b45309" stroke-width="1.8" marker-end="url(#m-amber)"/>
+      <text x="660" y="412" fill="#b45309">处理 #1 时误判「还差国内线」→ 重征询（入队 #4）</text>
+
+      <!-- 8 乒乓提醒 -->
+      <line x1="1060" y1="474" x2="897" y2="474" stroke="#7c3aed" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#m-purple)"/>
+      <text x="978" y="464" fill="#6d28d9" font-size="11.5">「已接近约定的辩论轮次，请收尾交给评审者」</text>
+
+      <!-- 9 nim 二次提交 -->
+      <line x1="890" y1="526" x2="436" y2="526" stroke="#d97706" stroke-width="1.8" marker-end="url(#m-amber)"/>
+      <text x="663" y="516" fill="#b45309">国内线 · 二次提交（入队 #5）</text>
+
+      <!-- 10/11/12 三份最终报告 -->
+      <g stroke="#dc2626" stroke-width="2.4" marker-end="url(#m-red)">
+        <line x1="424" y1="578" x2="154" y2="578"/>
+        <line x1="424" y1="630" x2="154" y2="630"/>
+        <line x1="424" y1="682" x2="154" y2="682"/>
+      </g>
+      <g fill="#b91c1c" font-weight="600">
+        <text x="289" y="566">最终报告 ①（处理 #3 → finish · run → completed）</text>
+        <text x="289" y="618">最终报告 ②（处理 #2 · run 已完成仍执行）</text>
+        <text x="289" y="670">最终报告 ③（处理 #5）</text>
+      </g>
+    </g>
+
+    <!-- 底部图例 -->
+    <g font-size="11.5" fill="#52525b">
+      <text x="60" y="758">R1 内容双投递　R2 finish 不清队 / run 完成后照跑　R3 窄上下文误判 + 辩论话术催促　▇ 蓝条 = reviewer 正在处理的 dispatch</text>
+    </g>
+  </svg>
+  </div>
+
+  <h2>② reviewer 派发队列演变（重复的直接机制）</h2>
+  <table>
+    <tr><th style="width:90px">时点</th><th style="width:250px">事件</th><th>队列 / 执行状态</th></tr>
+    <tr><td class="q">02:40:12</td><td>jitui handoff 入队</td><td class="q">[#1 → 立即执行]（span 开始）</td></tr>
+    <tr><td class="q">02:40:55</td><td>nim handoff + aggregate 先后入队</td><td class="q">执行中 #1 ｜ 排队 [#2, #3]</td></tr>
+    <tr><td class="q">02:41:48</td><td>#1 完成（产出 = 对 nim 重征询 #4）</td><td class="q">[#3 → 立即执行] ｜ 排队 [#2]（nim 同时处理 #4）</td></tr>
+    <tr><td class="q">02:42:24</td><td>nim 二次提交入队</td><td class="q">执行中 #3 ｜ 排队 [#2, #5]</td></tr>
+    <tr><td class="q">02:42:31</td><td>#3 完成 → <span class="done">报告 ①</span>，run → completed</td><td class="q">排队 [#2, #5] —— <span class="dupe">不取消，继续执行</span></td></tr>
+    <tr><td class="q">02:43:10</td><td>#2 完成</td><td><span class="dupe">报告 ②</span>（run 已 completed 仍执行）</td></tr>
+    <tr><td class="q">02:44:03</td><td>#5 完成</td><td><span class="dupe">报告 ③</span></td></tr>
+  </table>
+
+  <h2>③ 三层根因</h2>
+  <div class="cards">
+    <div class="cause" style="--accent:#dc2626">
+      <h3>R1 · 内容双投递（放大器）</h3>
+      <p>batch 子任务用 <code>handoff</code> 回发起者时，正文走两条路：handoff 自建一条 dispatch，<code>maybeCompleteBatch</code> 又把同一段全文塞进 aggregate 再建一条。reviewer 每条调研各收 <b>两份</b>。</p>
+    </div>
+    <div class="cause" style="--accent:#dc2626">
+      <h3>R2 · finish 不清队，完成后照跑（直接原因）</h3>
+      <p>每条 dispatch 独立成回合，<code>finish</code> 只发消息不清队；<code>executeDispatch</code> 不检查 run 状态——02:42:31 run 已 completed，#2、#5 照样各跑一回合、各发一份完整汇总。</p>
+    </div>
+    <div class="cause" style="--accent:#dc2626">
+      <h3>R3 · 窄上下文误判 + 话术催促（导火索）</h3>
+      <p>处理 #1 时"当前事项"只有 jitui 单条（transcript 每条截 2000 字符），reviewer 没认出 aggregate 里已有国内线，重发征询；乒乓提醒硬编码"辩论轮次"话术，推动 nim 二次提交，凭空多出 #5。</p>
+    </div>
+  </div>
+
+  <h2>④ 修复方案（按性价比排序）</h2>
+  <ol class="fix">
+    <li><span class="tag must">必修</span><b>executeDispatch 前置检查 run 状态</b>：run 已 completed/failed → 跳过剩余 dispatch（标记 cancelled + 留痕说明）。</li>
+    <li><span class="tag must">必修</span><b>finish 时取消同 run 其余 queued dispatch</b>：汇总者明确收尾后，迟到的重复材料不再各触发一回合。</li>
+    <li><span class="tag nice">建议</span><b>batch 子任务 handoff 回发起者去重</b>：结果已由 aggregate 投递，handoff 消息可保留展示但不再进调度队列。</li>
+    <li><span class="tag nice">建议</span><b>乒乓提醒文案中性化</b>：非辩论任务不再出现"辩论轮次"字样。</li>
+    <li><span class="tag nice">长期</span><b>回合前队列合并</b>：同一 target 多条 queued dispatch 内容高度重复时合并执行。</li>
+  </ol>
+</div>
+</body>
+</html>
