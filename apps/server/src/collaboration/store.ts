@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type {
   CollaborationAttempt,
   CollaborationBatch,
@@ -23,13 +23,13 @@ interface DispatchRow {
   id: string; run_id: string; conversation_id: string; source_message_id: string;
   parent_dispatch_id: string | null; batch_id: string | null; kind: string; from_actor: string;
   target_agent_id: string; reason: string | null; status: string; priority: string; depth: number;
-  idempotency_key: string; output_message_id: string | null; error: string | null;
+  idempotency_key: string; content_hash: string | null; output_message_id: string | null; error: string | null;
   created_at: string; started_at: string | null; finished_at: string | null;
 }
 interface AttemptRow {
   id: string; dispatch_id: string; run_id: string; conversation_id: string; agent_id: string;
   attempt_no: number; status: string; input_context: string | null; output: string | null;
-  control_action: string | null; error: string | null; lease_owner: string | null;
+  control_action: string | null; deduplicated_to: string | null; error: string | null; lease_owner: string | null;
   lease_expires_at: string | null; created_at: string; started_at: string | null; ended_at: string | null;
 }
 interface BatchRow {
@@ -61,7 +61,7 @@ const toAttempt = (r: AttemptRow): CollaborationAttempt => ({
   agentId: r.agent_id, attemptNo: r.attempt_no, status: r.status as CollaborationAttempt['status'],
   inputContext: r.input_context, output: r.output,
   controlAction: r.control_action ? JSON.parse(r.control_action) as CollaborationControlAction : null,
-  error: r.error, leaseOwner: r.lease_owner, leaseExpiresAt: r.lease_expires_at,
+  deduplicatedTo: r.deduplicated_to, error: r.error, leaseOwner: r.lease_owner, leaseExpiresAt: r.lease_expires_at,
   createdAt: r.created_at, startedAt: r.started_at, endedAt: r.ended_at,
 });
 const toBatch = (r: BatchRow): CollaborationBatch => ({
@@ -89,22 +89,46 @@ export interface CreateDispatchInput {
   runId: string; conversationId: string; sourceMessageId: string; parentDispatchId?: string | null;
   batchId?: string | null; kind: CollaborationDispatchKind; from: string; targetAgentId: string;
   reason?: string | null; priority?: 'urgent' | 'normal'; depth: number; idempotencyKey: string;
+  dedupeText?: string | null;
 }
 
-export function createDispatch(input: CreateDispatchInput): CollaborationDispatch {
+export interface CreateDispatchResult {
+  dispatch: CollaborationDispatch;
+  created: boolean;
+  deduplicatedTo: string | null;
+}
+
+function normalizedContentHash(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.normalize('NFKC').trim().toLocaleLowerCase().replace(/\s+/gu, ' ');
+  return normalized ? createHash('sha256').update(normalized).digest('hex') : null;
+}
+
+export function createDispatchDetailed(input: CreateDispatchInput): CreateDispatchResult {
   const existing = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE run_id=? AND idempotency_key=?', input.runId, input.idempotencyKey);
-  if (existing) return toDispatch(existing);
+  if (existing) return { dispatch: toDispatch(existing), created: false, deduplicatedTo: existing.id };
+  const contentHash = normalizedContentHash(input.dedupeText);
+  if (contentHash) {
+    const duplicate = get<DispatchRow>(`SELECT * FROM collaboration_dispatches
+      WHERE run_id=? AND parent_dispatch_id IS ? AND target_agent_id=? AND content_hash=? AND status IN ('queued','running')
+      ORDER BY created_at,rowid LIMIT 1`, input.runId, input.parentDispatchId ?? null, input.targetAgentId, contentHash);
+    if (duplicate) return { dispatch: toDispatch(duplicate), created: false, deduplicatedTo: duplicate.id };
+  }
   const now = new Date().toISOString();
   const id = randomUUID();
   run(`INSERT INTO collaboration_dispatches
-    (id,run_id,conversation_id,source_message_id,parent_dispatch_id,batch_id,kind,from_actor,target_agent_id,reason,status,priority,depth,idempotency_key,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?, 'queued', ?,?,?,?)`,
+    (id,run_id,conversation_id,source_message_id,parent_dispatch_id,batch_id,kind,from_actor,target_agent_id,reason,status,priority,depth,idempotency_key,content_hash,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?, 'queued', ?,?,?,?,?)`,
     id, input.runId, input.conversationId, input.sourceMessageId, input.parentDispatchId ?? null,
     input.batchId ?? null, input.kind, input.from, input.targetAgentId, input.reason ?? null,
-    input.priority ?? 'normal', input.depth, input.idempotencyKey, now);
+    input.priority ?? 'normal', input.depth, input.idempotencyKey, contentHash, now);
   const value = toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id)!);
   emit({ type: 'collaboration.dispatch.updated', dispatch: value });
-  return value;
+  return { dispatch: value, created: true, deduplicatedTo: null };
+}
+
+export function createDispatch(input: CreateDispatchInput): CollaborationDispatch {
+  return createDispatchDetailed(input).dispatch;
 }
 
 export function getDispatch(id: string): CollaborationDispatch | undefined {
@@ -150,13 +174,13 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
   return claimed;
 }
 
-export function finishAttempt(input: { attemptId: string; dispatchId: string; status: 'completed' | 'failed' | 'cancelled'; output?: string | null; action?: CollaborationControlAction | null; error?: string | null; outputMessageId?: string | null }): void {
+export function finishAttempt(input: { attemptId: string; dispatchId: string; status: 'completed' | 'failed' | 'cancelled'; dispatchStatus?: CollaborationDispatchStatus; output?: string | null; action?: CollaborationControlAction | null; deduplicatedTo?: string | null; error?: string | null; outputMessageId?: string | null }): void {
   const now = new Date().toISOString();
   tx(() => {
-    run("UPDATE collaboration_attempts SET status=?,output=?,control_action=?,error=?,ended_at=?,lease_expires_at=NULL WHERE id=? AND status='running'",
-      input.status, input.output ?? null, input.action ? JSON.stringify(input.action) : null, input.error ?? null, now, input.attemptId);
+    run("UPDATE collaboration_attempts SET status=?,output=?,control_action=?,deduplicated_to=?,error=?,ended_at=?,lease_expires_at=NULL WHERE id=? AND status='running'",
+      input.status, input.output ?? null, input.action ? JSON.stringify(input.action) : null, input.deduplicatedTo ?? null, input.error ?? null, now, input.attemptId);
     run("UPDATE collaboration_dispatches SET status=?,output_message_id=COALESCE(?,output_message_id),error=?,finished_at=? WHERE id=? AND status='running'",
-      input.status === 'completed' ? 'completed' : input.status, input.outputMessageId ?? null, input.error ?? null, now, input.dispatchId);
+      input.dispatchStatus ?? (input.status === 'completed' ? 'completed' : input.status), input.outputMessageId ?? null, input.error ?? null, now, input.dispatchId);
   });
   const attempt = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', input.attemptId);
   const dispatch = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', input.dispatchId);
@@ -164,8 +188,21 @@ export function finishAttempt(input: { attemptId: string; dispatchId: string; st
   if (dispatch) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch(dispatch) });
 }
 
+export function setAttemptInputContext(attemptId: string, inputContext: string): void {
+  run("UPDATE collaboration_attempts SET input_context=? WHERE id=? AND status='running'", inputContext, attemptId);
+  const row = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attemptId);
+  if (row) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt(row) });
+}
+
 export function listAttempts(runId: string): CollaborationAttempt[] {
   return all<AttemptRow>('SELECT * FROM collaboration_attempts WHERE run_id=? ORDER BY created_at,rowid', runId).map(toAttempt);
+}
+
+export function getCompletedDispatchOutput(dispatchId: string): string | null {
+  return get<{ output: string | null }>(
+    "SELECT output FROM collaboration_attempts WHERE dispatch_id=? AND status='completed' ORDER BY attempt_no DESC LIMIT 1",
+    dispatchId,
+  )?.output ?? null;
 }
 
 export function createBatch(input: { runId: string; conversationId: string; initiatorAgentId: string; sourceDispatchId: string; question: string; targetAgentIds: string[] }): CollaborationBatch {

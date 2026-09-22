@@ -15,7 +15,8 @@ export type CoordinationProtocolId =
 
 export type CoordinationRisk = 'low' | 'medium' | 'high';
 export type CoordinationDecision = 'auto_start' | 'recommend' | 'clarify' | 'unavailable';
-export type CoordinationPlanStatus = 'draft' | 'validated' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+export type CoordinationPlanningSource = 'deterministic' | 'model' | 'model_repaired' | 'deterministic_fallback';
+export type CoordinationPlanStatus = 'draft' | 'validated' | 'active' | 'pause_requested' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'superseded';
 export type CoordinationStepStatus = 'pending' | 'ready' | 'running' | 'completed' | 'failed';
 export type CoordinationAttemptStatus = 'running' | 'completed' | 'failed' | 'interrupted' | 'paused';
 export type CoordinationConstraintValue = string | number | boolean | string[];
@@ -60,6 +61,9 @@ export interface CoordinationProtocolDefinition {
   minimumAgents: number;
   maximumAgents: number | null;
   composable: boolean;
+  inputTypes: string[];
+  outputTypes: string[];
+  allowedSuccessors: CoordinationProtocolId[];
   runtimeMode: RunMode | null;
   risk: CoordinationRisk;
 }
@@ -129,6 +133,15 @@ export interface CoordinationDraft {
   reasonCodes: string[];
   evidence: Array<{ source: 'user_constraint' | 'task_semantics' | 'capability'; field: string }>;
   alternatives: CoordinationAlternative[];
+  planning: {
+    source: CoordinationPlanningSource;
+    model: string | null;
+    attempts: number;
+    tokensIn: number;
+    tokensOut: number;
+    costUsd: number;
+    fallbackReason: string | null;
+  };
   modelConfidence: number | null;
   platformConfidence: number;
   risk: CoordinationRisk;
@@ -194,6 +207,14 @@ export interface CoordinationPlan {
   revision: number;
   status: CoordinationPlanStatus;
   protocols: CoordinationProtocolSelection[];
+  protocolComposition: CoordinationProtocolSelection[];
+  templateExpansions: Array<{
+    protocolIndex: number;
+    protocol: CoordinationProtocolId;
+    inputStepIds: string[];
+    stepIds: string[];
+    outputStepIds: string[];
+  }>;
   runtimeMode: RunMode | null;
   actorBindings: Record<string, string>;
   hardConstraintBindings: CoordinationConstraintBinding[];
@@ -257,6 +278,8 @@ export type CoordinationEventKind =
   | 'plan_validated'
   | 'plan_rejected'
   | 'plan_activated'
+  | 'plan_pause_requested'
+  | 'plan_revision_created'
   | 'step_ready'
   | 'step_started'
   | 'step_completed'
@@ -284,6 +307,15 @@ export interface CoordinationPreviewInput {
   agentIds: string[];
   defaultReviewerId?: string;
   requestedProtocol?: CoordinationProtocolId;
+  /** 显式指令和模型故障回退可强制确定性判定。 */
+  deterministicOnly?: boolean;
+  /** 用户从已有建议切换协议时关联原 Draft，用于纠正率和阈值校准。 */
+  replacesDraftId?: string;
+}
+
+export interface CoordinationRevisionInput {
+  instruction: string;
+  requestedProtocol?: CoordinationProtocolId;
 }
 
 export interface CoordinationPreview {
@@ -292,4 +324,10 @@ export interface CoordinationPreview {
   plan: CoordinationPlan;
   /** AG-COORD-07：用户可见提示（如目标提到的参与者不在所选团队），计划卡原样展示 */
   notices?: string[];
+}
+
+export interface FollowupPreview {
+  kind: 'none' | 'auto_plan' | 'mode_mismatch' | 'ambiguous' | 'needs_confirmation';
+  roomMode: RunMode;
+  preview: CoordinationPreview | null;
 }

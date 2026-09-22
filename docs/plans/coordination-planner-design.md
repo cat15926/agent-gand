@@ -1,15 +1,17 @@
 # 通用协作规划器与 Coordination Plan 设计
 
-状态：**实施中（阶段 A/B/C 已完成）**  
-更新时间：2026-09-19
+状态：**已完成（阶段 A/B/C/D/E）**
+更新时间：2026-09-21
 
 ## 实施进度
 
 - **阶段 A 已完成**：共享契约覆盖 TaskBrief、Capability Snapshot、Draft、Plan、Step、Revision、Validation Issue 和 Event；能力快照、草案、计划、初始 Revision 与审计事件均已持久化并提供查询 API；独立 Validator 已覆盖协议版本、角色能力、DAG、硬约束、步骤/尝试/Token 预算、终局、工具权限和 Reviewer 隔离。
 - **阶段 B 已完成**：建立版本化协议、Agent、工具和平台策略目录；显式协议与用户硬约束优先；`single_agent`、`parallel_fanout`、`review_revision`、`debate` 均可确定性编译为合法 Plan；界面支持自动开始、推荐、关键澄清、不可用原因、替代方案和计划展开。
 - **阶段 C 已完成**：Coordination Runtime 以持久化 Plan 为执行输入，记录 Step/Attempt 状态，按依赖和并发限制调度并执行终局屏障；`parallel_fanout`、`review_revision` 和 `debate` 已端到端接入，支持结构化返工、固定辩论角色和独立末尾裁判。
+- **阶段 D 已完成**：规划模型通过精简能力快照生成结构化候选；服务端限制协议、版本、角色能力和运行时可用性，非法候选可进行限定次数修复，失败后安全回退到确定性规划；平台独立计算置信度并处理自动开始、关键澄清和高风险确认；离线评测覆盖选择准确率、硬约束覆盖率、可执行率、完成率、成本和人工纠正率。
+- **阶段 E 已完成**：提供只读 Capability Registry MCP Server 及七个按需查询工具；协议目录声明输入、输出和允许连接点，Validator 校验组合契约，Compiler 保存逐协议模板展开映射；运行中的计划可在安全步骤边界暂停，通过自然语言生成新 Revision、切换协议并恢复，旧 Revision 与 Attempt 证据保持不变；自动开始阈值仅根据用户选择替代方案和计划修订产生的纠正样本校准。
 - **恢复与观测已完成**：进程重启会将运行中 Attempt 标记为 `interrupted` 并复用原 Attempt 与幂等键继续执行，不重复已完成步骤；Coordination Step/Attempt 已进入 Trace、RunGraph、Trajectory 与查询 API。
-- **验证**：`pnpm verify:coordination` 覆盖确定性选择、持久化、并行汇总屏障、Reviewer 首轮拒绝后的返工闭环、三轮 Debate 的六次发言与末尾裁判、完成后无迟到消息、强杀重启恢复、幂等 Attempt 和统一观测。
+- **验证**：`pnpm verify:coordination` 覆盖确定性选择、持久化、并行汇总屏障、Reviewer 首轮拒绝后的返工闭环、三轮 Debate 的六次发言与末尾裁判、完成后无迟到消息、强杀重启恢复、幂等 Attempt 和统一观测；`pnpm verify:coordination-planner` 覆盖模型候选、修复、降级、显式模式优先、澄清与高风险确认；`pnpm verify:coordination-stage-e` 覆盖只读 MCP、组合契约、模板映射、阈值校准、安全暂停、自然语言 Revision、协议切换和证据保留；`pnpm evaluate:coordination-planner` 输出离线评测指标。
 
 ## 1. 背景
 
@@ -438,16 +440,17 @@ coordination:<planId>:<revision>:<stepId>:<attemptNo>
 
 ### 阶段 D：能力感知的模型规划
 
-- 将能力快照以内部接口提供给模型，生成可验证的 Coordination Draft。
-- 实现平台置信度、低置信度澄清和高风险确认。
-- 用离线样本评估模式选择准确率、硬约束覆盖率、完成率、成本和人工纠正率。
+- [x] 将能力快照以内部接口提供给模型，生成可验证的 Coordination Draft。
+- [x] 对模型候选执行协议、版本、可组合性、角色能力和运行时可用性校验，支持限定次数修复与确定性降级。
+- [x] 实现平台置信度、低置信度澄清和高风险确认；模型自报置信度仅占受限权重。
+- [x] 用离线样本评估模式选择准确率、硬约束覆盖率、可执行率、完成率、成本和人工纠正率。
 
 ### 阶段 E：内置 MCP 与协议组合
 
-- 提供只读的 Capability Registry MCP Server，并实现按需能力查询。
-- 支持协议连接点、输入输出契约、组合校验和模板展开映射。
-- 增加 Plan Revision、自然语言调整和运行时协议切换。
-- 根据线上纠正数据校准平台评分阈值，不直接使用模型自报置信度。
+- [x] 提供只读的 Capability Registry MCP Server，并实现按需能力查询。
+- [x] 支持协议连接点、输入输出契约、组合校验和模板展开映射。
+- [x] 增加 Plan Revision、自然语言调整和运行时协议切换。
+- [x] 根据线上纠正数据校准平台评分阈值，不直接使用模型自报置信度。
 
 ## 15. 验收标准
 

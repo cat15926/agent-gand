@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "coordination:mcp": "tsx src/coordination/mcpServer.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

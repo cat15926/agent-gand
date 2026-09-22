@@ -13,6 +13,7 @@ export type AgentMessageType =
   | 'revision_request'
   | 'handoff'
   | 'collaboration_result'
+  | 'collaboration_contribution'
   | 'collaboration_handoff'
   | 'collaboration_question'
   | 'collaboration_wait_user'

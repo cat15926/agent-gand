@@ -13,20 +13,20 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 打开 http://localhost:5173 ：
 
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
-2. 在“运行”视图创建聊天室；新聊天室默认使用自由协作，可选择最多 3 位初始 Agent，也可切换主管委派或顺序流水线；
+2. 在“运行”视图创建聊天室；新聊天室默认进入“智能匹配”，由规划器推荐执行协议；也可显式选择自由协作（最多 3 位初始 Agent）、主管委派或顺序流水线；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
 4. 在“舰队 → 角色管理”从模板创建、复制、编辑或停用 Agent；点击头像可选择或拖入本地图片，也可使用预设 Emoji、短文字或 HTTPS 图片 URL；保存后无需重启即可用于新聊天室；
 5. “舰队 → 执行状态”查看各 Agent 状态（待输入置顶），“观测”查看运行历史与事件时间线。
 
-其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm db:reset`（清空 SQLite 重 seed）。
+其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm verify:collaboration-reliability`（验证事务回滚、规范化去重、Agent 竞态与恢复安全）、`pnpm verify:collaboration-ui`（验证 Batch、Attempt 和 Run Stop 视图模型）、`pnpm verify:coordination-stage-e`（验证只读能力 MCP、协议组合、计划修订和阈值校准）、`pnpm verify:followup-stage3`（验证模型追问、显式优先与全队处理）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
 自建角色保存在 SQLite，文件角色继续由 `agents/*.agent.md` 提供且在界面中只读，可复制为自建角色。角色通过“执行 / 审查 / 协调”能力参与调度，主管和默认评审者不再依赖固定 ID。每个 Run 创建时会保存成员配置快照，因此之后编辑或停用角色不会改变已经排队、执行中或历史 Run 的行为。
 
 主管委派模式会把任务、每轮执行和结构化审查结果落库。Reviewer 返回 FAIL 时，调度器会把 issues 发送给原执行者并自动返工，默认最多执行 3 次；无依赖任务最多并行 2 个。可通过 `TASK_MAX_ATTEMPTS`、`ORCHESTRATOR_CONCURRENCY` 和 `TASK_LEASE_MS` 调整。
 
-自由协作模式使用结构化控制工具让 Agent 动态交接、并行征询队友、等待用户或提议创建正式 Supervisor Run。不同 Agent 可以并行，同一 Agent 在同一聊天室保持串行。达到 Token、成本、时长或 Dispatch 预算时会进入 `waiting_for_user`，用户可接受部分结果或按比例增加预算。
+自由协作模式使用结构化控制工具让 Agent 动态交接、并行征询队友、等待用户或提议创建正式 Supervisor Run。不同 Agent 可以并行，同一 Agent 在同一聊天室保持串行。达到 Token、成本、时长或 Dispatch 预算时会进入 `waiting_for_user`，用户可接受部分结果或按比例增加预算。并行征询的每位 Agent 发言会持久展示为“协作发言”，聚合后再由发起者给出最终答复。
 
-聊天室包含多轮 Run，并绑定稳定工作区。Collaboration 中的新消息可启动并行 Run；无显式目标时优先交给最近成功回复的 Agent。消息使用客户端 ID 幂等写入，主消息流展示引用关系、动态路由、用户决策、审查问题和处理状态，完整 Trace 在右侧查看。实现计划见 [Collaboration 模式实施计划](./docs/plans/collaboration-mode-implementation-plan.md)。
+聊天室包含多轮 Run，并绑定稳定工作区。Collaboration 中的新消息可启动并行 Run；无显式目标时优先交给最近成功回复的 Agent。其他模式下的普通追问优先由被回复者或最近成功回复者快速处理；智能规划可识别无关键词的复杂追问，高置信、低风险方案只为本轮自动启动，需确认或澄清时展示推荐卡。用户也可打开“全队处理”，要求本轮计划覆盖所有房间成员；房间模式不会被静默改变。消息使用客户端 ID 幂等写入，主消息流展示引用关系、动态路由、用户决策、审查问题和处理状态，完整 Trace 在右侧查看。当前运行契约见 [Collaboration 运行架构](./docs/architecture/collaboration-runtime.md)，实施与验收记录见 [Collaboration 模式实施计划](./docs/plans/collaboration-mode-implementation-plan.md)。
 
 ### 接入真实 LLM（可选）
 
@@ -50,6 +50,18 @@ LLM_PROXY=http://127.0.0.1:7897
 请求格式、tool_calls/tool_use 解析、usage 记账与 supervisor 结构化拆解/fallback）。
 
 真实模型成本由 `LLM_PRICING_JSON` 配置，单位为美元/百万 token。完整模型路由优先，`provider:*` 可作为同一 Provider 的兜底；未配置价格的模型成本记为 0，避免把未知价格当成真实账单。示例见 `apps/server/.env.example`。
+
+智能匹配会优先使用 `COORDINATION_PLANNER_MODEL`；未设置时复用当前团队内具备 `coordinate` 能力的真实模型。模型只能从能力快照提出结构化候选，服务端仍负责校验、评分和启动决策；模型不可用或连续输出非法候选时自动回退到确定性规划。可运行 `pnpm verify:coordination-planner` 验证模型候选、修复与回退，运行 `pnpm evaluate:coordination-planner` 查看离线样本指标。
+
+运行中的 Coordination Plan 可在右侧“协作”栏请求安全暂停。暂停后可用自然语言调整后续计划，系统会创建新的 Revision、重新校验协议组合并恢复执行；旧 Revision、Step Attempt 和审计事件不会被覆盖。自动开始阈值由替代方案选择和计划修订形成的纠正记录校准，可通过 `GET /api/coordination/calibration` 查看当前样本与阈值。
+
+平台还提供只读 Capability Registry MCP Server，供规划模型按需读取协议、Agent、工具、能力和计划估算结果：
+
+```bash
+pnpm --filter @agent-gand/server coordination:mcp
+```
+
+该 Server 不启动 Run、不执行业务工具，估算调用也不会保存 Draft；可用工具目录由 `tools/list` 返回。
 
 ### 接入 MCP 工具（可选）
 

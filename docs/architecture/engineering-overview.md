@@ -1,5 +1,7 @@
 # 工程结构与模块清单梳理：agent-gand（依赖任务产物补写）
 
+> 历史快照：本文记录早期 P0 结构，模式数量、表数量和测试阶段数不代表当前实现。当前 Collaboration 契约请以 [Collaboration 运行架构](./collaboration-runtime.md) 为准。
+
 > 定位：多 Agent 协作工具平台（pnpm workspace monorepo），后端编排引擎 + 前端 "1+3" 观测界面；支持顺序流水线 / 主管委派两种编排、HITL 审批、审查-返工闭环与全链路 trace。权威规格为同目录的 [`scaffold-plan.md`](./scaffold-plan.md)。
 > 核实方式：依赖任务直接读取约 22 个关键文件交叉验证；本次补写按架构评估轮新增实读（main.tsx/store.tsx/App.tsx）修正前端口径。
 

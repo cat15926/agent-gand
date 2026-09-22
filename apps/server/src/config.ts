@@ -125,6 +125,13 @@ export const config = {
     pingPongBlock: Math.max(2, firstInt(process.env.COLLAB_PINGPONG_BLOCK, 4)),
     attemptLeaseMs: Math.max(10_000, firstInt(process.env.COLLAB_ATTEMPT_LEASE_MS, 300_000)),
   },
+  coordinationPlanner: {
+    /** 显式规划模型；未设置时优先复用所选团队内非 mock 的 coordinate Agent。 */
+    model: process.env.COORDINATION_PLANNER_MODEL?.trim() || null,
+    maxAttempts: Math.min(3, Math.max(1, firstInt(process.env.COORDINATION_PLANNER_MAX_ATTEMPTS, 2))),
+    maxTokens: Math.max(512, firstInt(process.env.COORDINATION_PLANNER_MAX_TOKENS, 2_048)),
+    autoStartThreshold: Math.min(0.99, Math.max(0.5, Number(process.env.COORDINATION_AUTO_START_THRESHOLD ?? 0.82) || 0.82)),
+  },
 } as const;
 
 export type AppConfig = typeof config;

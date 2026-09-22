@@ -36,6 +36,7 @@ export interface CollaborationAttempt {
   inputContext: string | null;
   output: string | null;
   controlAction: CollaborationControlAction | null;
+  deduplicatedTo: string | null;
   error: string | null;
   leaseOwner: string | null;
   leaseExpiresAt: string | null;

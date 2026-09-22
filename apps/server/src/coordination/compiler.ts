@@ -63,7 +63,7 @@ function compileSingle(state: BuildState, snapshot: CapabilitySnapshot): void {
   state.tail = [id];
 }
 
-function compileParallel(state: BuildState, snapshot: CapabilitySnapshot): void {
+function compileParallel(state: BuildState, snapshot: CapabilitySnapshot, includeImplicitAggregation: boolean): void {
   const workers = snapshot.agents.filter((agent) => agent.capabilities.includes('execute'));
   const branchIds: string[] = [];
   for (const [index, worker] of workers.entries()) {
@@ -72,6 +72,12 @@ function compileParallel(state: BuildState, snapshot: CapabilitySnapshot): void 
     branchIds.push(id);
     state.steps.push(makeStep(snapshot, 'parallel_fanout', id, 'fanout', role, 'execute', bind(state, role, worker.id), [...state.tail], '独立分支产物已提交', { metadata: { independent: true } }));
   }
+  state.tail = branchIds;
+  if (includeImplicitAggregation) compileAggregation(state, snapshot, 'parallel_fanout');
+}
+
+function compileAggregation(state: BuildState, snapshot: CapabilitySnapshot, protocol: 'parallel_fanout' | 'supervisor_aggregation'): void {
+  const workers = snapshot.agents.filter((agent) => agent.capabilities.includes('execute'));
   // 点名聚合（真机会话 31ec5657："@coder @鸡腿 分别调研…，最后由 @reviewer 进行汇总"）：
   // 成员名出现在汇总词前邻近位置（"由 @X 进行汇总"）→ 绑定该成员为聚合者。
   // 邻近要求排除"仅被提及"的分支成员（如 @planner 出现在句首）。确定性 MVP；阶段 D 由 TaskBrief 显式角色约束替代。
@@ -84,9 +90,9 @@ function compileParallel(state: BuildState, snapshot: CapabilitySnapshot): void 
     ?? snapshot.agents.find((agent) => agent.capabilities.includes('coordinate'))
     ?? workers[0];
   const aggregateId = 'parallel-aggregate';
-  state.steps.push(makeStep(snapshot, 'parallel_fanout', aggregateId, 'aggregate', 'aggregator',
+  state.steps.push(makeStep(snapshot, protocol, aggregateId, 'aggregate', 'aggregator',
     coordinator?.capabilities.includes('coordinate') ? 'coordinate' : coordinator?.capabilities[0] ?? 'execute',
-    bind(state, 'aggregator', coordinator?.id), branchIds, '所有必需分支已形成统一结果'));
+    bind(state, 'aggregator', coordinator?.id), [...state.tail], '所有必需分支已形成统一结果'));
   state.tail = [aggregateId];
 }
 
@@ -179,19 +185,28 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
     tail: [],
     goal: draft.taskBrief.objective,
   };
-  for (const selected of draft.protocols) {
+  const templateExpansions: CoordinationPlan['templateExpansions'] = [];
+  for (const [protocolIndex, selected] of draft.protocols.entries()) {
+    const inputStepIds = [...state.tail];
+    const existing = new Set(state.steps.map((step) => step.id));
     switch (selected.protocol) {
       case 'single_agent': compileSingle(state, snapshot); break;
-      case 'parallel_fanout': compileParallel(state, snapshot); break;
+      case 'parallel_fanout': compileParallel(state, snapshot, draft.protocols[protocolIndex + 1]?.protocol !== 'supervisor_aggregation'); break;
       case 'review_revision': compileReview(state, snapshot, state.tail.length === 0); break;
       case 'debate': compileDebate(state, draft, snapshot); break;
       case 'sequential_pipeline': compileSequential(state, snapshot); break;
       case 'supervisor_dag': compileSupervisor(state, snapshot); break;
       case 'supervisor_aggregation':
-        if (state.tail.length === 0) compileParallel(state, snapshot);
+        if (state.tail.length === 0) compileParallel(state, snapshot, false);
+        compileAggregation(state, snapshot, 'supervisor_aggregation');
         break;
       default: compileFallback(state, snapshot, selected.protocol); break;
     }
+    templateExpansions.push({
+      protocolIndex, protocol: selected.protocol, inputStepIds,
+      stepIds: state.steps.filter((step) => !existing.has(step.id)).map((step) => step.id),
+      outputStepIds: [...state.tail],
+    });
   }
   const completionId = 'complete';
   const completionProtocol = draft.protocols.at(-1)?.protocol ?? 'dynamic_collaboration';
@@ -207,7 +222,8 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
   const hardMaximum = draft.taskBrief.hardConstraints.maximumSteps;
   const plan: CoordinationPlan = {
     id: randomUUID(), runId: null, draftId: draft.id, capabilitySnapshotId: snapshot.id, revision: 1, status: 'draft',
-    protocols: draft.protocols, runtimeMode: draft.runtimeMode, actorBindings: state.actorBindings, hardConstraintBindings,
+    protocols: draft.protocols, protocolComposition: draft.protocols, templateExpansions,
+    runtimeMode: draft.runtimeMode, actorBindings: state.actorBindings, hardConstraintBindings,
     steps: state.steps, completion: { requiredSteps: state.steps.map((step) => step.id), terminalSteps: [completionId] },
     budget: {
       maximumSteps: typeof hardMaximum === 'number' ? Math.min(hardMaximum, snapshot.policy.maximumSteps) : snapshot.policy.maximumSteps,

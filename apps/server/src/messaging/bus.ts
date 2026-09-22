@@ -3,6 +3,7 @@
  * ws.ts 订阅后向浏览器全量转发 ServerEvent
  */
 import type { ServerEvent } from '@agent-gand/shared';
+import { afterCommit } from '../db/database.ts';
 
 export type BusListener = (event: ServerEvent) => void;
 
@@ -16,11 +17,13 @@ export function subscribe(fn: BusListener): () => void {
 }
 
 export function emit(event: ServerEvent): void {
-  for (const fn of listeners) {
-    try {
-      fn(event);
-    } catch {
-      // 单个监听器异常不影响其他订阅者（ws 断连等）
+  afterCommit(() => {
+    for (const fn of listeners) {
+      try {
+        fn(event);
+      } catch {
+        // 单个监听器异常不影响其他订阅者（ws 断连等）
+      }
     }
-  }
+  });
 }

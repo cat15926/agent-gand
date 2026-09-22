@@ -87,6 +87,13 @@ ensureColumns('approvals', [
 ensureColumns('external_workspaces', [
   { name: 'trusted', sql: 'trusted INTEGER NOT NULL DEFAULT 0' },
 ]);
+ensureColumns('collaboration_dispatches', [
+  { name: 'content_hash', sql: 'content_hash TEXT' },
+]);
+ensureColumns('collaboration_attempts', [
+  { name: 'deduplicated_to', sql: 'deduplicated_to TEXT' },
+]);
+db.exec("CREATE INDEX IF NOT EXISTS idx_collab_dispatch_dedupe ON collaboration_dispatches(run_id,parent_dispatch_id,target_agent_id,content_hash,status)");
 db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
   agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,
   created_at TEXT NOT NULL, PRIMARY KEY(agent_id, version))`);
@@ -113,21 +120,38 @@ export function run(sql: string, ...params: unknown[]): number {
   return result.changes;
 }
 
+let afterCommitCallbacks: Array<() => void> | null = null;
+
+/**
+ * 事务内注册的副作用只在最外层事务提交后执行；事务外立即执行。
+ * 主要用于 WS 事件和调度唤醒，避免回滚后对外暴露不存在的状态。
+ */
+export function afterCommit(fn: () => void): void {
+  if (db.inTransaction && afterCommitCallbacks) afterCommitCallbacks.push(fn);
+  else fn();
+}
+
 /**
  * BEGIN IMMEDIATE 事务：进入即取写锁（跨进程也互斥）。
  * 任务 claim 等竞态敏感操作必须包裹在此事务内完成「读-判-写」。
  */
 export function tx<T>(fn: () => T): T {
   if (db.inTransaction) return fn(); // 防御：已处于事务内则直接复用
+  afterCommitCallbacks = [];
   db.exec('BEGIN IMMEDIATE');
+  let result: T;
   try {
-    const result = fn();
+    result = fn();
     db.exec('COMMIT');
-    return result;
   } catch (err) {
     db.exec('ROLLBACK');
+    afterCommitCallbacks = null;
     throw err;
   }
+  const callbacks = afterCommitCallbacks;
+  afterCommitCallbacks = null;
+  for (const callback of callbacks) callback();
+  return result;
 }
 
 export function closeDatabase(): void {

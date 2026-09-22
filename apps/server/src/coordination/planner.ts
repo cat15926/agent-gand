@@ -11,7 +11,10 @@ import type {
   RunMode,
   TaskBrief,
 } from '@agent-gand/shared';
+import { config } from '../config.ts';
 import * as registry from '../agents/registry.ts';
+import type { CoordinationModelProposal } from './modelPlanner.ts';
+import { validateProtocolComposition } from './protocols.ts';
 
 const includes = (text: string, pattern: RegExp): boolean => pattern.test(text);
 
@@ -84,7 +87,7 @@ export function normalizeTask(input: CoordinationPreviewInput, snapshot: Capabil
   };
 }
 
-function chooseProtocols(goal: string, agentCount: number, requested?: CoordinationProtocolId): CoordinationProtocolId[] {
+export function selectDeterministicProtocols(goal: string, agentCount: number, requested?: CoordinationProtocolId): CoordinationProtocolId[] {
   if (requested) return [requested];
   if (isDebate(goal)) return ['debate'];
   const review = includes(goal, /(?:审查|评审|reviewer|review)/iu);
@@ -110,7 +113,7 @@ function chooseProtocols(goal: string, agentCount: number, requested?: Coordinat
  * 误判成本不对称：误轻可 @ 升级补救，误重要白等一整轮编排。
  */
 export function isStructuredFollowupGoal(goal: string): boolean {
-  const selected = chooseProtocols(goal, 2); // agentCount=2 避免单人房间误判 single_agent
+  const selected = selectDeterministicProtocols(goal, 2); // agentCount=2 避免单人房间误判 single_agent
   return selected.some((id) => id !== 'single_agent' && id !== 'dynamic_collaboration');
 }
 
@@ -168,6 +171,9 @@ function validateDraft(taskBrief: TaskBrief, selected: CoordinationProtocolId[],
       if (protocol && !protocol.composable) issues.push(error('PROTOCOL_NOT_COMPOSABLE', `${protocol.displayName} 不允许参与协议组合`, `protocols.${id}`));
     }
   }
+  for (const compositionIssue of validateProtocolComposition(selected)) {
+    issues.push(error(compositionIssue.split(':', 1)[0]!, `协议组合连接不合法：${compositionIssue}`, 'protocols'));
+  }
   if (selected.includes('review_revision') || selected.includes('debate')) {
     const reviewer = taskBrief.reviewerId ? snapshot.agents.find((agent) => agent.id === taskBrief.reviewerId) : null;
     if (!reviewer?.capabilities.includes('review')) issues.push(error('REVIEWER_REQUIRED', '该协议需要具备 review 能力的 Reviewer', 'taskBrief.reviewerId'));
@@ -201,36 +207,53 @@ export function participantNotices(goal: string, snapshot: CapabilitySnapshot): 
   return [`目标提到 ${mentioned.map((agent) => `「${agent.name}」`).join('、')}，但当前团队为 ${teamNames}；实际角色绑定以所选团队为准，如需调整请先修改团队成员`];
 }
 
-export function createCoordinationDraft(input: CoordinationPreviewInput, snapshot: CapabilitySnapshot): CoordinationDraft {
+export function createCoordinationDraft(
+  input: CoordinationPreviewInput,
+  snapshot: CapabilitySnapshot,
+  modelProposal: CoordinationModelProposal | null = null,
+  planning: CoordinationDraft['planning'] = {
+    source: 'deterministic', model: null, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: null,
+  },
+  autoStartThreshold = config.coordinationPlanner.autoStartThreshold,
+): CoordinationDraft {
   const taskBrief = normalizeTask(input, snapshot);
-  const selected = chooseProtocols(taskBrief.objective, snapshot.agents.length, input.requestedProtocol);
-  if (isAmbiguousComplexGoal(taskBrief.objective, selected, input.requestedProtocol)) taskBrief.missingInformation.push('collaborationStyle');
+  const deterministic = selectDeterministicProtocols(taskBrief.objective, snapshot.agents.length, input.requestedProtocol);
+  const selected = input.requestedProtocol ? deterministic : modelProposal?.protocols.map((item) => item.protocol) ?? deterministic;
+  if (modelProposal) taskBrief.missingInformation.push(...modelProposal.missingInformation.filter((item) => !taskBrief.missingInformation.includes(item)));
+  if (!modelProposal && isAmbiguousComplexGoal(taskBrief.objective, selected, input.requestedProtocol)) taskBrief.missingInformation.push('collaborationStyle');
   const selections = selected.map((protocol) => selection(protocol, snapshot));
   const validationIssues = validateDraft(taskBrief, selected, snapshot);
   const explicit = Boolean(input.requestedProtocol) || taskBrief.constraintEvidence.some((item) => item.source === 'user_input');
-  const semanticStrength = selected[0] === 'dynamic_collaboration' ? 0.68 : explicit ? 0.94 : 0.84;
+  const exactAgreement = selected.length === deterministic.length && selected.every((item, index) => deterministic[index] === item);
+  const semanticStrength = modelProposal
+    ? 0.74 + modelProposal.confidence * 0.14 + (exactAgreement ? 0.08 : selected[0] === deterministic[0] ? 0.04 : 0) - Math.max(0, selected.length - 1) * 0.02
+    : selected[0] === 'dynamic_collaboration' ? 0.68 : explicit ? 0.94 : 0.84;
   const platformConfidence = Math.max(0, Math.min(1, semanticStrength - validationIssues.length * 0.18 - taskBrief.missingInformation.length * 0.2));
   const decision = validationIssues.some((item) => item.severity === 'error') ? 'unavailable'
     : taskBrief.missingInformation.length > 0 ? 'clarify'
-      : taskBrief.risk === 'high' || platformConfidence < 0.82 ? 'recommend' : 'auto_start';
-  const reasonCodes = input.requestedProtocol ? ['USER_SELECTED_PROTOCOL']
+      : taskBrief.risk === 'high' || platformConfidence < autoStartThreshold ? 'recommend' : 'auto_start';
+  const deterministicReasonCodes = input.requestedProtocol ? ['USER_SELECTED_PROTOCOL']
     : selected.includes('debate') ? ['EXPLICIT_DEBATE_REQUEST', 'FIXED_ROUNDS', 'INDEPENDENT_REVIEW_REQUIRED']
       : selected.includes('review_revision') ? ['USER_REQUESTS_DELIVERABLE', 'OUTPUT_REQUIRES_REVIEW', 'DEFECTS_MAY_REQUIRE_REWORK']
         : selected.includes('parallel_fanout') ? ['INDEPENDENT_WORKSTREAMS_DETECTED']
           : selected.includes('supervisor_dag') ? ['TASK_DECOMPOSITION_REQUIRED']
             : selected.includes('sequential_pipeline') ? ['ORDERED_DEPENDENCIES_DETECTED']
               : selected.includes('single_agent') ? ['SINGLE_PARTICIPANT_SUFFICIENT'] : ['OPEN_ENDED_COLLABORATION'];
+  const reasonCodes = modelProposal?.reasonCodes.length ? modelProposal.reasonCodes : deterministicReasonCodes;
   const displayName = describe(selected, snapshot);
-  const clarificationQuestion = taskBrief.missingInformation.includes('collaborationStyle')
-    ? '你希望团队成员各自独立给出方案，还是互相讨论后形成共同结果？' : null;
+  const clarificationQuestion = modelProposal?.clarificationQuestion ?? (taskBrief.missingInformation.includes('collaborationStyle')
+    ? '你希望团队成员各自独立给出方案，还是互相讨论后形成共同结果？' : null);
+  const modelEvidence = modelProposal?.evidence ?? [];
   return {
     id: randomUUID(), capabilitySnapshotId: snapshot.id, taskBrief, protocols: selections, displayName,
     summary: selected.length > 1 ? `建议按“${displayName}”分阶段协作。` : `建议采用“${displayName}”。`, reasonCodes,
     evidence: [
       { source: 'task_semantics', field: 'objective' },
+      ...modelEvidence,
       ...taskBrief.constraintEvidence.map((item) => ({ source: item.source === 'platform_default' ? 'capability' as const : 'user_constraint' as const, field: item.constraint })),
     ],
-    alternatives: alternativesFor(selected, snapshot.agents.length, snapshot), modelConfidence: null, platformConfidence,
+    alternatives: modelProposal?.alternatives.length ? modelProposal.alternatives : alternativesFor(selected, snapshot.agents.length, snapshot),
+    planning, modelConfidence: modelProposal?.confidence ?? null, platformConfidence,
     risk: taskBrief.risk, decision, clarificationQuestion,
     clarificationOptions: clarificationQuestion ? ['多人分别分析后汇总', '开放式自由协作'] : [],
     validationIssues, validationErrors: validationIssues.filter((item) => item.severity === 'error').map((item) => item.code),

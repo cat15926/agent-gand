@@ -47,10 +47,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>collaboration 汇总者被重复触发：最终报告连发三份</h1>
+  <h1>collaboration 内部结果被当作最终回复：同一汇总连发三份</h1>
   <div class="meta">
     run <code>b4a0f9ec-c5f0-45a2-99ca-3772c79e3be4</code> · 2026-09-20 02:38–02:44 · collaboration 模式 ·
-    issue 详见 <code>docs/issues/collaboration-duplicate-final-reports.md</code>
+    基于消息时序与当前实现复核 · 修订版
   </div>
 
   <div class="stats">
@@ -165,15 +165,15 @@
         <line x1="424" y1="682" x2="154" y2="682"/>
       </g>
       <g fill="#b91c1c" font-weight="600">
-        <text x="289" y="566">最终报告 ①（处理 #3 → finish · run → completed）</text>
-        <text x="289" y="618">最终报告 ②（处理 #2 · run 已完成仍执行）</text>
-        <text x="289" y="670">最终报告 ③（处理 #5）</text>
+      <text x="289" y="566">最终报告 ①（aggregate 汇总节点，权威结果）</text>
+        <text x="289" y="618">最终报告 ②（处理重复 handoff #2）</text>
+        <text x="289" y="670">最终报告 ③（处理二次 handoff #5，随后 run 完成）</text>
       </g>
     </g>
 
     <!-- 底部图例 -->
     <g font-size="11.5" fill="#52525b">
-      <text x="60" y="758">R1 内容双投递　R2 finish 不清队 / run 完成后照跑　R3 窄上下文误判 + 辩论话术催促　▇ 蓝条 = reviewer 正在处理的 dispatch</text>
+      <text x="60" y="758">R1 batch 双通道回流　R2 内部结果与用户最终结果未分层　R3 执行中上下文陈旧 + 非中性提醒　▇ 蓝条 = reviewer 正在处理的 dispatch</text>
     </g>
   </svg>
   </div>
@@ -185,35 +185,51 @@
     <tr><td class="q">02:40:55</td><td>nim handoff + aggregate 先后入队</td><td class="q">执行中 #1 ｜ 排队 [#2, #3]</td></tr>
     <tr><td class="q">02:41:48</td><td>#1 完成（产出 = 对 nim 重征询 #4）</td><td class="q">[#3 → 立即执行] ｜ 排队 [#2]（nim 同时处理 #4）</td></tr>
     <tr><td class="q">02:42:24</td><td>nim 二次提交入队</td><td class="q">执行中 #3 ｜ 排队 [#2, #5]</td></tr>
-    <tr><td class="q">02:42:31</td><td>#3 完成 → <span class="done">报告 ①</span>，run → completed</td><td class="q">排队 [#2, #5] —— <span class="dupe">不取消，继续执行</span></td></tr>
-    <tr><td class="q">02:43:10</td><td>#2 完成</td><td><span class="dupe">报告 ②</span>（run 已 completed 仍执行）</td></tr>
-    <tr><td class="q">02:44:03</td><td>#5 完成</td><td><span class="dupe">报告 ③</span></td></tr>
+    <tr><td class="q">02:42:31</td><td>#3 完成 → <span class="done">报告 ①</span></td><td class="q">排队 [#2, #5]；仍有开放 dispatch，run 应保持 running</td></tr>
+    <tr><td class="q">02:43:10</td><td>#2 完成</td><td><span class="dupe">报告 ②</span>（重复材料仍被当作用户最终回复）</td></tr>
+    <tr><td class="q">02:44:03</td><td>#5 完成</td><td><span class="dupe">报告 ③</span>，开放 dispatch 清空后 run → completed</td></tr>
   </table>
 
   <h2>③ 三层根因</h2>
   <div class="cards">
     <div class="cause" style="--accent:#dc2626">
-      <h3>R1 · 内容双投递（放大器）</h3>
-      <p>batch 子任务用 <code>handoff</code> 回发起者时，正文走两条路：handoff 自建一条 dispatch，<code>maybeCompleteBatch</code> 又把同一段全文塞进 aggregate 再建一条。reviewer 每条调研各收 <b>两份</b>。</p>
+      <h3>R1 · batch 双通道回流（直接原因）</h3>
+      <p>batch 子任务用 <code>handoff</code> 回发起者时，正文走两条路：handoff 自建一条 dispatch，<code>maybeCompleteBatch</code> 又把同一结果放入 aggregate。reviewer 因而对同一材料收到直接回流和系统汇总两次触发。</p>
     </div>
     <div class="cause" style="--accent:#dc2626">
-      <h3>R2 · finish 不清队，完成后照跑（直接原因）</h3>
-      <p>每条 dispatch 独立成回合，<code>finish</code> 只发消息不清队；<code>executeDispatch</code> 不检查 run 状态——02:42:31 run 已 completed，#2、#5 照样各跑一回合、各发一份完整汇总。</p>
+      <h3>R2 · 结果可见性没有分层（根因）</h3>
+      <p><code>finish</code> 不是“完成整个 run”，而是当前 dispatch 未继续路由时的默认动作；当前实现无论 dispatch 是 fanout 内部子任务还是汇总节点，都会发布 <code>collaboration_result</code>。系统缺少“内部结果”和“面向用户最终结果”的权限边界。</p>
     </div>
     <div class="cause" style="--accent:#dc2626">
-      <h3>R3 · 窄上下文误判 + 话术催促（导火索）</h3>
-      <p>处理 #1 时"当前事项"只有 jitui 单条（transcript 每条截 2000 字符），reviewer 没认出 aggregate 里已有国内线，重发征询；乒乓提醒硬编码"辩论轮次"话术，推动 nim 二次提交，凭空多出 #5。</p>
+      <h3>R3 · 执行中上下文陈旧 + 错误话术（放大器）</h3>
+      <p>reviewer 开始处理 #1 后，上下文已固定，随后到达的 aggregate 不会动态进入该模型回合；这不是简单扩大 transcript 就能解决的问题。与此同时，乒乓提醒硬编码“辩论轮次”，在非辩论任务中推动了不必要的二次提交。</p>
     </div>
   </div>
 
   <h2>④ 修复方案（按性价比排序）</h2>
   <ol class="fix">
-    <li><span class="tag must">必修</span><b>executeDispatch 前置检查 run 状态</b>：run 已 completed/failed → 跳过剩余 dispatch（标记 cancelled + 留痕说明）。</li>
-    <li><span class="tag must">必修</span><b>finish 时取消同 run 其余 queued dispatch</b>：汇总者明确收尾后，迟到的重复材料不再各触发一回合。</li>
-    <li><span class="tag nice">建议</span><b>batch 子任务 handoff 回发起者去重</b>：结果已由 aggregate 投递，handoff 消息可保留展示但不再进调度队列。</li>
-    <li><span class="tag nice">建议</span><b>乒乓提醒文案中性化</b>：非辩论任务不再出现"辩论轮次"字样。</li>
-    <li><span class="tag nice">长期</span><b>回合前队列合并</b>：同一 target 多条 queued dispatch 内容高度重复时合并执行。</li>
+    <li><span class="tag must">必修</span><b>fanout 输出内部化</b>：并行子任务默认只写入 attempt output，不直接发布用户可见的 <code>collaboration_result</code>。</li>
+    <li><span class="tag must">必修</span><b>batch 回发发起者去重</b>：fanout 的 handoff 目标等于 batch initiator 时，将 handoff message 作为内部结果保存，不再创建额外 dispatch；aggregate 从 attempt output 汇总。</li>
+    <li><span class="tag must">必修</span><b>终态双重防线</b>：dispatch 开始前及发布结果前重新检查 run；completed/failed/cancelled 后的迟到结果标记 cancelled，不再公开发布。</li>
+    <li><span class="tag nice">建议</span><b>乒乓提醒文案中性化</b>：改为提醒检查信息是否充分，不再假设任务属于辩论。</li>
+    <li><span class="tag nice">长期</span><b>引入 response group</b>：按根 dispatch/汇总分支实施 at-most-once 最终回复，避免用“任意 finish 清空整个 run”误伤正常并行和多收件人场景。</li>
   </ol>
+
+  <h2>⑤ 复核说明</h2>
+  <div class="figure" style="font-size:13px;line-height:1.7;color:var(--sub)">
+    当前实现的队列领取已限定 run 必须为 <code>running</code>，并限制同一 Agent 同时只有一个 running attempt；<code>finalizeRun</code> 也会在仍有 queued/running dispatch 时拒绝完成 run。因此原报告“02:42:31 run 已 completed，之后仍领取 #2/#5”的表述与实现及顶部 02:38–02:44 的持续时间不一致。更可信的解释是：02:42:31 发布了第一条默认 finish 结果，但 run 直到 02:44:03 清空开放 dispatch 后才 completed。
+  </div>
+
+  <h2>⑥ 实施状态（2026-09-20）</h2>
+  <table>
+    <tr><th>修复项</th><th style="width:120px">状态</th><th>验证</th></tr>
+    <tr><td>fanout 默认结果仅写入内部 attempt output</td><td class="done">已完成</td><td>团队状态批次只产生 1 条 <code>collaboration_result</code></td></tr>
+    <tr><td>fanout handoff 回 batch initiator 时不再创建重复 dispatch</td><td class="done">已完成</td><td>回归队列仅为 initial/resume/fanout/fanout/aggregate</td></tr>
+    <tr><td>aggregate 优先从 completed attempt output 汇总</td><td class="done">已完成</td><td>直接回复与 handoff 回流均可进入汇总正文</td></tr>
+    <tr><td>executeDispatch 开始前和发布前检查 run 终态</td><td class="done">已完成</td><td>迟到结果标记 cancelled，不再公开发布</td></tr>
+    <tr><td>乒乓提醒改为任务中性文案</td><td class="done">已完成</td><td>非辩论任务不再出现“辩论轮次”</td></tr>
+    <tr><td>response group 级 at-most-once 最终回复</td><td>长期项</td><td>本次以 batch 边界修复；后续用于更复杂的多批次汇总</td></tr>
+  </table>
 </div>
 </body>
 </html>

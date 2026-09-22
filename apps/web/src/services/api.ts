@@ -26,8 +26,10 @@ import type {
   CoordinationEvent,
   CoordinationPlan,
   CoordinationPlanRevision,
+  CoordinationProtocolId,
   CoordinationPreview,
   CoordinationPreviewInput,
+  FollowupPreview,
   CoordinationStepAttempt,
   CoordinationStepState,
   ResolveCollaborationDecision,
@@ -93,8 +95,11 @@ export const getCoordinationDraftEvents = (id: string) => request<CoordinationEv
 export const getRunCoordinationPlan = (runId: string) => request<CoordinationPlan>(`/api/runs/${encodeURIComponent(runId)}/coordination-plan`);
 export const getRunCoordination = (runId: string) => request<CoordinationRunDetail>(`/api/runs/${encodeURIComponent(runId)}/coordination`);
 export const resumeCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/resume`, { method: 'POST' });
+export const pauseCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/pause`, { method: 'POST' });
+export const reviseCoordinationRun = (runId: string, instruction: string, requestedProtocol?: CoordinationProtocolId) => request<{ plan: CoordinationPlan; draft: CoordinationPreview['draft'] }>(`/api/runs/${encodeURIComponent(runId)}/coordination/revisions`, { method: 'POST', body: JSON.stringify({ instruction, ...(requestedProtocol ? { requestedProtocol } : {}) }) });
 export const cancelCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/cancel`, { method: 'POST' });
 export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
+export const previewFollowup = (id: string, input: { body: string; recipientIds?: string[]; replyTo?: string | null; wholeTeam?: boolean }) => request<FollowupPreview>(`/api/conversations/${encodeURIComponent(id)}/followup-preview`, { method: 'POST', body: JSON.stringify(input) });
 export const renameConversation = (id: string, title: string) =>
   request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
 export const archiveConversation = (id: string) =>

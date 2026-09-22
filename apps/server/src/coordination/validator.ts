@@ -5,6 +5,7 @@ import type {
   CoordinationPlanStep,
   CoordinationValidationIssue,
 } from '@agent-gand/shared';
+import { validateProtocolComposition } from './protocols.ts';
 
 function issue(code: string, message: string, path: string | null = null, severity: 'error' | 'warning' = 'error'): CoordinationValidationIssue {
   return { code, message, path, severity };
@@ -33,11 +34,27 @@ export function validateCoordinationPlan(plan: CoordinationPlan, draft: Coordina
     issues.push(issue('CAPABILITY_SNAPSHOT_MISMATCH', '草案、计划和能力快照不一致', 'capabilitySnapshotId'));
   }
   if (plan.protocols.length === 0) issues.push(issue('PROTOCOL_REQUIRED', '计划至少需要一个协议', 'protocols'));
+  const composition = plan.protocolComposition ?? plan.protocols;
+  if (composition.length !== plan.protocols.length || composition.some((item, index) => item.protocol !== plan.protocols[index]?.protocol || item.version !== plan.protocols[index]?.version)) {
+    issues.push(issue('PROTOCOL_COMPOSITION_MISMATCH', '协议组合与计划协议列表不一致', 'protocolComposition'));
+  }
+  for (const compositionIssue of validateProtocolComposition(composition.map((item) => item.protocol))) {
+    issues.push(issue(compositionIssue.split(':', 1)[0]!, `协议组合连接不合法：${compositionIssue}`, 'protocolComposition'));
+  }
   for (const selected of plan.protocols) {
     const definition = snapshot.protocols.find((item) => item.id === selected.protocol && item.version === selected.version);
     if (!definition) issues.push(issue('PROTOCOL_VERSION_NOT_IN_SNAPSHOT', `能力快照中不存在 ${selected.protocol}@${selected.version}`, 'protocols'));
   }
   if (plan.steps.length === 0) issues.push(issue('PLAN_STEPS_REQUIRED', '计划至少需要一个步骤', 'steps'));
+  if ((plan.templateExpansions?.length ?? 0) !== composition.length) {
+    issues.push(issue('TEMPLATE_EXPANSION_MISSING', '每个协议都必须保存模板展开映射', 'templateExpansions'));
+  } else {
+    for (const [index, expansion] of plan.templateExpansions.entries()) {
+      if (expansion.protocolIndex !== index || expansion.protocol !== composition[index]?.protocol || expansion.stepIds.length === 0) {
+        issues.push(issue('TEMPLATE_EXPANSION_INVALID', `协议 ${composition[index]?.protocol ?? index} 的模板展开映射无效`, `templateExpansions.${index}`));
+      }
+    }
+  }
   if (plan.steps.length > snapshot.policy.maximumSteps || plan.steps.length > plan.budget.maximumSteps) {
     issues.push(issue('PLAN_STEP_BUDGET_EXCEEDED', '计划步骤数超过预算', 'steps'));
   }

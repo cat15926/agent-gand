@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { ApprovalCard } from './ApprovalCard';
 import * as api from '../services/api';
+import { canStopCollaborationRun, collaborationAttemptTone, collaborationBatchProgress } from '../collaborationView';
 
 const SPAN_COLOR: Record<string, string> = {
   llm: 'text-sky-300',
@@ -37,9 +38,12 @@ const STEP_TYPE_LABEL: Record<string, string> = {
 };
 
 export function RightPanel() {
-  const { state } = useStore();
+  const { state, refreshConversation } = useStore();
   const [tab, setTab] = useState<'collaboration' | 'tasks' | 'approvals' | 'trace' | 'usage'>('collaboration');
   const [actingTask, setActingTask] = useState<string | null>(null);
+  const [stoppingRun, setStoppingRun] = useState(false);
+  const [coordinationAction, setCoordinationAction] = useState(false);
+  const [revisionInstruction, setRevisionInstruction] = useState('');
 
   async function taskAction(taskId: string, action: 'retry' | 'cancel') {
     setActingTask(taskId);
@@ -60,6 +64,37 @@ export function RightPanel() {
     .slice(0, 5);
   const coordinationCompleted = state.coordinationSteps.filter((step) => step.status === 'completed').length;
   const legacyTasks = state.tasks.filter((task) => task.runId === state.activeRunId);
+  const activeRun = state.runs.find((run) => run.id === state.activeRunId);
+  const activeBatches = state.collaborationBatches.filter((batch) => !state.activeRunId || batch.runId === state.activeRunId);
+  const activeAttempts = state.collaborationAttempts.filter((attempt) => !state.activeRunId || attempt.runId === state.activeRunId);
+
+  async function stopRun() {
+    if (!activeRun || stoppingRun || !window.confirm('停止本轮协作？正在运行和排队的工作都会取消。')) return;
+    setStoppingRun(true);
+    try { await api.stopCollaborationRun(activeRun.id); await refreshConversation(); }
+    finally { setStoppingRun(false); }
+  }
+
+  async function pausePlan() {
+    if (!activeRun || coordinationAction) return;
+    setCoordinationAction(true);
+    try { await api.pauseCoordinationRun(activeRun.id); await refreshConversation(); }
+    finally { setCoordinationAction(false); }
+  }
+
+  async function resumePlan() {
+    if (!activeRun || coordinationAction) return;
+    setCoordinationAction(true);
+    try { await api.resumeCoordinationRun(activeRun.id); await refreshConversation(); }
+    finally { setCoordinationAction(false); }
+  }
+
+  async function revisePlan() {
+    if (!activeRun || coordinationAction || !revisionInstruction.trim()) return;
+    setCoordinationAction(true);
+    try { await api.reviseCoordinationRun(activeRun.id, revisionInstruction.trim()); setRevisionInstruction(''); await refreshConversation(); }
+    finally { setCoordinationAction(false); }
+  }
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-800 bg-zinc-900/60">
@@ -87,12 +122,19 @@ export function RightPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'collaboration' && <div className="space-y-3 text-xs">
+          {!state.coordinationPlan && canStopCollaborationRun(activeRun) && <button disabled={stoppingRun} onClick={() => void stopRun()} className="w-full rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-left text-red-300 disabled:opacity-50">{stoppingRun ? '正在停止…' : '停止本轮协作'}</button>}
           {state.coordinationPlan && <>
             <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 p-2.5">
               <div className="flex items-center justify-between gap-2"><span className="font-medium text-fuchsia-200">Coordination Plan</span><span className={state.coordinationPlan.status === 'failed' ? 'text-red-300' : state.coordinationPlan.status === 'completed' ? 'text-emerald-300' : 'text-sky-300'}>{state.coordinationPlan.status}</span></div>
               <div className="mt-1 text-[11px] text-zinc-500">{state.coordinationPlan.protocols.map((item) => item.protocol).join(' → ')}</div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-fuchsia-400 transition-all" style={{ width: `${state.coordinationSteps.length > 0 ? coordinationCompleted / state.coordinationSteps.length * 100 : 0}%` }} /></div>
               <div className="mt-1 text-right text-[10px] text-zinc-600">{coordinationCompleted}/{state.coordinationSteps.length} 步</div>
+              <div className="mt-2 flex gap-2">
+                {['validated', 'active'].includes(state.coordinationPlan.status) && <button disabled={coordinationAction} onClick={() => void pausePlan()} className="rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200 disabled:opacity-40">暂停并调整</button>}
+                {state.coordinationPlan.status === 'pause_requested' && <span className="text-[11px] text-amber-300">将在当前步骤批次结束后暂停</span>}
+                {state.coordinationPlan.status === 'paused' && <button disabled={coordinationAction} onClick={() => void resumePlan()} className="rounded bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 disabled:opacity-40">直接恢复</button>}
+              </div>
+              {state.coordinationPlan.status === 'paused' && <div className="mt-2 space-y-2"><textarea value={revisionInstruction} onChange={(event) => setRevisionInstruction(event.target.value)} rows={2} placeholder="用自然语言调整后续计划…" className="w-full rounded bg-zinc-950/70 p-2 text-[11px] text-zinc-300 outline-none ring-1 ring-zinc-700 focus:ring-fuchsia-500" /><button disabled={coordinationAction || !revisionInstruction.trim()} onClick={() => void revisePlan()} className="rounded bg-fuchsia-500/20 px-2 py-1 text-[11px] text-fuchsia-200 disabled:opacity-40">生成新 Revision</button></div>}
             </div>
             <div className="space-y-1.5">{state.coordinationSteps.map((step) => {
               const definition = state.coordinationPlan?.steps.find((item) => item.id === step.stepId);
@@ -102,6 +144,11 @@ export function RightPanel() {
           </>}
           {state.collaborationScheduler && <div className="rounded-lg bg-violet-500/10 p-2 text-violet-200">活跃 {state.collaborationScheduler.activeAgentIds.length} · 排队 {state.collaborationScheduler.queued} · 阻断 {state.collaborationScheduler.blocked}</div>}
           <div className="space-y-2">{state.collaborationDispatches.map((dispatch) => <div key={dispatch.id} className="rounded-lg bg-zinc-800/60 p-2"><div className="flex justify-between gap-2"><span className="text-zinc-300">{dispatch.from} → {dispatch.targetAgentId}</span><span className={dispatch.status === 'failed' || dispatch.status === 'blocked' ? 'text-red-300' : dispatch.status === 'running' ? 'text-sky-300' : 'text-zinc-500'}>{dispatch.status}</span></div><div className="mt-1 text-[11px] text-zinc-500">{dispatch.kind} · 深度 {dispatch.depth}{dispatch.reason ? ` · ${dispatch.reason}` : ''}</div>{dispatch.status === 'queued' && <button onClick={() => void api.cancelCollaborationDispatch(dispatch.id)} className="mt-2 text-[11px] text-red-300">取消排队</button>}{dispatch.status === 'running' && state.activeConversationId && <button onClick={() => void api.stopCollaborationAgent(dispatch.targetAgentId, state.activeConversationId!)} className="mt-2 text-[11px] text-red-300">停止该 Agent</button>}</div>)}</div>
+          {activeBatches.length > 0 && <section className="space-y-2"><div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">并行批次</div>{activeBatches.map((batch) => {
+            const progress = collaborationBatchProgress(batch, state.collaborationDispatches);
+            return <div key={batch.id} className="rounded-lg border border-sky-500/10 bg-sky-500/5 p-2"><div className="flex justify-between gap-2"><span className="text-sky-200">{batch.initiatorAgentId} 并行征询</span><span className={batch.status === 'failed' || batch.status === 'timeout' ? 'text-red-300' : batch.status === 'completed' ? 'text-emerald-300' : 'text-sky-300'}>{batch.status}</span></div><div className="mt-1 text-[11px] text-zinc-500">{progress.terminal}/{progress.total} 已结束 · {batch.targetAgentIds.join('、')}</div><div className="mt-1 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full rounded bg-sky-400" style={{ width: `${progress.percent}%` }} /></div><div className="mt-1 truncate text-[11px] text-zinc-600" title={batch.question}>{batch.question}</div></div>;
+          })}</section>}
+          {activeAttempts.length > 0 && <section className="space-y-2"><div className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">执行尝试</div>{activeAttempts.slice().reverse().map((attempt) => { const tone = collaborationAttemptTone(attempt); return <details key={attempt.id} open={tone === 'active' || tone === 'danger'} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-2"><summary className="cursor-pointer list-none"><div className="flex justify-between gap-2"><span className="text-zinc-300">{attempt.agentId} · Attempt #{attempt.attemptNo}</span><span className={tone === 'success' ? 'text-emerald-300' : tone === 'active' ? 'text-sky-300' : tone === 'danger' ? 'text-red-300' : 'text-zinc-500'}>{attempt.status}</span></div></summary><div className="mt-2 space-y-1 border-t border-zinc-800 pt-2 text-[11px]"><div className="text-zinc-600">Dispatch {attempt.dispatchId.slice(0, 8)}</div>{attempt.deduplicatedTo && <div className="text-amber-300">已去重到 {attempt.deduplicatedTo.slice(0, 8)}</div>}{attempt.output && <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-zinc-950/70 p-2 text-zinc-400">{attempt.output}</pre>}{attempt.error && <div className="rounded bg-red-500/10 p-2 text-red-300">{attempt.error}</div>}{attempt.inputContext && <details><summary className="cursor-pointer text-zinc-600">查看输入上下文</summary><pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-zinc-950/70 p-2 text-zinc-500">{attempt.inputContext}</pre></details>}</div></details>; })}</section>}
           {!state.coordinationPlan && state.collaborationDispatches.length === 0 && <p className="text-zinc-600">当前聊天室暂无 Collaboration 调度记录</p>}
           {state.activeRunId && state.collaborationBudgets[state.activeRunId] && (() => { const budget = state.collaborationBudgets[state.activeRunId]!; return <div className="rounded-lg border border-zinc-800 p-2 text-[11px] text-zinc-500"><div className="mb-1 text-zinc-300">本轮预算</div><div>Dispatch {budget.dispatches.used}/{budget.dispatches.currentLimit}</div><div>Token {budget.tokens.used}/{budget.tokens.currentLimit}</div><div>成本 ${budget.costUsd.used.toFixed(4)}/${budget.costUsd.currentLimit.toFixed(2)}</div><div>累计倍数 {budget.cumulativeMultiplier.toFixed(2)}× / {budget.maxMultiplier}×</div></div>; })()}
         </div>}

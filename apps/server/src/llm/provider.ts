@@ -178,6 +178,17 @@ function extractToolCall(lastUserContent: string, tools: LlmToolSchema[] = []): 
   const available = new Set(tools.map((tool) => tool.name));
   // [no-freeze]：验证"承诺冻结但未落盘"场景——抑制一切工具调用，只输出正文
   if (lastUserContent.includes('[no-freeze]')) return null;
+  const askReturn = /\[collab:ask-return:([\w-]+):([\w,-]+)\]/.exec(lastUserContent);
+  if (askReturn?.[1] && askReturn[2] && available.has('agent.ask_many')) {
+    return {
+      name: 'agent.ask_many',
+      input: JSON.stringify({
+        targets: askReturn[2].split(',').filter(Boolean),
+        question: `[collab:send:${askReturn[1]}] ${lastUserContent.replace(askReturn[0], '').trim()}`,
+        reason: 'mock 并行征询后回发',
+      }),
+    };
+  }
   const send = /\[collab:send:([\w-]+)\]/.exec(lastUserContent);
   if (send?.[1] && available.has('agent.send_message')) return { name: 'agent.send_message', input: JSON.stringify({ target: send[1], message: `请继续处理：${lastUserContent.replace(send[0], '').trim()}`, reason: 'mock 协作交接' }) };
   const ask = /\[collab:ask:([\w,-]+)\]/.exec(lastUserContent);
@@ -242,7 +253,48 @@ function extractMockCollaborationContext(goal: string): MockCollaborationContext
   }
 }
 
+function buildMockCoordinationPlannerContent(goal: string): string | null {
+  if (!goal.startsWith('__AGENT_GAND_COORDINATION_PLANNER__')) return null;
+  try {
+    const payload = JSON.parse(goal.slice(goal.indexOf('\n') + 1)) as {
+      taskBrief?: { objective?: string };
+      capabilitySnapshot?: { agents?: unknown[] };
+      repairErrors?: unknown[];
+    };
+    const objective = payload.taskBrief?.objective ?? '';
+    const repairing = Array.isArray(payload.repairErrors) && payload.repairErrors.length > 0;
+    if (objective.includes('[planner-invalid-once]') && !repairing) {
+      return JSON.stringify({ taskType: 'invalid_fixture', protocols: [{ protocol: 'not_registered', version: 1 }], reasonCodes: [], evidence: [], missingInformation: [], alternatives: [], confidence: 0.9, clarificationQuestion: null });
+    }
+    const debate = /(?:辩论|观点交锋)/u.test(objective);
+    const review = /(?:审查|评审|review|\[model:review\])/iu.test(objective);
+    const implementation = /(?:实现|开发|修复|代码|\[model:review\])/u.test(objective);
+    const parallel = /(?:分别|各自|并行|独立分析)/u.test(objective);
+    const aggregate = /(?:汇总|总结|整合)/u.test(objective);
+    let protocols: string[];
+    if (debate) protocols = ['debate'];
+    else if (parallel && aggregate && review && implementation) protocols = ['parallel_fanout', 'supervisor_aggregation', 'review_revision'];
+    else if (review && implementation) protocols = ['review_revision'];
+    else if (parallel) protocols = aggregate ? ['parallel_fanout', 'supervisor_aggregation'] : ['parallel_fanout'];
+    else protocols = (payload.capabilitySnapshot?.agents?.length ?? 0) === 1 ? ['single_agent'] : ['dynamic_collaboration'];
+    const clarify = objective.includes('[model:clarify]');
+    return JSON.stringify({
+      taskType: review && implementation ? 'implementation_with_review' : debate ? 'debate' : parallel ? 'parallel_analysis' : 'general',
+      protocols: protocols.map((protocol) => ({ protocol, version: 1 })),
+      reasonCodes: review && implementation ? ['USER_REQUESTS_DELIVERABLE', 'OUTPUT_REQUIRES_REVIEW'] : debate ? ['EXPLICIT_DEBATE_REQUEST'] : ['MODEL_SEMANTIC_MATCH'],
+      evidence: [{ source: 'task_semantics', field: 'objective' }],
+      missingInformation: clarify ? ['collaborationStyle'] : [],
+      alternatives: [], confidence: 0.94,
+      clarificationQuestion: clarify ? '你希望成员独立给出方案，还是共同讨论后形成结论？' : null,
+    });
+  } catch {
+    return JSON.stringify({ taskType: 'invalid', protocols: [], reasonCodes: [], evidence: [], missingInformation: [], alternatives: [], confidence: 0, clarificationQuestion: null });
+  }
+}
+
 function buildContent(model: string, goal: string): string {
+  const plannerContent = buildMockCoordinationPlannerContent(goal);
+  if (plannerContent !== null) return plannerContent;
   if (goal.includes('__AGENT_GAND_REVIEW_JSON__')) {
     if (goal.includes('__MOCK_REVIEW_FAIL_ONCE__') && goal.includes('当前实现轮次：1')) {
       return JSON.stringify({
@@ -304,6 +356,7 @@ export class MockProvider implements LLMProvider {
     const goal = lastUser?.content ?? '';
     const collaboration = extractMockCollaborationContext(goal);
     const currentInput = collaboration?.message ?? goal;
+    if (goal.startsWith('__AGENT_GAND_COORDINATION_PLANNER__') && goal.includes('[planner-fail]')) throw new Error('mock planner unavailable');
     // [truncate]：验证 max_tokens 截断防御——首访返回截断正文；runtime 重试会注入
     // "上一次反馈（必须处理）"，带该前缀的重试视为已修复，返回完整正文（天然 once 语义）
     if (currentInput.includes('[truncate]') && !currentInput.includes('上一次反馈')) {

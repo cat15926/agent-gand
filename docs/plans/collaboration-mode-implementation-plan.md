@@ -1,8 +1,8 @@
 # agent-gand Collaboration 模式实施计划
 
-> 状态：已实施
+> 状态：已完成（2026-09-21 完成阶段 A–F；验收记录见[阶段 F 验收报告](../reports/collaboration-stage-f-acceptance.md)）
 >
-> 更新时间：2026-09-16
+> 更新时间：2026-09-21
 >
 > 评审结论：2026-09-16 已确认 6 项产品决策，详见第 20 节。
 >
@@ -12,7 +12,7 @@
 
 ## 1. 背景
 
-agent-gand 当前支持两种运行模式：
+本计划立项时，agent-gand 仅支持两种运行模式：
 
 - `pipeline`：按成员列表固定顺序依次执行；
 - `supervisor`：主管先生成任务 DAG，再由 Scheduler 执行、审查和返工。
@@ -54,7 +54,7 @@ Agent 选择一个终态动作
 
 - 用户 `@Agent` 会真正决定初始执行者；
 - 用户首版可显式选择最多三位初始 Agent 并行执行；
-- 新聊天室默认使用 Collaboration，用户仍可主动选择 Pipeline 或 Supervisor；
+- 服务端未显式传入模式时默认使用 Collaboration；前端新聊天室默认进入“智能匹配”，用户仍可主动选择 Collaboration、Pipeline 或 Supervisor；
 - Agent 可以在运行过程中动态选择下一位协作者；
 - 不同 Agent 可以在同一聊天室中并行，同一个 Agent 保持串行；
 - 每次路由都有明确来源、目标、原因和状态；
@@ -700,7 +700,7 @@ stateDiagram-v2
 - `wait_for_user`：问题保存为 Agent 气泡，Run 转为等待用户；
 - `propose_supervisor_task`：保存 Agent 提议气泡和确认卡片，Run 转为等待用户；
 - 预算达到上限：保存系统决策卡片，显示已用值、当前上限和扩容后的预估上限；
-- Batch 汇总：各目标的独立回复保持原作者，Aggregate Dispatch 只读取引用，不复制正文；
+- Batch 汇总：fanout 子任务结果写入 Attempt output，作为 Aggregate 的内部协作材料；每个成功结果另以非终局 `collaboration_contribution` 消息展示原始发言，不直接发布面向用户的最终气泡。Aggregate Dispatch 从 Attempt 生成唯一汇总上下文；fanout 使用 handoff 回 batch initiator 时同样收敛为内部结果，不再创建重复 Dispatch；
 - 路由条、状态徽标和“正在输入”由 Dispatch、Attempt、ControlAction 投影，不额外写入普通 Message。
 
 ### 7.5 不自动重放副作用
@@ -964,7 +964,7 @@ Agent 根据讨论动态邀请队友；适合探索、评审和多人会诊。
 
 Collaboration 模式：
 
-- 新建聊天室时默认选中，Pipeline 和 Supervisor 保留为可选模式；
+- 用户显式选择 Collaboration 时进入本模式；新建聊天室默认入口为“智能匹配”，由 Coordination Planner 选择合适协议；服务端 API 省略 mode 时仍回退 Collaboration；
 - 不要求 supervisorId；
 - 至少选择 1 位成员；
 - 没有历史 Agent 回复时使用成员列表第一位作为最终回退；
@@ -1166,7 +1166,7 @@ Span output 至少包含：
 ### 阶段 E：前端体验
 
 - 新建聊天室支持 Collaboration 模式；
-- 将 Collaboration 设为新建聊天室默认模式；
+- 将 Collaboration 保留为显式模式，并接入默认“智能匹配”入口；服务端缺省 mode 继续回退 Collaboration；
 - 实现成员选择器和真实 `@` 路由；
 - 展示路由条、Agent 实时状态和并行分支；
 - 增加停止、取消排队和预算查看；
@@ -1181,7 +1181,7 @@ Span output 至少包含：
 - 运行现有 Agent、Scheduler、MCP 和 135 项 Provider 回归；
 - 更新 README 和架构文档；
 - 保留 Pipeline 和 Supervisor 显式模式选择；
-- Collaboration 随首版默认向所有新聊天室开放。
+- Collaboration 向所有新聊天室开放；前端默认入口为“智能匹配”，Collaboration、Pipeline、Supervisor 均可显式选择，服务端省略 mode 时回退 Collaboration。
 
 完成标志：所有新增验收和现有回归通过，Pipeline/Supervisor 的响应、调度和 UI 无行为变化。
 
@@ -1256,7 +1256,7 @@ Span output 至少包含：
 6. 断线重连后队列、Batch 和预算恢复；
 7. 停止一位 Agent 不影响其他 Agent；
 8. 小屏下路由条和状态不破坏气泡方向。
-9. 新建聊天室默认选中 Collaboration；
+9. 新建聊天室默认选中“智能匹配”；Collaboration、Pipeline、Supervisor 均保留显式选项；
 10. 多初始 Agent Chip 提交稳定 ID；
 11. waiting_for_user 显示问题、预算或 Proposal 决策卡片；
 12. 预算扩容前展示比例和新的绝对上限。
@@ -1270,6 +1270,9 @@ pnpm verify:p0-tools
 pnpm verify:agents
 pnpm verify:scheduler
 pnpm verify:collaboration
+pnpm verify:collaboration-reliability
+pnpm verify:collaboration-ui
+pnpm verify:chat-scroll
 node scripts/verify-llm-stubs.mjs
 ```
 
@@ -1296,7 +1299,7 @@ node scripts/verify-llm-stubs.mjs
 
 补充验收场景：
 
-1. 新建聊天室不操作模式选择器，创建结果为 Collaboration；
+1. 新建聊天室不操作模式选择器时进入智能匹配；显式选择 Collaboration 或 API 省略 mode 时仍可创建 Collaboration；
 2. 用户同时选择 Coder、Reviewer 两个 Chip，两者并行收到初始 Dispatch；
 3. 无 `@` 发送下一条消息，只唤醒最近成功回复的 Agent；
 4. Agent 调用 `wait_for_user` 后 Run 显示“等待你的决定”，用户回复后原 Run 恢复执行；
@@ -1338,18 +1341,28 @@ node scripts/verify-llm-stubs.mjs
 
 1. 无 `@` 或显式成员 Chip 时，优先路由给最近成功回复的 Agent；
 2. 首版允许用户一次显式选择多位初始 Agent，上限为三位；
-3. Collaboration 默认向所有新聊天室开放，Pipeline 和 Supervisor 保留为显式选择；
+3. Collaboration 向所有新聊天室开放；该决策后续由 Coordination Planner 演进为“前端默认智能匹配，Collaboration/Pipeline/Supervisor 保留显式选择，服务端缺省回退 Collaboration”；
 4. RunStatus 新增 `waiting_for_user`，用户回答后恢复原 Run；
 5. 达到可扩展预算时暂停并询问用户，用户可终止或按比例增加预算投入；
 6. Agent 可以提议创建正式 Supervisor Task，但必须由用户确认，确认后创建关联 Supervisor Run 并沿用正式任务状态机。
 
 ## 21. 实施结果
 
-2026-09-16 已按本计划完成首版实现：
+2026-09-16 已按本计划完成首版实现；2026-09-21 完成第二轮可靠性补强：
 
 - 新增 Collaboration 共享契约、SQLite 持久化、Conversation 级 Scheduler 和 Agent 单槽；
 - 实现动态交接、并行征询、Batch 聚合、等待用户、预算扩容和 Proposal；
-- 新聊天室默认使用 Collaboration，支持最多三位初始 Agent；
+- 新聊天室默认进入“智能匹配”，可显式选择 Collaboration（最多三位初始 Agent）、Pipeline 或 Supervisor；服务端 API 省略 mode 时仍回退 Collaboration；
 - 增加聊天室决策卡片、动态路由状态、预算信息和停止操作；
 - 增加重启恢复、Attempt 租约、幂等 Decision、预算修订和副作用恢复保护；
 - 增加 `pnpm verify:collaboration` 端到端验收，覆盖交接、多目标、最近回复者、等待恢复、预算扩容/终止和 Supervisor Proposal 幂等。
+- Dispatch 完成改为单个数据库事务：输出消息、ControlAction、子 Dispatch、Attempt、Batch 与 Run 终态共同提交；事务内 WS 事件延迟到提交成功后广播；
+- Trace 补齐 `collaboration:<runId> → dispatch:<dispatchId> → agent:<agentId> → llm/tool/control` 层级，并为 Decision 写入独立 orchestration Span；
+- Attempt 持久化实际输入上下文和 `deduplicatedTo`；规范化内容摘要用于同父 Dispatch、同目标、queued/running 路由去重；
+- 深度、目标数与乒乓熔断写入 `blocked` Dispatch，并记录 Guard Trace 属性；
+- fanout 原始结果写入 Attempt output，Aggregate 从 Attempt 汇总；同时每位成功的 fanout Agent 留下一条持久、非终局的 `collaboration_contribution` 发言，只有发起者发布 `collaboration_result`，避免双投递或发言短暂出现后消失；
+- 前端协作面板展示 Batch 进度、Attempt 输入/输出/错误/去重状态，并提供 Run Stop；停止后的 Run 使用 `cancelled` 终态；
+- 新增 `verify:collaboration-reliability`，覆盖事务回滚不广播、规范化去重、Agent Slot 竞态、安全恢复和副作用阻断；
+- 新增 `verify:collaboration-ui`，覆盖 Batch、Attempt 和 Run Stop 视图模型；Web 生产构建作为组件集成验证；
+- `verify:collaboration` 增加 Trace 父子关系、不同 Agent 并发、乒乓 blocked、Attempt inputContext、唯一 fanout 汇总和 Run Stop 场景。
+- 阶段 F 的领域、数据库、Stub E2E、Agent/Scheduler/MCP/Provider 及扩展协调回归全部通过；当前运行契约已提炼至[架构文档](../architecture/collaboration-runtime.md)，完整命令与边界见[验收报告](../reports/collaboration-stage-f-acceptance.md)。

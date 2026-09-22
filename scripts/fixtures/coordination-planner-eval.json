@@ -1,0 +1,50 @@
+[
+  {
+    "id": "single-summary",
+    "goal": "总结当前内容",
+    "agentIds": ["coder"],
+    "expectedProtocols": ["single_agent"],
+    "expectedDecision": "auto_start",
+    "outcome": { "completed": true, "runtimeCostUsd": 0, "humanCorrected": false }
+  },
+  {
+    "id": "parallel-aggregate",
+    "goal": "让两位成员分别独立分析两个方案并汇总",
+    "agentIds": ["planner", "coder"],
+    "expectedProtocols": ["parallel_fanout", "supervisor_aggregation"],
+    "expectedDecision": "auto_start",
+    "outcome": { "completed": true, "runtimeCostUsd": 0, "humanCorrected": false }
+  },
+  {
+    "id": "semantic-review",
+    "goal": "请把登录问题处理到可交付状态 [model:review]",
+    "agentIds": ["coder", "reviewer"],
+    "defaultReviewerId": "reviewer",
+    "expectedProtocols": ["review_revision"],
+    "expectedDecision": "auto_start",
+    "outcome": { "completed": true, "runtimeCostUsd": 0, "humanCorrected": false }
+  },
+  {
+    "id": "three-round-debate",
+    "goal": "进行三轮辩论，正方支持 A，反方支持 B，最后由 Reviewer 裁判",
+    "agentIds": ["planner", "coder", "reviewer"],
+    "defaultReviewerId": "reviewer",
+    "expectedProtocols": ["debate"],
+    "expectedDecision": "auto_start",
+    "outcome": { "completed": true, "runtimeCostUsd": 0, "humanCorrected": false }
+  },
+  {
+    "id": "critical-ambiguity",
+    "goal": "比较两个认证方案 [model:clarify]",
+    "agentIds": ["planner", "coder"],
+    "expectedProtocols": ["dynamic_collaboration"],
+    "expectedDecision": "clarify"
+  },
+  {
+    "id": "high-risk-confirmation",
+    "goal": "发布并部署新版本",
+    "agentIds": ["coder"],
+    "expectedProtocols": ["single_agent"],
+    "expectedDecision": "recommend"
+  }
+]

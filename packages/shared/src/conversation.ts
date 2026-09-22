@@ -26,4 +26,10 @@ export interface SendConversationMessageInput {
   replyTo?: string | null;
   taskId?: string | null;
   clientMessageId: string;
+  /** 用户确认追问推荐卡后，仅本轮使用该 Plan，不改变房间模式。 */
+  coordinationDraftId?: string;
+  /** 明确拒绝追问建议时按房间原有模式调度；不改变之后的默认路由。 */
+  followupRouting?: 'room_mode';
+  /** 本轮必须使用覆盖房间所有成员的协调计划。 */
+  wholeTeam?: boolean;
 }

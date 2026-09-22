@@ -3,10 +3,10 @@ import * as registry from '../agents/registry.ts';
 import { tx } from '../db/database.ts';
 import { nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
-import { finishRun, getRun, setRunStatus, createRun } from '../runs/trace.ts';
+import { endSpan, finishRun, getRun, listEvents, setRunStatus, createRun, startSpan } from '../runs/trace.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { cancelQueuedRun, createBudgetRevision, createDispatch, getDecision, resolveDecision } from './store.ts';
-import { kickCollaboration } from './scheduler.ts';
+import { closeCollaborationTrace, kickCollaboration } from './scheduler.ts';
 
 export class CollaborationDecisionError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -31,6 +31,13 @@ function validateSupervisorTeam(sourceRun: Run, input: Extract<ResolveCollaborat
   }
 }
 
+function recordDecisionTrace(sourceRun: Run, decisionId: string, kind: string, input: ResolveCollaborationDecision, output: Record<string, unknown>): void {
+  const parent = listEvents(sourceRun.id).find((event) => event.spanKind === 'orchestration' && event.name === `collaboration:${sourceRun.id}` && event.status === 'running');
+  const span = startSpan(sourceRun.id, { parentId: parent?.id, spanKind: 'orchestration', name: `decision:${kind}`,
+    input: JSON.stringify({ decisionId, action: input.action }), attributes: { 'orchestration.phase': 'collaboration.decision', 'collaboration.decision.id': decisionId } });
+  endSpan(span, { output: JSON.stringify(output), status: 'ok' });
+}
+
 export function resolveCollaborationDecision(id: string, input: ResolveCollaborationDecision) {
   const initial = assertPending(id);
   if (initial.status !== 'pending') return { decision: initial, linkedRun: initial.linkedRunId ? getRun(initial.linkedRunId) : null };
@@ -47,10 +54,11 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
         replyTo: current.promptMessageId, messageType: 'informational', deliveryStatus: 'processing' });
       createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
         parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
-        reason: '用户回答协作问题', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:answer` });
+        reason: '用户回答协作问题', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:answer`, dedupeText: message });
       const resolved = resolveDecision(current.id, 'accepted', { action: input.action, messageId: userMessage.id })!;
       setRunStatus(sourceRun.id, 'running'); return resolved;
     });
+    recordDecisionTrace(sourceRun, id, initial.kind, input, { status: result.status });
     touchConversation(sourceRun.conversationId); kickCollaboration(sourceRun.conversationId);
     return { decision: result, linkedRun: null };
   }
@@ -66,10 +74,11 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       if (agentId && sourceMessageId) createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId,
         sourceMessageId, parentDispatchId: typeof current.payload.parentDispatchId === 'string' ? current.payload.parentDispatchId : null,
         kind: 'resume', from: 'system', targetAgentId: agentId, reason: '用户增加预算后重试被阻止的路由',
-        depth: typeof current.payload.depth === 'number' ? current.payload.depth : 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:budget-resume` });
+        depth: typeof current.payload.depth === 'number' ? current.payload.depth : 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:budget-resume`, dedupeText: `budget-resume:${current.id}` });
       const done = resolveDecision(current.id, 'accepted', { action: input.action, increasePercent: input.increasePercent, revisionId: revision.id, newLimits: revision.newLimits })!;
       setRunStatus(sourceRun.id, 'running'); return done;
     });
+    recordDecisionTrace(sourceRun, id, initial.kind, input, { status: resolved.status, increasePercent: input.increasePercent });
     postSystem(sourceRun.id, 'user', `预算已增加 ${input.increasePercent}%，协作继续执行。`);
     touchConversation(sourceRun.conversationId); kickCollaboration(sourceRun.conversationId);
     return { decision: resolved, linkedRun: null };
@@ -82,6 +91,8 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       const done = resolveDecision(current.id, 'accepted', { action: input.action, outcome: 'partial_accepted' })!;
       finishRun(sourceRun.id, 'completed'); return done;
     });
+    recordDecisionTrace(sourceRun, id, initial.kind, input, { status: resolved.status, outcome: 'partial_accepted' });
+    closeCollaborationTrace(sourceRun.id, 'completed');
     postSystem(sourceRun.id, 'user', '用户选择在预算边界按当前部分结果终止。'); touchConversation(sourceRun.conversationId);
     return { decision: resolved, linkedRun: null };
   }
@@ -96,10 +107,11 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
         replyTo: current.promptMessageId, deliveryStatus: 'processing' });
       createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
         parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
-        reason: '用户拒绝正式任务提议', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:reject` });
+        reason: '用户拒绝正式任务提议', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:reject`, dedupeText: reason });
       const done = resolveDecision(current.id, 'rejected', { action: input.action, reason, messageId: userMessage.id })!;
       setRunStatus(sourceRun.id, 'running'); return done;
     });
+    recordDecisionTrace(sourceRun, id, initial.kind, input, { status: resolved.status });
     touchConversation(sourceRun.conversationId); kickCollaboration(sourceRun.conversationId);
     return { decision: resolved, linkedRun: null };
   }
@@ -119,6 +131,8 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       finishRun(sourceRun.id, 'completed'); return created;
     });
     if (!linked) throw new CollaborationDecisionError('关联 Supervisor Run 创建失败', 409);
+    recordDecisionTrace(sourceRun, id, initial.kind, input, { status: 'accepted', linkedRunId: linked.id });
+    closeCollaborationTrace(sourceRun.id, 'completed');
     enqueueConversationRun(linked.id); touchConversation(sourceRun.conversationId);
     return { decision: getDecision(id)!, linkedRun: linked };
   }

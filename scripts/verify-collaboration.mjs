@@ -57,6 +57,15 @@ try {
   assert.equal(handoffDetail.status, 200);
   assert.deepEqual(handoffDetail.data.dispatches.map((item) => [item.kind, item.targetAgentId]), [['initial', 'planner'], ['handoff', 'coder']]);
   assert.ok(handoffDetail.data.dispatches.every((item) => item.status === 'completed'));
+  assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
+  const handoffRunDetail = await api(`/api/runs/${handoff.data.run.id}`);
+  const traceEvents = handoffRunDetail.data.events;
+  const collaborationRoot = traceEvents.find((event) => event.name === `collaboration:${handoff.data.run.id}`);
+  assert.equal(collaborationRoot?.status, 'ok');
+  const dispatchSpans = traceEvents.filter((event) => event.name.startsWith('dispatch:'));
+  assert.equal(dispatchSpans.length, 2);
+  assert.ok(dispatchSpans.every((event) => event.parentId === collaborationRoot.id));
+  assert.ok(traceEvents.filter((event) => event.name.startsWith('control:')).every((event) => traceEvents.some((parent) => parent.id === event.parentId && parent.spanKind === 'agent')));
 
   const statusQuestion = await api('/api/conversations', 'POST', {
     goal: '你好，鸡腿，你现在状态如何？', mode: 'collaboration', agentIds: ['coder-jitui'], recipientIds: ['coder-jitui'],
@@ -98,6 +107,35 @@ try {
   assert.match(teamReply?.body ?? '', /Planner/u);
   assert.match(teamReply?.body ?? '', /Coder/u);
   assert.match(teamReply?.body ?? '', /Reviewer/u);
+  assert.equal(teamRoom.data.messages.filter((message) => message.runId === teamCheck.data.run.id && message.messageType === 'collaboration_result').length, 1);
+  const teamContributions = teamRoom.data.messages.filter((message) => message.runId === teamCheck.data.run.id && message.messageType === 'collaboration_contribution');
+  assert.equal(teamContributions.length, 3, '每个并行成员必须留下独立的可见发言');
+  assert.deepEqual(new Set(teamContributions.map((message) => message.from)), new Set(['planner', 'coder', 'reviewer']));
+  assert.ok(teamContributions.every((message) => message.body && message.replyTo && message.meta?.dispatchId && message.meta?.batchId));
+
+  const fanoutReturn = await api('/api/conversations', 'POST', {
+    goal: '[collab:ask-return:planner:coder,reviewer] 请分别调研后回报',
+    mode: 'collaboration', agentIds: ['planner', 'coder', 'reviewer'], recipientIds: ['planner'],
+  });
+  assert.equal(fanoutReturn.status, 201, JSON.stringify(fanoutReturn.data));
+  await waitRun(fanoutReturn.data.run.id, ['waiting_for_user']);
+  const fanoutPaused = await api(`/api/runs/${fanoutReturn.data.run.id}/collaboration`);
+  const fanoutBudget = fanoutPaused.data.decisions.find((item) => item.kind === 'budget_exhausted' && item.status === 'pending');
+  assert.ok(fanoutBudget);
+  const fanoutExtended = await api(`/api/collaboration/decisions/${fanoutBudget.id}/resolve`, 'POST', { action: 'increase_budget', increasePercent: 200 });
+  assert.equal(fanoutExtended.status, 200, JSON.stringify(fanoutExtended.data));
+  await waitRun(fanoutReturn.data.run.id, ['completed'], 12_000);
+  const fanoutDetail = await api(`/api/runs/${fanoutReturn.data.run.id}/collaboration`);
+  assert.deepEqual(fanoutDetail.data.dispatches.map((item) => item.kind), ['initial', 'resume', 'fanout', 'fanout', 'aggregate']);
+  assert.ok(fanoutDetail.data.attempts.filter((item) => fanoutDetail.data.dispatches.some((dispatch) => dispatch.id === item.dispatchId && dispatch.kind === 'fanout')).every((item) => item.output?.includes('请继续处理')));
+  const fanoutRoom = await api(`/api/conversations/${fanoutReturn.data.conversation.id}`);
+  assert.equal(fanoutRoom.data.messages.filter((message) => message.runId === fanoutReturn.data.run.id && message.messageType === 'collaboration_result').length, 1);
+  const fanoutContributions = fanoutRoom.data.messages.filter((message) => message.runId === fanoutReturn.data.run.id && message.messageType === 'collaboration_contribution');
+  assert.equal(fanoutContributions.length, 2, '回发发起者的 fanout 结果也必须作为两条发言保留');
+  assert.deepEqual(new Set(fanoutContributions.map((message) => message.from)), new Set(['coder', 'reviewer']));
+  assert.ok(fanoutContributions.every((message) => message.body.includes('请继续处理')));
+  const refreshedFanoutRoom = await api(`/api/conversations/${fanoutReturn.data.conversation.id}`);
+  assert.deepEqual(refreshedFanoutRoom.data.messages.filter((message) => message.messageType === 'collaboration_contribution').map((message) => message.id), fanoutContributions.map((message) => message.id), '刷新后发言必须保留且不重复');
 
   const debateRouting = await api('/api/conversations', 'POST', {
     goal: '[collab:send:coder][collab:send:planner][collab:send:coder][collab:send:planner] 10轮辩论路由验证',
@@ -115,6 +153,20 @@ try {
   assert.equal(debateDetail.data.dispatches.filter((item) => item.kind === 'handoff').length, 4);
   assert.ok(debateDetail.data.dispatches.every((item) => item.status === 'completed'));
 
+  const blockedRouting = await api('/api/conversations', 'POST', {
+    goal: '[collab:send:coder][collab:send:planner][collab:send:coder][collab:send:planner] 交接熔断验证',
+    mode: 'collaboration', agentIds: ['planner', 'coder'], recipientIds: ['planner'],
+  });
+  await waitRun(blockedRouting.data.run.id, ['waiting_for_user']);
+  const blockedPaused = await api(`/api/runs/${blockedRouting.data.run.id}/collaboration`);
+  const blockedBudget = blockedPaused.data.decisions.find((item) => item.kind === 'budget_exhausted' && item.status === 'pending');
+  assert.ok(blockedBudget);
+  await api(`/api/collaboration/decisions/${blockedBudget.id}/resolve`, 'POST', { action: 'increase_budget', increasePercent: 200 });
+  await waitRun(blockedRouting.data.run.id, ['completed'], 12_000);
+  const blockedDetail = await api(`/api/runs/${blockedRouting.data.run.id}/collaboration`);
+  assert.equal(blockedDetail.data.dispatches.filter((item) => item.status === 'blocked').length, 1);
+  assert.match(blockedDetail.data.dispatches.find((item) => item.status === 'blocked')?.error ?? '', /连续往返/u);
+
   const multi = await api('/api/conversations', 'POST', {
     goal: '分别给出意见', mode: 'collaboration', agentIds: ['planner', 'coder', 'reviewer'], recipientIds: ['coder', 'reviewer'],
   });
@@ -122,6 +174,10 @@ try {
   await waitRun(multi.data.run.id, ['completed']);
   const multiDetail = await api(`/api/runs/${multi.data.run.id}/collaboration`);
   assert.deepEqual(new Set(multiDetail.data.dispatches.map((item) => item.targetAgentId)), new Set(['coder', 'reviewer']));
+  const multiAttempts = multiDetail.data.attempts.filter((item) => item.status === 'completed');
+  assert.equal(multiAttempts.length, 2);
+  assert.ok(new Date(multiAttempts[0].startedAt).getTime() < new Date(multiAttempts[1].endedAt).getTime()
+    && new Date(multiAttempts[1].startedAt).getTime() < new Date(multiAttempts[0].endedAt).getTime(), '不同 Agent 应并发执行');
 
   const room = await api(`/api/conversations/${multi.data.conversation.id}`);
   const lastAgent = [...room.data.messages].reverse().find((message) => message.kind === 'agent').from;
@@ -188,6 +244,15 @@ try {
     action: 'approve_task', supervisorId: 'planner', agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
   });
   assert.equal(repeated.data.linkedRun.id, approved.data.linkedRun.id);
+
+  const stoppable = await api('/api/conversations', 'POST', {
+    goal: '[collab:wait] 等待后停止', mode: 'collaboration', agentIds: ['planner'], recipientIds: ['planner'],
+  });
+  await waitRun(stoppable.data.run.id, ['waiting_for_user']);
+  const stopped = await api(`/api/collaboration/runs/${stoppable.data.run.id}/stop`, 'POST');
+  assert.equal(stopped.data.status, 'cancelled');
+  const stoppedDetail = await api(`/api/runs/${stoppable.data.run.id}/collaboration`);
+  assert.ok(stoppedDetail.data.dispatches.every((item) => !['queued', 'running'].includes(item.status)));
 
   console.log('collaboration verification passed');
 } finally {

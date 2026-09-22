@@ -287,14 +287,18 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
       const results = await mapWithLimit(ready, config.orchestratorConcurrency, (step) => executeStep(run, currentPlan, step, agents, root.id, contextGoal));
       // AG-COORD-04：批次内出现暂停信号 → run 置 waiting_for_user（plan 置 paused），由用户显式恢复/取消。
       // 不 finishRun、不清 activeRuns 之外的执行态：步骤已释放回 ready，恢复时复用原 attempt 继续。
-      if (results.includes('paused')) {
+      const pauseRequested = getRunCoordinationPlan(run.id)?.status === 'pause_requested';
+      if (results.includes('paused') || pauseRequested) {
+        const reason = pauseRequested ? 'user_requested' : 'approval_starved';
         setRunStatus(run.id, 'waiting_for_user');
         setCoordinationPlanStatus(currentPlan.id, 'paused');
-        saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'waiting_for_user', status: 'waiting', state: { planId: currentPlan.id, revision: currentPlan.revision, contextGoal, reason: 'approval_starved' } });
-        recordCoordinationEvent({ kind: 'plan_paused', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { reason: 'approval_starved', approvalMaxExpiries: config.approvalMaxExpiries } });
+        saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'waiting_for_user', status: 'waiting', state: { planId: currentPlan.id, revision: currentPlan.revision, contextGoal, reason } });
+        recordCoordinationEvent({ kind: 'plan_paused', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { reason, ...(pauseRequested ? {} : { approvalMaxExpiries: config.approvalMaxExpiries }) } });
         expirePendingApprovalsForRun(run.id);
-        await postSystem(run.id, 'system', `审批连续超时（上限 ${config.approvalMaxExpiries} 次），运行已暂停；处理完审批卡后可恢复运行，或直接取消。`);
-        endSpan(root, { output: '审批连续超时，等待用户恢复', status: 'ok' });
+        await postSystem(run.id, 'system', pauseRequested
+          ? 'Coordination Plan 已在安全步骤边界暂停，可以调整后续计划或直接恢复。'
+          : `审批连续超时（上限 ${config.approvalMaxExpiries} 次），运行已暂停；处理完审批卡后可恢复运行，或直接取消。`);
+        endSpan(root, { output: pauseRequested ? '用户请求暂停' : '审批连续超时，等待用户恢复', status: 'ok' });
         return;
       }
     }
@@ -329,6 +333,17 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
   }
   await execute(run, plan, contextGoal, run.goal);
   return run;
+}
+
+export function requestCoordinationPause(runId: string): Run | null {
+  const run = getRun(runId);
+  const plan = getRunCoordinationPlan(runId);
+  if (!run || !plan) return run ?? null;
+  if (plan.status === 'paused') return run;
+  if (!['validated', 'active'].includes(plan.status) || !['pending', 'running', 'awaiting_approval'].includes(run.status)) return run;
+  setCoordinationPlanStatus(plan.id, 'pause_requested');
+  recordCoordinationEvent({ kind: 'plan_pause_requested', draftId: plan.draftId, planId: plan.id, runId, payload: { revision: plan.revision } });
+  return getRun(runId) ?? run;
 }
 
 /** AG-COORD-04：用户显式取消暂停中的 Coordination run（终态，不可恢复）。 */

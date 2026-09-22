@@ -22,6 +22,7 @@
 
 - [P0 权威架构规格](./architecture/scaffold-plan.md)
 - [工程架构概览](./architecture/engineering-overview.md)
+- [Collaboration 运行架构](./architecture/collaboration-runtime.md)
 - [统一观测协议 v1](./architecture/observability-protocol-v1.md)
 
 ### 实施计划
@@ -44,6 +45,8 @@
 
 ### 测试与评估报告
 
+- [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
+- [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)
 - [Coordination 辩论实测问题报告（阶段 C 验收后）](./reports/coordination-debate-test-problem-report.md)
 - [Collaboration 三轮辩论实测问题报告](./reports/collaboration-debate-test-problem-report.md)
 - [架构评估](./reports/architecture-assessment.md)

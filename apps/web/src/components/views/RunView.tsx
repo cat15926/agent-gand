@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentDefinition, CollaborationUserDecision, CoordinationPreview, CoordinationProtocolId, Message, RunMode } from '@agent-gand/shared';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { AgentDefinition, CollaborationUserDecision, CoordinationPreview, CoordinationProtocolId, FollowupPreview, Message, RunMode } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
 import { WorkspacePanel } from '../WorkspacePanel';
 import { SessionSidebar } from '../SessionSidebar';
 import { AgentAvatar } from '../AgentAvatar';
+import { ChatScrollController } from '../../chatScroll';
 
 const TYPE_LABEL: Record<string, string> = {
   assignment: '任务指派', result: '任务结果', review_request: '请求审查', review_result: '审查结论',
   revision_request: '需要修改', handoff: '工作交接', informational: '讨论',
-  collaboration_result: '协作结果', collaboration_handoff: '协作交接', collaboration_question: '并行征询',
+  collaboration_result: '协作结果', collaboration_contribution: '协作发言', collaboration_handoff: '协作交接', collaboration_question: '并行征询',
   collaboration_wait_user: '等待用户', collaboration_routing: '路由状态', collaboration_task_proposal: '正式任务提议',
 };
 const DELIVERY_LABEL: Record<string, string> = {
@@ -272,7 +273,8 @@ function NewRoomComposer() {
     setPlanning(true); setError('');
     try {
       const result = await api.previewCoordination({ goal: goal.trim(), agentIds: selected,
-        ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}), ...(requestedProtocol ? { requestedProtocol } : {}) });
+        ...(selected.includes(defaultReviewerId) ? { defaultReviewerId } : {}),
+        ...(requestedProtocol ? { requestedProtocol, ...(planPreview ? { replacesDraftId: planPreview.draft.id } : {}) } : {}) });
       setPlanPreview(result);
       return result;
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); return null; }
@@ -317,7 +319,8 @@ function NewRoomComposer() {
       <button disabled={busy || planning || !goal.trim() || selected.length === 0 || (modeChoice === 'auto' && Boolean(planPreview) && (!mode || planPreview?.draft.decision === 'clarify' || planPreview?.draft.decision === 'unavailable'))} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">{planning ? '正在分析…' : busy ? '正在创建…' : modeChoice === 'auto' && !planPreview ? '智能规划并开始' : modeChoice === 'auto' && planPreview?.draft.decision === 'auto_start' ? '自动开始' : modeChoice === 'auto' ? '确认并开始' : '创建并发送'}</button>
     </div>
     {modeChoice === 'auto' && planPreview && <div className={`mt-3 rounded-2xl border p-4 text-sm ${planPreview.draft.validationErrors.length > 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5'}`}>
-      <div className="flex items-start gap-3"><div className="mt-0.5 rounded-lg bg-violet-500/15 px-2 py-1 text-violet-200">{planPreview.draft.decision === 'auto_start' ? '可自动开始' : planPreview.draft.decision === 'clarify' ? '需要确认' : planPreview.draft.decision === 'unavailable' ? '暂不可用' : '推荐'}</div><div className="min-w-0 flex-1"><div className="font-medium text-zinc-100">{planPreview.draft.displayName}</div><p className="mt-1 text-xs text-zinc-400">{planPreview.draft.summary}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>置信度 {Math.round(planPreview.draft.platformConfidence * 100)}%</span><span>风险：{planPreview.draft.risk === 'low' ? '低' : planPreview.draft.risk === 'medium' ? '中' : '高'}</span><span>{planPreview.snapshot.agents.length} 位 Agent</span><span>{planPreview.plan.steps.length} 个计划步骤</span></div></div></div>
+      <div className="flex items-start gap-3"><div className="mt-0.5 rounded-lg bg-violet-500/15 px-2 py-1 text-violet-200">{planPreview.draft.decision === 'auto_start' ? '可自动开始' : planPreview.draft.decision === 'clarify' ? '需要确认' : planPreview.draft.decision === 'unavailable' ? '暂不可用' : planPreview.draft.risk === 'high' ? '高风险，需确认' : '推荐'}</div><div className="min-w-0 flex-1"><div className="font-medium text-zinc-100">{planPreview.draft.displayName}</div><p className="mt-1 text-xs text-zinc-400">{planPreview.draft.summary}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>置信度 {Math.round(planPreview.draft.platformConfidence * 100)}%</span><span>{planPreview.draft.planning.source === 'model' || planPreview.draft.planning.source === 'model_repaired' ? '模型规划' : planPreview.draft.planning.source === 'deterministic_fallback' ? '安全回退' : '规则规划'}</span><span>风险：{planPreview.draft.risk === 'low' ? '低' : planPreview.draft.risk === 'medium' ? '中' : '高'}</span><span>{planPreview.snapshot.agents.length} 位 Agent</span><span>{planPreview.plan.steps.length} 个计划步骤</span></div></div></div>
+      {planPreview.draft.risk === 'high' && <div className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">该任务可能包含部署、删除、发布或其他高风险操作。系统不会自动开始，请确认计划和审批点后再启动。</div>}
       {planPreview.notices?.map((notice) => <div key={notice} className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">⚠ {notice}</div>)}
       {planPreview.draft.clarificationQuestion && <div className="mt-3 rounded-xl bg-zinc-950/50 p-3 text-xs text-zinc-200"><p>{planPreview.draft.clarificationQuestion}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => void preview('parallel_fanout')} className="rounded-full bg-violet-500/20 px-3 py-1.5 text-violet-200">各自分析后汇总</button><button type="button" onClick={() => void preview('dynamic_collaboration')} className="rounded-full bg-zinc-800 px-3 py-1.5 text-zinc-300">共同讨论</button></div></div>}
       {planPreview.draft.validationIssues.some((item) => item.severity === 'error') && <div className="mt-3 rounded-lg bg-zinc-950/50 px-3 py-2 text-xs text-amber-200">{planPreview.draft.validationIssues.filter((item) => item.severity === 'error').map((item) => item.message).join('；')}</div>}
@@ -338,20 +341,71 @@ function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [recipients, setRecipients] = useState<string[]>([]);
+  const [wholeTeam, setWholeTeam] = useState(false);
+  const [pending, setPending] = useState<{ roomId: string; body: string; recipientIds: string[]; replyTo: string | null; taskId: string | null; clientMessageId: string; wholeTeam: boolean; advice: FollowupPreview } | null>(null);
   const room = state.conversations.find((item) => item.id === state.activeConversationId);
   const mentionedRecipients = useMemo(() => leadingMentionRecipientIds(text, state.agents, room?.agentIds ?? []), [text, state.agents, room?.agentIds]);
   const effectiveRecipients = useMemo(() => combineRecipients(mentionedRecipients, recipients), [mentionedRecipients, recipients]);
   const replyDecision = reply ? state.collaborationDecisions.find((item) => item.promptMessageId === reply.id && item.status === 'pending') : undefined;
+  useEffect(() => { setPending(null); }, [room?.id, reply?.id]);
+  useEffect(() => { if (reply || effectiveRecipients.length > 0) setWholeTeam(false); }, [reply, effectiveRecipients.length]);
+  async function deliver(input: NonNullable<typeof pending>, coordinationDraftId?: string) {
+    if (!room || busy || room.id !== input.roomId || text.trim() !== input.body) return;
+    setBusy(true); setError('');
+    try {
+      await api.sendConversationMessage(room.id, { body: input.body,
+        ...(input.recipientIds.length > 0 ? { recipientIds: input.recipientIds } : {}),
+        replyTo: input.replyTo, taskId: input.taskId, clientMessageId: input.clientMessageId,
+        ...(coordinationDraftId ? { coordinationDraftId } : {}),
+        ...(!coordinationDraftId ? { followupRouting: 'room_mode' as const } : {}),
+        ...(input.wholeTeam ? { wholeTeam: true } : {}),
+      });
+      setPending(null); setText(''); setRecipients([]); setWholeTeam(false); onReplyClear(); await refreshConversation();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
+  }
+  async function chooseProtocol(protocol: CoordinationProtocolId) {
+    if (!room || !pending || busy) return;
+    setBusy(true); setError('');
+    try {
+      const preview = await api.previewCoordination({ goal: pending.body, agentIds: room.agentIds,
+        ...(room.defaultReviewerId ? { defaultReviewerId: room.defaultReviewerId } : {}),
+        requestedProtocol: protocol,
+        ...(pending.advice.preview ? { replacesDraftId: pending.advice.preview.draft.id } : {}),
+      });
+      setPending({ ...pending, advice: { ...pending.advice, preview } });
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setBusy(false); }
+  }
   async function send() {
-    if (!room || !text.trim() || busy) return;
+    if (!room || !text.trim() || busy || pending) return;
     if (effectiveRecipients.length > 3) { setError('发送对象超过 3 位，请减少点选或 @ 对象。'); return; }
+    if (wholeTeam && (effectiveRecipients.length > 0 || reply)) { setError('全队处理不能同时指定单个成员或回复某条消息。'); return; }
     const body = text.trim();
     setBusy(true); setError('');
     try {
       if (replyDecision?.kind === 'agent_question') await api.resolveCollaborationDecision(replyDecision.id, { action: 'answer', message: body });
-      else await api.sendConversationMessage(room.id, { body, ...(effectiveRecipients.length > 0 ? { recipientIds: effectiveRecipients } : {}), replyTo: reply?.id ?? null,
-          taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID() });
-      setText(''); setRecipients([]); onReplyClear(); await refreshConversation();
+      else {
+        const input = { roomId: room.id, body, recipientIds: effectiveRecipients, replyTo: reply?.id ?? null,
+          taskId: reply?.taskId ?? null, clientMessageId: crypto.randomUUID(), wholeTeam };
+        const advice = await api.previewFollowup(room.id, { body, recipientIds: effectiveRecipients, replyTo: input.replyTo, wholeTeam });
+        if (advice.kind === 'auto_plan' && advice.preview) {
+          try {
+            await api.sendConversationMessage(room.id, { body, clientMessageId: input.clientMessageId,
+              coordinationDraftId: advice.preview.draft.id, ...(wholeTeam ? { wholeTeam: true } : {}) });
+          } catch (reason) {
+            setPending({ ...input, advice }); // 重试沿用 clientMessageId，避免响应丢失后重复创建 Run。
+            throw reason;
+          }
+          setText(''); setRecipients([]); setWholeTeam(false); onReplyClear(); await refreshConversation();
+          return;
+        }
+        if (advice.kind !== 'none') { setPending({ ...input, advice }); return; }
+        if (wholeTeam) { setError('全队处理未生成可执行计划，请调整任务后重试。'); return; }
+        await api.sendConversationMessage(room.id, { body, ...(effectiveRecipients.length > 0 ? { recipientIds: effectiveRecipients } : {}),
+          replyTo: input.replyTo, taskId: input.taskId, clientMessageId: input.clientMessageId });
+      }
+      setText(''); setRecipients([]); setWholeTeam(false); onReplyClear(); await refreshConversation();
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setBusy(false); }
   }
@@ -359,16 +413,28 @@ function RoomComposer({ onReplyClear, reply }: { reply: Message | null; onReplyC
   return <div className="shrink-0 border-t border-zinc-800 bg-zinc-950/90 p-3">
     <div className="mx-auto max-w-3xl rounded-2xl bg-zinc-900 ring-1 ring-zinc-700 focus-within:ring-violet-500">
       {reply && <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-2 text-xs text-zinc-500"><span className="min-w-0 flex-1 truncate">{replyDecision?.kind === 'agent_question' ? '回答并恢复本轮' : `回复 ${agentName(reply.from, state.agents)}`}：{reply.body}</span><button onClick={onReplyClear}>×</button></div>}
-      {room.mode === 'collaboration' && <div className="flex flex-wrap gap-1 border-b border-zinc-800 px-4 py-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <button key={id} onClick={() => setRecipients((items) => items.includes(id) ? items.filter((item) => item !== id) : items.length < 3 ? [...items, id] : items)} className={`rounded-full px-2 py-1 text-[11px] ${effectiveRecipients.includes(id) ? 'bg-violet-500/20 text-violet-200' : 'bg-zinc-800 text-zinc-500'}`}>@{agent?.name ?? id}</button>; })}</div>}
-      <textarea value={text} onChange={(event) => setText(event.target.value)} rows={3} placeholder="发送消息；可选择最多 3 位 Agent，Shift+Enter 换行"
+      {room.mode === 'collaboration' && <div className="flex flex-wrap gap-1 border-b border-zinc-800 px-4 py-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <button key={id} onClick={() => { setPending(null); setRecipients((items) => items.includes(id) ? items.filter((item) => item !== id) : items.length < 3 ? [...items, id] : items); }} className={`rounded-full px-2 py-1 text-[11px] ${effectiveRecipients.includes(id) ? 'bg-violet-500/20 text-violet-200' : 'bg-zinc-800 text-zinc-500'}`}>@{agent?.name ?? id}</button>; })}</div>}
+      <textarea value={text} onChange={(event) => { setText(event.target.value); setPending(null); }} rows={3} placeholder="发送消息；可选择最多 3 位 Agent，Shift+Enter 换行"
         onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }}
         className="w-full resize-none bg-transparent px-4 pt-3 text-sm outline-none placeholder:text-zinc-600" />
       <div className="flex items-center gap-2 px-4 pb-3 text-xs">
         {effectiveRecipients.length > 0 ? <span className={effectiveRecipients.length > 3 ? 'text-red-300' : 'text-violet-300'}>{effectiveRecipients.length > 1 ? '并行发送给 ' : '发送给 '}{effectiveRecipients.map((id) => agentName(id, state.agents)).join('、')}</span> : <span className="text-zinc-600">{room.mode === 'collaboration' ? '发送给最近回复者' : '发送给团队，由编排器协调'}</span>}
+        <button type="button" aria-pressed={wholeTeam} disabled={Boolean(reply) || effectiveRecipients.length > 0 || busy} onClick={() => { setPending(null); setWholeTeam((value) => !value); }} className={`rounded px-2 py-1 disabled:opacity-40 ${wholeTeam ? 'bg-violet-500/20 text-violet-200' : 'bg-zinc-800 text-zinc-400'}`}>全队处理{wholeTeam ? ' ✓' : ''}</button>
         {error && <span className="truncate text-red-300">{error}</span>}
-        <button onClick={() => void send()} disabled={!text.trim() || busy} className="ml-auto rounded-lg bg-violet-500 px-4 py-1.5 text-white disabled:opacity-40">{busy ? '发送中…' : '发送'}</button>
+        <button onClick={() => void send()} disabled={!text.trim() || busy || Boolean(pending)} className="ml-auto rounded-lg bg-violet-500 px-4 py-1.5 text-white disabled:opacity-40">{busy ? '处理中…' : pending ? '请选择方案' : '发送'}</button>
       </div>
     </div>
+    {pending?.advice.preview && <div className="mx-auto mt-2 max-w-3xl rounded-xl border border-violet-500/30 bg-zinc-900 p-3 text-xs text-zinc-300">
+      <div className="font-medium text-violet-200">{pending.advice.kind === 'ambiguous' ? '这条追问需要确定协作方式' : pending.advice.kind === 'mode_mismatch' ? '推荐本轮采用另一种协作方式' : '本轮计划需要你确认'}</div>
+      <p className="mt-1 text-zinc-400">{pending.advice.preview.draft.summary} 房间模式不会改变；仅本轮按所选方案执行。</p>
+      <div className="mt-2 text-zinc-500">{pending.advice.preview.draft.displayName} · {pending.advice.preview.plan.steps.length} 步 · 风险 {pending.advice.preview.draft.risk === 'high' ? '高' : pending.advice.preview.draft.risk === 'medium' ? '中' : '低'} · 置信度 {Math.round(pending.advice.preview.draft.platformConfidence * 100)}% · {pending.advice.preview.draft.planning.source === 'model' || pending.advice.preview.draft.planning.source === 'model_repaired' ? '模型规划' : pending.advice.preview.draft.planning.source === 'deterministic_fallback' ? '模型不可用，安全回退' : '规则规划'}</div>
+      {pending.wholeTeam && !room.agentIds.every((id) => pending.advice.preview!.plan.steps.some((step) => step.agentId === id)) && <p className="mt-2 text-amber-200">当前方案未覆盖全部成员，请改选方案或关闭“全队处理”。</p>}
+      {pending.advice.preview.draft.clarificationQuestion && <p className="mt-2 text-amber-200">{pending.advice.preview.draft.clarificationQuestion}</p>}
+      {pending.advice.preview.draft.validationIssues.filter((item) => item.severity === 'error').map((item) => <p key={`${item.code}:${item.path}`} className="mt-1 text-red-300">{item.message}</p>)}
+      {pending.advice.kind === 'ambiguous' && <div className="mt-2 flex flex-wrap gap-2"><button disabled={busy} onClick={() => void chooseProtocol('parallel_fanout')} className="rounded bg-violet-500/15 px-2 py-1.5 text-violet-200 disabled:opacity-40">分别分析后汇总</button><button disabled={busy} onClick={() => void chooseProtocol('dynamic_collaboration')} className="rounded bg-zinc-800 px-2 py-1.5 disabled:opacity-40">开放式讨论</button></div>}
+      {pending.advice.preview.draft.alternatives.filter((item) => item.protocols.length === 1).map((item) => <button key={item.protocols[0]!.protocol} disabled={busy} onClick={() => void chooseProtocol(item.protocols[0]!.protocol)} className="mr-2 mt-2 rounded bg-zinc-800 px-2 py-1.5 text-zinc-300 disabled:opacity-40">改用：{item.displayName}</button>)}
+      <div className="mt-3 flex flex-wrap gap-2"><button disabled={busy || !['auto_start', 'recommend'].includes(pending.advice.preview.draft.decision) || pending.advice.preview.draft.validationErrors.length > 0 || !pending.advice.preview.draft.runtimeMode || (pending.wholeTeam && !room.agentIds.every((id) => pending.advice.preview!.plan.steps.some((step) => step.agentId === id)))} onClick={() => void deliver(pending, pending.advice.preview!.draft.id)} className="rounded bg-violet-500 px-3 py-1.5 text-white disabled:opacity-40">按推荐方案开始</button>{!pending.wholeTeam && <button disabled={busy} onClick={() => void deliver(pending)} className="rounded bg-zinc-700 px-3 py-1.5 text-zinc-200 disabled:opacity-40">按房间原方式发送</button>}<button disabled={busy} onClick={() => setPending(null)} className="px-2 py-1.5 text-zinc-500 disabled:opacity-40">继续编辑</button></div>
+    </div>}
   </div>;
 }
 
@@ -377,10 +443,15 @@ export function RunView() {
   const [collapsed, setCollapsed] = useState(false);
   const [reply, setReply] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollControllerRef = useRef<ChatScrollController | null>(null);
+  if (!scrollControllerRef.current) scrollControllerRef.current = new ChatScrollController();
   const room = state.conversations.find((item) => item.id === state.activeConversationId);
   const roomRuns = useMemo(() => state.runs.filter((run) => run.conversationId === room?.id).sort((a, b) => a.turnNo - b.turnNo), [state.runs, room?.id]);
   const activeRun = roomRuns.at(-1);
-  useEffect(() => { const element = scrollRef.current; if (element && element.scrollHeight - element.scrollTop - element.clientHeight < 220) element.scrollTop = element.scrollHeight; }, [state.messages.length, Object.values(state.streams).join('').length]);
+  const streamLength = Object.values(state.streams).reduce((length, text) => length + text.length, 0);
+  useLayoutEffect(() => {
+    scrollControllerRef.current?.sync(state.activeConversationId, scrollRef.current);
+  }, [state.activeConversationId, state.messages.length, streamLength]);
   async function archiveRoom() {
     if (!room || !window.confirm(`归档聊天室“${room.title}”？历史运行和证据仍会保留。`)) return;
     await api.archiveConversation(room.id);
@@ -417,7 +488,7 @@ export function RunView() {
             <button onClick={() => void cancelPausedRun()} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-zinc-300">取消运行</button>
           </div>
         </div>}
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div ref={scrollRef} onScroll={(event) => scrollControllerRef.current?.onScroll(event.currentTarget)} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto max-w-4xl space-y-1">
             {state.messages.map((message, index) => {
               const run = roomRuns.find((item) => item.id === message.runId);

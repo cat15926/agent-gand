@@ -14,9 +14,9 @@ import { isStructuredFollowupGoal } from '../coordination/planner.ts';
 import { config } from '../config.ts';
 
 const active = new Set<string>();
-const inputs = new Map<string, { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }>();
+const inputs = new Map<string, RuntimeMessageInput>();
 
-export function enqueueConversationRun(runId: string, input?: { recipientIds?: string[]; replyTo?: string | null; taskId?: string | null; clientMessageId?: string }): void {
+export function enqueueConversationRun(runId: string, input?: RuntimeMessageInput): void {
   if (input) inputs.set(runId, input);
   const item = getRun(runId);
   if (!item) return;
@@ -32,6 +32,17 @@ interface RuntimeMessageInput {
   replyTo?: string | null;
   taskId?: string | null;
   clientMessageId?: string;
+  followupRouting?: 'room_mode';
+}
+
+function persistedMessageInput(conversationId: string, runId: string): RuntimeMessageInput | undefined {
+  const message = listByConversation(conversationId).find((item) => item.runId === runId && item.kind === 'user');
+  if (!message) return undefined;
+  return {
+    recipientIds: message.to === 'all' ? [] : message.to.split(',').filter(Boolean),
+    replyTo: message.replyTo, taskId: message.taskId, clientMessageId: message.clientMessageId ?? undefined,
+    ...(message.meta?.followupRouting === 'room_mode' ? { followupRouting: 'room_mode' as const } : {}),
+  };
 }
 
 /** 显式定向目标：recipientIds 优先；为空时从 replyTo 推导被回复 Agent（覆盖 API 调用方） */
@@ -51,7 +62,7 @@ function lastSuccessfulResponder(conversationId: string, members: AgentDefinitio
   const messages = listByConversation(conversationId);
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
-    if (message.kind !== 'agent') continue;
+    if (message.kind !== 'agent' || message.messageType === 'collaboration_contribution') continue;
     const agent = members.find((item) => item.id === message.from);
     if (!agent) continue;
     if (getRun(message.runId)?.status === 'completed') return agent;
@@ -59,10 +70,7 @@ function lastSuccessfulResponder(conversationId: string, members: AgentDefinitio
   return undefined;
 }
 
-/**
- * 快速路径：目标 Agent 并行单独回应（不重跑编排）。单 turn 完成，
- * 单个 Agent 失败不连坐（至少一人成功即 completed）。
- */
+/** 快速路径：目标 Agent 并行回应；等所有分支结束后按成功分支数收敛 Run。 */
 async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal: string, messageInput: RuntimeMessageInput | undefined, reason: 'directed' | 'simple'): Promise<void> {
   if (activeFastPath.has(run.id)) return;
   activeFastPath.add(run.id);
@@ -83,35 +91,50 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
       replyTo: messageInput?.replyTo, taskId: messageInput?.taskId,
       clientMessageId: messageInput?.clientMessageId ?? `fastpath:${run.id}:user`, deliveryStatus: 'processing',
     });
-    let succeeded = 0;
-    await Promise.all(targets.map(async (agent, index) => {
+    const outcomes = await Promise.all(targets.map(async (agent, index) => {
       const agentSpan = startSpan(run.id, {
         spanKind: 'agent', name: `agent:${agent.id}`, input: JSON.stringify({ goal: contextGoal }),
         attributes: { 'agent.id': agent.id, 'agent.role': 'collaborator', 'orchestration.phase': 'fastpath.step' },
       });
-      const turn = await runAgentTurn({
-        run, agent, parentSpanId: agentSpan.id,
-        messages: [
-          { role: 'system', content: agent.systemPrompt },
-          { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE },
-          { role: 'user', content: contextGoal },
-        ],
-        executionScopeId: `fastpath:${run.id}:${index}:${agent.id}`,
-      });
-      if (turn.content.trim().length > 0) {
-        await post({
-          runId: run.id, from: agent.id, to: 'all', kind: 'agent', body: turn.content,
-          meta: { toolRounds: turn.toolRounds }, clientMessageId: `fastpath:${run.id}:${index}:${agent.id}`,
+      try {
+        const turn = await runAgentTurn({
+          run, agent, parentSpanId: agentSpan.id,
+          messages: [
+            { role: 'system', content: agent.systemPrompt },
+            { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE },
+            { role: 'user', content: contextGoal },
+          ],
+          executionScopeId: `fastpath:${run.id}:${index}:${agent.id}`,
         });
-        succeeded += 1;
+        if (turn.content.trim().length > 0) {
+          await post({
+            runId: run.id, from: agent.id, to: 'all', kind: 'agent', body: turn.content,
+            meta: { toolRounds: turn.toolRounds }, clientMessageId: `fastpath:${run.id}:${index}:${agent.id}`,
+          });
+        }
+        endSpan(agentSpan, { output: turn.content, status: turn.emptyResponse ? 'error' : 'ok' });
+        return { agent, index, failed: false, answered: turn.content.trim().length > 0 };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        endSpan(agentSpan, { output: message, status: 'error' });
+        return { agent, index, failed: true, answered: false };
       }
-      endSpan(agentSpan, { output: turn.content, status: turn.emptyResponse ? 'error' : 'ok' });
     }));
+    const failed = outcomes.filter((outcome) => outcome.failed);
+    const succeeded = outcomes.filter((outcome) => outcome.answered).length;
+    for (const outcome of failed) {
+      await post({
+        runId: run.id, from: 'system', to: 'all', kind: 'system',
+        body: `${outcome.agent.name} 本轮回复失败，详细原因请查看运行轨迹。`,
+        clientMessageId: `fastpath:${run.id}:${outcome.index}:${outcome.agent.id}:error`,
+      });
+    }
     // 全部空回复时与 pipeline 契约对齐：run 仍 completed（agentStep 已发 system 空正文说明、
     // agent span 记 error），不把"模型空回复"升级为运行失败
-    finishRun(run.id, 'completed');
-    updateRunUserMessageStatus(run.id, 'responded');
-    endSpan(root, { output: `fastpath 完成（${succeeded}/${targets.length}）`, status: succeeded === 0 ? 'error' : 'ok' });
+    const allFailed = failed.length === targets.length;
+    finishRun(run.id, allFailed ? 'failed' : 'completed');
+    updateRunUserMessageStatus(run.id, allFailed ? 'failed' : 'responded');
+    endSpan(root, { output: `fastpath 完成（${succeeded}/${targets.length} 回复，${failed.length} 失败）`, status: allFailed || succeeded === 0 ? 'error' : 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     finishRun(run.id, 'failed');
@@ -164,7 +187,7 @@ async function drain(conversationId: string): Promise<void> {
         touchConversation(conversationId);
         continue;
       }
-      const messageInput = inputs.get(current.id);
+      const messageInput = inputs.get(current.id) ?? persistedMessageInput(conversationId, current.id);
       const coordinationPlan = getRunCoordinationPlan(current.id);
       if (coordinationPlan) {
         const history = conversationHistory(conversationId, current.turnNo);
@@ -225,10 +248,10 @@ async function drain(conversationId: string): Promise<void> {
           continue;
         }
       }
-      if (structured && conversationHasCoordinationPlan(conversationId)) {
+      if (structured && messageInput?.followupRouting !== 'room_mode' && conversationHasCoordinationPlan(conversationId)) {
         // 结构化追问 + 协调房间：服务端重新规划编译新 Plan（校验通过且 auto_start 才激活）
         try {
-          const previewResult = previewCoordination({
+          const previewResult = await previewCoordination({
             goal: current.goal, agentIds: current.agentIds,
             ...(current.defaultReviewerId && current.agentIds.includes(current.defaultReviewerId) ? { defaultReviewerId: current.defaultReviewerId } : {}),
           });
@@ -238,7 +261,19 @@ async function drain(conversationId: string): Promise<void> {
             continue; // 已绑定新 Plan：回到循环顶部走 coordination 分支执行
           }
         } catch {
-          // 规划失败 → 落回房间模式编排（下方）
+          // 规划失败也走下方轻量快速路径，不重跑旧房间的完整编排。
+        }
+        const fallbackTargets = directedAgentIds(conversation, messageInput, members);
+        const target = lastSuccessfulResponder(conversationId, members)
+          ?? members.find((agent) => agent.capabilities.includes('execute'))
+          ?? members[0];
+        const targets = fallbackTargets.length > 0 ? fallbackTargets : target ? [target] : [];
+        if (targets.length > 0) {
+          const hint = `本轮协作规划未能安全自动开始，改由${targets.map((agent) => agent.name).join('、')}直接回应。请说明无法完整执行原协作要求的部分，不要声称已完成辩论、审查或其他未执行的步骤。`;
+          const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
+          await runFastPathTurn(current, targets, contextGoal, messageInput, fallbackTargets.length > 0 ? 'directed' : 'simple');
+          inputs.delete(current.id);
+          continue;
         }
       }
       // @ 只记录公开接收者，不改变房间成员或既定 Reviewer；编排层仍拿到完整团队。

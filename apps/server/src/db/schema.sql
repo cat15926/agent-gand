@@ -112,14 +112,15 @@ CREATE TABLE IF NOT EXISTS collaboration_dispatches (
   kind TEXT NOT NULL, from_actor TEXT NOT NULL, target_agent_id TEXT NOT NULL,
   reason TEXT, status TEXT NOT NULL, priority TEXT NOT NULL DEFAULT 'normal',
   depth INTEGER NOT NULL DEFAULT 0, idempotency_key TEXT NOT NULL,
-  output_message_id TEXT, error TEXT, created_at TEXT NOT NULL,
+  content_hash TEXT, output_message_id TEXT, error TEXT, created_at TEXT NOT NULL,
   started_at TEXT, finished_at TEXT,
   UNIQUE(run_id, idempotency_key)
 );
 CREATE TABLE IF NOT EXISTS collaboration_attempts (
   id TEXT PRIMARY KEY, dispatch_id TEXT NOT NULL, run_id TEXT NOT NULL,
   conversation_id TEXT NOT NULL, agent_id TEXT NOT NULL, attempt_no INTEGER NOT NULL,
-  status TEXT NOT NULL, input_context TEXT, output TEXT, control_action TEXT, error TEXT,
+  status TEXT NOT NULL, input_context TEXT, output TEXT, control_action TEXT,
+  deduplicated_to TEXT, error TEXT,
   lease_owner TEXT, lease_expires_at TEXT, created_at TEXT NOT NULL,
   started_at TEXT, ended_at TEXT,
   UNIQUE(dispatch_id, attempt_no)
@@ -179,6 +180,11 @@ CREATE TABLE IF NOT EXISTS coordination_step_attempts (
   created_at TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
   UNIQUE(plan_id, revision, step_id, attempt_no)
 );
+CREATE TABLE IF NOT EXISTS coordination_planner_feedback (
+  id TEXT PRIMARY KEY, original_draft_id TEXT NOT NULL,
+  chosen_protocols TEXT NOT NULL, original_confidence REAL NOT NULL,
+  corrected INTEGER NOT NULL, source TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_tasks_run ON tasks(run_id);
 CREATE INDEX IF NOT EXISTS idx_messages_run ON messages(run_id);
 CREATE INDEX IF NOT EXISTS idx_events_run ON run_events(run_id);
@@ -202,3 +208,4 @@ CREATE INDEX IF NOT EXISTS idx_coordination_events_plan ON coordination_events(p
 CREATE INDEX IF NOT EXISTS idx_coordination_events_run ON coordination_events(run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_coordination_step_states_run ON coordination_step_states(run_id, status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_coordination_step_attempts_run ON coordination_step_attempts(run_id, step_id, attempt_no);
+CREATE INDEX IF NOT EXISTS idx_coordination_planner_feedback_created ON coordination_planner_feedback(created_at DESC);

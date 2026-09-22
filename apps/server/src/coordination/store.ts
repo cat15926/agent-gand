@@ -64,12 +64,12 @@ export function savePlanningResult(snapshot: CapabilitySnapshot, draft: Coordina
       VALUES (?,?,?,?,?,?,?,?,?)`, plan.id, plan.runId, plan.draftId, plan.capabilitySnapshotId, plan.revision, plan.status, JSON.stringify(plan), plan.createdAt, plan.updatedAt);
     const revision: CoordinationPlanRevision = {
       planId: plan.id, revision: 1, trigger: 'initial', previousRevision: null,
-      diffSummary: 'Initial deterministic compilation', plan, createdAt: plan.createdAt,
+      diffSummary: `Initial ${draft.planning.source} compilation`, plan, createdAt: plan.createdAt,
     };
     run('INSERT INTO coordination_plan_revisions (plan_id,revision,trigger_kind,payload,created_at) VALUES (?,?,?,?,?)',
       plan.id, revision.revision, revision.trigger, JSON.stringify(revision), revision.createdAt);
     recordCoordinationEvent({ kind: 'snapshot_created', draftId: draft.id, planId: plan.id, runId: null, payload: { snapshotId: snapshot.id } });
-    recordCoordinationEvent({ kind: 'draft_created', draftId: draft.id, planId: plan.id, runId: null, payload: { protocols: draft.protocols, decision: draft.decision } });
+    recordCoordinationEvent({ kind: 'draft_created', draftId: draft.id, planId: plan.id, runId: null, payload: { protocols: draft.protocols, decision: draft.decision, planning: draft.planning } });
     recordCoordinationEvent({ kind: draft.validationErrors.length === 0 ? 'draft_validated' : 'draft_rejected', draftId: draft.id, planId: plan.id, runId: null, payload: { issues: draft.validationIssues } });
     recordCoordinationEvent({ kind: 'plan_compiled', draftId: draft.id, planId: plan.id, runId: null, payload: { stepCount: plan.steps.length, revision: plan.revision } });
     recordCoordinationEvent({ kind: plan.validationIssues.some((item) => item.severity === 'error') ? 'plan_rejected' : 'plan_validated', draftId: draft.id, planId: plan.id, runId: null, payload: { issues: plan.validationIssues } });
@@ -129,7 +129,10 @@ export function setCoordinationPlanStatus(planId: string, status: CoordinationPl
 }
 
 export function listCoordinationStepStates(planId: string): CoordinationStepState[] {
-  return all<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? ORDER BY rowid', planId).map(mapStepState);
+  const revision = getCoordinationPlan(planId)?.revision;
+  return (revision === undefined
+    ? all<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? ORDER BY rowid', planId)
+    : all<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? ORDER BY rowid', planId, revision)).map(mapStepState);
 }
 
 export function listCoordinationStepAttempts(planId: string): CoordinationStepAttempt[] {
@@ -139,7 +142,7 @@ export function listCoordinationStepAttempts(planId: string): CoordinationStepAt
 export function prepareCoordinationReadySteps(plan: CoordinationPlan): CoordinationStepState[] {
   const changed: StepStateRow[] = [];
   tx(() => {
-    const states = all<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? ORDER BY rowid', plan.id);
+    const states = all<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? ORDER BY rowid', plan.id, plan.revision);
     const byId = new Map(states.map((state) => [state.step_id, state]));
     const now = new Date().toISOString();
     for (const step of plan.steps) {
@@ -249,14 +252,58 @@ export function scheduleCoordinationRevision(plan: CoordinationPlan, reviewStep:
 
 export function recoverInterruptedCoordinationSteps(): string[] {
   return tx(() => {
-    const activePlans = all<{ id: string; run_id: string }>("SELECT id,run_id FROM coordination_plans WHERE status='active' AND run_id IS NOT NULL");
+    const activePlans = all<{ id: string; run_id: string; status: CoordinationPlan['status']; payload: string }>("SELECT id,run_id,status,payload FROM coordination_plans WHERE status IN ('active','pause_requested') AND run_id IS NOT NULL");
     const now = new Date().toISOString();
     for (const plan of activePlans) {
       run("UPDATE coordination_step_attempts SET status='interrupted',error='process_restarted',ended_at=? WHERE plan_id=? AND status='running'", now, plan.id);
       run("UPDATE coordination_step_states SET status='ready',error='process_restarted',updated_at=? WHERE plan_id=? AND status='running'", now, plan.id);
       run("UPDATE run_events SET status='error',output=COALESCE(output,'process_restarted'),ended_at=? WHERE run_id=? AND status='running'", now, plan.run_id);
+      if (plan.status === 'pause_requested') {
+        const payload = JSON.parse(plan.payload) as CoordinationPlan;
+        const paused = { ...payload, status: 'paused' as const, updatedAt: now };
+        run("UPDATE coordination_plans SET status='paused',payload=?,updated_at=? WHERE id=?", JSON.stringify(paused), now, plan.id);
+        run("UPDATE runs SET status='waiting_for_user',updated_at=? WHERE id=?", now, plan.run_id);
+      }
     }
-    return activePlans.map((plan) => plan.run_id);
+    return activePlans.filter((plan) => plan.status === 'active').map((plan) => plan.run_id);
+  });
+}
+
+export function applyCoordinationPlanRevision(input: {
+  current: CoordinationPlan;
+  snapshot: CapabilitySnapshot;
+  draft: CoordinationDraft;
+  candidate: CoordinationPlan;
+  instruction: string;
+}): CoordinationPlan {
+  return tx(() => {
+    const stored = getCoordinationPlan(input.current.id);
+    if (!stored || stored.status !== 'paused' || !stored.runId || stored.revision !== input.current.revision) throw new Error('计划状态已变化，无法创建 Revision');
+    const now = new Date().toISOString();
+    const revised: CoordinationPlan = {
+      ...input.candidate,
+      id: stored.id,
+      runId: stored.runId,
+      revision: stored.revision + 1,
+      status: 'paused',
+      createdAt: stored.createdAt,
+      updatedAt: now,
+    };
+    run('INSERT INTO capability_snapshots (id,payload,created_at) VALUES (?,?,?)', input.snapshot.id, JSON.stringify(input.snapshot), input.snapshot.createdAt);
+    run('INSERT INTO coordination_drafts (id,capability_snapshot_id,payload,created_at) VALUES (?,?,?,?)', input.draft.id, input.snapshot.id, JSON.stringify(input.draft), input.draft.createdAt);
+    run('UPDATE coordination_plans SET draft_id=?,capability_snapshot_id=?,revision=?,status=?,payload=?,updated_at=? WHERE id=?',
+      input.draft.id, input.snapshot.id, revised.revision, revised.status, JSON.stringify(revised), now, stored.id);
+    for (const step of revised.steps) run(`INSERT INTO coordination_step_states
+      (plan_id,run_id,revision,step_id,status,attempt_no,output,error,started_at,completed_at,updated_at)
+      VALUES (?,?,?,?,?,0,NULL,NULL,NULL,NULL,?)`, revised.id, revised.runId, revised.revision, step.id, step.dependsOn.length === 0 ? 'ready' : 'pending', now);
+    const revision: CoordinationPlanRevision = {
+      planId: revised.id, revision: revised.revision, trigger: 'user_adjustment', previousRevision: stored.revision,
+      diffSummary: input.instruction.slice(0, 500), plan: revised, createdAt: now,
+    };
+    run('INSERT INTO coordination_plan_revisions (plan_id,revision,trigger_kind,payload,created_at) VALUES (?,?,?,?,?)',
+      revised.id, revised.revision, revision.trigger, JSON.stringify(revision), now);
+    recordCoordinationEvent({ kind: 'plan_revision_created', draftId: input.draft.id, planId: revised.id, runId: revised.runId, payload: { revision: revised.revision, previousRevision: stored.revision, instruction: input.instruction.slice(0, 500), protocols: revised.protocols } });
+    return revised;
   });
 }
 

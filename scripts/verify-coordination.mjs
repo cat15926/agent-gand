@@ -10,13 +10,14 @@ const agentsDir = path.join(root, 'agents');
 await mkdir(agentsDir);
 
 // AG-COORD-01：辩论步骤现在声明产物并强制落盘校验，辩手需要可写的 fs 工具（auto 档免审批）
-function agent(name, capabilities) {
-  return `---\nname: ${name}\ndescription: ${name} coordination fixture\nmodel: mock:${name.toLowerCase()}\ncapabilities: ${JSON.stringify(capabilities)}\ntools: ["fs.read", "fs.write"]\npermissionMode: auto\ncolor: '#6677aa'\n---\n${name} fixture`;
+function agent(name, capabilities, model = `mock:${name.toLowerCase()}`) {
+  return `---\nname: ${name}\ndescription: ${name} coordination fixture\nmodel: ${model}\ncapabilities: ${JSON.stringify(capabilities)}\ntools: ["fs.read", "fs.write"]\npermissionMode: auto\ncolor: '#6677aa'\n---\n${name} fixture`;
 }
 await Promise.all([
   writeFile(path.join(agentsDir, 'planner.agent.md'), agent('Planner', ['coordinate', 'execute'])),
   writeFile(path.join(agentsDir, 'coder.agent.md'), agent('Coder', ['execute'])),
   writeFile(path.join(agentsDir, 'reviewer.agent.md'), agent('Reviewer', ['review'])),
+  writeFile(path.join(agentsDir, 'broken.agent.md'), agent('Broken', ['execute'], 'openai:missing-key')),
 ]);
 
 const dbPath = path.join(root, 'test.sqlite');
@@ -30,7 +31,7 @@ function startServer(extraEnv = {}) {
   assert.equal(child, null, 'server already running');
   child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
     cwd: repo,
-    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, AGENTS_DIR: agentsDir, LOG_LEVEL: 'error', ...extraEnv },
+    env: { ...process.env, PORT: String(port), DB_PATH: dbPath, AGENTS_DIR: agentsDir, LOG_LEVEL: 'error', LLM_OPENAI_API_KEY: '', ...extraEnv },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const current = child;
@@ -288,6 +289,46 @@ try {
   assert.equal(simpleAnswers.length, 1, `简单追问应走最近回复者快速路径，实际 ${simpleAnswers.length} 条 agent 消息`);
   assert.equal(simpleAnswers[0].from, 'reviewer', `最近成功回复者应为 reviewer，实际 ${simpleAnswers[0]?.from}`);
 
+  // 多目标快速路径只唤醒显式目标，不创建新 Plan。
+  const multi = await api(askUrl, 'POST', {
+    body: '@planner @coder 你们怎么看这个裁决？', recipientIds: ['planner', 'coder'], clientMessageId: crypto.randomUUID(),
+  });
+  assert.equal(multi.status, 202, JSON.stringify(multi.data));
+  const multiDetail = await waitForRun(multi.data.run.id);
+  assert.deepEqual(new Set(multiDetail.messages.filter(isFinalAgent).map((message) => message.from)), new Set(['planner', 'coder']));
+  assert.equal((await api(`/api/runs/${multi.data.run.id}/coordination-plan`)).status, 404);
+
+  // 协调房间的结构化追问若因高风险无法自动开始，应轻量回答而非重跑旧 pipeline。
+  const riskyFollowupGoal = '进行1轮辩论，正方支持方案 C，反方支持方案 D，最后由 Reviewer 裁判，然后部署生产';
+  const riskyPreview = await preview({ goal: riskyFollowupGoal, agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer' });
+  assert.notEqual(riskyPreview.draft.decision, 'auto_start');
+  const riskyFollowup = await api(askUrl, 'POST', { body: riskyFollowupGoal, clientMessageId: crypto.randomUUID() });
+  assert.equal(riskyFollowup.status, 202, JSON.stringify(riskyFollowup.data));
+  const riskyDetail = await waitForRun(riskyFollowup.data.run.id);
+  assert.equal(riskyDetail.messages.filter(isFinalAgent).length, 1, '非自动开始的追问不得重跑全队');
+  assert.equal((await api(`/api/runs/${riskyFollowup.data.run.id}/coordination-plan`)).status, 404);
+  assert.ok(riskyDetail.events.some((event) => event.name === 'fastpath:simple'));
+
+  // 一个目标无可用模型时，另一个目标的答复仍使本轮完成；全部失败则本轮失败。
+  const failingRoom = await api('/api/conversations', 'POST', { goal: '建立失败隔离测试房间', mode: 'pipeline', agentIds: ['coder', 'broken'] });
+  assert.equal(failingRoom.status, 201, JSON.stringify(failingRoom.data));
+  await poll(() => api(`/api/runs/${failingRoom.data.run.id}`), (result) => ['completed', 'failed'].includes(result.data?.run?.status), '失败隔离房间首轮结束');
+  const failingAskUrl = `/api/conversations/${failingRoom.data.conversation.id}/messages`;
+  const partial = await api(failingAskUrl, 'POST', {
+    body: '请给我一个简短建议', recipientIds: ['coder', 'broken'], clientMessageId: crypto.randomUUID(),
+  });
+  assert.equal(partial.status, 202, JSON.stringify(partial.data));
+  const partialDetail = await waitForRun(partial.data.run.id);
+  assert.deepEqual(partialDetail.messages.filter(isFinalAgent).map((message) => message.from), ['coder']);
+  assert.ok(partialDetail.messages.some((message) => message.kind === 'system' && message.body.includes('Broken 本轮回复失败')));
+  assert.ok(partialDetail.events.some((event) => event.name === 'agent:broken' && event.status === 'error'));
+  const failedOnly = await api(failingAskUrl, 'POST', {
+    body: '请单独回答', recipientIds: ['broken'], clientMessageId: crypto.randomUUID(),
+  });
+  assert.equal(failedOnly.status, 202, JSON.stringify(failedOnly.data));
+  const failedOnlyDetail = await poll(() => api(`/api/runs/${failedOnly.data.run.id}`), (result) => result.data?.run?.status === 'failed', '全部目标失败');
+  assert.equal(failedOnlyDetail.data.messages.filter(isFinalAgent).length, 0);
+
   // 结构化追问（再进行1轮辩论）→ 协调房间服务端重新规划新 Plan，而非 pipeline 重跑
   const structured = await api(askUrl, 'POST', { body: '进行1轮辩论，正方支持方案 C，反方支持方案 D，最后由 Reviewer 裁判 [tool:fs.write]', clientMessageId: crypto.randomUUID() });
   assert.equal(structured.status, 202, JSON.stringify(structured.data));
@@ -326,6 +367,69 @@ try {
   const hybridAnswers = (await api(`/api/runs/${hybrid.data.run.id}`)).data.messages.filter(isFinalAgent);
   assert.equal(hybridAnswers.length, 3, '两个调研分支 + 一次汇总');
   assert.equal(hybridAnswers[2].from, 'reviewer', '最后一条必须是 reviewer 的汇总');
+
+  // 阶段 2：旧 pipeline 房间收到辩论诉求时只给建议，不静默切换；用户确认后仅新 turn 绑定 Plan。
+  const legacyRoom = await api('/api/conversations', 'POST', {
+    goal: '建立顺序协作房间', mode: 'pipeline', agentIds: ['planner', 'coder', 'reviewer'],
+  });
+  assert.equal(legacyRoom.status, 201, JSON.stringify(legacyRoom.data));
+  await waitForRun(legacyRoom.data.run.id);
+  const legacyId = legacyRoom.data.conversation.id;
+  const simpleAdvice = await api(`/api/conversations/${legacyId}/followup-preview`, 'POST', { body: '你好，最近怎么样？' });
+  assert.equal(simpleAdvice.status, 200);
+  assert.equal(simpleAdvice.data.kind, 'none');
+  assert.equal(simpleAdvice.data.preview, null);
+  const openCollaborationAdvice = await api(`/api/conversations/${legacyId}/followup-preview`, 'POST', { body: '这轮改用自由协作，讨论一下方案' });
+  assert.equal(openCollaborationAdvice.status, 200);
+  assert.equal(openCollaborationAdvice.data.kind, 'mode_mismatch', '明确要求自由协作也应提示与流水线房间的模式差异');
+  const debateFollowupGoal = '进行1轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]';
+  const legacyBefore = await api(`/api/conversations/${legacyId}`);
+  const mismatchAdvice = await api(`/api/conversations/${legacyId}/followup-preview`, 'POST', { body: debateFollowupGoal });
+  assert.equal(mismatchAdvice.status, 200, JSON.stringify(mismatchAdvice.data));
+  assert.equal(mismatchAdvice.data.kind, 'mode_mismatch');
+  assert.equal(mismatchAdvice.data.preview.draft.planning.source, 'deterministic');
+  assert.equal((await api(`/api/conversations/${legacyId}`)).data.runs.length, legacyBefore.data.runs.length, '预览不得创建 Run');
+  const mismatchedGoal = await api(`/api/conversations/${legacyId}/messages`, 'POST', {
+    body: '另一个目标', clientMessageId: crypto.randomUUID(), coordinationDraftId: mismatchAdvice.data.preview.draft.id,
+  });
+  assert.equal(mismatchedGoal.status, 409);
+  assert.equal((await api(`/api/conversations/${legacyId}`)).data.runs.length, legacyBefore.data.runs.length, '不匹配的 Draft 不得留下 Run');
+  const mismatchStart = await api(`/api/conversations/${legacyId}/messages`, 'POST', {
+    body: debateFollowupGoal, clientMessageId: crypto.randomUUID(), coordinationDraftId: mismatchAdvice.data.preview.draft.id,
+  });
+  assert.equal(mismatchStart.status, 202, JSON.stringify(mismatchStart.data));
+  await waitForRun(mismatchStart.data.run.id, 30_000);
+  const mismatchPlan = await api(`/api/runs/${mismatchStart.data.run.id}/coordination-plan`);
+  assert.equal(mismatchPlan.status, 200);
+  assert.ok(mismatchPlan.data.protocols.some((item) => item.protocol === 'debate'));
+  assert.equal((await api(`/api/conversations/${legacyId}`)).data.conversation.mode, 'pipeline', '推荐只影响本轮，不改变房间模式');
+
+  const declineGoal = '请再进行1轮辩论并给出意见';
+  const declineAdvice = await api(`/api/conversations/${legacyId}/followup-preview`, 'POST', { body: declineGoal });
+  assert.equal(declineAdvice.data.kind, 'mode_mismatch');
+  const declined = await api(`/api/conversations/${legacyId}/messages`, 'POST', { body: declineGoal, clientMessageId: crypto.randomUUID(), followupRouting: 'room_mode' });
+  assert.equal(declined.status, 202, JSON.stringify(declined.data));
+  await waitForRun(declined.data.run.id);
+  assert.equal((await api(`/api/runs/${declined.data.run.id}/coordination-plan`)).status, 404, '选择原方式不得绑定推荐 Plan');
+
+  const ambiguousAdvice = await api(`/api/conversations/${legacyId}/followup-preview`, 'POST', { body: '分析认证方案的取舍' });
+  assert.equal(ambiguousAdvice.status, 200, JSON.stringify(ambiguousAdvice.data));
+  assert.equal(ambiguousAdvice.data.kind, 'ambiguous');
+  assert.equal(ambiguousAdvice.data.preview.draft.decision, 'clarify');
+  const ambiguousBefore = (await api(`/api/conversations/${legacyId}`)).data.runs.length;
+  const invalidStart = await api(`/api/conversations/${legacyId}/messages`, 'POST', {
+    body: '分析认证方案的取舍', clientMessageId: crypto.randomUUID(), coordinationDraftId: ambiguousAdvice.data.preview.draft.id,
+  });
+  assert.equal(invalidStart.status, 409, '未澄清的 Draft 不得启动');
+  assert.equal((await api(`/api/conversations/${legacyId}`)).data.runs.length, ambiguousBefore);
+  const chosenPreview = await preview({ goal: '分析认证方案的取舍', agentIds: ['planner', 'coder', 'reviewer'], requestedProtocol: 'parallel_fanout', replacesDraftId: ambiguousAdvice.data.preview.draft.id });
+  assert.ok(['auto_start', 'recommend'].includes(chosenPreview.draft.decision));
+  const chosen = await api(`/api/conversations/${legacyId}/messages`, 'POST', {
+    body: '分析认证方案的取舍', clientMessageId: crypto.randomUUID(), coordinationDraftId: chosenPreview.draft.id,
+  });
+  assert.equal(chosen.status, 202, JSON.stringify(chosen.data));
+  await waitForRun(chosen.data.run.id, 30_000);
+  assert.equal((await api(`/api/runs/${chosen.data.run.id}/coordination-plan`)).status, 200);
 
   const ambiguous = await preview({ goal: '分析认证方案的取舍', agentIds: ['planner', 'coder'] });
   assert.equal(ambiguous.draft.decision, 'clarify');
