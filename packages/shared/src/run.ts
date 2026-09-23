@@ -54,7 +54,7 @@ export interface RunCheckpoint {
 }
 
 export type ToolReplayPolicy = 'safe' | 'idempotent' | 'manual';
-export type ToolExecutionStatus = 'running' | 'completed' | 'failed' | 'needs_attention';
+export type ToolExecutionStatus = 'running' | 'interrupted' | 'completed' | 'failed' | 'needs_attention';
 
 /** 一次逻辑工具调用的执行账本；idempotencyKey 跨进程保持稳定。 */
 export interface ToolExecution {

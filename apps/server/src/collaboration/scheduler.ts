@@ -6,6 +6,13 @@ import { listByConversation, listByRun, post, postSystem, updateRunUserMessageSt
 import { endSpan, finishRun, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
 import { COLLABORATION_CONTROL_TOOLS, parseControlCall } from './controlTools.ts';
+import { classifyCollaborationTurnExit, isTechnicalInterruption } from './turnExit.ts';
+import { planCollaborationAdmission } from '../runtime/subjectContract.ts';
+import { observeAction, observeAdmission, observeAggregateLink, observeTechnicalBlock, observeTerminalInterruption, safelyObserve } from '../runtime/shadow.ts';
+import { minimalHandoffCapsule, saveHandoffCapsule } from '../runtime/capsule.ts';
+import { assembleCollaborationContext } from '../runtime/context.ts';
+import { describeCompletionReason, evaluateCompletion } from '../runtime/completion.ts';
+import { isCompletionEngineRun, loadCompletionSnapshot, recordCompletionEvaluation } from '../runtime/completionStore.ts';
 import {
   activeConversationState,
   budgetExceeded,
@@ -22,6 +29,7 @@ import {
   getDispatch,
   hasOpenDispatches,
   hasPendingDecision,
+  isActiveAttempt,
   listConversationDispatches,
   listDispatches,
   setAttemptInputContext,
@@ -29,6 +37,8 @@ import {
   listRecoverableConversationIds,
   listRunningCollaborationRunIds,
   listOpenBatches,
+  interruptExpiredAttempts,
+  renewCollaborationLeases,
 } from './store.ts';
 import { emit } from '../messaging/bus.ts';
 
@@ -40,6 +50,8 @@ const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 class CollaborationGuardError extends Error {
   constructor(message: string, readonly code: 'depth' | 'targets' | 'ping_pong') { super(message); }
 }
+
+class StaleAttemptError extends Error {}
 
 function collaborationSpan(runId: string) {
   return listEvents(runId).find((event) => event.spanKind === 'orchestration' && event.name === `collaboration:${runId}`);
@@ -93,13 +105,26 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
     updateRunUserMessageStatus(run.id, 'failed');
     return;
   }
-  setRunStatus(run.id, 'running');
-  ensureCollaborationSpan(run);
-  for (const target of targets) createDispatch({
-    runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
-    kind: 'initial', from: 'user', targetAgentId: target, reason: '用户发起协作', depth: 0,
-    idempotencyKey: `initial:${userMessage.id}:${target}`, dedupeText: userMessage.body,
-  });
+  const createAdmission = () => {
+    setRunStatus(run.id, 'running');
+    ensureCollaborationSpan(run);
+    const initialDispatches = targets.map((target) => createDispatch({
+      runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
+      kind: 'initial', from: 'user', targetAgentId: target, reason: '用户发起协作', depth: 0,
+      idempotencyKey: `initial:${userMessage.id}:${target}`, dedupeText: userMessage.body,
+    }));
+    if (config.collaboration.runtimeAtomic || config.collaboration.runtimeShadow) {
+      const observe = () => {
+        const planned = planCollaborationAdmission({ runId: run.id, objective: run.goal, participantIds: run.agentIds,
+          targetAgentIds: targets, completionEngine: config.collaboration.completionEngine });
+        observeAdmission(planned.contract, planned.subjects, initialDispatches.map((item) => item.id));
+      };
+      if (config.collaboration.runtimeAtomic) observe();
+      else afterCommit(() => safelyObserve('admission', observe));
+    }
+  };
+  if (config.collaboration.runtimeAtomic) tx(createAdmission);
+  else createAdmission();
   updateRunUserMessageStatus(run.id, 'processing');
   kickCollaboration(conversation.id);
 }
@@ -119,6 +144,9 @@ async function drain(conversationId: string): Promise<void> {
         const claimed = claimNextDispatch(conversationId, leaseOwner);
         if (!claimed) break;
         void executeDispatch(claimed.dispatch, claimed.attempt.id).finally(() => kickCollaboration(conversationId));
+      }
+      for (const runId of new Set(listConversationDispatches(conversationId).filter((item) => item.status === 'blocked').map((item) => item.runId))) {
+        finalizeRun(runId);
       }
       emitScheduler(conversationId);
     } while (dirtyConversations.has(conversationId));
@@ -145,28 +173,13 @@ async function pauseExceededRuns(conversationId: string): Promise<void> {
   }
 }
 
-function buildContext(run: Run, dispatch: CollaborationDispatch, agent: AgentDefinition): string {
-  const messages = listByConversation(run.conversationId).filter((message) => message.seq > 0);
-  const source = messages.find((message) => message.id === dispatch.sourceMessageId);
-  // fanout 发言已独立展示给用户；模型上下文仍只从 batch 聚合消息读取它，避免重复注入全文。
-  const transcript = messages.filter((message) => message.id !== dispatch.sourceMessageId && message.messageType !== 'collaboration_contribution').slice(-19)
-    .map((message) => `[${message.from} → ${message.to}] ${message.body.replace(/\[(?:collab|tool):[^\]]+\]/g, '').slice(0, 2_000)}`).join('\n\n');
-  const members = listRunAgentSnapshots(run.id).map((item) => `${item.id}（${item.name}）：${item.description ?? item.capabilities.join('/')}`).join('\n');
-  const currentItem = source?.body ?? run.goal;
-  const fanoutRule = dispatch.kind === 'fanout'
-    ? '\n- 这是并行征询的内部子任务。直接给出结果即可；结果会由系统汇总，不要把结果再次交接回发送者，也不要把它当作面向用户的最终报告。'
-    : '';
-  const mockContext = JSON.stringify({ agentId: agent.id, agentName: agent.name, memberIds: run.agentIds, message: currentItem });
-  return `你正在 agent-gand 的自由协作聊天室中工作。\n\n成员：\n${members}\n\n当前执行信息：\n- 发送者：${dispatch.from}\n- 原因：${dispatch.reason ?? '未说明'}\n- 深度：${dispatch.depth}/${config.collaboration.maxDepth}\n\n规则：\n- 可以直接回答并结束；如确需队友行动，调用一个协作控制工具。\n- 直接回答“当前事项”，不要把本段调度说明复述给用户。\n- 不要在正文中伪造工具调用、Run ID 或路由状态。\n- 不要无理由转交或在两位 Agent 间来回推诿。\n- 正式实施任务可用 agent.propose_supervisor_task 提议，必须等待用户批准。${fanoutRule}\n\n最近聊天室消息：\n${transcript || '（暂无）'}\n\n当前事项：\n${currentItem}\n\n请处理发给 ${agent.name} 的当前事项。\n__AGENT_GAND_CURRENT__=${mockContext}`;
-}
-
 function terminalRunStatus(status: Run['status']): boolean {
   return TERMINAL_RUN_STATUSES.has(status);
 }
 
 function internalFanoutOutput(dispatch: CollaborationDispatch, content: string, action: CollaborationControlAction): string | null {
   if (dispatch.kind !== 'fanout') return null;
-  if (action.type === 'finish') return content.trim() || '已完成并行征询子任务。';
+  if (action.type === 'finish' || action.type === 'implicit_complete') return content.trim() || '已完成并行征询子任务。';
   if (action.type !== 'handoff' || !dispatch.batchId) return null;
   const batch = getBatch(dispatch.batchId);
   if (batch?.initiatorAgentId !== action.targetAgentId) return null;
@@ -197,7 +210,16 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'cancelled', error: `Run 已进入终态：${run.status}` });
     return;
   }
-  const inputContext = buildContext(run, dispatch, agent);
+  let inputContext: string;
+  try {
+    inputContext = assembleCollaborationContext({ run, dispatch, agent, attemptId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: 'blocked', error: `CONTEXT_ASSEMBLY_FAILED: ${message}` });
+    postSystem(run.id, 'user', `协作上下文组装失败：${message}`);
+    finalizeRun(run.id);
+    return;
+  }
   setAttemptInputContext(attemptId, inputContext);
   const rootSpan = ensureCollaborationSpan(run);
   const dispatchSpan = startSpan(run.id, { parentId: rootSpan.id, spanKind: 'orchestration', name: `dispatch:${dispatch.id}`,
@@ -227,14 +249,31 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
       endSpan(dispatchSpan, { output: 'late_result_cancelled', status: 'error' });
       return;
     }
-    if (turn.emptyResponse) throw new Error('Agent 未生成有效回复或控制动作');
-    const action = turn.controlAction ?? { type: 'finish' } satisfies CollaborationControlAction;
+    const exit = classifyCollaborationTurnExit(turn);
+    if (exit.kind === 'truncated' || exit.kind === 'approval_wait' || exit.kind === 'empty') {
+      const reason = `${exit.code}: ${exit.detail}`;
+      tx(() => {
+        if (!isActiveAttempt(attemptId, dispatch.id)) throw new StaleAttemptError('迟到的 Attempt 已失去提交权');
+        finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: 'blocked', error: reason });
+        postSystem(run.id, 'user', `协作执行未完成：${exit.detail}`);
+        if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
+        finalizeRun(run.id);
+        if (config.collaboration.runtimeAtomic) observeTechnicalBlock(dispatch.id, attemptId, agent.id);
+        else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('technical_block', () => observeTechnicalBlock(dispatch.id, attemptId, agent.id)));
+      });
+      endSpan(agentSpan, { output: reason, status: 'error', attributes: { 'collaboration.exit.kind': exit.kind } });
+      endSpan(dispatchSpan, { output: reason, status: 'error', attributes: { 'collaboration.exit.kind': exit.kind } });
+      return;
+    }
+    // 无控制动作仅是答案候选；阶段 1 按兼容规则接受，并显式记录隐式完成。
+    const action = exit.kind === 'control_action' ? turn.controlAction! : { type: 'implicit_complete' } satisfies CollaborationControlAction;
     controlSpan = startSpan(run.id, { parentId: agentSpan.id, spanKind: 'orchestration', name: `control:${action.type}`,
-      input: JSON.stringify(action), attributes: { 'agent.id': agent.id, 'collaboration.dispatch.id': dispatch.id, 'orchestration.phase': 'collaboration.control' } });
+      input: JSON.stringify(action), attributes: { 'agent.id': agent.id, 'collaboration.dispatch.id': dispatch.id, 'orchestration.phase': 'collaboration.control', 'collaboration.exit.kind': exit.kind } });
     const fanoutOutput = internalFanoutOutput(dispatch, turn.content, action);
     let applied = emptyActionResult();
     const output = fanoutOutput ?? turn.content;
     tx(() => {
+      if (!isActiveAttempt(attemptId, dispatch.id)) throw new StaleAttemptError('迟到的 Attempt 已失去提交权');
       if (fanoutOutput !== null) {
         // 辩手原文作为可恢复的发言保留在聊天室，但不是面向用户的最终报告。
         // 稳定 clientMessageId 使重试或重连不会复制同一 dispatch 的发言。
@@ -246,10 +285,27 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
         });
         applied.outputMessageId = contribution.id;
       } else applied = applyAction(run, dispatch, agent, turn.content, action);
+      const actionWasDeferred = action.type === 'handoff' && applied.childDispatchIds.length === 0 && applied.outputMessageId === null;
+      const observe = () => {
+        if (!actionWasDeferred) observeAction({
+          dispatchId: dispatch.id, attemptId, agentId: agent.id,
+          action: fanoutOutput !== null ? { type: 'implicit_complete' } : action,
+          childDispatchIds: applied.childDispatchIds, batchId: applied.batchId,
+        });
+      };
+      if (config.collaboration.runtimeAtomic) observe();
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'completed', output, action,
         deduplicatedTo: applied.deduplicatedTo, outputMessageId: applied.outputMessageId });
+      if (action.type === 'handoff' && applied.childDispatchIds.length === 1 && applied.outputMessageId && !applied.deduplicatedTo) {
+        saveHandoffCapsule(minimalHandoffCapsule({
+          runId: run.id, dispatchId: applied.childDispatchIds[0]!, sourceDispatchId: dispatch.id,
+          sourceAttemptId: attemptId, objective: run.goal, message: action.message, reason: action.reason,
+          sourceMessageId: applied.outputMessageId, completedWork: turn.content,
+        }));
+      }
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
+      if (!config.collaboration.runtimeAtomic && config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('action', observe));
     });
     endSpan(controlSpan, { output: JSON.stringify(applied), status: 'ok', attributes: {
       ...(applied.deduplicatedTo ? { 'collaboration.deduplicated_to': applied.deduplicatedTo } : {}),
@@ -258,12 +314,20 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     endSpan(dispatchSpan, { output: JSON.stringify(applied), status: 'ok' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    if (err instanceof StaleAttemptError || !isActiveAttempt(attemptId, dispatch.id)) {
+      if (controlSpan) endSpan(controlSpan, { output: message, status: 'error' });
+      endSpan(agentSpan, { output: 'stale_attempt_discarded', status: 'error' });
+      endSpan(dispatchSpan, { output: 'stale_attempt_discarded', status: 'error' });
+      return;
+    }
     const blocked = err instanceof CollaborationGuardError;
     tx(() => {
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: blocked ? 'blocked' : 'failed', error: message });
       postSystem(run.id, agent.id, `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`);
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
+      if (config.collaboration.runtimeAtomic) observeTerminalInterruption(dispatch.id, attemptId, agent.id);
+      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('terminal_failure', () => observeTerminalInterruption(dispatch.id, attemptId, agent.id)));
     });
     if (controlSpan) endSpan(controlSpan, { output: message, status: 'error', attributes: blocked ? { 'collaboration.guard': err.code } : {} });
     endSpan(agentSpan, { output: message, status: 'error' });
@@ -311,9 +375,11 @@ function pingPongCount(runId: string, from: string, to: string): number {
 }
 
 function applyAction(run: Run, dispatch: CollaborationDispatch, agent: AgentDefinition, content: string, action: CollaborationControlAction): ActionApplicationResult {
-  if (action.type === 'finish') {
+  if (action.type === 'finish' || action.type === 'implicit_complete') {
+    if (config.collaboration.completionEngine && isCompletionEngineRun(run.id)) return emptyActionResult();
     const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_result',
-      body: content.trim() || '已完成当前协作事项。', meta: { dispatchId: dispatch.id, routeFrom: dispatch.from } });
+      body: content.trim() || '已完成当前协作事项。', meta: { dispatchId: dispatch.id, routeFrom: dispatch.from,
+        ...(action.type === 'implicit_complete' ? { completionKind: 'implicit_legacy' } : {}) } });
     return { ...emptyActionResult(), outputMessageId: message.id };
   }
   if (action.type === 'handoff') {
@@ -382,6 +448,8 @@ function maybeCompleteBatch(batchId: string): void {
     : children.every((item) => item.status === 'failed' || item.status === 'blocked' || item.status === 'cancelled') ? 'failed'
       : children.every((item) => item.status === 'completed') ? 'completed' : 'partial';
   updateBatch(batch.id, batchStatus, result.dispatch.id);
+  if (config.collaboration.runtimeAtomic) observeAggregateLink(batch.sourceDispatchId, result.dispatch.id);
+  else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('aggregate_link', () => observeAggregateLink(batch.sourceDispatchId, result.dispatch.id)));
 }
 
 function scheduleBatchTimeout(batchId: string, timeoutAt: string): void {
@@ -394,15 +462,55 @@ function scheduleBatchTimeout(batchId: string, timeoutAt: string): void {
   timer.unref();
 }
 
-function finalizeRun(runId: string): void {
-  const run = getRun(runId); if (!run || run.status === 'waiting_for_user' || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
+export function finalizeCollaborationRun(runId: string, options: {
+  disposition?: 'normal' | 'partial_user_accepted' | 'delegated'; publishResult?: boolean;
+} = {}): void {
+  const run = getRun(runId); if (!run || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
+  const completionOwned = config.collaboration.completionEngine && isCompletionEngineRun(runId);
+  if (run.status === 'waiting_for_user' && !completionOwned && !options.disposition) return;
+  if (completionOwned) {
+    const snapshot = loadCompletionSnapshot(runId);
+    if (!snapshot) {
+      // Contract marker and snapshot share the same row; this only protects against a concurrent/corrupt read.
+      return;
+    }
+    snapshot.input.disposition = options.disposition ?? 'normal';
+    const evaluation = evaluateCompletion(snapshot.input);
+    recordCompletionEvaluation(runId, evaluation, snapshot.input);
+    if (evaluation.status === 'waiting') return;
+    if (evaluation.status !== 'accepted') {
+      finishRun(runId, 'failed');
+      closeCollaborationTrace(runId, 'failed');
+      post({ runId, from: 'system', to: 'user', kind: 'system', messageType: 'informational',
+        body: `Completion Engine 拒绝完成：${evaluation.reasons.map(describeCompletionReason).join('；')}`,
+        clientMessageId: `runtime:completion-rejected:${runId}` });
+      try { updateRunUserMessageStatus(runId, 'failed'); } catch { /* legacy */ }
+      return;
+    }
+    if ((options.publishResult ?? true) && evaluation.disposition !== 'delegated') {
+      const parts = snapshot.reportParts;
+      const body = parts.length === 1 ? parts[0]!.output
+        : parts.map((part) => `${part.agentId}：\n${part.output}`).join('\n\n');
+      post({ runId, from: parts.length === 1 ? parts[0]!.agentId : 'system', to: 'user', kind: 'agent',
+        messageType: 'collaboration_result', body: body || '已完成当前协作事项。',
+        meta: { completionKind: 'runtime_accepted', disposition: evaluation.disposition },
+        clientMessageId: `runtime:completion:${runId}` });
+    }
+    finishRun(runId, 'completed');
+    closeCollaborationTrace(runId, 'completed');
+    try { updateRunUserMessageStatus(runId, 'responded'); } catch { /* legacy */ }
+    return;
+  }
   if (hasOpenDispatches(runId) || hasPendingDecision(runId)) return;
   const dispatches = listDispatches(runId);
-  const succeeded = dispatches.some((item) => item.status === 'completed');
+  const succeeded = !dispatches.some((item) => isTechnicalInterruption(item.error))
+    && dispatches.some((item) => item.status === 'completed');
   finishRun(runId, succeeded ? 'completed' : 'failed');
   closeCollaborationTrace(runId, succeeded ? 'completed' : 'failed');
   try { updateRunUserMessageStatus(runId, succeeded ? 'responded' : 'failed'); } catch { /* legacy */ }
 }
+
+function finalizeRun(runId: string): void { finalizeCollaborationRun(runId); }
 
 function hashText(value: string): string {
   let hash = 2166136261;
@@ -418,6 +526,15 @@ export function recoverCollaborationRuns(): void {
   }
   for (const conversationId of listRecoverableConversationIds()) kickCollaboration(conversationId);
   for (const batch of listOpenBatches()) scheduleBatchTimeout(batch.id, batch.timeoutAt);
+}
+
+/** 活进程先续自己的租约，再只回收真正过期的其他进程 Attempt。 */
+export function sweepCollaborationLeases(): void {
+  renewCollaborationLeases(leaseOwner);
+  for (const conversationId of interruptExpiredAttempts({ onlyExpired: true })) {
+    for (const runId of new Set(listConversationDispatches(conversationId).map((item) => item.runId))) finalizeRun(runId);
+    kickCollaboration(conversationId);
+  }
 }
 
 export function resumeCollaborationConversation(conversationId: string): void { kickCollaboration(conversationId); }

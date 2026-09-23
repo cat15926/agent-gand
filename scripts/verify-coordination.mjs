@@ -23,6 +23,7 @@ await Promise.all([
 const dbPath = path.join(root, 'test.sqlite');
 const port = 44000 + Math.floor(Math.random() * 1000);
 const base = `http://127.0.0.1:${port}`;
+const runtimeKernelEnabled = ['shadow', 'execute'].includes(process.env.COORDINATION_RUNTIME_KERNEL ?? '');
 let child = null;
 let childExit = null;
 let logs = '';
@@ -184,6 +185,15 @@ try {
   assert.equal(singleRuntime.plan.status, 'completed');
   assert.ok(singleRuntime.steps.every((step) => step.status === 'completed'));
   assert.deepEqual(singleRuntime.events.filter((event) => event.kind.startsWith('plan_')).map((event) => event.kind).slice(-2), ['plan_activated', 'plan_completed']);
+  if (runtimeKernelEnabled) {
+    assert.equal(singleRuntime.runtimeKernel.mode, process.env.COORDINATION_RUNTIME_KERNEL);
+    assert.equal(singleRuntime.runtimeKernel.runtimeRevision, 1);
+    assert.equal(singleRuntime.runtimeKernel.subjects.length, 1);
+    assert.ok(singleRuntime.runtimeKernel.subjects.every((subject) => subject.status === 'completed'
+      && subject.custodyState === 'completed' && subject.holderAgentId && subject.generation >= 2 && subject.evidenceCount >= 1));
+    assert.equal(singleRuntime.runtimeKernel.contextCount, 1);
+    assert.equal(singleRuntime.completionEvaluations.at(-1).status, 'accepted');
+  }
 
   const roomsBeforeDuplicate = await api('/api/conversations');
   const duplicateStart = await api('/api/conversations', 'POST', {
@@ -226,6 +236,12 @@ try {
   assert.equal(attemptsFor(reviewRuntime, 'review-implement').length, 2, 'Reviewer FAIL 后实现步骤必须返工一次');
   assert.equal(attemptsFor(reviewRuntime, 'review-independent').length, 2, '返工后必须重新独立审查');
   assert.ok(reviewRuntime.steps.every((step) => step.status === 'completed'));
+  if (runtimeKernelEnabled) {
+    const revisedSubjects = reviewRuntime.runtimeKernel.subjects.filter((subject) => ['review-implement', 'review-independent'].includes(subject.stepId));
+    assert.ok(revisedSubjects.every((subject) => subject.generation >= 4), '返工必须形成新的 Custody 代际');
+    assert.ok(revisedSubjects.find((subject) => subject.stepId === 'review-implement').generation >= 5);
+    assert.equal(reviewRuntime.completionEvaluations.at(-1).status, 'accepted');
+  }
 
   // [tool:fs.write]：mock 依据步骤 prompt 里的"冻结到 `<path>`"指令写入产物（AG-COORD-01 落盘链路）
   const debateGoal = '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]';
@@ -247,6 +263,13 @@ try {
   const isFinalAgent = (message) => message.kind === 'agent' && message.meta?.round === undefined; // meta.round = 工具轮过程消息
   const debateMessages = debateDetail.messages.filter(isFinalAgent);
   assert.equal(debateMessages.length, 7, '三轮辩论必须形成六次独立发言和一次裁决');
+  if (runtimeKernelEnabled) {
+    const debateRuntime = await coordination(debateStarted.run.id);
+    assert.equal(debateRuntime.runtimeKernel.subjects.length, 7);
+    assert.ok(debateRuntime.runtimeKernel.subjects.every((subject) => subject.evidenceCount >= 1));
+    assert.equal(debateRuntime.runtimeKernel.contextCount, 7);
+    assert.equal(debateRuntime.completionEvaluations.at(-1).status, 'accepted');
+  }
   assert.deepEqual(debateMessages.map((message) => message.payload.coordinationStepId), [
     'debate-r1-pro', 'debate-r1-con', 'debate-r2-pro', 'debate-r2-con', 'debate-r3-pro', 'debate-r3-con', 'debate-judge',
   ]);

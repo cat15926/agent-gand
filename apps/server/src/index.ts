@@ -18,7 +18,7 @@ import { backfillRunAgentSnapshots } from './runs/trace.ts';
 import { recoverPendingConversationRuns } from './conversations/dispatcher.ts';
 import { closeMcp, refreshMcpTools } from './tools/mcp/client.ts';
 import { interruptExpiredAttempts } from './collaboration/store.ts';
-import { recoverCollaborationRuns } from './collaboration/scheduler.ts';
+import { recoverCollaborationRuns, sweepCollaborationLeases } from './collaboration/scheduler.ts';
 import { recoverDurableRuns } from './runs/recovery.ts';
 import { recoverInterruptedCoordinationSteps } from './coordination/store.ts';
 
@@ -37,7 +37,7 @@ backfillConversations();
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
 interruptRunningAttempts();
-interruptExpiredAttempts();
+interruptExpiredAttempts({ onlyExpired: true });
 recoverInterruptedTasks();
 recoverInterruptedCoordinationSteps();
 recoverPendingConversationRuns();
@@ -46,9 +46,12 @@ recoverDurableRuns();
 
 await app.listen({ port: config.port, host: '0.0.0.0' });
 app.log.info(`agent-gand server 就绪: http://localhost:${config.port}（agents=${agents.length}）`);
+const collaborationLeaseTimer = setInterval(sweepCollaborationLeases, Math.max(1_000, Math.floor(config.collaboration.attemptLeaseMs / 3)));
+collaborationLeaseTimer.unref();
 
 // graceful 退出
 async function shutdown(signal: string): Promise<void> {
+  clearInterval(collaborationLeaseTimer);
   app.log.info(`收到 ${signal}，正在关闭…`);
   await app.close();
   await closeMcp();

@@ -12,6 +12,14 @@ import type {
 } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import {
+  admitCoordinationKernelPlan,
+  observeCoordinationClaim,
+  observeCoordinationComplete,
+  observeCoordinationFailure,
+  observeCoordinationPause,
+  observeCoordinationRevision,
+} from '../runtime/coordinationAdapter.ts';
 
 interface PayloadRow { payload: string }
 interface EventRow {
@@ -115,6 +123,7 @@ export function activateCoordinationPlan(planId: string, runId: string): Coordin
     for (const step of plan.steps) run(`INSERT INTO coordination_step_states
       (plan_id,run_id,revision,step_id,status,attempt_no,output,error,started_at,completed_at,updated_at)
       VALUES (?,?,?,?,?,0,NULL,NULL,NULL,NULL,?)`, planId, runId, plan.revision, step.id, step.dependsOn.length === 0 ? 'ready' : 'pending', updated.updatedAt);
+    admitCoordinationKernelPlan(updated);
     recordCoordinationEvent({ kind: 'plan_activated', draftId: plan.draftId, planId, runId, payload: { revision: plan.revision } });
     return updated;
   });
@@ -172,7 +181,7 @@ export function claimCoordinationStep(plan: CoordinationPlan, step: Coordination
     const now = new Date().toISOString();
     let attempt: StepAttemptRow;
     if (reusable) {
-      run("UPDATE coordination_step_attempts SET status='running',input=?,output=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", input, now, reusable.id);
+      run("UPDATE coordination_step_attempts SET status='running',output=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", now, reusable.id);
       attempt = get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', reusable.id)!;
     } else {
       const id = randomUUID();
@@ -182,6 +191,7 @@ export function claimCoordinationStep(plan: CoordinationPlan, step: Coordination
       attempt = get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', id)!;
     }
     run("UPDATE coordination_step_states SET status='running',attempt_no=?,error=NULL,started_at=COALESCE(started_at,?),updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", attemptNo, now, now, plan.id, plan.revision, step.id);
+    observeCoordinationClaim(plan, step, attempt.id);
     return { state: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!, attempt };
   });
   if (!result) return null;
@@ -194,10 +204,16 @@ export function setCoordinationAttemptSpan(attemptId: string, spanId: string): v
   run('UPDATE coordination_step_attempts SET span_id=? WHERE id=?', spanId, attemptId);
 }
 
+export function setCoordinationAttemptInput(attemptId: string, input: string): void {
+  run('UPDATE coordination_step_attempts SET input=? WHERE id=?', input, attemptId);
+}
+
 export function completeCoordinationStep(plan: CoordinationPlan, stepId: string, attemptId: string, output: string): CoordinationStepState {
   const row = tx(() => {
     const now = new Date().toISOString();
     run("UPDATE coordination_step_attempts SET status='completed',output=?,error=NULL,ended_at=? WHERE id=?", output, now, attemptId);
+    const step = plan.steps.find((item) => item.id === stepId);
+    if (step) observeCoordinationComplete(plan, step, attemptId);
     run("UPDATE coordination_step_states SET status='completed',output=?,error=NULL,completed_at=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", output, now, now, plan.id, plan.revision, stepId);
     return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!;
   });
@@ -210,6 +226,7 @@ export function failCoordinationStep(plan: CoordinationPlan, step: CoordinationP
   const row = tx(() => {
     const now = new Date().toISOString();
     run("UPDATE coordination_step_attempts SET status='failed',error=?,ended_at=? WHERE id=?", message, now, attemptId);
+    observeCoordinationFailure(plan, step, attemptId, retry);
     run('UPDATE coordination_step_states SET status=?,error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?', retry ? 'ready' : 'failed', message, now, plan.id, plan.revision, step.id);
     return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!;
   });
@@ -226,6 +243,7 @@ export function releaseCoordinationStep(plan: CoordinationPlan, step: Coordinati
   const row = tx(() => {
     const now = new Date().toISOString();
     run("UPDATE coordination_step_attempts SET status='paused',error=?,ended_at=? WHERE id=?", reason, now, attemptId);
+    observeCoordinationPause(plan, step, attemptId);
     run("UPDATE coordination_step_states SET status='ready',error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", reason, now, plan.id, plan.revision, step.id);
     return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!;
   });
@@ -239,6 +257,7 @@ export function scheduleCoordinationRevision(plan: CoordinationPlan, reviewStep:
   tx(() => {
     const now = new Date().toISOString();
     run("UPDATE coordination_step_attempts SET status='completed',output=?,error=NULL,ended_at=? WHERE id=?", feedback, now, attemptId);
+    observeCoordinationRevision(plan, reviewStep, attemptId, targetStepIds);
     run("UPDATE coordination_step_states SET status='pending',output=?,error=NULL,completed_at=NULL,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", feedback, now, plan.id, plan.revision, reviewStep.id);
     for (const targetId of targetStepIds) run("UPDATE coordination_step_states SET status='ready',output=NULL,error=?,completed_at=NULL,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", feedback, now, plan.id, plan.revision, targetId);
     for (const stepId of [...targetStepIds, reviewStep.id]) {
@@ -296,6 +315,7 @@ export function applyCoordinationPlanRevision(input: {
     for (const step of revised.steps) run(`INSERT INTO coordination_step_states
       (plan_id,run_id,revision,step_id,status,attempt_no,output,error,started_at,completed_at,updated_at)
       VALUES (?,?,?,?,?,0,NULL,NULL,NULL,NULL,?)`, revised.id, revised.runId, revised.revision, step.id, step.dependsOn.length === 0 ? 'ready' : 'pending', now);
+    admitCoordinationKernelPlan(revised);
     const revision: CoordinationPlanRevision = {
       planId: revised.id, revision: revised.revision, trigger: 'user_adjustment', previousRevision: stored.revision,
       diffSummary: input.instruction.slice(0, 500), plan: revised, createdAt: now,

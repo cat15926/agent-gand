@@ -93,6 +93,9 @@ ensureColumns('collaboration_dispatches', [
 ensureColumns('collaboration_attempts', [
   { name: 'deduplicated_to', sql: 'deduplicated_to TEXT' },
 ]);
+ensureColumns('runtime_dispatch_subjects', [
+  { name: 'expected_generation', sql: 'expected_generation INTEGER' },
+]);
 db.exec("CREATE INDEX IF NOT EXISTS idx_collab_dispatch_dedupe ON collaboration_dispatches(run_id,parent_dispatch_id,target_agent_id,content_hash,status)");
 db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
   agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,

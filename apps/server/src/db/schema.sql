@@ -144,6 +144,66 @@ CREATE TABLE IF NOT EXISTS collaboration_budget_revisions (
   increase_percent INTEGER NOT NULL, previous_limits TEXT NOT NULL,
   new_limits TEXT NOT NULL, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runtime_contracts (
+  run_id TEXT PRIMARY KEY, version INTEGER NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_subjects (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_key TEXT NOT NULL,
+  kind TEXT NOT NULL, parent_subject_id TEXT, status TEXT NOT NULL,
+  objective TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(run_id, subject_key)
+);
+CREATE TABLE IF NOT EXISTS runtime_custody_events (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  source_event_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
+  holder_agent_id TEXT, pending_holder_agent_id TEXT,
+  generation INTEGER NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_custody (
+  subject_id TEXT PRIMARY KEY, state TEXT NOT NULL,
+  holder_agent_id TEXT, pending_holder_agent_id TEXT,
+  generation INTEGER NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_dispatch_subjects (
+  dispatch_id TEXT PRIMARY KEY, subject_id TEXT NOT NULL, expected_generation INTEGER
+);
+CREATE TABLE IF NOT EXISTS runtime_handoff_capsules (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, dispatch_id TEXT NOT NULL,
+  version INTEGER NOT NULL, source_attempt_id TEXT NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(dispatch_id,version)
+);
+CREATE TABLE IF NOT EXISTS runtime_context_assemblies (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, dispatch_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL UNIQUE, segments TEXT NOT NULL,
+  char_count INTEGER NOT NULL, token_estimate INTEGER NOT NULL,
+  context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_completion_evaluations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, seq INTEGER NOT NULL,
+  status TEXT NOT NULL, reasons TEXT NOT NULL, disposition TEXT NOT NULL,
+  snapshot TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(run_id,seq)
+);
+CREATE TABLE IF NOT EXISTS runtime_contract_revisions (
+  run_id TEXT NOT NULL, runtime_revision INTEGER NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(run_id,runtime_revision)
+);
+CREATE TABLE IF NOT EXISTS runtime_coordination_subjects (
+  plan_id TEXT NOT NULL, revision INTEGER NOT NULL, step_id TEXT NOT NULL,
+  subject_id TEXT NOT NULL UNIQUE,
+  PRIMARY KEY(plan_id,revision,step_id)
+);
+CREATE TABLE IF NOT EXISTS runtime_coordination_evidence (
+  subject_id TEXT NOT NULL, attempt_id TEXT NOT NULL UNIQUE,
+  refs TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_runtime_subjects_run ON runtime_subjects(run_id, status);
+CREATE INDEX IF NOT EXISTS idx_runtime_custody_events_subject ON runtime_custody_events(subject_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_capsules_run ON runtime_handoff_capsules(run_id,dispatch_id,version);
+CREATE INDEX IF NOT EXISTS idx_runtime_completion_run ON runtime_completion_evaluations(run_id,seq);
+CREATE INDEX IF NOT EXISTS idx_runtime_coordination_subject_plan ON runtime_coordination_subjects(plan_id,revision);
 CREATE TABLE IF NOT EXISTS capability_snapshots (
   id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL
 );

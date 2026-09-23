@@ -14,10 +14,12 @@ import type {
   CollaborationDispatchStatus,
   CollaborationUserDecision,
 } from '@agent-gand/shared';
-import { all, get, run, tx } from '../db/database.ts';
+import { afterCommit, all, get, run, tx } from '../db/database.ts';
+import { CustodyConflictError, observeCancellation, observeClaim, observeTerminalInterruption, safelyObserve } from '../runtime/shadow.ts';
 import { emit } from '../messaging/bus.ts';
 import { config } from '../config.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
+import { reconcileInterruptedToolExecutions } from '../tools/executions.ts';
 
 interface DispatchRow {
   id: string; run_id: string; conversation_id: string; source_message_id: string;
@@ -135,6 +137,12 @@ export function getDispatch(id: string): CollaborationDispatch | undefined {
   const row = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id);
   return row ? toDispatch(row) : undefined;
 }
+export function isActiveAttempt(attemptId: string, dispatchId: string): boolean {
+  return Boolean(get(`SELECT 1 FROM collaboration_attempts a
+    JOIN collaboration_dispatches d ON d.id=a.dispatch_id
+    JOIN runs r ON r.id=a.run_id
+    WHERE a.id=? AND a.dispatch_id=? AND a.status='running' AND d.status='running' AND r.status='running'`, attemptId, dispatchId));
+}
 export function listDispatches(runId: string): CollaborationDispatch[] {
   return all<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE run_id=? ORDER BY created_at,rowid', runId).map(toDispatch);
 }
@@ -143,7 +151,9 @@ export function listConversationDispatches(conversationId: string): Collaboratio
 }
 
 export function claimNextDispatch(conversationId: string, leaseOwner: string): { dispatch: CollaborationDispatch; attempt: CollaborationAttempt } | null {
-  const claimed = tx(() => {
+  let candidateId: string | null = null;
+  let claimed: { dispatch: CollaborationDispatch; attempt: CollaborationAttempt } | null;
+  try { claimed = tx(() => {
     const globalRunning = get<{ n: number }>("SELECT COUNT(*) n FROM collaboration_attempts WHERE status='running'")?.n ?? 0;
     if (globalRunning >= config.collaboration.maxConcurrency) return null;
     const row = get<DispatchRow>(`SELECT d.* FROM collaboration_dispatches d
@@ -153,6 +163,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
         AND (SELECT COUNT(*) FROM collaboration_attempts prior WHERE prior.dispatch_id=d.id) < ?
       ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId, config.collaboration.maxAttempts);
     if (!row) return null;
+    candidateId = row.id;
     const now = new Date();
     const changed = run("UPDATE collaboration_dispatches SET status='running',started_at=? WHERE id=? AND status='queued'", now.toISOString(), row.id);
     if (changed === 0) return null;
@@ -162,12 +173,23 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       (id,dispatch_id,run_id,conversation_id,agent_id,attempt_no,status,lease_owner,lease_expires_at,created_at,started_at)
       VALUES (?,?,?,?,?,?,'running',?,?,?,?)`, attemptId, row.id, row.run_id, row.conversation_id,
       row.target_agent_id, attemptNo, leaseOwner, new Date(now.getTime() + config.collaboration.attemptLeaseMs).toISOString(), now.toISOString(), now.toISOString());
+    if (config.collaboration.runtimeAtomic) observeClaim(row.id, attemptId, row.target_agent_id);
     return {
       dispatch: toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', row.id)!),
       attempt: toAttempt(get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attemptId)!),
     };
-  });
+  }); } catch (error) {
+    if (!(error instanceof CustodyConflictError) || !candidateId) throw error;
+    const blockedId = candidateId;
+    const now = new Date().toISOString();
+    tx(() => run("UPDATE collaboration_dispatches SET status='blocked',error=?,finished_at=? WHERE id=? AND status='queued'", error.message, now, blockedId));
+    const blocked = getDispatch(blockedId);
+    if (blocked) emit({ type: 'collaboration.dispatch.updated', dispatch: blocked });
+    // 只隔离失效的 Dispatch，其他 Agent 的队列仍可继续接球。
+    return claimNextDispatch(conversationId, leaseOwner);
+  }
   if (claimed) {
+    if (!config.collaboration.runtimeAtomic && config.collaboration.runtimeShadow) safelyObserve('claim', () => observeClaim(claimed.dispatch.id, claimed.attempt.id, claimed.dispatch.targetAgentId));
     emit({ type: 'collaboration.dispatch.updated', dispatch: claimed.dispatch });
     emit({ type: 'collaboration.attempt.updated', attempt: claimed.attempt });
   }
@@ -177,8 +199,9 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
 export function finishAttempt(input: { attemptId: string; dispatchId: string; status: 'completed' | 'failed' | 'cancelled'; dispatchStatus?: CollaborationDispatchStatus; output?: string | null; action?: CollaborationControlAction | null; deduplicatedTo?: string | null; error?: string | null; outputMessageId?: string | null }): void {
   const now = new Date().toISOString();
   tx(() => {
-    run("UPDATE collaboration_attempts SET status=?,output=?,control_action=?,deduplicated_to=?,error=?,ended_at=?,lease_expires_at=NULL WHERE id=? AND status='running'",
-      input.status, input.output ?? null, input.action ? JSON.stringify(input.action) : null, input.deduplicatedTo ?? null, input.error ?? null, now, input.attemptId);
+    const changed = run("UPDATE collaboration_attempts SET status=?,output=?,control_action=?,deduplicated_to=?,error=?,ended_at=?,lease_expires_at=NULL WHERE id=? AND dispatch_id=? AND status='running'",
+      input.status, input.output ?? null, input.action ? JSON.stringify(input.action) : null, input.deduplicatedTo ?? null, input.error ?? null, now, input.attemptId, input.dispatchId);
+    if (changed === 0) return;
     run("UPDATE collaboration_dispatches SET status=?,output_message_id=COALESCE(?,output_message_id),error=?,finished_at=? WHERE id=? AND status='running'",
       input.dispatchStatus ?? (input.status === 'completed' ? 'completed' : input.status), input.outputMessageId ?? null, input.error ?? null, now, input.dispatchId);
   });
@@ -336,8 +359,15 @@ export function cancelCollaborationRun(runId: string): void {
   const now = new Date().toISOString();
   const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE run_id=? AND status IN ('queued','running')", runId);
   const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE run_id=? AND status='running'", runId);
-  run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止运行',finished_at=? WHERE run_id=? AND status IN ('queued','running')", now, runId);
-  run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止运行',ended_at=?,lease_expires_at=NULL WHERE run_id=? AND status='running'", now, runId);
+  tx(() => {
+    run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止运行',finished_at=? WHERE run_id=? AND status IN ('queued','running')", now, runId);
+    run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止运行',ended_at=?,lease_expires_at=NULL WHERE run_id=? AND status='running'", now, runId);
+    for (const row of dispatchRows) {
+      const observe = () => observeCancellation(row.id, `run:${runId}`);
+      if (config.collaboration.runtimeAtomic) observe();
+      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_run', observe));
+    }
+  });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止运行', finished_at: now }) });
   for (const row of attemptRows) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt({ ...row, status: 'cancelled', error: '用户停止运行', ended_at: now, lease_expires_at: null }) });
 }
@@ -345,8 +375,15 @@ export function cancelAgentWork(conversationId: string, agentId: string): number
   const now = new Date().toISOString();
   const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running')", conversationId, agentId);
   const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE conversation_id=? AND agent_id=? AND status='running'", conversationId, agentId);
-  run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止 Agent',finished_at=? WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running')", now, conversationId, agentId);
-  run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running'", now, conversationId, agentId);
+  tx(() => {
+    run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止 Agent',finished_at=? WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running')", now, conversationId, agentId);
+    run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running'", now, conversationId, agentId);
+    for (const row of dispatchRows) {
+      const observe = () => observeCancellation(row.id, `agent:${conversationId}:${agentId}:${now}`);
+      if (config.collaboration.runtimeAtomic) observe();
+      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_agent', observe));
+    }
+  });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止 Agent', finished_at: now }) });
   for (const row of attemptRows) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt({ ...row, status: 'cancelled', error: '用户停止 Agent', ended_at: now, lease_expires_at: null }) });
   return dispatchRows.length;
@@ -364,22 +401,44 @@ export function activeConversationState(conversationId: string): { runIds: strin
   return { runIds, activeAgentIds, queued: counts?.queued ?? 0, blocked: counts?.blocked ?? 0 };
 }
 
-export function interruptExpiredAttempts(): string[] {
+export function renewCollaborationLeases(leaseOwner: string): number {
+  return run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE lease_owner=? AND status='running'",
+    new Date(Date.now() + config.collaboration.attemptLeaseMs).toISOString(), leaseOwner);
+}
+
+export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}): string[] {
   const now = new Date().toISOString();
-  const rows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE status='running'");
+  const rows = options.onlyExpired
+    ? all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE status='running' AND (lease_expires_at IS NULL OR lease_expires_at<=?)", now)
+    : all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE status='running'");
   const conversations = new Set<string>();
   for (const item of rows) {
-    run("UPDATE collaboration_attempts SET status='interrupted',error='服务重启或执行租约过期',ended_at=? WHERE id=?", now, item.id);
-    const agentSpan = get<{ id: string }>("SELECT id FROM run_events WHERE run_id=? AND span_kind='agent' AND input LIKE ? ORDER BY started_at DESC LIMIT 1", item.run_id, `%\"dispatchId\":\"${item.dispatch_id}\"%`);
-    const tools = agentSpan ? all<{ name: string }>("SELECT name FROM run_events WHERE parent_id=? AND span_kind='tool' AND status='ok'", agentSpan.id) : [];
-    const hasPossibleSideEffect = tools.some((tool) => !READONLY_TOOLS.has(tool.name.replace(/^tool:/, '')));
-    if (hasPossibleSideEffect || item.attempt_no >= config.collaboration.maxAttempts) {
-      run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
-        hasPossibleSideEffect ? '执行中断且存在可能的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
-    } else {
-      run("UPDATE collaboration_dispatches SET status='queued',started_at=NULL WHERE id=? AND status='running'", item.dispatch_id);
-    }
-    conversations.add(item.conversation_id);
+    let interrupted = false;
+    tx(() => {
+      const changed = options.onlyExpired
+        ? run("UPDATE collaboration_attempts SET status='interrupted',error='执行租约过期',ended_at=?,lease_expires_at=NULL WHERE id=? AND status='running' AND (lease_expires_at IS NULL OR lease_expires_at<=?)", now, item.id, now)
+        : run("UPDATE collaboration_attempts SET status='interrupted',error='服务重启或执行租约过期',ended_at=?,lease_expires_at=NULL WHERE id=? AND status='running'", now, item.id);
+      if (changed === 0) return;
+      interrupted = true;
+      const ledger = reconcileInterruptedToolExecutions(item.id);
+      // 旧 Attempt 无账本时沿用保守的 Trace 兼容判断；新 Attempt 只看独立账本。
+      const legacySideEffect = !ledger.found && (() => {
+        const agentSpan = get<{ id: string }>("SELECT id FROM run_events WHERE run_id=? AND span_kind='agent' AND input LIKE ? ORDER BY started_at DESC LIMIT 1", item.run_id, `%\"dispatchId\":\"${item.dispatch_id}\"%`);
+        const tools = agentSpan ? all<{ name: string }>("SELECT name FROM run_events WHERE parent_id=? AND span_kind='tool' AND status='ok'", agentSpan.id) : [];
+        return tools.some((tool) => !READONLY_TOOLS.has(tool.name.replace(/^tool:/, '')));
+      })();
+      const hasPossibleSideEffect = ledger.needsAttention || legacySideEffect;
+      if (hasPossibleSideEffect || item.attempt_no >= config.collaboration.maxAttempts) {
+        run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
+          hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
+        const observe = () => observeTerminalInterruption(item.dispatch_id, item.id, item.agent_id);
+        if (config.collaboration.runtimeAtomic) observe();
+        else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('terminal_interruption', observe));
+      } else {
+        run("UPDATE collaboration_dispatches SET status='queued',started_at=NULL WHERE id=? AND status='running'", item.dispatch_id);
+      }
+    });
+    if (interrupted) conversations.add(item.conversation_id);
   }
   return [...conversations];
 }

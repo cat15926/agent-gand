@@ -23,6 +23,8 @@ import { archiveConversation, createConversation, getConversation, listConversat
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import { resolveCollaborationDecision, CollaborationDecisionError } from '../collaboration/decisions.ts';
 import { closeCollaborationTrace, settleCollaborationRun } from '../collaboration/scheduler.ts';
+import { listCompletionEvaluations } from '../runtime/completionStore.ts';
+import { getCoordinationKernelStatus } from '../runtime/coordinationAdapter.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
   countRuns,
@@ -242,6 +244,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       steps: listCoordinationStepStates(plan.id),
       attempts: listCoordinationStepAttempts(plan.id),
       events: listCoordinationEvents({ planId: plan.id }),
+      completionEvaluations: listCompletionEvaluations(req.params.runId),
+      runtimeKernel: getCoordinationKernelStatus(req.params.runId),
     };
   });
   // AG-COORD-04：恢复/取消审批暂停中的 Coordination run（后台续跑，不阻塞响应；失败已落库）
@@ -463,6 +467,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (item.mode !== 'collaboration') throw httpError(409, 'Run 不是 collaboration 模式');
     const attempts = listCollaborationAttempts(item.id);
     return { dispatches: listCollaborationDispatches(item.id), attempts, batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
+      completionEvaluations: listCompletionEvaluations(item.id),
       activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
       budget: budgetSnapshot(item.id) };
   });

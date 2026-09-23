@@ -111,6 +111,11 @@ export const config = {
   taskMaxAttempts: Math.max(1, firstInt(process.env.TASK_MAX_ATTEMPTS, 3)),
   taskLeaseMs: Math.max(10_000, firstInt(process.env.TASK_LEASE_MS, 300_000)),
   collaboration: {
+    runtimeShadow: process.env.COLLAB_RUNTIME_SHADOW === 'true',
+    /** 试验性事务级 Custody 记录；默认关闭，旧 Scheduler 仍是执行权威。 */
+    runtimeAtomic: process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_COMPLETION_ENGINE === 'true',
+    /** 阶段 6 试验入口；启用时自动要求原子 Custody 记录。 */
+    completionEngine: process.env.COLLAB_COMPLETION_ENGINE === 'true',
     maxDepth: Math.max(1, firstInt(process.env.COLLAB_MAX_DEPTH, 12)),
     maxDispatches: Math.max(1, firstInt(process.env.COLLAB_MAX_DISPATCHES, 20)),
     maxTargets: Math.min(3, Math.max(1, firstInt(process.env.COLLAB_MAX_TARGETS, 3))),
@@ -131,6 +136,14 @@ export const config = {
     maxAttempts: Math.min(3, Math.max(1, firstInt(process.env.COORDINATION_PLANNER_MAX_ATTEMPTS, 2))),
     maxTokens: Math.max(512, firstInt(process.env.COORDINATION_PLANNER_MAX_TOKENS, 2_048)),
     autoStartThreshold: Math.min(0.99, Math.max(0.5, Number(process.env.COORDINATION_AUTO_START_THRESHOLD ?? 0.82) || 0.82)),
+  },
+  coordinationRuntime: {
+    /** 阶段 7：off 不记录；shadow 只对比；execute 让公共内核接管终局验收。 */
+    kernelMode: (['shadow', 'execute'].includes(process.env.COORDINATION_RUNTIME_KERNEL ?? '')
+      ? process.env.COORDINATION_RUNTIME_KERNEL : 'off') as 'off' | 'shadow' | 'execute',
+    executeProtocols: (process.env.COORDINATION_RUNTIME_PROTOCOLS
+      ?? 'single_agent,sequential_pipeline,parallel_fanout,supervisor_aggregation,review_revision,debate')
+      .split(',').map((item) => item.trim()).filter(Boolean),
   },
 } as const;
 

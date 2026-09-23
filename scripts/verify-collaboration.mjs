@@ -16,6 +16,7 @@ const definitions = [
 for (const [id, name, model, capabilities, prompt] of definitions) await writeFile(path.join(agentsDir, `${id}.agent.md`), `---\nname: ${name}\ndescription: ${prompt}\nmodel: ${model}\ncapabilities: ${capabilities}\ntools: []\npermissionMode: readonly\ncolor: '#6677aa'\n---\n${prompt}`);
 
 const dbPath = path.join(root, 'test.sqlite');
+const completionEngine = process.env.COLLAB_COMPLETION_ENGINE === 'true';
 const port = 41000 + Math.floor(Math.random() * 1000);
 const child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
   cwd: repo,
@@ -58,6 +59,9 @@ try {
   assert.deepEqual(handoffDetail.data.dispatches.map((item) => [item.kind, item.targetAgentId]), [['initial', 'planner'], ['handoff', 'coder']]);
   assert.ok(handoffDetail.data.dispatches.every((item) => item.status === 'completed'));
   assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
+  const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);
+  assert.match(handoffAttempt?.inputContext ?? '', /交接 Capsule/u);
+  assert.match(handoffAttempt?.inputContext ?? '', /经校验的来源摘录/u);
   const handoffRunDetail = await api(`/api/runs/${handoff.data.run.id}`);
   const traceEvents = handoffRunDetail.data.events;
   const collaborationRoot = traceEvents.find((event) => event.name === `collaboration:${handoff.data.run.id}`);
@@ -76,6 +80,17 @@ try {
   const statusReply = statusRoom.data.messages.find((message) => message.kind === 'agent');
   assert.match(statusReply?.body ?? '', /鸡腿.*当前在线/u);
   assert.doesNotMatch(statusReply?.body ?? '', /你正在 agent-gand/u);
+
+  const truncated = await api('/api/conversations', 'POST', {
+    goal: '[truncate] 请生成不能以残缺正文交付的完整答复', mode: 'collaboration', agentIds: ['coder'], recipientIds: ['coder'],
+  });
+  assert.equal(truncated.status, 201, JSON.stringify(truncated.data));
+  await waitRun(truncated.data.run.id, ['failed']);
+  const truncatedDetail = await api(`/api/runs/${truncated.data.run.id}/collaboration`);
+  assert.equal(truncatedDetail.data.dispatches[0]?.status, 'blocked');
+  assert.match(truncatedDetail.data.dispatches[0]?.error ?? '', /^AGENT_TURN_TRUNCATED/u);
+  const truncatedRoom = await api(`/api/conversations/${truncated.data.conversation.id}`);
+  assert.equal(truncatedRoom.data.messages.filter((message) => message.runId === truncated.data.run.id && message.messageType === 'collaboration_result').length, 0);
 
   const unsupportedChat = await api('/api/conversations', 'POST', {
     goal: '请围绕一个开放话题进行深入辩论', mode: 'collaboration', agentIds: ['coder-jitui'], recipientIds: ['coder-jitui'],
@@ -162,7 +177,7 @@ try {
   const blockedBudget = blockedPaused.data.decisions.find((item) => item.kind === 'budget_exhausted' && item.status === 'pending');
   assert.ok(blockedBudget);
   await api(`/api/collaboration/decisions/${blockedBudget.id}/resolve`, 'POST', { action: 'increase_budget', increasePercent: 200 });
-  await waitRun(blockedRouting.data.run.id, ['completed'], 12_000);
+  await waitRun(blockedRouting.data.run.id, [completionEngine ? 'failed' : 'completed'], 12_000);
   const blockedDetail = await api(`/api/runs/${blockedRouting.data.run.id}/collaboration`);
   assert.equal(blockedDetail.data.dispatches.filter((item) => item.status === 'blocked').length, 1);
   assert.match(blockedDetail.data.dispatches.find((item) => item.status === 'blocked')?.error ?? '', /连续往返/u);
@@ -176,11 +191,17 @@ try {
   assert.deepEqual(new Set(multiDetail.data.dispatches.map((item) => item.targetAgentId)), new Set(['coder', 'reviewer']));
   const multiAttempts = multiDetail.data.attempts.filter((item) => item.status === 'completed');
   assert.equal(multiAttempts.length, 2);
+  if (completionEngine) {
+    const multiRoom = await api(`/api/conversations/${multi.data.conversation.id}`);
+    assert.equal(multiRoom.data.messages.filter((message) => message.runId === multi.data.run.id && message.messageType === 'collaboration_result').length, 1,
+      'Completion Engine 必须只发布一次最终报告');
+  }
   assert.ok(new Date(multiAttempts[0].startedAt).getTime() < new Date(multiAttempts[1].endedAt).getTime()
     && new Date(multiAttempts[1].startedAt).getTime() < new Date(multiAttempts[0].endedAt).getTime(), '不同 Agent 应并发执行');
 
   const room = await api(`/api/conversations/${multi.data.conversation.id}`);
-  const lastAgent = [...room.data.messages].reverse().find((message) => message.kind === 'agent').from;
+  const lastAgent = completionEngine ? multi.data.run.agentIds[0]
+    : [...room.data.messages].reverse().find((message) => message.kind === 'agent' && multi.data.run.agentIds.includes(message.from)).from;
   const follow = await api(`/api/conversations/${multi.data.conversation.id}/messages`, 'POST', { body: '继续补充', clientMessageId: crypto.randomUUID() });
   assert.equal(follow.status, 202, JSON.stringify(follow.data));
   await waitRun(follow.data.run.id, ['completed']);

@@ -73,6 +73,7 @@ export interface SupervisorTaskProposal {
 
 export type CollaborationControlAction =
   | { type: 'finish' }
+  | { type: 'implicit_complete' }
   | { type: 'handoff'; targetAgentId: string; message: string; reason: string }
   | { type: 'ask_many'; targetAgentIds: string[]; question: string; reason: string }
   | { type: 'wait_user'; question: string; reason: string }

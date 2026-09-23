@@ -16,9 +16,17 @@ import {
   recordCoordinationEvent,
   releaseCoordinationStep,
   scheduleCoordinationRevision,
+  setCoordinationAttemptInput,
   setCoordinationAttemptSpan,
   setCoordinationPlanStatus,
 } from './store.ts';
+import {
+  assembleCoordinationKernelContext,
+  assertCoordinationKernelCompletion,
+  closeCoordinationKernelPlan,
+  evaluateCoordinationKernel,
+} from '../runtime/coordinationAdapter.ts';
+import { hasRuntimeContextAssembly } from '../runtime/context.ts';
 
 interface RuntimeMessageInput {
   recipientIds?: string[];
@@ -128,9 +136,14 @@ function messageType(step: CoordinationPlanStep): 'result' | 'review_result' | '
 
 async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string): Promise<'paused' | void> {
   const before = listCoordinationStepStates(plan.id);
-  const input = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, contextGoal);
-  const claimed = claimCoordinationStep(plan, step, input);
+  const baseInput = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, contextGoal);
+  const claimed = claimCoordinationStep(plan, step, baseInput);
   if (!claimed) return;
+  const input = step.type === 'completion_gate' ? baseInput
+    : hasRuntimeContextAssembly(claimed.attempt.id) && claimed.attempt.input
+      ? claimed.attempt.input
+      : assembleCoordinationKernelContext({ run, plan, step, attemptId: claimed.attempt.id, baseInput });
+  if (input !== claimed.attempt.input) setCoordinationAttemptInput(claimed.attempt.id, input);
   const span = startSpan(run.id, {
     parentId: rootSpanId,
     spanKind: step.type === 'completion_gate' ? 'orchestration' : 'agent',
@@ -225,6 +238,9 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     endSpan(span, { output, status: 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const failedStates = listCoordinationStepStates(plan.id);
+    closeCoordinationKernelPlan(plan, failedStates, false);
+    evaluateCoordinationKernel(plan, failedStates);
     const retry = claimed.attempt.attemptNo < step.maxAttempts;
     failCoordinationStep(plan, step, claimed.attempt.id, message, retry);
     endSpan(span, { output: message, status: 'error' });
@@ -267,8 +283,10 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
     for (;;) {
       const currentPlan = getRunCoordinationPlan(run.id) ?? plan;
       const states = listCoordinationStepStates(currentPlan.id);
+      evaluateCoordinationKernel(currentPlan, states);
       if (states.some((state) => state.status === 'failed')) throw new Error(`Coordination Step 失败：${states.find((state) => state.status === 'failed')?.stepId}`);
       if (states.length === currentPlan.steps.length && states.every((state) => state.status === 'completed')) {
+        assertCoordinationKernelCompletion(currentPlan, states);
         setCoordinationPlanStatus(currentPlan.id, 'completed');
         recordCoordinationEvent({ kind: 'plan_completed', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { revision: currentPlan.revision } });
         saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'completed', status: 'completed', state: { planId: currentPlan.id, revision: currentPlan.revision } });
@@ -352,6 +370,9 @@ export function cancelCoordinationRun(runId: string): Run | null {
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan) return run ?? null;
   if (plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run;
+  const cancelledStates = listCoordinationStepStates(plan.id);
+  closeCoordinationKernelPlan(plan, cancelledStates, true);
+  evaluateCoordinationKernel(plan, cancelledStates);
   setCoordinationPlanStatus(plan.id, 'cancelled');
   recordCoordinationEvent({ kind: 'plan_cancelled', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
   expirePendingApprovalsForRun(runId, 'system:cancelled');
