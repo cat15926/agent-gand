@@ -22,6 +22,7 @@ import type {
   CollaborationBudgetSnapshot,
   CollaborationDispatch,
   CollaborationUserDecision,
+  RuntimeCompletionCandidate,
   CapabilitySnapshot,
   CoordinationEvent,
   CoordinationPlan,
@@ -114,6 +115,7 @@ export interface CollaborationRunDetail {
   attempts: CollaborationAttempt[];
   batches: CollaborationBatch[];
   decisions: CollaborationUserDecision[];
+  completionCandidates: RuntimeCompletionCandidate[];
   budget: CollaborationBudgetSnapshot;
   activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
 }

@@ -23,6 +23,7 @@ import type {
   TaskReview,
   UsageSummary,
   Conversation,
+  RuntimeCompletionCandidate,
   CollaborationAttempt,
   CollaborationBatch,
   CollaborationDispatch,
@@ -58,6 +59,7 @@ export interface State {
   collaborationAttempts: CollaborationAttempt[];
   collaborationBatches: CollaborationBatch[];
   collaborationDecisions: CollaborationUserDecision[];
+  completionCandidates: RuntimeCompletionCandidate[];
   collaborationBudgets: Record<string, CollaborationBudgetSnapshot>;
   collaborationScheduler: { conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number } | null;
   coordinationPlan: CoordinationPlan | null;
@@ -94,7 +96,7 @@ const initialState: State = {
   usage: [],
   streams: {},
   scheduler: null,
-  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null,
+  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], collaborationBudgets: {}, collaborationScheduler: null,
   coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [],
 };
 
@@ -128,7 +130,7 @@ function reducer(state: State, action: Action): State {
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
       return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
-        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], collaborationBudgets: {}, collaborationScheduler: null,
+        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], collaborationBudgets: {}, collaborationScheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
@@ -142,6 +144,7 @@ function reducer(state: State, action: Action): State {
         collaborationAttempts: action.details.flatMap((item) => item.attempts),
         collaborationBatches: action.details.flatMap((item) => item.batches),
         collaborationDecisions: action.details.flatMap((item) => item.decisions),
+        completionCandidates: action.details.flatMap((item) => item.completionCandidates),
         collaborationBudgets: Object.fromEntries(action.details.flatMap((item) => item.run ? [[item.run.id, item.budget] as const] : [])),
       };
     case 'runDetail':
@@ -205,6 +208,9 @@ function reducer(state: State, action: Action): State {
           return e.batch.conversationId === state.activeConversationId ? { ...state, collaborationBatches: upsertBy(state.collaborationBatches, e.batch) } : state;
         case 'collaboration.decision.updated':
           return e.decision.conversationId === state.activeConversationId ? { ...state, collaborationDecisions: upsertBy(state.collaborationDecisions, e.decision) } : state;
+        case 'runtime.completion_candidate.updated':
+          return state.runs.some((run) => run.id === e.candidate.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, completionCandidates: upsertBy(state.completionCandidates, e.candidate) } : state;
         case 'collaboration.scheduler.updated':
           return e.conversationId === state.activeConversationId ? { ...state, collaborationScheduler: e } : state;
         case 'coordination.step.updated':

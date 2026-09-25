@@ -24,6 +24,7 @@ import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import { resolveCollaborationDecision, CollaborationDecisionError } from '../collaboration/decisions.ts';
 import { closeCollaborationTrace, settleCollaborationRun } from '../collaboration/scheduler.ts';
 import { listCompletionEvaluations } from '../runtime/completionStore.ts';
+import { listCompletionCandidates } from '../runtime/subjectCompletion.ts';
 import { getCoordinationKernelStatus } from '../runtime/coordinationAdapter.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
@@ -344,7 +345,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
     const runs = listRunsByConversation(conversation.id).filter((item) => item.mode === 'collaboration');
-    return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id), budget: budgetSnapshot(item.id) })) };
+    return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
+      completionCandidates: listCompletionCandidates(item.id), budget: budgetSnapshot(item.id) })) };
   });
   app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
     if (req.body?.agentIds) {
@@ -467,6 +469,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (item.mode !== 'collaboration') throw httpError(409, 'Run 不是 collaboration 模式');
     const attempts = listCollaborationAttempts(item.id);
     return { dispatches: listCollaborationDispatches(item.id), attempts, batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
+      completionCandidates: listCompletionCandidates(item.id),
       completionEvaluations: listCompletionEvaluations(item.id),
       activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
       budget: budgetSnapshot(item.id) };

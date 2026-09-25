@@ -6,7 +6,7 @@ import type {
   CollaborationBudgetLimits,
   CollaborationBudgetRevision,
   CollaborationBudgetSnapshot,
-  CollaborationControlAction,
+  CollaborationStoredControlAction,
   CollaborationDecisionKind,
   CollaborationDecisionStatus,
   CollaborationDispatch,
@@ -62,7 +62,7 @@ const toAttempt = (r: AttemptRow): CollaborationAttempt => ({
   id: r.id, dispatchId: r.dispatch_id, runId: r.run_id, conversationId: r.conversation_id,
   agentId: r.agent_id, attemptNo: r.attempt_no, status: r.status as CollaborationAttempt['status'],
   inputContext: r.input_context, output: r.output,
-  controlAction: r.control_action ? JSON.parse(r.control_action) as CollaborationControlAction : null,
+  controlAction: r.control_action ? JSON.parse(r.control_action) as CollaborationStoredControlAction : null,
   deduplicatedTo: r.deduplicated_to, error: r.error, leaseOwner: r.lease_owner, leaseExpiresAt: r.lease_expires_at,
   createdAt: r.created_at, startedAt: r.started_at, endedAt: r.ended_at,
 });
@@ -196,14 +196,17 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
   return claimed;
 }
 
-export function finishAttempt(input: { attemptId: string; dispatchId: string; status: 'completed' | 'failed' | 'cancelled'; dispatchStatus?: CollaborationDispatchStatus; output?: string | null; action?: CollaborationControlAction | null; deduplicatedTo?: string | null; error?: string | null; outputMessageId?: string | null }): void {
+export function finishAttempt(input: { attemptId: string; dispatchId: string; status: 'completed' | 'failed' | 'cancelled'; dispatchStatus?: CollaborationDispatchStatus; output?: string | null; action?: CollaborationStoredControlAction | null; deduplicatedTo?: string | null; error?: string | null; outputMessageId?: string | null }): void {
   const now = new Date().toISOString();
   tx(() => {
     const changed = run("UPDATE collaboration_attempts SET status=?,output=?,control_action=?,deduplicated_to=?,error=?,ended_at=?,lease_expires_at=NULL WHERE id=? AND dispatch_id=? AND status='running'",
       input.status, input.output ?? null, input.action ? JSON.stringify(input.action) : null, input.deduplicatedTo ?? null, input.error ?? null, now, input.attemptId, input.dispatchId);
     if (changed === 0) return;
-    run("UPDATE collaboration_dispatches SET status=?,output_message_id=COALESCE(?,output_message_id),error=?,finished_at=? WHERE id=? AND status='running'",
-      input.dispatchStatus ?? (input.status === 'completed' ? 'completed' : input.status), input.outputMessageId ?? null, input.error ?? null, now, input.dispatchId);
+    const dispatchStatus = input.dispatchStatus ?? (input.status === 'completed' ? 'completed' : input.status);
+    run(`UPDATE collaboration_dispatches SET status=?,output_message_id=COALESCE(?,output_message_id),error=?,
+      started_at=CASE WHEN ?='queued' THEN NULL ELSE started_at END,
+      finished_at=CASE WHEN ?='queued' THEN NULL ELSE ? END WHERE id=? AND status='running'`,
+    dispatchStatus, input.outputMessageId ?? null, input.error ?? null, dispatchStatus, dispatchStatus, now, input.dispatchId);
   });
   const attempt = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', input.attemptId);
   const dispatch = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', input.dispatchId);

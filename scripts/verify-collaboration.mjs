@@ -17,6 +17,7 @@ for (const [id, name, model, capabilities, prompt] of definitions) await writeFi
 
 const dbPath = path.join(root, 'test.sqlite');
 const completionEngine = process.env.COLLAB_COMPLETION_ENGINE === 'true';
+const runtimeStateEnabled = process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_RUNTIME_SHADOW === 'true';
 const port = 41000 + Math.floor(Math.random() * 1000);
 const child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
   cwd: repo,
@@ -33,12 +34,14 @@ async function api(url, method = 'GET', body) {
 }
 async function waitRun(runId, statuses, timeoutMs = 8_000) {
   const end = Date.now() + timeoutMs;
+  let latest;
   while (Date.now() < end) {
     const result = await api(`/api/runs/${runId}`);
+    latest = result.data.run;
     if (statuses.includes(result.data.run.status)) return result.data.run;
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
-  throw new Error(`等待 Run ${runId} 状态 ${statuses.join('/')} 超时\n${logs}`);
+  throw new Error(`等待 Run ${runId} 状态 ${statuses.join('/')} 超时，当前状态 ${latest?.status ?? 'unknown'}\n${logs}`);
 }
 
 try {
@@ -58,6 +61,16 @@ try {
   assert.equal(handoffDetail.status, 200);
   assert.deepEqual(handoffDetail.data.dispatches.map((item) => [item.kind, item.targetAgentId]), [['initial', 'planner'], ['handoff', 'coder']]);
   assert.ok(handoffDetail.data.dispatches.every((item) => item.status === 'completed'));
+  assert.ok(handoffDetail.data.attempts.every((item) => item.controlAction?.version === 2),
+    '新 Run 的 Attempt 必须持久化规范 ControlAction v2');
+  assert.equal(handoffDetail.data.attempts[0]?.controlAction?.type, 'handoff');
+  assert.equal(handoffDetail.data.attempts[1]?.controlAction?.type, 'complete',
+    '动态 handoff 接手者必须经同轮纠偏提交显式 complete');
+  if (runtimeStateEnabled) {
+    assert.equal(handoffDetail.data.completionCandidates.length, 1);
+    assert.equal(handoffDetail.data.completionCandidates[0]?.status, 'accepted');
+    assert.equal(handoffDetail.data.completionCandidates[0]?.agentId, 'coder');
+  }
   assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
   const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);
   assert.match(handoffAttempt?.inputContext ?? '', /交接 Capsule/u);
@@ -70,6 +83,14 @@ try {
   assert.equal(dispatchSpans.length, 2);
   assert.ok(dispatchSpans.every((event) => event.parentId === collaborationRoot.id));
   assert.ok(traceEvents.filter((event) => event.name.startsWith('control:')).every((event) => traceEvents.some((parent) => parent.id === event.parentId && parent.spanKind === 'agent')));
+  assert.ok(traceEvents.some((event) => event.name === 'exit_guard:continue_same_turn'));
+  assert.ok(traceEvents.some((event) => event.name === 'exit_guard:allow_candidate'));
+  if (runtimeStateEnabled) assert.ok(traceEvents.some((event) => event.name === 'completion_candidate:accepted'));
+  const correctionLlms = traceEvents.filter((event) => event.attributes?.['orchestration.phase'] === 'agent.exit_correction');
+  assert.equal(correctionLlms.length, 1, '默认策略只能发起一次同轮纠偏调用');
+  const correctionLlm = correctionLlms[0];
+  assert.ok(JSON.parse(correctionLlm.input).tools.every((name) => name.startsWith('agent.')),
+    '同轮纠偏只能看到控制工具，不得重复普通工具');
 
   const statusQuestion = await api('/api/conversations', 'POST', {
     goal: '你好，鸡腿，你现在状态如何？', mode: 'collaboration', agentIds: ['coder-jitui'], recipientIds: ['coder-jitui'],
@@ -80,6 +101,13 @@ try {
   const statusReply = statusRoom.data.messages.find((message) => message.kind === 'agent');
   assert.match(statusReply?.body ?? '', /鸡腿.*当前在线/u);
   assert.doesNotMatch(statusReply?.body ?? '', /你正在 agent-gand/u);
+  const statusDetail = await api(`/api/runs/${statusQuestion.data.run.id}/collaboration`);
+  assert.equal(statusDetail.data.attempts[0]?.controlAction?.type, 'answer_candidate',
+    '简单 initial 直答必须保留隐式答案快路径');
+  if (runtimeStateEnabled) {
+    assert.equal(statusDetail.data.completionCandidates[0]?.action.type, 'answer_candidate');
+    assert.equal(statusDetail.data.completionCandidates[0]?.status, 'accepted');
+  }
 
   const truncated = await api('/api/conversations', 'POST', {
     goal: '[truncate] 请生成不能以残缺正文交付的完整答复', mode: 'collaboration', agentIds: ['coder'], recipientIds: ['coder'],

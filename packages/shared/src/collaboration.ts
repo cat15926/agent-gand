@@ -35,7 +35,7 @@ export interface CollaborationAttempt {
   status: CollaborationAttemptStatus;
   inputContext: string | null;
   output: string | null;
-  controlAction: CollaborationControlAction | null;
+  controlAction: CollaborationStoredControlAction | null;
   deduplicatedTo: string | null;
   error: string | null;
   leaseOwner: string | null;
@@ -71,13 +71,35 @@ export interface SupervisorTaskProposal {
   reason: string;
 }
 
-export type CollaborationControlAction =
+/** Runtime v2 之前持久化的控制动作；仅供历史 Run 和 Legacy Adapter 使用。 */
+export type LegacyCollaborationControlAction =
   | { type: 'finish' }
   | { type: 'implicit_complete' }
   | { type: 'handoff'; targetAgentId: string; message: string; reason: string }
   | { type: 'ask_many'; targetAgentIds: string[]; question: string; reason: string }
   | { type: 'wait_user'; question: string; reason: string }
   | ({ type: 'propose_task' } & SupervisorTaskProposal);
+
+/** @deprecated 新执行路径请使用 RuntimeControlAction。 */
+export type CollaborationControlAction = LegacyCollaborationControlAction;
+
+export type RuntimeControlActionVersion = 1 | 2;
+
+export type RuntimeWakeCondition =
+  | { kind: 'user_decision'; decisionKind: 'agent_question'; prompt: string }
+  | { kind: 'user_decision'; decisionKind: 'supervisor_task_proposal'; proposal: SupervisorTaskProposal };
+
+/** Runtime 内部唯一消费的规范动作；Agent 只能提出动作，不能直接提交 Subject/Run 终态。 */
+export type RuntimeControlAction =
+  | { version: 2; type: 'complete'; summary?: string }
+  | { version: 2; type: 'answer_candidate' }
+  | { version: 2; type: 'handoff'; targetAgentId: string; objective: string; reason: string }
+  | { version: 2; type: 'consult'; targetAgentIds: string[]; objective: string; reason: string; join: 'all' | 'any' }
+  | { version: 2; type: 'hold'; wake: RuntimeWakeCondition; reason: string }
+  | { version: 2; type: 'cancel'; reason: string };
+
+/** 数据库存量允许 v1/v2 并存；执行前必须经过 Legacy Adapter 归一化。 */
+export type CollaborationStoredControlAction = LegacyCollaborationControlAction | RuntimeControlAction;
 
 export type CollaborationDecisionKind = 'agent_question' | 'budget_exhausted' | 'supervisor_task_proposal';
 export type CollaborationDecisionStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';

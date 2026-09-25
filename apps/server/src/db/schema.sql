@@ -185,6 +185,16 @@ CREATE TABLE IF NOT EXISTS runtime_completion_evaluations (
   snapshot TEXT NOT NULL, created_at TEXT NOT NULL,
   UNIQUE(run_id,seq)
 );
+CREATE TABLE IF NOT EXISTS runtime_completion_candidates (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  subject_key TEXT NOT NULL, attempt_id TEXT NOT NULL, generation INTEGER NOT NULL,
+  agent_id TEXT NOT NULL, action TEXT NOT NULL, summary TEXT NOT NULL,
+  evidence_refs TEXT NOT NULL, exit_guard_status TEXT NOT NULL,
+  exit_guard_reasons TEXT NOT NULL, status TEXT NOT NULL,
+  reasons TEXT NOT NULL, retryable INTEGER NOT NULL DEFAULT 0,
+  feedback TEXT, idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL, decided_at TEXT
+);
 CREATE TABLE IF NOT EXISTS runtime_contract_revisions (
   run_id TEXT NOT NULL, runtime_revision INTEGER NOT NULL,
   payload TEXT NOT NULL, created_at TEXT NOT NULL,
@@ -203,6 +213,8 @@ CREATE INDEX IF NOT EXISTS idx_runtime_subjects_run ON runtime_subjects(run_id, 
 CREATE INDEX IF NOT EXISTS idx_runtime_custody_events_subject ON runtime_custody_events(subject_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_capsules_run ON runtime_handoff_capsules(run_id,dispatch_id,version);
 CREATE INDEX IF NOT EXISTS idx_runtime_completion_run ON runtime_completion_evaluations(run_id,seq);
+CREATE INDEX IF NOT EXISTS idx_runtime_candidates_run ON runtime_completion_candidates(run_id,status,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_candidates_subject ON runtime_completion_candidates(subject_id,generation,status);
 CREATE INDEX IF NOT EXISTS idx_runtime_coordination_subject_plan ON runtime_coordination_subjects(plan_id,revision);
 CREATE TABLE IF NOT EXISTS capability_snapshots (
   id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL

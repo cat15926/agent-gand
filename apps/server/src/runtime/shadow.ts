@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { CollaborationControlAction, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus } from '@agent-gand/shared';
+import type { CollaborationStoredControlAction, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { evaluateRequiredSubjects } from './subjectContract.ts';
+import { normalizeRuntimeControlAction } from './controlAction.ts';
 
 type CustodyState = 'unassigned' | 'owned' | 'transferring' | 'waiting' | 'completed' | 'failed' | 'cancelled';
 interface CustodyRow {
@@ -76,9 +77,9 @@ function transition(subject: SubjectRow, sourceEventId: string, kind: string, st
     VALUES (?,?,?,?,?,?,?,?,?,?)`, randomUUID(), subject.run_id, subject.id, sourceEventId, kind, holder, pending, generation, JSON.stringify({ state, ...payload }), now);
   run(`UPDATE runtime_custody SET state=?,holder_agent_id=?,pending_holder_agent_id=?,generation=?,version=version+1,updated_at=? WHERE subject_id=?`,
     state, holder, pending, generation, now, subject.id);
-  if (state === 'completed' || state === 'failed' || state === 'cancelled' || state === 'waiting') {
-    run('UPDATE runtime_subjects SET status=?,updated_at=? WHERE id=?', state, now, subject.id);
-  }
+  const subjectStatus: RuntimeSubjectStatus = state === 'completed' || state === 'failed' || state === 'cancelled' || state === 'waiting'
+    ? state : 'active';
+  run('UPDATE runtime_subjects SET status=?,updated_at=? WHERE id=?', subjectStatus, now, subject.id);
   return generation;
 }
 
@@ -96,7 +97,12 @@ export function observeClaim(dispatchId: string, attemptId: string, agentId: str
     const link = get<DispatchSubjectRow>('SELECT subject_id,expected_generation FROM runtime_dispatch_subjects WHERE dispatch_id=?', dispatchId);
     const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
     if (!custody) throw new Error(`Subject ${subject.id} 缺少 Custody Projection`);
-    if (custody.state === 'owned' && custody.holder_agent_id === agentId) return;
+    if (custody.state === 'owned' && custody.holder_agent_id === agentId) {
+      // Aggregate/resume may keep the same holder, but every new Attempt still needs its own
+      // generation fence so a previous Attempt cannot submit against the newer execution.
+      transition(subject, `claim:${attemptId}`, 'custody.reacquired', 'owned', agentId, null, { dispatchId, attemptId });
+      return;
+    }
     if (link?.expected_generation !== null && link?.expected_generation !== undefined && custody.generation !== link.expected_generation) {
       throw new CustodyConflictError(`Dispatch ${dispatchId} 的交接代际已过期`);
     }
@@ -108,29 +114,69 @@ export function observeClaim(dispatchId: string, attemptId: string, agentId: str
   });
 }
 
-export function observeAction(input: { dispatchId: string; attemptId: string; agentId: string; action: CollaborationControlAction; childDispatchIds: string[]; batchId: string | null }): void {
+export function observeAction(input: { dispatchId: string; attemptId: string; agentId: string; action: CollaborationStoredControlAction; childDispatchIds: string[]; batchId: string | null }): void {
   tx(() => {
+    const normalized = normalizeRuntimeControlAction(input.action);
+    if (!normalized.ok) throw new Error(`${normalized.code}: ${normalized.reason}`);
+    const action = normalized.action;
     const subject = subjectForDispatch(input.dispatchId); if (!subject) return;
     const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
     if (!custody) return;
-    if (input.action.type === 'handoff') {
+    if (action.type === 'handoff') {
       const alreadyRequested = Boolean(get('SELECT id FROM runtime_custody_events WHERE source_event_id=?', `action:${input.attemptId}`));
       if (!alreadyRequested && (custody.state !== 'owned' || custody.holder_agent_id !== input.agentId)) throw new Error('交接发起者不是当前责任持有者');
-      const generation = transition(subject, `action:${input.attemptId}`, 'custody.transfer_requested', 'transferring', input.agentId, input.action.targetAgentId,
+      const generation = transition(subject, `action:${input.attemptId}`, 'custody.transfer_requested', 'transferring', input.agentId, action.targetAgentId,
         { childDispatchIds: input.childDispatchIds });
       for (const id of input.childDispatchIds) linkDispatch(id, subject.id, generation);
-    } else if (input.action.type === 'ask_many') {
+    } else if (action.type === 'consult') {
       input.childDispatchIds.forEach((dispatchId, index) => {
-        const target = input.action.type === 'ask_many' ? input.action.targetAgentIds[index]! : '';
+        const target = action.targetAgentIds[index]!;
         const child = insertSubject({ key: `consult:${input.batchId}:${target}`, runId: subject.run_id, kind: 'consultation',
-          parentKey: subject.subject_key, objective: input.action.type === 'ask_many' ? input.action.question : '', initialHolderAgentId: target }, subject.id);
+          parentKey: subject.subject_key, objective: action.objective, initialHolderAgentId: target }, subject.id);
         linkDispatch(dispatchId, child);
       });
-    } else if (input.action.type === 'finish' || input.action.type === 'implicit_complete') {
+    } else if (action.type === 'complete' || action.type === 'answer_candidate') {
       transition(subject, `action:${input.attemptId}`, 'custody.completed', 'completed', input.agentId, null);
-    } else if (input.action.type === 'wait_user' || input.action.type === 'propose_task') {
+    } else if (action.type === 'hold') {
       transition(subject, `action:${input.attemptId}`, 'custody.waiting', 'waiting', input.agentId, null);
+    } else if (action.type === 'cancel') {
+      transition(subject, `action:${input.attemptId}`, 'custody.cancelled', 'cancelled', input.agentId, null);
     }
+  });
+}
+
+/** Candidate 决策与 Subject/Custody 投影在调用方同一事务内提交。 */
+export function observeCompletionCandidateDecision(input: {
+  candidateId: string;
+  dispatchId: string;
+  attemptId: string;
+  subjectId: string;
+  generation: number;
+  agentId: string;
+  status: 'accepted' | 'rejected' | 'superseded';
+  retryable: boolean;
+  reasons: string[];
+}): void {
+  tx(() => {
+    if (input.status === 'superseded') return;
+    const subject = subjectForDispatch(input.dispatchId);
+    if (!subject || subject.id !== input.subjectId) throw new CustodyConflictError('Candidate 对应的 Subject 已变化');
+    const sourceEventId = `candidate:${input.candidateId}`;
+    if (get('SELECT 1 FROM runtime_custody_events WHERE source_event_id=?', sourceEventId)) return;
+    const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
+    if (!custody || custody.generation !== input.generation) throw new CustodyConflictError('Candidate generation 已过期');
+    if (custody.state !== 'owned' || custody.holder_agent_id !== input.agentId || custody.pending_holder_agent_id) {
+      throw new CustodyConflictError('Candidate 提交者不是当前唯一责任持有者');
+    }
+    if (input.status === 'accepted') {
+      transition(subject, sourceEventId, 'subject.completion_accepted', 'completed', input.agentId, null,
+        { candidateId: input.candidateId, attemptId: input.attemptId });
+      return;
+    }
+    transition(subject, sourceEventId,
+      input.retryable ? 'subject.completion_rejected_retryable' : 'subject.completion_rejected_terminal',
+      input.retryable ? 'waiting' : 'failed', input.agentId, null,
+      { candidateId: input.candidateId, attemptId: input.attemptId, reasons: input.reasons });
   });
 }
 

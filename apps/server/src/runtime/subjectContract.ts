@@ -6,6 +6,9 @@ export function planCollaborationAdmission(input: {
   participantIds: string[];
   targetAgentIds: string[];
   completionEngine?: boolean;
+  controlActionVersion?: 1 | 2;
+  exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
+  completionCandidateVersion?: 1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
   const targets = [...new Set(input.targetAgentIds)];
@@ -19,7 +22,12 @@ export function planCollaborationAdmission(input: {
       version: 1, runId: input.runId, objective: input.objective,
       participantIds: [...input.participantIds], requiredSubjectKeys: subjects.map((item) => item.key),
       completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
-      ...(input.completionEngine ? { features: { completionEngine: true } } : {}),
+      features: {
+        controlActionVersion: input.controlActionVersion ?? 2,
+        ...(input.exitGuard ? { exitGuard: input.exitGuard } : {}),
+        ...(input.completionCandidateVersion ? { completionCandidateVersion: input.completionCandidateVersion } : {}),
+        ...(input.completionEngine ? { completionEngine: true } : {}),
+      },
     },
     subjects,
   };

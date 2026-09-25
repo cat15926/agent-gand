@@ -1,5 +1,7 @@
 # Collaboration Runtime Kernel 实施方案
 
+> 本方案的阶段 1–7 已完成第一轮落地。后续责任语义收口、候选完成、类型化义务和 Durable Hold/Wake 由 [Runtime v2 责任闭环实施指导](./runtime-v2-responsibility-closure-implementation-guide.md) 承接。
+
 状态：全部实施完成；阶段 1–6 已完成 Collaboration 公共内核，阶段 7 已完成 Coordination Step Adapter、Shadow/execute 灰度接入及完整验收。所有执行权开关默认关闭。
 
 基线：`agent-gand` main，2026-09-22。

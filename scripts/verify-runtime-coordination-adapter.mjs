@@ -55,6 +55,21 @@ try {
   adapter.closeCoordinationKernelPlan(revised, [{ planId: revised.id, runId: revised.runId, revision: 2, stepId: 'work-v2',
     status: 'ready', attemptNo: 0, output: null, error: null, startedAt: null, completedAt: null, updatedAt: revised.updatedAt }], true);
   assert.equal(adapter.getCoordinationKernelStatus('run-execute').subjects[0].custodyState, 'cancelled');
+  assert.throws(() => adapter.observeCoordinationClaim(revised, revised.steps[0], 'late-attempt'),
+    /非法责任迁移/, '终态 Subject 不得被迟到 claim 重新打开');
+
+  insertRun('run-retry');
+  const retrying = plan('run-retry', 'plan-retry', 1);
+  db.tx(() => adapter.admitCoordinationKernelPlan(retrying));
+  adapter.observeCoordinationClaim(retrying, retrying.steps[0], 'attempt-1');
+  adapter.observeCoordinationFailure(retrying, retrying.steps[0], 'attempt-1', true);
+  assert.equal(adapter.getCoordinationKernelStatus('run-retry').subjects[0].custodyState, 'waiting');
+  adapter.observeCoordinationClaim(retrying, retrying.steps[0], 'attempt-2');
+  assert.equal(adapter.getCoordinationKernelStatus('run-retry').subjects[0].custodyState, 'owned');
+  adapter.observeCoordinationPause(retrying, retrying.steps[0], 'attempt-2');
+  adapter.observeCoordinationClaim(retrying, retrying.steps[0], 'attempt-2');
+  assert.equal(adapter.getCoordinationKernelStatus('run-retry').subjects[0].custodyState, 'owned',
+    '暂停恢复复用同一 Attempt 时必须重新取得责任');
 
   insertRun('run-shadow');
   const unlisted = plan('run-shadow', 'plan-shadow', 1, 'debate');

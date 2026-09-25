@@ -238,9 +238,6 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     endSpan(span, { output, status: 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const failedStates = listCoordinationStepStates(plan.id);
-    closeCoordinationKernelPlan(plan, failedStates, false);
-    evaluateCoordinationKernel(plan, failedStates);
     const retry = claimed.attempt.attemptNo < step.maxAttempts;
     failCoordinationStep(plan, step, claimed.attempt.id, message, retry);
     endSpan(span, { output: message, status: 'error' });
@@ -322,9 +319,13 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    setCoordinationPlanStatus(plan.id, 'failed');
-    recordCoordinationEvent({ kind: 'plan_failed', draftId: plan.draftId, planId: plan.id, runId: run.id, payload: { error: message } });
-    saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'failed', status: 'completed', state: { planId: plan.id, error: message } });
+    const failedPlan = getRunCoordinationPlan(run.id) ?? plan;
+    const failedStates = listCoordinationStepStates(failedPlan.id);
+    closeCoordinationKernelPlan(failedPlan, failedStates, false);
+    evaluateCoordinationKernel(failedPlan, failedStates);
+    setCoordinationPlanStatus(failedPlan.id, 'failed');
+    recordCoordinationEvent({ kind: 'plan_failed', draftId: failedPlan.draftId, planId: failedPlan.id, runId: run.id, payload: { error: message } });
+    saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'failed', status: 'completed', state: { planId: failedPlan.id, error: message } });
     finishRun(run.id, 'failed');
     try { updateRunUserMessageStatus(run.id, 'failed'); } catch { /* user message may not exist */ }
     endSpan(root, { output: message, status: 'error' });

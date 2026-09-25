@@ -18,6 +18,13 @@ interface SubjectRow {
   holder_agent_id: string | null; pending_holder_agent_id: string | null; generation: number;
 }
 
+export class CoordinationCustodyConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CoordinationCustodyConflictError';
+  }
+}
+
 function subjectKey(plan: CoordinationPlan, stepId: string): string {
   return `coord:r${plan.revision}:${stepId}`;
 }
@@ -38,7 +45,7 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode): RuntimeRunContra
     participantIds: [...new Set(steps.flatMap((step) => step.agentId ? [step.agentId] : []))],
     requiredSubjectKeys: steps.map((step) => subjectKey(plan, step.id)),
     completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
-    features: { completionEngine: mode === 'execute', coordinationKernel: mode },
+    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2 },
   };
 }
 
@@ -120,23 +127,42 @@ function transition(plan: CoordinationPlan, stepId: string, sourceEventId: strin
   state: CustodyState, holder: string | null, payload: Record<string, unknown> = {}): void {
   if (!plan.runId) return;
   const link = linkFor(plan, stepId); if (!link) return;
-  const duplicate = get<{ subject_id: string }>('SELECT subject_id FROM runtime_custody_events WHERE source_event_id=?', sourceEventId);
-  if (duplicate) {
-    if (duplicate.subject_id !== link.subject_id) throw new Error(`Runtime 事件 ${sourceEventId} 的 Subject 冲突`);
-    return;
-  }
-  const current = get<{ generation: number }>('SELECT generation FROM runtime_custody WHERE subject_id=?', link.subject_id);
-  if (!current) throw new Error(`Coordination Subject ${link.subject_id} 缺少 Custody`);
-  const generation = current.generation + 1; const now = new Date().toISOString();
-  run(`INSERT INTO runtime_custody_events
-    (id,run_id,subject_id,source_event_id,kind,holder_agent_id,pending_holder_agent_id,generation,payload,created_at)
-    VALUES (?,?,?,?,?,?,NULL,?,?,?)`, randomUUID(), plan.runId, link.subject_id, sourceEventId, kind, holder, generation,
-  JSON.stringify({ state, planId: plan.id, revision: plan.revision, stepId, ...payload }), now);
-  run(`UPDATE runtime_custody SET state=?,holder_agent_id=?,pending_holder_agent_id=NULL,generation=?,version=version+1,updated_at=? WHERE subject_id=?`,
-    state, holder, generation, now, link.subject_id);
-  const status = state === 'completed' ? 'completed' : state === 'failed' ? 'failed'
-    : state === 'cancelled' ? 'cancelled' : state === 'waiting' ? 'waiting' : 'active';
-  run('UPDATE runtime_subjects SET status=?,updated_at=? WHERE id=?', status, now, link.subject_id);
+  tx(() => {
+    const duplicate = get<{ subject_id: string }>('SELECT subject_id FROM runtime_custody_events WHERE source_event_id=?', sourceEventId);
+    if (duplicate) {
+      if (duplicate.subject_id !== link.subject_id) throw new CoordinationCustodyConflictError(`Runtime 事件 ${sourceEventId} 的 Subject 冲突`);
+      return;
+    }
+    const current = get<{ state: CustodyState; holder_agent_id: string | null; generation: number }>(
+      'SELECT state,holder_agent_id,generation FROM runtime_custody WHERE subject_id=?', link.subject_id);
+    if (!current) throw new CoordinationCustodyConflictError(`Coordination Subject ${link.subject_id} 缺少 Custody`);
+    const from = current.state;
+    const allowed = state === 'owned'
+      ? (from === 'unassigned' || from === 'waiting') && Boolean(holder)
+      : state === 'waiting'
+        ? (from === 'owned' || (kind === 'custody.revision_requested' && from === 'completed')) && Boolean(holder)
+        : state === 'completed'
+          ? from === 'owned' && Boolean(holder)
+          : (state === 'failed' || state === 'cancelled')
+            ? !['completed', 'failed', 'cancelled'].includes(from)
+            : false;
+    const holderConsistent = from !== 'owned' || state === 'owned' || current.holder_agent_id === holder;
+    if (!allowed || !holderConsistent) {
+      throw new CoordinationCustodyConflictError(
+        `Coordination Subject ${link.subject_id} 非法责任迁移：${from} -> ${state}（${kind}）`,
+      );
+    }
+    const generation = current.generation + 1; const now = new Date().toISOString();
+    run(`INSERT INTO runtime_custody_events
+      (id,run_id,subject_id,source_event_id,kind,holder_agent_id,pending_holder_agent_id,generation,payload,created_at)
+      VALUES (?,?,?,?,?,?,NULL,?,?,?)`, randomUUID(), plan.runId, link.subject_id, sourceEventId, kind, holder, generation,
+    JSON.stringify({ state, planId: plan.id, revision: plan.revision, stepId, ...payload }), now);
+    run(`UPDATE runtime_custody SET state=?,holder_agent_id=?,pending_holder_agent_id=NULL,generation=?,version=version+1,updated_at=? WHERE subject_id=?`,
+      state, holder, generation, now, link.subject_id);
+    const status = state === 'completed' ? 'completed' : state === 'failed' ? 'failed'
+      : state === 'cancelled' ? 'cancelled' : state === 'waiting' ? 'waiting' : 'active';
+    run('UPDATE runtime_subjects SET status=?,updated_at=? WHERE id=?', status, now, link.subject_id);
+  });
 }
 
 function observe(plan: CoordinationPlan, label: string, action: () => void): void {
@@ -150,7 +176,15 @@ function observe(plan: CoordinationPlan, label: string, action: () => void): voi
 
 export function observeCoordinationClaim(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
   if (!step.agentId) return;
-  observe(plan, 'claim', () => transition(plan, step.id, `coord:claim:${attemptId}`, 'custody.acquired', 'owned', step.agentId, { attemptId }));
+  observe(plan, 'claim', () => {
+    const link = linkFor(plan, step.id);
+    const current = link ? get<{ state: CustodyState; generation: number }>(
+      'SELECT state,generation FROM runtime_custody WHERE subject_id=?', link.subject_id) : undefined;
+    const sourceEventId = current?.state === 'waiting'
+      ? `coord:reclaim:${attemptId}:g${current.generation + 1}`
+      : `coord:claim:${attemptId}`;
+    transition(plan, step.id, sourceEventId, 'custody.acquired', 'owned', step.agentId, { attemptId });
+  });
 }
 
 function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
@@ -198,16 +232,18 @@ export function observeCoordinationRevision(plan: CoordinationPlan, reviewStep: 
 }
 
 export function closeCoordinationKernelPlan(plan: CoordinationPlan, states: CoordinationStepState[], cancelled: boolean): void {
-  observe(plan, cancelled ? 'plan_cancelled' : 'plan_failed', () => {
+  observe(plan, cancelled ? 'plan_cancelled' : 'plan_failed', () => tx(() => {
     for (const step of plan.steps) {
       if (!step.agentId) continue;
       const state = states.find((item) => item.stepId === step.id);
-      if (state?.status === 'completed') continue;
+      const link = linkFor(plan, step.id);
+      const custody = link ? get<{ state: CustodyState }>('SELECT state FROM runtime_custody WHERE subject_id=?', link.subject_id) : undefined;
+      if (!custody || ['completed', 'failed', 'cancelled'].includes(custody.state)) continue;
       transition(plan, step.id, `coord:plan-close:${plan.id}:${cancelled ? 'cancelled' : 'failed'}:${plan.revision}:${step.id}`,
         cancelled ? 'custody.cancelled' : 'custody.plan_failed', cancelled ? 'cancelled' : 'failed', step.agentId,
         { stepStatus: state?.status ?? 'missing' });
     }
-  });
+  }));
 }
 
 export function assembleCoordinationKernelContext(input: {

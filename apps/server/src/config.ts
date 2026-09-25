@@ -129,6 +129,10 @@ export const config = {
     pingPongWarn: Math.max(1, firstInt(process.env.COLLAB_PINGPONG_WARN, 2)),
     pingPongBlock: Math.max(2, firstInt(process.env.COLLAB_PINGPONG_BLOCK, 4)),
     attemptLeaseMs: Math.max(10_000, firstInt(process.env.COLLAB_ATTEMPT_LEASE_MS, 300_000)),
+    /** ExitGuard 同一 Attempt 内最多纠偏次数；新 Run 会把值冻结进 Runtime Contract。 */
+    exitGuardMaxCorrections: Math.min(3, Math.max(0, firstInt(process.env.COLLAB_EXIT_GUARD_MAX_CORRECTIONS, 1))),
+    /** 单次纠偏 LLM 输出上限；防止纠偏本身无限消耗 token。 */
+    exitGuardCorrectionMaxTokens: Math.max(256, firstInt(process.env.COLLAB_EXIT_GUARD_CORRECTION_MAX_TOKENS, 2_048)),
   },
   coordinationPlanner: {
     /** 显式规划模型；未设置时优先复用所选团队内非 mock 的 coordinate Agent。 */

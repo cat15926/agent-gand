@@ -369,11 +369,17 @@ export class MockProvider implements LLMProvider {
         truncated: true,
       };
     }
-    const content = buildContent(req.model, goal);
+    const exitCorrection = goal.startsWith('__AGENT_GAND_EXIT_CORRECTION__');
+    const priorAssistant = [...req.messages].reverse().find((message) => message.role === 'assistant' && message.content.trim().length > 0);
+    const content = exitCorrection ? '' : buildContent(req.model, goal);
     // 假 token：按字符数折算（确定性）
     const tokensIn = Math.ceil(req.messages.reduce((n, m) => n + m.content.length, 0) / 4);
     const tokensOut = Math.ceil(content.length / 4);
-    const toolCall = extractToolCall(currentInput, req.tools) ?? inferMockCollaborationToolCall(collaboration, req.tools);
+    const completeAvailable = req.tools?.some((tool) => tool.name === 'agent.complete') === true;
+    const correctionCall = exitCorrection && completeAvailable
+      ? { name: 'agent.complete', input: JSON.stringify({ summary: priorAssistant?.content.trim() || '已完成当前协作事项。' }) }
+      : null;
+    const toolCall = correctionCall ?? extractToolCall(currentInput, req.tools) ?? inferMockCollaborationToolCall(collaboration, req.tools);
     return {
       content,
       usage: {

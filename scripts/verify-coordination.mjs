@@ -532,6 +532,10 @@ try {
   const truncateStarted = await startDraft(truncate, { defaultReviewerId: 'reviewer' });
   const truncateDetail = await waitForRun(truncateStarted.run.id, 30_000);
   const truncateRuntime = await coordination(truncateStarted.run.id);
+  if (process.env.COORDINATION_RUNTIME_KERNEL === 'execute') {
+    assert.ok(!truncateRuntime.completionEvaluations.some((evaluation) => evaluation.status === 'failed'),
+      '可重试的步骤错误不得提前关闭整套 Runtime Subject');
+  }
   const truncateAttempts = attemptsFor(truncateRuntime, 'debate-r1-pro');
   assert.equal(truncateAttempts.length, 2, '截断必须触发步骤级重试');
   assert.ok(truncateAttempts[0].error.includes('max_tokens 截断'), `首次 attempt 应记截断错误，实际：${truncateAttempts[0].error}`);

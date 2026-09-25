@@ -15,7 +15,7 @@
  *
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
-import type { AgentDefinition, CollaborationControlAction, Run } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationStoredControlAction, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { resolveProvider } from '../llm/router.ts';
@@ -41,6 +41,9 @@ const EMPTY_NUDGE = '请直接输出结论正文，不要只思考；如需调�
 /** 工具调用指令（prompt 级缓解"把调用写成文字"；§8.4 追加并行提示） */
 const TOOL_CALL_DIRECTIVE =
   '如需调用工具，请直接发起工具调用（tool_use/tool_calls），不要在正文中用文字描述工具调用。如需多个工具，请在同一轮并行发起全部调用。';
+
+/** ExitGuard 同一 AgentTurn 纠偏标记；provider/mock 与 Trace 可据此区分普通用户输入。 */
+export const EXIT_CORRECTION_PREFIX = '__AGENT_GAND_EXIT_CORRECTION__';
 
 /**
  * 会话边界声明（§9.2 措辞更新：per-run 沙箱已落地，声明从"防误读遗留"升级为三段路径语义导航）：
@@ -92,7 +95,11 @@ export interface AgentTurnOptions {
   displayKind?: 'message' | 'review_protocol';
   /** Collaboration 等编排器注入的服务端控制工具，不进入普通权限白名单。 */
   controlTools?: LlmToolSchema[];
-  handleControlCalls?: (calls: LlmToolCall[]) => CollaborationControlAction;
+  handleControlCalls?: (calls: LlmToolCall[]) => CollaborationStoredControlAction;
+  /** 回合候选退出的纯裁决；仅 continue_same_turn 会在同一 AgentTurn 内追加一次受限纠偏。 */
+  reviewExit?: (candidate: AgentTurnResult, correctionAttempt: number) => AgentTurnExitReview;
+  /** 纠偏调用的单次 token 上限；纠偏阶段只下发 controlTools，绝不重复普通工具。 */
+  exitCorrectionMaxTokens?: number;
   /** 跨进程稳定的逻辑执行范围；用于审批与工具幂等键。 */
   executionScopeId?: string;
   /**
@@ -113,8 +120,14 @@ export interface AgentTurnResult {
   truncated?: boolean;
   /** 本轮审批连续超时达到上限被中止（AG-COORD-04）；Coordination 据此暂停 run */
   approvalStarved?: boolean;
-  controlAction: CollaborationControlAction | null;
+  controlAction: CollaborationStoredControlAction | null;
+  /** ExitGuard 已实际发起的同一轮纠偏次数。 */
+  exitCorrectionAttempts?: number;
 }
+
+export type AgentTurnExitReview =
+  | { status: 'allow' }
+  | { status: 'continue_same_turn'; feedback: string };
 
 /**
  * 单发 LLM 调用（supervisor 的拆解/汇总等，不带工具）。
@@ -176,7 +189,6 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const ordinaryTools = toolsForAgent(agent);
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set((opts.controlTools ?? []).map((tool) => tool.name));
-  const toolNames = tools.map((t) => t.name);
   let messages = [...opts.messages];
   // 工具调用指令：插入到首条 system 之后（无 system 则置顶）
   if (tools.length > 0) {
@@ -187,7 +199,8 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   }
   const scope = opts.executionScopeId ?? `agent:${agent.id}`;
   const durable = latestCheckpoint(run.id, 'agent_turn');
-  const durableState = durable?.state as { executionScopeId?: string; round?: number; nextRound?: number; messages?: LlmMessage[]; response?: LlmResponse; result?: AgentTurnResult } | undefined;
+  const durableState = durable?.state as { executionScopeId?: string; round?: number; nextRound?: number; messages?: LlmMessage[];
+    response?: LlmResponse; result?: AgentTurnResult; exitCorrectionAttempts?: number; exitCorrectionActive?: boolean } | undefined;
   if (durableState?.executionScopeId === scope && durable?.phase === 'completed' && durableState.result) return durableState.result;
   let startRound = 0;
   let replayResponse: LlmResponse | null = null;
@@ -196,7 +209,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     if (durable?.phase === 'tool_calls_ready' && durableState.response && typeof durableState.round === 'number') {
       startRound = durableState.round;
       replayResponse = { ...durableState.response, usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 } };
-    } else if (durable?.phase === 'tool_results' && typeof durableState.nextRound === 'number') {
+    } else if ((durable?.phase === 'tool_results' || durable?.phase === 'exit_correction') && typeof durableState.nextRound === 'number') {
       startRound = durableState.nextRound;
     }
   }
@@ -208,15 +221,42 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   let truncBumped = false;
   let maxTokensOverride: number | undefined;
   let approvalExpiries = 0;
+  let exitCorrectionAttempts = durableState?.executionScopeId === scope && Number.isInteger(durableState.exitCorrectionAttempts)
+    ? Math.max(0, durableState.exitCorrectionAttempts ?? 0) : 0;
+  let exitCorrectionActive = durableState?.executionScopeId === scope && durableState.exitCorrectionActive === true;
+
+  const finishCandidate = (candidate: AgentTurnResult, round: number): AgentTurnResult | null => {
+    const result = { ...candidate, exitCorrectionAttempts };
+    const review = opts.reviewExit?.(result, exitCorrectionAttempts) ?? { status: 'allow' as const };
+    if (review.status === 'continue_same_turn') {
+      exitCorrectionAttempts += 1;
+      exitCorrectionActive = true;
+      messages.push({ role: 'assistant', content: candidate.content.trim() || '（本轮尚未形成可退出的处置）' });
+      messages.push({ role: 'user', content: `${EXIT_CORRECTION_PREFIX}\n${review.feedback}` });
+      saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'exit_correction', state: {
+        executionScopeId: scope, nextRound: round + 1, messages, exitCorrectionAttempts, exitCorrectionActive: true,
+      } });
+      return null;
+    }
+    saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'completed', status: 'completed', state: { executionScopeId: scope, result } });
+    return result;
+  };
 
   for (let round = startRound; ; round += 1) {
+    const roundTools = exitCorrectionActive ? (opts.controlTools ?? []) : tools;
+    const roundToolNames = roundTools.map((tool) => tool.name);
+    const roundMaxTokens = exitCorrectionActive && opts.exitCorrectionMaxTokens
+      ? Math.min(maxTokensOverride ?? opts.exitCorrectionMaxTokens, opts.exitCorrectionMaxTokens)
+      : maxTokensOverride;
     const llmSpan = startSpan(run.id, {
       parentId: parentSpanId,
       spanKind: 'llm',
       name: `llm:${agent.model}`,
-      input: llmSpanInput(messages, toolNames),
+      input: llmSpanInput(messages, roundToolNames),
       attributes: { 'agent.id': opts.agentId ?? agent.id, 'llm.model': agent.model, 'llm.round': round,
         'llm.pricing': lookupPricing(agent.model) ? 'priced' : 'unpriced',
+        'orchestration.phase': exitCorrectionActive ? 'agent.exit_correction' : 'agent.turn',
+        ...(exitCorrectionActive ? { 'runtime.exit_correction.attempt': exitCorrectionAttempts } : {}),
         ...(opts.taskId ? { 'task.id': opts.taskId } : {}),
         ...(opts.attemptId ? { 'task.attempt.id': opts.attemptId } : {}) },
     });
@@ -226,7 +266,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         res = replayResponse;
         replayResponse = null;
       } else {
-        res = await provider.chat({ model: agent.model, messages, tools, ...(maxTokensOverride ? { maxTokens: maxTokensOverride } : {}) }, deltaForwarder(run.id, llmSpan.id, {
+        res = await provider.chat({ model: agent.model, messages, tools: roundTools, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
         }));
       }
@@ -246,21 +286,22 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     // 空正文 + max_tokens 是"thinking 耗尽预算只思考不出正文"（§8.1 既有防御的目标形态），
     // 继续走下方空正文 nudge 路径，不被截断分支劫持。
     if (res.truncated && res.content.trim().length > 0) {
-      if (!truncBumped) {
+      if (!truncBumped && !exitCorrectionActive) {
         truncBumped = true;
         maxTokensOverride = Math.min(config.llm.maxTokens * 2, 32_768);
         endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（max_tokens 截断，加倍预算重发一次）`, status: 'ok', attributes: { 'llm.stop_reason': res.stopReason, 'llm.truncated': true } });
         continue;
       }
       endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（升预算后仍截断）`, status: 'error', attributes: { 'llm.stop_reason': res.stopReason, 'llm.truncated': true } });
-      const result = { content: res.content, toolRounds, emptyResponse: false, truncated: true, controlAction: null };
+      const result = { content: res.content, toolRounds, emptyResponse: false, truncated: true, controlAction: null,
+        exitCorrectionAttempts };
       saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'completed', status: 'completed', state: { executionScopeId: scope, result } });
       return result;
     }
 
     // 空正文/伪调用防御：无 toolCalls 且（正文为空 或 整条正文是伪调用文本）
     if (res.toolCalls.length === 0 && (res.content.trim().length === 0 || isPseudoToolCallText(res.content))) {
-      if (!nudged) {
+      if (!nudged && !exitCorrectionActive) {
         nudged = true;
         endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（注入 nudge 重试）`, status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
         messages.push({ role: 'user', content: EMPTY_NUDGE });
@@ -272,49 +313,61 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         agent.id,
         `LLM 返回空正文（已重试一次；可能 thinking 耗尽 token 预算，可调大 LLM_MAX_TOKENS）`,
       );
-      return { content: '', toolRounds, emptyResponse: true, controlAction: null };
+      return { content: '', toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
     }
 
     endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
 
     if (res.toolCalls.length === 0) {
-      const result = { content: res.content, toolRounds, emptyResponse: false, controlAction: null };
-      saveCheckpoint({ runId: run.id, kind: 'agent_turn', phase: 'completed', status: 'completed', state: { executionScopeId: scope, result } });
-      return result;
+      const result = finishCandidate({ content: res.content, toolRounds, emptyResponse: false, controlAction: null }, round);
+      if (result) return result;
+      continue;
     }
 
     const controlCalls = res.toolCalls.filter((call) => controlNames.has(call.name));
     const ordinaryCalls = res.toolCalls.filter((call) => !controlNames.has(call.name));
     if (controlCalls.length > 0) {
       if (ordinaryCalls.length > 0 || controlCalls.length !== 1 || !opts.handleControlCalls) {
-        if (!controlNudged) {
+        if (!controlNudged && !exitCorrectionActive) {
           controlNudged = true;
           messages.push({ role: 'assistant', content: res.content || '（控制动作格式不合法）' });
           messages.push({ role: 'user', content: '一次只能调用一个协作控制工具，且不能与普通工具混合。请重新选择一个控制动作。' });
           continue;
         }
-        await postSystem(run.id, agent.id, '协作控制工具连续两次格式不合法，本次执行失败');
-        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null };
+        await postSystem(run.id, agent.id, exitCorrectionActive
+          ? '退出纠偏阶段的协作控制工具格式不合法，本次执行失败'
+          : '协作控制工具连续两次格式不合法，本次执行失败');
+        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
       }
       try {
-        return { content: res.content, toolRounds, emptyResponse: false, controlAction: opts.handleControlCalls(controlCalls) };
+        const result = finishCandidate({ content: res.content, toolRounds, emptyResponse: false,
+          controlAction: opts.handleControlCalls(controlCalls) }, round);
+        if (result) return result;
+        continue;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        if (!controlNudged) {
+        if (!controlNudged && !exitCorrectionActive) {
           controlNudged = true;
           messages.push({ role: 'assistant', content: res.content || '（控制动作参数不合法）' });
           messages.push({ role: 'user', content: `协作控制动作无效：${message}。请修正后只调用一个控制工具。` });
           continue;
         }
         await postSystem(run.id, agent.id, `协作控制动作失败：${message}`);
-        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null };
+        return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
       }
+    }
+    if (exitCorrectionActive && ordinaryCalls.length > 0) {
+      await postSystem(run.id, agent.id, '退出纠偏阶段禁止调用普通工具，本次执行已阻断');
+      return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
     }
     if (round >= maxRounds) {
       await postSystem(run.id, agent.id, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
       // 无 tools 的收尾调用：基于已获工具结果给最终结论（保证结论完整性，比调大上限省 token）
       const closing = await closingCall(run, agent, parentSpanId, messages);
-      return { content: closing.trim().length > 0 ? closing : res.content, toolRounds, emptyResponse: false, controlAction: null };
+      const result = finishCandidate({ content: closing.trim().length > 0 ? closing : res.content,
+        toolRounds, emptyResponse: false, controlAction: null }, round);
+      if (result) return result;
+      continue;
     }
 
     toolRounds += 1;
@@ -347,7 +400,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     approvalExpiries += gated.filter((g) => g.expired).length;
     if (approvalExpiries >= config.approvalMaxExpiries) {
       await postSystem(run.id, agent.id, `连续 ${approvalExpiries} 次审批超时（上限 ${config.approvalMaxExpiries}），本轮执行已中止，等待人工处理`);
-      return { content: '', toolRounds, emptyResponse: false, approvalStarved: true, controlAction: null };
+      return { content: '', toolRounds, emptyResponse: false, approvalStarved: true, controlAction: null, exitCorrectionAttempts };
     }
     const outcomes = await Promise.all(
       gated.map((g) =>

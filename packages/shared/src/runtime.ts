@@ -1,3 +1,5 @@
+import type { RuntimeControlAction } from './collaboration.ts';
+
 /** Runtime v2 领域契约；阶段 2 只定义语义，不接管现有调度。 */
 export type RuntimeSubjectKind = 'root' | 'consultation' | 'review' | 'coordination_step';
 export type RuntimeSubjectStatus = 'active' | 'waiting' | 'completed' | 'failed' | 'cancelled';
@@ -16,6 +18,12 @@ export interface RuntimeRunContract {
   features?: {
     completionEngine?: boolean;
     coordinationKernel?: 'shadow' | 'execute';
+    /** 1 表示历史 Collaboration 动作，2 表示规范 RuntimeControlAction。 */
+    controlActionVersion?: 1 | 2;
+    /** 缺失表示历史兼容路径；存在时冻结 ExitGuard 行为和纠偏预算。 */
+    exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
+    /** 缺失表示历史 Attempt 推断路径；1 表示必须经持久化 Candidate 验收。 */
+    completionCandidateVersion?: 1;
   };
 }
 
@@ -91,3 +99,54 @@ export interface RuntimeCompletionInput {
 export type RuntimeCompletionEvaluation =
   | { status: 'accepted'; reasons: string[]; disposition: 'normal' | 'partial_user_accepted' | 'delegated' }
   | { status: 'waiting' | 'rejected' | 'failed'; reasons: string[] };
+
+export type RuntimeCompletionCandidateStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
+
+export interface RuntimeCompletionCandidate {
+  id: string;
+  runId: string;
+  subjectId: string;
+  subjectKey: string;
+  attemptId: string;
+  generation: number;
+  agentId: string;
+  action: RuntimeControlAction;
+  summary: string;
+  evidenceRefs: RuntimeEvidenceRef[];
+  exitGuard: { status: string; reasons: string[] };
+  status: RuntimeCompletionCandidateStatus;
+  reasons: string[];
+  retryable: boolean;
+  feedback: string | null;
+  idempotencyKey: string;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface RuntimeSubjectCompletionInput {
+  candidate: Pick<RuntimeCompletionCandidate,
+    'subjectId' | 'attemptId' | 'generation' | 'agentId' | 'action' | 'summary' | 'evidenceRefs' | 'exitGuard'>;
+  currentSubjectId: string;
+  subjectStatus: RuntimeSubjectStatus;
+  custodyState: string;
+  holderAgentId: string | null;
+  pendingHolderAgentId: string | null;
+  currentGeneration: number;
+  attemptStatus: 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled';
+  attemptAgentId: string;
+  attemptError: string | null;
+  leaseValid: boolean;
+  outputPresent: boolean;
+  evidenceValid: boolean;
+  openSuccessorObligations: number;
+  durableHoldOpen: boolean;
+  dependenciesSatisfied: boolean;
+  requiredArtifactsSatisfied: boolean;
+  reviewAccepted: boolean;
+  protocolTerminal: boolean;
+}
+
+export type RuntimeSubjectCompletionEvaluation =
+  | { status: 'accepted'; reasons: []; retryable: false; feedback: null }
+  | { status: 'rejected'; reasons: string[]; retryable: boolean; feedback: string }
+  | { status: 'superseded'; reasons: string[]; retryable: false; feedback: string };

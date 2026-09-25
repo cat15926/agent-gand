@@ -11,12 +11,6 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
       ? { status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition }
       : { status: 'rejected', reasons: ['PARTIAL_RESULT_HAS_NO_OUTPUT'] };
   }
-  if (input.dispatches.some((item) => item.status === 'queued' || item.status === 'running')) {
-    return { status: 'waiting', reasons: ['OPEN_DISPATCH'] };
-  }
-  if (input.batchStatuses.some((status) => status === 'running' || status === 'pending')) {
-    return { status: 'waiting', reasons: ['OPEN_BATCH'] };
-  }
   if (input.dispatches.some((item) => item.status === 'failed' || item.status === 'blocked' || item.status === 'cancelled')) {
     reasons.push('FAILED_DISPATCH');
   }
@@ -33,6 +27,12 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
     if (subject.status === 'failed' || subject.status === 'cancelled') reasons.push(`FAILED_SUBJECT:${subject.key}`);
   }
   if (reasons.length > 0) return { status: 'failed', reasons };
+  if (input.dispatches.some((item) => item.status === 'queued' || item.status === 'running')) {
+    return { status: 'waiting', reasons: ['OPEN_DISPATCH'] };
+  }
+  if (input.batchStatuses.some((status) => status === 'running' || status === 'pending')) {
+    return { status: 'waiting', reasons: ['OPEN_BATCH'] };
+  }
   for (const key of input.contract.requiredSubjectKeys) {
     const subject = subjects.get(key)!;
     if (subject.status !== 'completed' || subject.custodyState !== 'completed') reasons.push(`SUBJECT_NOT_COMPLETED:${key}`);

@@ -1,8 +1,15 @@
-import type { CollaborationControlAction } from '@agent-gand/shared';
+import type { CollaborationStoredControlAction, RuntimeControlActionVersion } from '@agent-gand/shared';
 import type { LlmToolCall, LlmToolSchema } from '../llm/provider.ts';
 import { config } from '../config.ts';
 
 export const COLLABORATION_CONTROL_TOOLS: LlmToolSchema[] = [
+  {
+    name: 'agent.complete',
+    description: '明确提交当前事项的最终结果。仅在结果完整且没有待处理后继义务时调用。',
+    parameters: { type: 'object', additionalProperties: false, required: ['summary'], properties: {
+      summary: { type: 'string' },
+    } },
+  },
   {
     name: 'agent.send_message',
     description: '把当前工作明确交给一位聊天室成员继续处理。调用后当前回合结束。',
@@ -55,29 +62,46 @@ function member(id: unknown, members: Set<string>, field: string): string {
   return value;
 }
 
-export function parseControlCall(call: LlmToolCall, memberIds: string[], senderId: string): CollaborationControlAction {
+export function parseControlCall(call: LlmToolCall, memberIds: string[], senderId: string,
+  version: RuntimeControlActionVersion = 2): CollaborationStoredControlAction {
   const input = objectInput(call); const members = new Set(memberIds);
+  if (call.name === 'agent.complete') {
+    const summary = text(input.summary, 'summary');
+    return version === 1 ? { type: 'finish' } : { version: 2, type: 'complete', summary };
+  }
   if (call.name === 'agent.send_message') {
     const targetAgentId = member(input.target, members, 'target');
     if (targetAgentId === senderId) throw new Error('不能把工作交给自己');
-    return { type: 'handoff', targetAgentId, message: text(input.message, 'message'), reason: text(input.reason, 'reason', 1_000) };
+    const objective = text(input.message, 'message'); const reason = text(input.reason, 'reason', 1_000);
+    return version === 1
+      ? { type: 'handoff', targetAgentId, message: objective, reason }
+      : { version: 2, type: 'handoff', targetAgentId, objective, reason };
   }
   if (call.name === 'agent.ask_many') {
     if (!Array.isArray(input.targets)) throw new Error('targets 必须是数组');
     const targetAgentIds = [...new Set(input.targets.map((id) => member(id, members, 'targets')))].filter((id) => id !== senderId);
     if (targetAgentIds.length === 0 || targetAgentIds.length > config.collaboration.maxTargets) throw new Error(`targets 必须包含 1～${config.collaboration.maxTargets} 位其他成员`);
-    return { type: 'ask_many', targetAgentIds, question: text(input.question, 'question'), reason: text(input.reason, 'reason', 1_000) };
+    const objective = text(input.question, 'question'); const reason = text(input.reason, 'reason', 1_000);
+    return version === 1
+      ? { type: 'ask_many', targetAgentIds, question: objective, reason }
+      : { version: 2, type: 'consult', targetAgentIds, objective, reason, join: 'all' };
   }
   if (call.name === 'agent.wait_for_user') {
-    return { type: 'wait_user', question: text(input.question, 'question'), reason: text(input.reason, 'reason', 1_000) };
+    const prompt = text(input.question, 'question'); const reason = text(input.reason, 'reason', 1_000);
+    return version === 1
+      ? { type: 'wait_user', question: prompt, reason }
+      : { version: 2, type: 'hold', wake: { kind: 'user_decision', decisionKind: 'agent_question', prompt }, reason };
   }
   if (call.name === 'agent.propose_supervisor_task') {
     if (!Array.isArray(input.acceptanceCriteria) || !Array.isArray(input.suggestedAssigneeIds)) throw new Error('acceptanceCriteria 和 suggestedAssigneeIds 必须是数组');
     const acceptanceCriteria = input.acceptanceCriteria.map((item) => text(item, 'acceptanceCriteria', 1_000)).slice(0, 12);
     const suggestedAssigneeIds = [...new Set(input.suggestedAssigneeIds.map((id) => member(id, members, 'suggestedAssigneeIds')))];
     const suggestedReviewerId = input.suggestedReviewerId === undefined ? undefined : member(input.suggestedReviewerId, members, 'suggestedReviewerId');
-    return { type: 'propose_task', title: text(input.title, 'title', 120), goal: text(input.goal, 'goal'),
+    const proposal = { title: text(input.title, 'title', 120), goal: text(input.goal, 'goal'),
       acceptanceCriteria, suggestedAssigneeIds, ...(suggestedReviewerId ? { suggestedReviewerId } : {}), reason: text(input.reason, 'reason', 1_000) };
+    return version === 1
+      ? { type: 'propose_task', ...proposal }
+      : { version: 2, type: 'hold', wake: { kind: 'user_decision', decisionKind: 'supervisor_task_proposal', proposal }, reason: proposal.reason };
   }
   throw new Error(`未知协作控制工具: ${call.name}`);
 }
