@@ -70,6 +70,8 @@ try {
     assert.equal(handoffDetail.data.completionCandidates.length, 1);
     assert.equal(handoffDetail.data.completionCandidates[0]?.status, 'accepted');
     assert.equal(handoffDetail.data.completionCandidates[0]?.agentId, 'coder');
+    assert.deepEqual(handoffDetail.data.successorObligations.map((item) => [item.kind, item.status]),
+      [['handoff_acquire', 'satisfied']], 'handoff 必须在目标 claim 后满足类型化接球义务');
   }
   assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
   const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);
@@ -171,6 +173,13 @@ try {
   const fanoutDetail = await api(`/api/runs/${fanoutReturn.data.run.id}/collaboration`);
   assert.deepEqual(fanoutDetail.data.dispatches.map((item) => item.kind), ['initial', 'resume', 'fanout', 'fanout', 'aggregate']);
   assert.ok(fanoutDetail.data.attempts.filter((item) => fanoutDetail.data.dispatches.some((dispatch) => dispatch.id === item.dispatchId && dispatch.kind === 'fanout')).every((item) => item.output?.includes('请继续处理')));
+  if (runtimeStateEnabled) {
+    const consultObligations = fanoutDetail.data.successorObligations.filter((item) => item.kind === 'consult_result');
+    assert.equal(consultObligations.length, 2);
+    assert.ok(consultObligations.every((item) => item.status === 'satisfied'));
+    assert.ok(fanoutDetail.data.successorObligations.filter((item) => item.kind === 'user_decision')
+      .every((item) => item.status === 'satisfied'));
+  }
   const fanoutRoom = await api(`/api/conversations/${fanoutReturn.data.conversation.id}`);
   assert.equal(fanoutRoom.data.messages.filter((message) => message.runId === fanoutReturn.data.run.id && message.messageType === 'collaboration_result').length, 1);
   const fanoutContributions = fanoutRoom.data.messages.filter((message) => message.runId === fanoutReturn.data.run.id && message.messageType === 'collaboration_contribution');

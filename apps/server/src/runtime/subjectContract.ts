@@ -9,6 +9,7 @@ export function planCollaborationAdmission(input: {
   controlActionVersion?: 1 | 2;
   exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
   completionCandidateVersion?: 1;
+  successorObligationVersion?: 1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
   const targets = [...new Set(input.targetAgentIds)];
@@ -26,6 +27,7 @@ export function planCollaborationAdmission(input: {
         controlActionVersion: input.controlActionVersion ?? 2,
         ...(input.exitGuard ? { exitGuard: input.exitGuard } : {}),
         ...(input.completionCandidateVersion ? { completionCandidateVersion: input.completionCandidateVersion } : {}),
+        ...(input.successorObligationVersion ? { successorObligationVersion: input.successorObligationVersion } : {}),
         ...(input.completionEngine ? { completionEngine: true } : {}),
       },
     },

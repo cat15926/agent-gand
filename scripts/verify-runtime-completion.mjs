@@ -9,7 +9,8 @@ const subject = (key, overrides = {}) => ({ key, required: key.startsWith('root:
 const complete = (overrides = {}) => ({ contract, subjects: [subject('root:a'), subject('root:b')],
   dispatches: [{ id: 'a', status: 'completed', error: null }, { id: 'b', status: 'completed', error: null }],
   pendingDecisions: 0, batchStatuses: [], hasAnyOutput: true, dependenciesSatisfied: true,
-  requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true, ...overrides });
+  requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
+  successorObligationsSatisfied: true, ...overrides });
 
 assert.deepEqual(evaluateCompletion(complete()), { status: 'accepted', reasons: [], disposition: 'normal' });
 assert.deepEqual(evaluateCompletion(complete({ pendingDecisions: 1 })), { status: 'waiting', reasons: ['PENDING_USER_DECISION'] });
@@ -26,6 +27,7 @@ assert.ok(evaluateCompletion(complete({ requiredArtifactsSatisfied: false })).re
 assert.ok(evaluateCompletion(complete({ dependenciesSatisfied: false })).reasons.includes('DEPENDENCIES_NOT_SATISFIED'));
 assert.ok(evaluateCompletion(complete({ reviewAccepted: false })).reasons.includes('REVIEW_NOT_ACCEPTED'));
 assert.ok(evaluateCompletion(complete({ protocolTerminal: false })).reasons.includes('PROTOCOL_NOT_TERMINAL'));
+assert.ok(evaluateCompletion(complete({ successorObligationsSatisfied: false })).reasons.includes('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED'));
 assert.deepEqual(evaluateCompletion(complete({ disposition: 'partial_user_accepted' })), {
   status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition: 'partial_user_accepted',
 });

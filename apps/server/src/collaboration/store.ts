@@ -20,6 +20,11 @@ import { emit } from '../messaging/bus.ts';
 import { config } from '../config.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import { reconcileInterruptedToolExecutions } from '../tools/executions.ts';
+import {
+  cancelRunObligations,
+  openUserDecisionObligations,
+  resolveUserDecisionObligations,
+} from '../runtime/obligations.ts';
 
 interface DispatchRow {
   id: string; run_id: string; conversation_id: string; source_message_id: string;
@@ -263,24 +268,36 @@ export function listOpenBatches(): CollaborationBatch[] {
 }
 export function expireBatch(id: string): CollaborationBatch | null {
   const now = new Date().toISOString();
-  const queued = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE batch_id=? AND status='queued'", id);
-  run("UPDATE collaboration_dispatches SET status='cancelled',error='并行征询超时',finished_at=? WHERE batch_id=? AND status='queued'", now, id);
-  run("UPDATE collaboration_batches SET status='timeout',completed_at=? WHERE id=? AND status IN ('pending','running','partial')", now, id);
+  const queued = tx(() => {
+    const rows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE batch_id=? AND status='queued'", id);
+    run("UPDATE collaboration_dispatches SET status='cancelled',error='并行征询超时',finished_at=? WHERE batch_id=? AND status='queued'", now, id);
+    run("UPDATE collaboration_batches SET status='timeout',completed_at=? WHERE id=? AND status IN ('pending','running','partial')", now, id);
+    for (const item of rows) {
+      const observe = () => observeCancellation(item.id, `batch-timeout:${id}`);
+      if (config.collaboration.runtimeAtomic) observe();
+      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('batch_timeout', observe));
+    }
+    return rows;
+  });
   for (const row of queued) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '并行征询超时', finished_at: now }) });
   const row = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', id);
   if (!row) return null; const value = toBatch(row); emit({ type: 'collaboration.batch.updated', batch: value }); return value;
 }
 
 export function createDecision(input: { runId: string; conversationId: string; dispatchId?: string | null; idempotencyKey: string; kind: CollaborationDecisionKind; promptMessageId: string; payload: Record<string, unknown> }): CollaborationUserDecision {
-  const old = get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE idempotency_key=?', input.idempotencyKey);
-  if (old) return toDecision(old);
-  const id = randomUUID(); const now = new Date().toISOString();
-  run(`INSERT INTO collaboration_user_decisions
-    (id,run_id,conversation_id,dispatch_id,idempotency_key,kind,status,prompt_message_id,payload,created_at)
-    VALUES (?,?,?,?,?,?,'pending',?,?,?)`, id, input.runId, input.conversationId, input.dispatchId ?? null,
+  return tx(() => {
+    const old = get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE idempotency_key=?', input.idempotencyKey);
+    if (old) return toDecision(old);
+    const id = randomUUID(); const now = new Date().toISOString();
+    run(`INSERT INTO collaboration_user_decisions
+      (id,run_id,conversation_id,dispatch_id,idempotency_key,kind,status,prompt_message_id,payload,created_at)
+      VALUES (?,?,?,?,?,?,'pending',?,?,?)`, id, input.runId, input.conversationId, input.dispatchId ?? null,
     input.idempotencyKey, input.kind, input.promptMessageId, JSON.stringify(input.payload), now);
-  const value = toDecision(get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE id=?', id)!);
-  emit({ type: 'collaboration.decision.updated', decision: value }); return value;
+    const value = toDecision(get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE id=?', id)!);
+    openUserDecisionObligations(input.runId, value.id, value.dispatchId, { kind: value.kind });
+    afterCommit(() => emit({ type: 'collaboration.decision.updated', decision: value }));
+    return value;
+  });
 }
 export function getDecision(id: string): CollaborationUserDecision | undefined {
   const row = get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE id=?', id); return row ? toDecision(row) : undefined;
@@ -289,11 +306,18 @@ export function listDecisions(runId: string): CollaborationUserDecision[] {
   return all<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE run_id=? ORDER BY created_at,rowid', runId).map(toDecision);
 }
 export function resolveDecision(id: string, status: CollaborationDecisionStatus, resolution: Record<string, unknown>, linkedRunId?: string | null): CollaborationUserDecision | null {
-  const changed = run("UPDATE collaboration_user_decisions SET status=?,resolution=?,linked_run_id=?,resolved_at=? WHERE id=? AND status='pending'",
-    status, JSON.stringify(resolution), linkedRunId ?? null, new Date().toISOString(), id);
-  const row = get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE id=?', id);
-  if (!row) return null;
-  const value = toDecision(row); if (changed > 0) emit({ type: 'collaboration.decision.updated', decision: value }); return value;
+  return tx(() => {
+    const changed = run("UPDATE collaboration_user_decisions SET status=?,resolution=?,linked_run_id=?,resolved_at=? WHERE id=? AND status='pending'",
+      status, JSON.stringify(resolution), linkedRunId ?? null, new Date().toISOString(), id);
+    const row = get<DecisionRow>('SELECT * FROM collaboration_user_decisions WHERE id=?', id);
+    if (!row) return null;
+    const value = toDecision(row);
+    if (changed > 0) {
+      resolveUserDecisionObligations(value.runId, value.id, `decision:${value.id}:${status}`, { status, ...resolution });
+      afterCommit(() => emit({ type: 'collaboration.decision.updated', decision: value }));
+    }
+    return value;
+  });
 }
 
 export function initialBudgetLimits(): CollaborationBudgetLimits {
@@ -350,9 +374,19 @@ export function budgetExceeded(runId: string): string | null {
 }
 
 export function cancelDispatch(id: string): CollaborationDispatch | null {
-  run("UPDATE collaboration_dispatches SET status='cancelled',finished_at=? WHERE id=? AND status='queued'", new Date().toISOString(), id);
-  const row = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id);
-  if (!row) return null; const value = toDispatch(row); emit({ type: 'collaboration.dispatch.updated', dispatch: value }); return value;
+  return tx(() => {
+    const changed = run("UPDATE collaboration_dispatches SET status='cancelled',finished_at=? WHERE id=? AND status='queued'", new Date().toISOString(), id);
+    const row = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id);
+    if (!row) return null;
+    if (changed > 0) {
+      const observe = () => observeCancellation(row.id, `dispatch:${row.id}`);
+      if (config.collaboration.runtimeAtomic) observe();
+      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_dispatch', observe));
+    }
+    const value = toDispatch(row);
+    afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: value }));
+    return value;
+  });
 }
 export function cancelQueuedRun(runId: string): void {
   const ids = all<{ id: string }>("SELECT id FROM collaboration_dispatches WHERE run_id=? AND status='queued'", runId);
@@ -370,6 +404,7 @@ export function cancelCollaborationRun(runId: string): void {
       if (config.collaboration.runtimeAtomic) observe();
       else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_run', observe));
     }
+    cancelRunObligations(runId, `run:${runId}:cancelled`);
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止运行', finished_at: now }) });
   for (const row of attemptRows) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt({ ...row, status: 'cancelled', error: '用户停止运行', ended_at: now, lease_expires_at: null }) });

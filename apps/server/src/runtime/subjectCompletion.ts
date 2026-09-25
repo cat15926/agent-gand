@@ -11,6 +11,7 @@ import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
 import { resolveEvidence } from './evidence.ts';
 import { observeCompletionCandidateDecision } from './shadow.ts';
+import { countUnsatisfiedRequiredObligations, successorObligationVersion } from './obligations.ts';
 
 interface CandidateRow {
   id: string; run_id: string; subject_id: string; subject_key: string; attempt_id: string; generation: number;
@@ -151,8 +152,10 @@ export function submitCompletionCandidate(input: SubmitCompletionCandidateInput)
     JSON.stringify(input.action), input.summary.trim(), JSON.stringify(input.evidenceRefs), input.exitGuard.status,
     JSON.stringify(input.exitGuard.reasons), idempotencyKey, now);
     const candidate = toCandidate(get<CandidateRow>('SELECT * FROM runtime_completion_candidates WHERE id=?', id)!);
-    const openSuccessors = get<{ n: number }>(`SELECT COUNT(*) n FROM runtime_subjects
-      WHERE parent_subject_id=? AND status<>'completed'`, context.subject_id)?.n ?? 0;
+    const openSuccessors = successorObligationVersion(input.runId) === 1
+      ? countUnsatisfiedRequiredObligations(context.subject_id)
+      : get<{ n: number }>(`SELECT COUNT(*) n FROM runtime_subjects
+          WHERE parent_subject_id=? AND status<>'completed'`, context.subject_id)?.n ?? 0;
     const durableHoldOpen = Boolean(get(`SELECT 1 FROM collaboration_user_decisions
       WHERE run_id=? AND status='pending' AND (dispatch_id=? OR dispatch_id IS NULL) LIMIT 1`, input.runId, input.dispatchId));
     const evidenceValid = candidate.evidenceRefs.length > 0 && candidate.evidenceRefs.every((ref) => {

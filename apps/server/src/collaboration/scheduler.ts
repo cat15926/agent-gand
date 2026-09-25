@@ -140,7 +140,7 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
       targetAgentIds: targets, completionEngine: runtimeStateEnabled && config.collaboration.completionEngine, controlActionVersion: 2,
       exitGuard: { version: 1, maxCorrections: config.collaboration.exitGuardMaxCorrections,
         correctionMaxTokens: config.collaboration.exitGuardCorrectionMaxTokens },
-      ...(runtimeStateEnabled ? { completionCandidateVersion: 1 as const } : {}) });
+      ...(runtimeStateEnabled ? { completionCandidateVersion: 1 as const, successorObligationVersion: 1 as const } : {}) });
     freezeRuntimeContract(planned.contract);
     const initialDispatches = targets.map((target) => createDispatch({
       runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,

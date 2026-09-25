@@ -3,6 +3,13 @@ import type { CollaborationStoredControlAction, RuntimeRunContract, RuntimeSubje
 import { all, get, run, tx } from '../db/database.ts';
 import { evaluateRequiredSubjects } from './subjectContract.ts';
 import { normalizeRuntimeControlAction } from './controlAction.ts';
+import {
+  listOpenSuccessorObligations,
+  openSuccessorObligation,
+  settleSuccessorObligation,
+  settleSubjectObligations,
+  settleTargetObligations,
+} from './obligations.ts';
 
 type CustodyState = 'unassigned' | 'owned' | 'transferring' | 'waiting' | 'completed' | 'failed' | 'cancelled';
 interface CustodyRow {
@@ -101,6 +108,11 @@ export function observeClaim(dispatchId: string, attemptId: string, agentId: str
       // Aggregate/resume may keep the same holder, but every new Attempt still needs its own
       // generation fence so a previous Attempt cannot submit against the newer execution.
       transition(subject, `claim:${attemptId}`, 'custody.reacquired', 'owned', agentId, null, { dispatchId, attemptId });
+      for (const obligation of listOpenSuccessorObligations({ targetSubjectId: subject.id, kind: 'handoff_acquire' })) {
+        if (obligation.stableKey !== `handoff-acquire:${dispatchId}`) continue;
+        settleSuccessorObligation({ id: obligation.id, expectedGeneration: obligation.generation, status: 'satisfied',
+          resolutionSourceId: `claim:${attemptId}`, resolution: { dispatchId, attemptId, agentId } });
+      }
       return;
     }
     if (link?.expected_generation !== null && link?.expected_generation !== undefined && custody.generation !== link.expected_generation) {
@@ -111,6 +123,11 @@ export function observeClaim(dispatchId: string, attemptId: string, agentId: str
       throw new CustodyConflictError(`Subject 已处于 ${custody.state}，不能再次接球`);
     }
     transition(subject, `claim:${attemptId}`, 'custody.acquired', 'owned', agentId, null, { dispatchId, attemptId });
+    for (const obligation of listOpenSuccessorObligations({ targetSubjectId: subject.id, kind: 'handoff_acquire' })) {
+      if (obligation.stableKey !== `handoff-acquire:${dispatchId}`) continue;
+      settleSuccessorObligation({ id: obligation.id, expectedGeneration: obligation.generation, status: 'satisfied',
+        resolutionSourceId: `claim:${attemptId}`, resolution: { dispatchId, attemptId, agentId } });
+    }
   });
 }
 
@@ -127,16 +144,36 @@ export function observeAction(input: { dispatchId: string; attemptId: string; ag
       if (!alreadyRequested && (custody.state !== 'owned' || custody.holder_agent_id !== input.agentId)) throw new Error('交接发起者不是当前责任持有者');
       const generation = transition(subject, `action:${input.attemptId}`, 'custody.transfer_requested', 'transferring', input.agentId, action.targetAgentId,
         { childDispatchIds: input.childDispatchIds });
-      for (const id of input.childDispatchIds) linkDispatch(id, subject.id, generation);
+      for (const id of input.childDispatchIds) {
+        linkDispatch(id, subject.id, generation);
+        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: subject.id,
+          kind: 'handoff_acquire', sourceActionId: `action:${input.attemptId}`, stableKey: `handoff-acquire:${id}`,
+          payload: { dispatchId: id, targetAgentId: action.targetAgentId, requestedGeneration: generation } });
+      }
     } else if (action.type === 'consult') {
+      const childSubjectIds: string[] = [];
       input.childDispatchIds.forEach((dispatchId, index) => {
         const target = action.targetAgentIds[index]!;
         const child = insertSubject({ key: `consult:${input.batchId}:${target}`, runId: subject.run_id, kind: 'consultation',
           parentKey: subject.subject_key, objective: action.objective, initialHolderAgentId: target }, subject.id);
+        childSubjectIds.push(child);
         linkDispatch(dispatchId, child);
+        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: child,
+          kind: 'consult_result', sourceActionId: `action:${input.attemptId}`, stableKey: `consult-result:${dispatchId}`,
+          required: action.join === 'all',
+          payload: { dispatchId, batchId: input.batchId, targetAgentId: target, join: action.join } });
       });
+      if (action.join === 'any') {
+        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id,
+          kind: 'consult_result', sourceActionId: `action:${input.attemptId}`,
+          stableKey: `consult-join:${input.batchId}:any`,
+          payload: { batchId: input.batchId, join: action.join, targetSubjectIds: childSubjectIds } });
+      }
     } else if (action.type === 'complete' || action.type === 'answer_candidate') {
       transition(subject, `action:${input.attemptId}`, 'custody.completed', 'completed', input.agentId, null);
+      settleTargetObligations({ targetSubjectId: subject.id, status: 'satisfied',
+        resolutionSourceId: `action:${input.attemptId}`, kinds: ['consult_result'],
+        resolution: { attemptId: input.attemptId, agentId: input.agentId } });
     } else if (action.type === 'hold') {
       transition(subject, `action:${input.attemptId}`, 'custody.waiting', 'waiting', input.agentId, null);
     } else if (action.type === 'cancel') {
@@ -171,12 +208,16 @@ export function observeCompletionCandidateDecision(input: {
     if (input.status === 'accepted') {
       transition(subject, sourceEventId, 'subject.completion_accepted', 'completed', input.agentId, null,
         { candidateId: input.candidateId, attemptId: input.attemptId });
+      settleTargetObligations({ targetSubjectId: subject.id, status: 'satisfied', resolutionSourceId: sourceEventId,
+        kinds: ['consult_result'], resolution: { candidateId: input.candidateId, attemptId: input.attemptId } });
       return;
     }
     transition(subject, sourceEventId,
       input.retryable ? 'subject.completion_rejected_retryable' : 'subject.completion_rejected_terminal',
       input.retryable ? 'waiting' : 'failed', input.agentId, null,
       { candidateId: input.candidateId, attemptId: input.attemptId, reasons: input.reasons });
+    if (!input.retryable) settleSubjectObligations({ subjectId: subject.id, status: 'failed', resolutionSourceId: sourceEventId,
+      resolution: { candidateId: input.candidateId, reasons: input.reasons } });
   });
 }
 
@@ -191,6 +232,8 @@ export function observeTechnicalBlock(dispatchId: string, attemptId: string, age
   tx(() => {
     const subject = subjectForDispatch(dispatchId); if (!subject) return;
     transition(subject, `blocked:${attemptId}`, 'custody.failed', 'failed', agentId, null);
+    settleSubjectObligations({ subjectId: subject.id, status: 'failed', resolutionSourceId: `blocked:${attemptId}`,
+      resolution: { dispatchId, attemptId, agentId } });
   });
 }
 
@@ -200,6 +243,8 @@ export function observeTerminalInterruption(dispatchId: string, attemptId: strin
     const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
     if (!custody || custody.state !== 'owned' || custody.holder_agent_id !== agentId) return;
     transition(subject, `interrupted:${attemptId}`, 'custody.failed', 'failed', agentId, null);
+    settleSubjectObligations({ subjectId: subject.id, status: 'failed', resolutionSourceId: `interrupted:${attemptId}`,
+      resolution: { dispatchId, attemptId, agentId } });
   });
 }
 
@@ -209,6 +254,8 @@ export function observeCancellation(dispatchId: string, sourceId: string): void 
     const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
     if (!custody || custody.state === 'completed' || custody.state === 'cancelled') return;
     transition(subject, `cancel:${sourceId}:${subject.id}`, 'custody.cancelled', 'cancelled', custody.holder_agent_id, null);
+    settleSubjectObligations({ subjectId: subject.id, status: 'cancelled',
+      resolutionSourceId: `cancel:${sourceId}:${subject.id}`, resolution: { dispatchId, sourceId } });
   });
 }
 

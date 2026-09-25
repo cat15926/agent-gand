@@ -45,7 +45,7 @@ AgentTurn
 
 缺输出、缺证据、开放义务和协议未满足属于可纠正拒绝；无效 Attempt、holder 冲突和非法退出属于不可重试拒绝；旧 generation 永远不能覆盖新责任代际。
 
-阶段 4 会把当前由子 Subject/Dispatch 投影的开放义务替换为类型化 Successor Obligation；阶段 5 会把 EvidenceRef 集合升级为冻结并校验哈希的 EvidenceBundle。
+新版 Contract 已使用类型化 [Successor Obligation](./runtime-successor-obligations.md) 取代子 Subject/Dispatch 字符串推断；历史 Contract 继续保留原派生投影。阶段 5 将把 EvidenceRef 集合升级为冻结并校验哈希的 EvidenceBundle。
 
 ## 原子提交与恢复
 

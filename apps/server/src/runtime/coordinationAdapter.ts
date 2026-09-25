@@ -9,6 +9,13 @@ import { createWorkspaceFileEvidence, redactSensitive, resolveEvidence } from '.
 import { MAX_CONTEXT_CHARS, persistRuntimeContextAssembly, type ContextSegment } from './context.ts';
 import { describeCompletionReason, evaluateCompletion } from './completion.ts';
 import { recordCompletionEvaluation } from './completionStore.ts';
+import {
+  listOpenSuccessorObligations,
+  openSuccessorObligation,
+  requiredSuccessorObligationsSatisfied,
+  settleSubjectObligations,
+  settleSuccessorObligation,
+} from './obligations.ts';
 
 type KernelMode = 'shadow' | 'execute';
 type CustodyState = 'unassigned' | 'owned' | 'waiting' | 'completed' | 'failed' | 'cancelled';
@@ -45,7 +52,8 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode): RuntimeRunContra
     participantIds: [...new Set(steps.flatMap((step) => step.agentId ? [step.agentId] : []))],
     requiredSubjectKeys: steps.map((step) => subjectKey(plan, step.id)),
     completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
-    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2 },
+    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2,
+      successorObligationVersion: 1 },
   };
 }
 
@@ -99,6 +107,8 @@ export function admitCoordinationKernelPlan(plan: CoordinationPlan): void {
     run("UPDATE runtime_custody SET state='cancelled',pending_holder_agent_id=NULL,generation=?,version=version+1,updated_at=? WHERE subject_id=?",
       generation, now, item.subject_id);
     run("UPDATE runtime_subjects SET status='cancelled',updated_at=? WHERE id=?", now, item.subject_id);
+    settleSubjectObligations({ subjectId: item.subject_id, status: 'cancelled', resolutionSourceId: sourceEventId,
+      resolution: { supersededByRevision: plan.revision } });
   }
   run(`INSERT OR REPLACE INTO runtime_contract_revisions (run_id,runtime_revision,payload,created_at)
     VALUES (?,?,?,?)`, plan.runId, plan.revision, JSON.stringify(contract), now);
@@ -115,6 +125,16 @@ export function admitCoordinationKernelPlan(plan: CoordinationPlan): void {
       VALUES (?,?,?,'coordination_step',NULL,'active',?,?,?)`, subjectId, plan.runId, subjectKey(plan, step.id), step.completion, now, now);
     run("INSERT INTO runtime_custody (subject_id,state,holder_agent_id,pending_holder_agent_id,generation,version,updated_at) VALUES (?,'unassigned',NULL,NULL,0,0,?)", subjectId, now);
     run('INSERT INTO runtime_coordination_subjects (plan_id,revision,step_id,subject_id) VALUES (?,?,?,?)', plan.id, plan.revision, step.id, subjectId);
+  }
+  for (const step of plan.steps) {
+    if (step.type === 'completion_gate' || !step.expectedArtifacts?.length) continue;
+    const link = linkFor(plan, step.id); if (!link) continue;
+    for (const artifactPath of step.expectedArtifacts) {
+      openSuccessorObligation({ runId: plan.runId, parentSubjectId: link.subject_id, targetSubjectId: link.subject_id,
+        kind: 'artifact_commit', sourceActionId: `coord:plan:${plan.id}:r${plan.revision}:artifact:${step.id}`,
+        stableKey: `coord-artifact:${plan.id}:r${plan.revision}:${step.id}:${artifactPath}`,
+        payload: { planId: plan.id, revision: plan.revision, stepId: step.id, artifactPath } });
+    }
   }
 }
 
@@ -200,11 +220,51 @@ function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemp
   if (existing && existing.refs !== encoded) throw new Error(`Attempt ${attemptId} 的 Evidence 发生漂移`);
   if (!existing) run('INSERT INTO runtime_coordination_evidence (subject_id,attempt_id,refs,created_at) VALUES (?,?,?,?)',
     link.subject_id, attemptId, encoded, new Date().toISOString());
+  for (const obligation of listOpenSuccessorObligations({ targetSubjectId: link.subject_id, kind: 'artifact_commit' })) {
+    settleSuccessorObligation({ id: obligation.id, expectedGeneration: obligation.generation, status: 'satisfied',
+      resolutionSourceId: `coord:artifact:${attemptId}`, resolution: { attemptId, evidenceRefs: refs } });
+  }
+}
+
+function settleReviewRevisionObligations(plan: CoordinationPlan, reviewStep: CoordinationPlanStep, attemptId: string): void {
+  if (!plan.runId || reviewStep.protocol !== 'review_revision' || reviewStep.type !== 'review') return;
+  const reviewLink = linkFor(plan, reviewStep.id); if (!reviewLink) return;
+  const reviewCustody = get<{ state: CustodyState; holder_agent_id: string | null; generation: number }>(
+    'SELECT state,holder_agent_id,generation FROM runtime_custody WHERE subject_id=?', reviewLink.subject_id);
+  const claim = get<{ generation: number }>(`SELECT generation FROM runtime_custody_events
+    WHERE subject_id=? AND (source_event_id=? OR source_event_id LIKE ?) ORDER BY generation DESC LIMIT 1`,
+  reviewLink.subject_id, `coord:claim:${attemptId}`, `coord:reclaim:${attemptId}:%`);
+  if (!reviewCustody || !claim || reviewCustody.state !== 'owned' || reviewCustody.holder_agent_id !== reviewStep.agentId
+    || reviewCustody.generation !== claim.generation) {
+    throw new CoordinationCustodyConflictError('Reviewer PASS 对应的 Attempt 已失去当前责任代际');
+  }
+  for (const obligation of listOpenSuccessorObligations({ parentSubjectId: reviewLink.subject_id, kind: 'review_revision' })) {
+    const targetStepId = typeof obligation.payload.targetStepId === 'string' ? obligation.payload.targetStepId : null;
+    const targetGenerationAtOpen = typeof obligation.payload.targetGenerationAtOpen === 'number'
+      ? obligation.payload.targetGenerationAtOpen : -1;
+    const reviewerGenerationAtOpen = typeof obligation.payload.reviewerGenerationAtOpen === 'number'
+      ? obligation.payload.reviewerGenerationAtOpen : -1;
+    const targetLink = targetStepId ? linkFor(plan, targetStepId) : undefined;
+    const target = targetLink ? get<{ state: CustodyState; generation: number }>(
+      'SELECT state,generation FROM runtime_custody WHERE subject_id=?', targetLink.subject_id) : undefined;
+    if (!target || target.state !== 'completed' || target.generation <= targetGenerationAtOpen) {
+      throw new CoordinationCustodyConflictError(`Review Revision 目标 ${targetStepId ?? 'unknown'} 尚未在当前代际完成返工`);
+    }
+    if (claim.generation <= reviewerGenerationAtOpen) {
+      throw new CoordinationCustodyConflictError('迟到的 Reviewer PASS 不能关闭新一轮返工义务');
+    }
+    const settled = settleSuccessorObligation({ id: obligation.id, expectedGeneration: obligation.generation,
+      status: 'satisfied', resolutionSourceId: `coord:review-pass:${attemptId}`,
+      resolution: { planId: plan.id, revision: plan.revision, reviewStepId: reviewStep.id,
+        targetStepId, attemptId, reviewerGeneration: claim.generation, targetGeneration: target.generation } });
+    if (!settled.changed) throw new CoordinationCustodyConflictError('Review Revision 义务代际已变化');
+  }
 }
 
 export function observeCoordinationComplete(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
   if (!step.agentId) return;
   observe(plan, 'complete', () => {
+    settleReviewRevisionObligations(plan, step, attemptId);
     saveEvidence(plan, step, attemptId);
     transition(plan, step.id, `coord:complete:${attemptId}`, 'custody.completed', 'completed', step.agentId!, { attemptId });
   });
@@ -224,6 +284,24 @@ export function observeCoordinationPause(plan: CoordinationPlan, step: Coordinat
 export function observeCoordinationRevision(plan: CoordinationPlan, reviewStep: CoordinationPlanStep,
   attemptId: string, targetStepIds: string[]): void {
   observe(plan, 'review_revision', () => {
+    const reviewLink = linkFor(plan, reviewStep.id);
+    const reviewCustody = reviewLink ? get<{ generation: number }>(
+      'SELECT generation FROM runtime_custody WHERE subject_id=?', reviewLink.subject_id) : undefined;
+    if (plan.runId && reviewLink && reviewCustody) {
+      for (const targetStepId of targetStepIds) {
+        const targetLink = linkFor(plan, targetStepId);
+        const targetCustody = targetLink ? get<{ generation: number }>(
+          'SELECT generation FROM runtime_custody WHERE subject_id=?', targetLink.subject_id) : undefined;
+        if (!targetLink || !targetCustody) throw new CoordinationCustodyConflictError(`Review Revision 目标 ${targetStepId} 缺少 Subject`);
+        openSuccessorObligation({ runId: plan.runId, parentSubjectId: reviewLink.subject_id,
+          targetSubjectId: targetLink.subject_id, kind: 'review_revision',
+          sourceActionId: `coord:review-fail:${attemptId}`,
+          stableKey: `coord-review:${plan.id}:r${plan.revision}:${reviewStep.id}:${targetStepId}`,
+          advance: true, payload: { planId: plan.id, revision: plan.revision, reviewStepId: reviewStep.id,
+            targetStepId, reviewAttemptId: attemptId, targetGenerationAtOpen: targetCustody.generation,
+            reviewerGenerationAtOpen: reviewCustody.generation } });
+      }
+    }
     for (const stepId of [...targetStepIds, reviewStep.id]) {
       const step = plan.steps.find((item) => item.id === stepId);
       if (step?.agentId) transition(plan, step.id, `coord:revision:${attemptId}:${step.id}`, 'custody.revision_requested', 'waiting', step.agentId, { attemptId });
@@ -238,10 +316,15 @@ export function closeCoordinationKernelPlan(plan: CoordinationPlan, states: Coor
       const state = states.find((item) => item.stepId === step.id);
       const link = linkFor(plan, step.id);
       const custody = link ? get<{ state: CustodyState }>('SELECT state FROM runtime_custody WHERE subject_id=?', link.subject_id) : undefined;
-      if (!custody || ['completed', 'failed', 'cancelled'].includes(custody.state)) continue;
-      transition(plan, step.id, `coord:plan-close:${plan.id}:${cancelled ? 'cancelled' : 'failed'}:${plan.revision}:${step.id}`,
-        cancelled ? 'custody.cancelled' : 'custody.plan_failed', cancelled ? 'cancelled' : 'failed', step.agentId,
-        { stepStatus: state?.status ?? 'missing' });
+      if (!custody) continue;
+      if (!['completed', 'failed', 'cancelled'].includes(custody.state)) {
+        transition(plan, step.id, `coord:plan-close:${plan.id}:${cancelled ? 'cancelled' : 'failed'}:${plan.revision}:${step.id}`,
+          cancelled ? 'custody.cancelled' : 'custody.plan_failed', cancelled ? 'cancelled' : 'failed', step.agentId,
+          { stepStatus: state?.status ?? 'missing' });
+      }
+      if (link) settleSubjectObligations({ subjectId: link.subject_id, status: cancelled ? 'cancelled' : 'failed',
+        resolutionSourceId: `coord:plan-close:${plan.id}:${plan.revision}:${step.id}`,
+        resolution: { stepStatus: state?.status ?? 'missing' } });
     }
   }));
 }
@@ -325,7 +408,8 @@ export function evaluateCoordinationKernel(plan: CoordinationPlan, states: Coord
   const protocolTerminal = plan.completion.terminalSteps.every((id) => states.find((state) => state.stepId === id)?.status === 'completed');
   const completionInput: RuntimeCompletionInput = { contract, subjects, dispatches, pendingDecisions: 0, batchStatuses: [],
     hasAnyOutput: states.some((state) => Boolean(state.output?.trim())), dependenciesSatisfied, requiredArtifactsSatisfied,
-    reviewAccepted: reviewPassed(plan, states), protocolTerminal };
+    reviewAccepted: reviewPassed(plan, states), protocolTerminal,
+    successorObligationsSatisfied: requiredSuccessorObligationsSatisfied(plan.runId, rows.map((row) => row.id)) };
   const evaluation = evaluateCompletion(completionInput);
   recordCompletionEvaluation(plan.runId, evaluation, completionInput);
   return { mode, evaluation, input: completionInput };

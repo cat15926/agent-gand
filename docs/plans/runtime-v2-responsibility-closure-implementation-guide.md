@@ -1,6 +1,6 @@
 # Runtime v2 责任闭环实施指导
 
-> 状态：阶段 0–3 已完成，阶段 4 待实施  
+> 状态：阶段 0–4 已完成，阶段 5 待实施
 > 基线：2026-09-24，`agent-gand/main` @ `4e5ae5b`  
 > 前置成果：[Collaboration Runtime Kernel 实施方案](./collaboration-runtime-kernel-implementation-plan.md)  
 > 适用范围：Collaboration、Coordination 及后续复用公共 Runtime 的编排入口
@@ -66,7 +66,7 @@
 | 1 | 规范化 ControlAction v2 与 Legacy Adapter | 已完成 |
 | 2 | ExitGuard 与同轮纠偏 | 已完成 |
 | 3 | CompletionCandidate 与 SubjectCompletionEngine | 已完成 |
-| 4 | 类型化 Successor Obligation 与 Review Loop | 待实施 |
+| 4 | 类型化 Successor Obligation 与 Review Loop | 已完成 |
 | 5 | EvidenceBundle、防循环和 Context Contributor | 待实施 |
 | 6 | Durable Hold/Wake | 待实施 |
 | 7 | Coordination 统一退出路径与旧分支收口 | 待实施 |
@@ -222,6 +222,8 @@ required, generation, payload, created_at, resolved_at
 
 Completion 不再从动作字符串推断义务。Review FAIL 创建或重开 `review_revision` 义务，目标完成和 Reviewer PASS 后关闭；每轮有稳定 revision/generation，迟到 PASS 不得关闭新一轮返工。
 
+实施结果：新增版本化 `runtime_successor_obligations` 投影，覆盖接球、咨询汇合、Review 返工、产物提交和用户决策。所有 settle 均使用 generation fencing，`consult all/any` 具有明确的必需汇合语义；Review FAIL 推进稳定义务代际，只有返工目标和 Reviewer 均在更新 Custody generation 完成时 PASS 才能关闭。Subject/Run Completion、API、WebSocket 与右侧面板已统一读取该投影，旧 Contract 保留派生义务兼容路径。详见 [Runtime Successor Obligation 与 Review Loop](../architecture/runtime-successor-obligations.md)。
+
 ## 10. 阶段 5：EvidenceBundle、防循环与 Context Contributor
 
 ### 10.1 EvidenceBundle
@@ -342,4 +344,15 @@ Hold 必须冻结 Subject、holder/generation、唤醒条件、截止时间、�
 - Run Completion 对新版本只汇合 accepted Candidate，同时保留显式用户部分接受的独立授权语义；
 - 补齐纯判定、事务、幂等、generation、恢复、绕过防护、部分接受、API/UI 与端到端验收。
 
-下一阶段进入类型化 Successor Obligation 与 Review Loop。
+2026-09-25 完成阶段 4：
+
+- 新增类型化 Successor Obligation 存储、稳定键、幂等来源、代际推进和条件 settle；
+- handoff 在目标实际 claim 后关闭接球义务，consult 按 `all/any` 策略汇合子 Subject；
+- 用户决策、Run/Dispatch 取消、技术失败和 Revision 替换都有显式义务终结记录；
+- Coordination 在 Plan 接纳时打开产物义务，只有经 EvidenceResolver 验证后才关闭；
+- Review FAIL 创建/推进 `review_revision` generation，目标返工和 Reviewer 重新 claim 双重门禁拒绝迟到 PASS；
+- Subject/Run Completion、API、实时事件与右侧面板已接入，补齐事务回滚、代际竞态、Review 循环和端到端验收。
+
+已通过 `verify:runtime-obligations`、`verify:runtime-review-obligations`、`verify:runtime-subject-completion`、`verify:runtime-completion`、`verify:runtime-completion-integration`、`verify:runtime-shadow`、`verify:runtime-atomic`、`verify:runtime-coordination-adapter`、Collaboration Atomic 端到端、Coordination execute 端到端、可靠性/UI 专项与 `typecheck`。
+
+下一阶段进入 EvidenceBundle、证据感知防循环和 Context Contributor。

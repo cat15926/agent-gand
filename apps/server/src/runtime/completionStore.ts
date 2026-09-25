@@ -5,6 +5,7 @@ import type {
 import { all, get, run } from '../db/database.ts';
 import { resolveEvidence } from './evidence.ts';
 import { normalizeRuntimeControlAction } from './controlAction.ts';
+import { requiredSuccessorObligationsSatisfied } from './obligations.ts';
 
 interface SubjectRow {
   id: string; subject_key: string; status: RuntimeCompletionSubject['status'];
@@ -108,7 +109,9 @@ export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null
     : Boolean(get('SELECT 1 FROM collaboration_attempts WHERE run_id=? AND status=\'completed\' AND TRIM(COALESCE(output,\'\'))<>\'\' LIMIT 1', runId)
       ?? get("SELECT 1 FROM messages WHERE run_id=? AND kind='agent' AND TRIM(body)<>'' LIMIT 1", runId));
   return { input: { contract, subjects, dispatches, pendingDecisions, batchStatuses, hasAnyOutput,
-    dependenciesSatisfied: true, requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true }, reportParts, partialReportParts };
+    dependenciesSatisfied: true, requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
+    successorObligationsSatisfied: requiredSuccessorObligationsSatisfied(runId, rows.map((row) => row.id)) },
+  reportParts, partialReportParts };
 }
 
 export function recordCompletionEvaluation(runId: string, evaluation: RuntimeCompletionEvaluation, input: RuntimeCompletionInput): void {

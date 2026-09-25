@@ -20,6 +20,8 @@
     "verify:runtime-control-actions": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-control-actions.mjs",
     "verify:runtime-exit-guard": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-exit-guard.mjs",
     "verify:runtime-subject-completion": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-subject-completion.mjs",
+    "verify:runtime-obligations": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-obligations.mjs",
+    "verify:runtime-review-obligations": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-review-obligations.mjs",
     "verify:runtime-subject-contract": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-subject-contract.mjs",
     "verify:runtime-shadow": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-shadow.mjs",
     "verify:runtime-atomic": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-atomic.mjs",

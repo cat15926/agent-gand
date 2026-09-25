@@ -13,6 +13,7 @@ const store = await import('../apps/server/src/collaboration/store.ts');
 const inbox = await import('../apps/server/src/messaging/inbox.ts');
 const { getRun } = await import('../apps/server/src/runs/trace.ts');
 const { assembleCollaborationContext } = await import('../apps/server/src/runtime/context.ts');
+const { openSuccessorObligation } = await import('../apps/server/src/runtime/obligations.ts');
 const { planCollaborationAdmission } = await import('../apps/server/src/runtime/subjectContract.ts');
 const { observeAdmission } = await import('../apps/server/src/runtime/shadow.ts');
 const {
@@ -46,7 +47,7 @@ function fixture(name) {
     runId, name, 'collaboration', conversationId, 1, 'running', '["a"]', now);
   const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: name });
   const plan = planCollaborationAdmission({ runId, objective: name, participantIds: ['a'], targetAgentIds: ['a'],
-    completionEngine: true, controlActionVersion: 2, completionCandidateVersion: 1 });
+    completionEngine: true, controlActionVersion: 2, completionCandidateVersion: 1, successorObligationVersion: 1 });
   const dispatch = db.tx(() => {
     const created = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
       kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${name}` });
@@ -93,6 +94,22 @@ try {
     exitGuard: { status: 'allow_candidate', reasons: ['EXPLICIT_COMPLETE'] } });
   assert.equal(duplicate.candidate.id, first.candidate.id);
   assert.equal(listCompletionCandidates(accepted.runId).length, 1, '幂等重放不得复制 Candidate');
+
+  const obligated = fixture('typed-obligation');
+  const obligatedClaim = store.claimNextDispatch(obligated.conversationId, 'owner');
+  const obligatedSubject = db.get('SELECT subject_id FROM runtime_dispatch_subjects WHERE dispatch_id=?', obligated.dispatch.id).subject_id;
+  openSuccessorObligation({ runId: obligated.runId, parentSubjectId: obligatedSubject,
+    kind: 'artifact_commit', sourceActionId: 'artifact:required', stableKey: 'artifact:required', payload: { path: 'proof.md' } });
+  const blockedByObligation = db.tx(() => {
+    const result = submitCompletionCandidate({ runId: obligated.runId, dispatchId: obligatedClaim.dispatch.id,
+      attemptId: obligatedClaim.attempt.id, agentId: 'a', action: { version: 2, type: 'complete', summary: '结果' },
+      summary: '结果', evidenceRefs: [{ kind: 'attempt_output', id: obligatedClaim.attempt.id }],
+      exitGuard: { status: 'allow_candidate', reasons: ['EXPLICIT_COMPLETE'] }, retryAllowed: false });
+    store.finishAttempt({ attemptId: obligatedClaim.attempt.id, dispatchId: obligatedClaim.dispatch.id,
+      status: 'failed', dispatchStatus: 'blocked', error: 'OPEN_SUCCESSOR_OBLIGATION' });
+    return result;
+  });
+  assert.deepEqual(blockedByObligation.evaluation.reasons, ['OPEN_SUCCESSOR_OBLIGATION']);
 
   const stale = fixture('stale-generation');
   const staleClaim = store.claimNextDispatch(stale.conversationId, 'owner');

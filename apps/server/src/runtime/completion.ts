@@ -49,6 +49,7 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
   if (!input.requiredArtifactsSatisfied) reasons.push('REQUIRED_ARTIFACTS_MISSING');
   if (!input.reviewAccepted) reasons.push('REVIEW_NOT_ACCEPTED');
   if (!input.protocolTerminal) reasons.push('PROTOCOL_NOT_TERMINAL');
+  if (!input.successorObligationsSatisfied) reasons.push('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED');
   if (reasons.length > 0) return { status: 'rejected', reasons };
   return { status: 'accepted', reasons: [], disposition };
 }
@@ -59,6 +60,7 @@ export function describeCompletionReason(reason: string): string {
     FAILED_DISPATCH: '至少一个任务失败、被阻断或取消', INCOMPLETE_BATCH: '并行批次未全部成功',
     REVIEW_NOT_ACCEPTED: '审查尚未通过', PROTOCOL_NOT_TERMINAL: '协作协议尚未到达终局',
     DEPENDENCIES_NOT_SATISFIED: '依赖步骤尚未满足', REQUIRED_ARTIFACTS_MISSING: '必要产物缺失',
+    SUCCESSOR_OBLIGATIONS_NOT_SATISFIED: '仍有必需的后继义务未满足',
     PARTIAL_RESULT_HAS_NO_OUTPUT: '没有可供用户接受的部分结果',
   };
   if (fixed[reason]) return fixed[reason];

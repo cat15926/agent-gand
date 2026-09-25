@@ -23,6 +23,7 @@ import type {
   CollaborationDispatch,
   CollaborationUserDecision,
   RuntimeCompletionCandidate,
+  RuntimeSuccessorObligation,
   CapabilitySnapshot,
   CoordinationEvent,
   CoordinationPlan,
@@ -82,6 +83,7 @@ export interface CoordinationRunDetail {
   steps: CoordinationStepState[];
   attempts: CoordinationStepAttempt[];
   events: CoordinationEvent[];
+  successorObligations?: RuntimeSuccessorObligation[];
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
@@ -116,6 +118,7 @@ export interface CollaborationRunDetail {
   batches: CollaborationBatch[];
   decisions: CollaborationUserDecision[];
   completionCandidates: RuntimeCompletionCandidate[];
+  successorObligations: RuntimeSuccessorObligation[];
   budget: CollaborationBudgetSnapshot;
   activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
 }

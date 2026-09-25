@@ -24,6 +24,8 @@ export interface RuntimeRunContract {
     exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
     /** 缺失表示历史 Attempt 推断路径；1 表示必须经持久化 Candidate 验收。 */
     completionCandidateVersion?: 1;
+    /** 缺失表示历史派生义务；1 表示完成判定只读取类型化后继义务投影。 */
+    successorObligationVersion?: 1;
   };
 }
 
@@ -93,6 +95,7 @@ export interface RuntimeCompletionInput {
   requiredArtifactsSatisfied: boolean;
   reviewAccepted: boolean;
   protocolTerminal: boolean;
+  successorObligationsSatisfied: boolean;
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated';
 }
 
@@ -101,6 +104,32 @@ export type RuntimeCompletionEvaluation =
   | { status: 'waiting' | 'rejected' | 'failed'; reasons: string[] };
 
 export type RuntimeCompletionCandidateStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
+
+export type RuntimeSuccessorObligationKind =
+  | 'handoff_acquire'
+  | 'consult_result'
+  | 'review_revision'
+  | 'artifact_commit'
+  | 'user_decision';
+export type RuntimeSuccessorObligationStatus = 'open' | 'satisfied' | 'failed' | 'cancelled';
+
+export interface RuntimeSuccessorObligation {
+  id: string;
+  runId: string;
+  parentSubjectId: string;
+  kind: RuntimeSuccessorObligationKind;
+  targetSubjectId: string | null;
+  sourceActionId: string;
+  stableKey: string;
+  status: RuntimeSuccessorObligationStatus;
+  required: boolean;
+  generation: number;
+  payload: Record<string, unknown>;
+  resolutionSourceId: string | null;
+  resolution: Record<string, unknown> | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
 
 export interface RuntimeCompletionCandidate {
   id: string;
