@@ -31,7 +31,7 @@ AgentTurn 候选输出
 - 已用纠偏次数和剩余预算；
 - 入场时冻结的 ExitGuard 策略。
 
-当前阶段以活跃 Collaboration Attempt 作为执行权事实来源。可信 EvidenceBundle 和持久化 Successor Obligation 将分别在阶段 5 和阶段 4 接入；在此之前不会把“曾调用过工具”冒充可信证据。
+当前以活跃 Collaboration Attempt 作为执行权事实来源。类型化 Successor Obligation 已接管开放后续责任；新版 Run 使用 [EvidenceBundle 与证据感知防循环](./runtime-evidence-context-loop-guard.md)，ExitGuard 的证据数量只读取当前 Attempt 已完成的 ToolExecution 账本，不从模型文字推测。
 
 ## 决策规则
 

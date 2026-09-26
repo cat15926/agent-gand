@@ -10,6 +10,9 @@ export function planCollaborationAdmission(input: {
   exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
   completionCandidateVersion?: 1;
   successorObligationVersion?: 1;
+  evidenceBundleVersion?: 1;
+  evidenceLoopGuardVersion?: 1;
+  contextContributorVersion?: 1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
   const targets = [...new Set(input.targetAgentIds)];
@@ -28,6 +31,9 @@ export function planCollaborationAdmission(input: {
         ...(input.exitGuard ? { exitGuard: input.exitGuard } : {}),
         ...(input.completionCandidateVersion ? { completionCandidateVersion: input.completionCandidateVersion } : {}),
         ...(input.successorObligationVersion ? { successorObligationVersion: input.successorObligationVersion } : {}),
+        ...(input.evidenceBundleVersion ? { evidenceBundleVersion: input.evidenceBundleVersion } : {}),
+        ...(input.evidenceLoopGuardVersion ? { evidenceLoopGuardVersion: input.evidenceLoopGuardVersion } : {}),
+        ...(input.contextContributorVersion ? { contextContributorVersion: input.contextContributorVersion } : {}),
         ...(input.completionEngine ? { completionEngine: true } : {}),
       },
     },

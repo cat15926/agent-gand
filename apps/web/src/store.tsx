@@ -24,6 +24,8 @@ import type {
   UsageSummary,
   Conversation,
   RuntimeCompletionCandidate,
+  RuntimeEvidenceBundle,
+  RuntimeRouteGuardEvent,
   RuntimeSuccessorObligation,
   CollaborationAttempt,
   CollaborationBatch,
@@ -62,6 +64,8 @@ export interface State {
   collaborationDecisions: CollaborationUserDecision[];
   completionCandidates: RuntimeCompletionCandidate[];
   successorObligations: RuntimeSuccessorObligation[];
+  evidenceBundles: RuntimeEvidenceBundle[];
+  routeGuardEvents: RuntimeRouteGuardEvent[];
   collaborationBudgets: Record<string, CollaborationBudgetSnapshot>;
   collaborationScheduler: { conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number } | null;
   coordinationPlan: CoordinationPlan | null;
@@ -98,7 +102,7 @@ const initialState: State = {
   usage: [],
   streams: {},
   scheduler: null,
-  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], collaborationBudgets: {}, collaborationScheduler: null,
+  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], collaborationBudgets: {}, collaborationScheduler: null,
   coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [],
 };
 
@@ -132,14 +136,16 @@ function reducer(state: State, action: Action): State {
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
       return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
-        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], collaborationBudgets: {}, collaborationScheduler: null,
+        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], collaborationBudgets: {}, collaborationScheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
         coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
         coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
-        successorObligations: action.coordination?.successorObligations ?? state.successorObligations };
+        successorObligations: action.coordination?.successorObligations ?? state.successorObligations,
+        evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
+        routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents };
     case 'collaborationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state,
@@ -149,6 +155,8 @@ function reducer(state: State, action: Action): State {
         collaborationDecisions: action.details.flatMap((item) => item.decisions),
         completionCandidates: action.details.flatMap((item) => item.completionCandidates),
         successorObligations: action.details.flatMap((item) => item.successorObligations),
+        evidenceBundles: action.details.flatMap((item) => item.evidenceBundles),
+        routeGuardEvents: action.details.flatMap((item) => item.routeGuardEvents),
         collaborationBudgets: Object.fromEntries(action.details.flatMap((item) => item.run ? [[item.run.id, item.budget] as const] : [])),
       };
     case 'runDetail':
@@ -157,12 +165,15 @@ function reducer(state: State, action: Action): State {
       return { ...state, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
         coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
         coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
-        successorObligations: action.coordination?.successorObligations ?? state.successorObligations };
+        successorObligations: action.coordination?.successorObligations ?? state.successorObligations,
+        evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
+        routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents };
     case 'coordinationDetail':
       if (action.runId !== state.activeRunId) return state;
       return { ...state, coordinationPlan: action.detail?.plan ?? null, coordinationSteps: action.detail?.steps ?? [],
         coordinationAttempts: action.detail?.attempts ?? [], coordinationEvents: action.detail?.events ?? [],
-        successorObligations: action.detail?.successorObligations ?? [] };
+        successorObligations: action.detail?.successorObligations ?? [],
+        evidenceBundles: action.detail?.evidenceBundles ?? [], routeGuardEvents: action.detail?.routeGuardEvents ?? [] };
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
@@ -217,6 +228,12 @@ function reducer(state: State, action: Action): State {
         case 'runtime.completion_candidate.updated':
           return state.runs.some((run) => run.id === e.candidate.runId && run.conversationId === state.activeConversationId)
             ? { ...state, completionCandidates: upsertBy(state.completionCandidates, e.candidate) } : state;
+        case 'runtime.evidence_bundle.updated':
+          return state.runs.some((run) => run.id === e.bundle.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, evidenceBundles: upsertBy(state.evidenceBundles, e.bundle) } : state;
+        case 'runtime.route_guard.updated':
+          return state.runs.some((run) => run.id === e.event.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, routeGuardEvents: upsertBy(state.routeGuardEvents, e.event) } : state;
         case 'runtime.successor_obligation.updated':
           return state.runs.some((run) => run.id === e.obligation.runId && run.conversationId === state.activeConversationId)
             ? { ...state, successorObligations: upsertBy(state.successorObligations, e.obligation) } : state;

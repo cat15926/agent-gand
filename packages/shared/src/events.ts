@@ -13,7 +13,7 @@ import type { ApprovalRequest } from './approval.ts';
 import type { Conversation } from './conversation.ts';
 import type { CollaborationAttempt, CollaborationBatch, CollaborationDispatch, CollaborationUserDecision } from './collaboration.ts';
 import type { CoordinationStepState } from './coordination.ts';
-import type { RuntimeCompletionCandidate, RuntimeSuccessorObligation } from './runtime.ts';
+import type { RuntimeCompletionCandidate, RuntimeEvidenceBundle, RuntimeRouteGuardEvent, RuntimeSuccessorObligation } from './runtime.ts';
 
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
@@ -29,6 +29,8 @@ export type ServerEvent =
   | { type: 'collaboration.batch.updated'; batch: CollaborationBatch }
   | { type: 'collaboration.decision.updated'; decision: CollaborationUserDecision }
   | { type: 'runtime.completion_candidate.updated'; candidate: RuntimeCompletionCandidate }
+  | { type: 'runtime.evidence_bundle.updated'; bundle: RuntimeEvidenceBundle }
+  | { type: 'runtime.route_guard.updated'; event: RuntimeRouteGuardEvent }
   | { type: 'runtime.successor_obligation.updated'; obligation: RuntimeSuccessorObligation }
   | { type: 'collaboration.scheduler.updated'; conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number }
   | { type: 'coordination.step.updated'; step: CoordinationStepState }

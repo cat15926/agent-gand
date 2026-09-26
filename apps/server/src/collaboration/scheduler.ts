@@ -6,10 +6,11 @@ import type {
   Run,
   RuntimeCompletionCandidate,
   RuntimeControlAction,
+  RuntimeRouteGuardEvent,
   RuntimeSubjectCompletionEvaluation,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
-import { afterCommit, tx } from '../db/database.ts';
+import { afterCommit, get, tx } from '../db/database.ts';
 import { listByConversation, listByRun, post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { endSpan, finishRun, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE, type AgentTurnResult } from '../orchestration/agentStep.ts';
@@ -68,6 +69,8 @@ import {
   renewCollaborationLeases,
 } from './store.ts';
 import { emit } from '../messaging/bus.ts';
+import { listToolExecutions } from '../tools/executions.ts';
+import { persistRouteGuardEvent, recordEvidenceAwareRoute, runtimeEvidenceLoopGuardVersion } from '../runtime/loopGuard.ts';
 
 const leaseOwner = `server:${process.pid}:${randomUUID()}`;
 const activeConversations = new Set<string>();
@@ -75,7 +78,9 @@ const dirtyConversations = new Set<string>();
 const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 
 class CollaborationGuardError extends Error {
-  constructor(message: string, readonly code: 'depth' | 'targets' | 'ping_pong' | 'action') { super(message); }
+  constructor(message: string, readonly code: 'depth' | 'targets' | 'ping_pong' | 'action',
+    readonly preservedOutput: string | null = null,
+    readonly routeGuard: RuntimeRouteGuardEvent | null = null) { super(message); }
 }
 
 class StaleAttemptError extends Error {}
@@ -140,7 +145,8 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
       targetAgentIds: targets, completionEngine: runtimeStateEnabled && config.collaboration.completionEngine, controlActionVersion: 2,
       exitGuard: { version: 1, maxCorrections: config.collaboration.exitGuardMaxCorrections,
         correctionMaxTokens: config.collaboration.exitGuardCorrectionMaxTokens },
-      ...(runtimeStateEnabled ? { completionCandidateVersion: 1 as const, successorObligationVersion: 1 as const } : {}) });
+      ...(runtimeStateEnabled ? { completionCandidateVersion: 1 as const, successorObligationVersion: 1 as const,
+        evidenceBundleVersion: 1 as const, evidenceLoopGuardVersion: 1 as const, contextContributorVersion: 1 as const } : {}) });
     freezeRuntimeContract(planned.contract);
     const initialDispatches = targets.map((target) => createDispatch({
       runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
@@ -251,8 +257,8 @@ function exitGuardInput(input: {
     openSuccessorObligations: openSuccessorObligations(input.run.id, input.dispatch.id),
     allowImplicitAnswer,
     protocolRequiresExplicit: !allowImplicitAnswer,
-    // 阶段 2 不把“调用过工具”冒充可信证据；阶段 5 接入 EvidenceBundle 后再传真实计数。
-    evidenceCount: 0,
+    evidenceCount: listToolExecutions(input.run.id)
+      .filter((item) => item.attemptId === input.attemptId && item.status === 'completed').length,
     correctionAttempt: input.correctionAttempt,
     correctionBudgetAvailable: budgetExceeded(input.run.id) === null,
     policy: input.policy,
@@ -457,7 +463,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
           clientMessageId: `collaboration:fanout:${dispatch.id}:contribution`,
         });
         applied.outputMessageId = contribution.id;
-      } else applied = applyAction(run, dispatch, agent, effectiveOutput, action);
+      } else applied = applyAction(run, dispatch, attemptId, agent, effectiveOutput, action);
       const actionWasDeferred = action.type === 'handoff' && applied.childDispatchIds.length === 0 && applied.outputMessageId === null;
       const observe = () => {
         if (actionWasDeferred) return;
@@ -520,16 +526,28 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     }
     const blocked = err instanceof CollaborationGuardError;
     tx(() => {
+      if (blocked && err.routeGuard) persistRouteGuardEvent(err.routeGuard);
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: blocked ? 'blocked' : 'failed', error: message });
+      if (blocked && err.preservedOutput?.trim()) {
+        post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+          body: err.preservedOutput.trim(), clientMessageId: `collaboration:guard:${attemptId}:preserved-output`,
+          meta: { dispatchId: dispatch.id, attemptId, guard: err.code,
+            ...(err.routeGuard ? { routeGuardEventId: err.routeGuard.id,
+              evidenceFingerprint: err.routeGuard.evidenceFingerprint, repeatedCount: err.routeGuard.repeatedCount } : {}) } });
+      }
       postSystem(run.id, agent.id, `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`);
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
       if (config.collaboration.runtimeAtomic) observeTerminalInterruption(dispatch.id, attemptId, agent.id);
       else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('terminal_failure', () => observeTerminalInterruption(dispatch.id, attemptId, agent.id)));
     });
-    if (controlSpan) endSpan(controlSpan, { output: message, status: 'error', attributes: blocked ? { 'collaboration.guard': err.code } : {} });
-    endSpan(agentSpan, { output: message, status: 'error' });
-    endSpan(dispatchSpan, { output: message, status: 'error', attributes: blocked ? { 'collaboration.guard': err.code } : {} });
+    const guardAttributes = blocked ? { 'collaboration.guard': err.code,
+      ...(err.routeGuard ? { 'runtime.route_guard.id': err.routeGuard.id,
+        'runtime.route_guard.repeated_count': err.routeGuard.repeatedCount,
+        'runtime.evidence.fingerprint': err.routeGuard.evidenceFingerprint } : {}) } : {};
+    if (controlSpan) endSpan(controlSpan, { output: message, status: 'error', attributes: guardAttributes });
+    endSpan(agentSpan, { output: message, status: 'error', attributes: guardAttributes });
+    endSpan(dispatchSpan, { output: message, status: 'error', attributes: guardAttributes });
   }
 }
 
@@ -572,7 +590,8 @@ function pingPongCount(runId: string, from: string, to: string): number {
   return count + 1;
 }
 
-function applyAction(run: Run, dispatch: CollaborationDispatch, agent: AgentDefinition, content: string, action: RuntimeControlAction): ActionApplicationResult {
+function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: string,
+  agent: AgentDefinition, content: string, action: RuntimeControlAction): ActionApplicationResult {
   if (action.type === 'complete' || action.type === 'answer_candidate') {
     if (config.collaboration.completionEngine && isCompletionEngineRun(run.id)) return emptyActionResult();
     const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_result',
@@ -582,12 +601,25 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, agent: AgentDefi
   }
   if (action.type === 'handoff') {
     if (!guardRoute(run, dispatch, [action.targetAgentId], action.objective)) return emptyActionResult();
-    const streak = pingPongCount(run.id, agent.id, action.targetAgentId);
     const debateRounds = requestedDebateRounds(run, action.objective);
     const pingPongBlock = debateRounds === null ? config.collaboration.pingPongBlock : Math.max(config.collaboration.pingPongBlock, debateRounds * 2 + 3);
     const pingPongWarn = debateRounds === null ? config.collaboration.pingPongWarn : Math.max(config.collaboration.pingPongWarn, debateRounds * 2 + 1);
-    if (streak >= pingPongBlock) throw new CollaborationGuardError(`检测到 ${agent.id} 与 ${action.targetAgentId} 连续往返，已阻止继续交接`, 'ping_pong');
-    if (streak >= pingPongWarn) postSystem(run.id, action.targetAgentId, '提示：检测到多次连续交接，请确认是否已有足够信息完成当前事项。');
+    const preservedOutput = content.trim() || action.objective;
+    if (runtimeEvidenceLoopGuardVersion(run.id) === 1) {
+      const subject = get<{ subject_id: string; objective: string }>(`SELECT m.subject_id,s.objective
+        FROM runtime_dispatch_subjects m JOIN runtime_subjects s ON s.id=m.subject_id WHERE m.dispatch_id=?`, dispatch.id);
+      if (!subject) throw new CollaborationGuardError('证据防循环缺少 Subject 映射', 'action', preservedOutput);
+      const guard = recordEvidenceAwareRoute({ runId: run.id, subjectId: subject.subject_id,
+        sourceDispatchId: dispatch.id, fromAgentId: agent.id, targetAgentId: action.targetAgentId,
+        objective: subject.objective, warnAt: pingPongWarn, blockAt: pingPongBlock });
+      if (guard.outcome === 'blocked') throw new CollaborationGuardError(guard.reason ?? '无新证据循环已阻断', 'ping_pong', preservedOutput, guard);
+      if (guard.outcome === 'warned') postSystem(run.id, action.targetAgentId,
+        `提示：当前 Subject 在无新证据时已往返 ${guard.repeatedCount} 次，请补充可验证证据或完成当前事项。`);
+    } else {
+      const streak = pingPongCount(run.id, agent.id, action.targetAgentId);
+      if (streak >= pingPongBlock) throw new CollaborationGuardError(`检测到 ${agent.id} 与 ${action.targetAgentId} 连续往返，已阻止继续交接`, 'ping_pong', preservedOutput);
+      if (streak >= pingPongWarn) postSystem(run.id, action.targetAgentId, '提示：检测到多次连续交接，请确认是否已有足够信息完成当前事项。');
+    }
     const message = post({ runId: run.id, from: agent.id, to: action.targetAgentId, kind: 'agent', messageType: 'collaboration_handoff',
       body: action.objective, meta: { dispatchId: dispatch.id, routeFrom: agent.id, routeTo: [action.targetAgentId], reason: action.reason } });
     const created = createDispatchDetailed({ runId: run.id, conversationId: run.conversationId, sourceMessageId: message.id, parentDispatchId: dispatch.id,

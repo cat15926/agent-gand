@@ -1,6 +1,6 @@
 # Runtime v2 责任闭环实施指导
 
-> 状态：阶段 0–4 已完成，阶段 5 待实施
+> 状态：阶段 0–5 已完成，阶段 6 待实施
 > 基线：2026-09-24，`agent-gand/main` @ `4e5ae5b`  
 > 前置成果：[Collaboration Runtime Kernel 实施方案](./collaboration-runtime-kernel-implementation-plan.md)  
 > 适用范围：Collaboration、Coordination 及后续复用公共 Runtime 的编排入口
@@ -67,7 +67,7 @@
 | 2 | ExitGuard 与同轮纠偏 | 已完成 |
 | 3 | CompletionCandidate 与 SubjectCompletionEngine | 已完成 |
 | 4 | 类型化 Successor Obligation 与 Review Loop | 已完成 |
-| 5 | EvidenceBundle、防循环和 Context Contributor | 待实施 |
+| 5 | EvidenceBundle、防循环和 Context Contributor | 已完成 |
 | 6 | Durable Hold/Wake | 待实施 |
 | 7 | Coordination 统一退出路径与旧分支收口 | 待实施 |
 
@@ -243,6 +243,8 @@ Candidate 使用版本化 Bundle 引用 Message、Attempt output、ToolExecution
 
 把当前 ContextAssembler 拆为稳定贡献者：identity、contract、custody、obligation、capsule、evidence、conversation、protocol。每段声明优先级、字符上限、敏感信息策略和 provenance。Coordination 只增加 Plan/DAG contributor，不再拥有独立上下文主流程。
 
+实施结果：新增版本化 EvidenceBundle，冻结 Message、Attempt output、ToolExecution、RunEvent 和工作区文件的解析结果与全量内容哈希，漂移后单向失效；Candidate、Capsule 和 Coordination Evidence 均引用 Bundle。handoff 防循环现按 Subject、冻结责任目标、Agent 对与实质证据 fingerprint 计数，新证据重置链路，阻断时保留 Agent 输出和 Trace。Collaboration/Coordination 已共用 Contributor Pipeline，每段持久化优先级、预算、脱敏策略和 provenance，Coordination 仅增加 Plan/DAG 段。详见 [Runtime EvidenceBundle、证据感知防循环与 Context Contributor](../architecture/runtime-evidence-context-loop-guard.md)。
+
 ## 11. 阶段 6：Durable Hold/Wake
 
 实现持久化 `hold`，支持：
@@ -355,4 +357,15 @@ Hold 必须冻结 Subject、holder/generation、唤醒条件、截止时间、�
 
 已通过 `verify:runtime-obligations`、`verify:runtime-review-obligations`、`verify:runtime-subject-completion`、`verify:runtime-completion`、`verify:runtime-completion-integration`、`verify:runtime-shadow`、`verify:runtime-atomic`、`verify:runtime-coordination-adapter`、Collaboration Atomic 端到端、Coordination execute 端到端、可靠性/UI 专项与 `typecheck`。
 
-下一阶段进入 EvidenceBundle、证据感知防循环和 Context Contributor。
+2026-09-26 完成阶段 5：
+
+- 新增 `runtime_evidence_bundles`，保存版本、owner、冻结解析、内容哈希、fingerprint 和校验时间；
+- CompletionCandidate、Handoff Capsule 和 Coordination Step Evidence 已切换到 Bundle，引用漂移使 Candidate 失效；
+- 新增证据感知 Route Guard 账本，无新实质证据的往返会警告/阻断，新 Tool/File/RunEvent 证据重置计数；
+- 阻断路由不再吞掉 Agent 已生成输出，阻断原因、链路和 fingerprint 可从账本、API 与 Trace 查看；
+- 新增公共 Context Contributor Pipeline，Collaboration 和 Coordination 统一预算、截断、脱敏、provenance 和漂移检查；
+- API、WebSocket 与右侧面板已展示 EvidenceBundle 和路由防循环状态，历史 Contract 保留兼容路径。
+
+已通过 `verify:runtime-evidence-bundles`、`verify:runtime-loop-guard`、`verify:runtime-context`、Subject/Completion/Obligation/Atomic/Shadow 回归、Collaboration Atomic 端到端、Coordination execute 端到端、可靠性/UI 专项与 `typecheck`。
+
+下一阶段进入 Durable Hold/Wake。

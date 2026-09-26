@@ -83,7 +83,11 @@ try {
   assert.equal(assembleCollaborationContext({ run: getRun(runId), dispatch: child, agent, attemptId: 'context-attempt-1' }), context);
   const record = db.get('SELECT * FROM runtime_context_assemblies WHERE attempt_id=?', 'context-attempt-1');
   assert.equal(record.char_count, context.length);
-  assert.ok(JSON.parse(record.segments).some((segment) => segment.source === 'capsule'));
+  const segments = JSON.parse(record.segments);
+  assert.ok(segments.some((segment) => segment.source === 'capsule'));
+  assert.ok(segments.every((segment) => Number.isInteger(segment.priority) && segment.maxChars > 0
+    && segment.sensitivePolicy === 'redact' && Array.isArray(segment.provenance)),
+  'Context Contributor 必须保存优先级、分段预算、敏感信息策略和 provenance');
   await writeFile(path.join(runRoot, 'proof.txt'), '已经被篡改');
   assert.equal(resolveEvidence(runId, fileRef).trusted, false);
   const changedContext = assembleCollaborationContext({ run: getRun(runId), dispatch: child, agent, attemptId: 'context-attempt-2' });

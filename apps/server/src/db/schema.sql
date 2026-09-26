@@ -189,11 +189,18 @@ CREATE TABLE IF NOT EXISTS runtime_completion_candidates (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
   subject_key TEXT NOT NULL, attempt_id TEXT NOT NULL, generation INTEGER NOT NULL,
   agent_id TEXT NOT NULL, action TEXT NOT NULL, summary TEXT NOT NULL,
-  evidence_refs TEXT NOT NULL, exit_guard_status TEXT NOT NULL,
+  evidence_refs TEXT NOT NULL, evidence_bundle_id TEXT, exit_guard_status TEXT NOT NULL,
   exit_guard_reasons TEXT NOT NULL, status TEXT NOT NULL,
   reasons TEXT NOT NULL, retryable INTEGER NOT NULL DEFAULT 0,
   feedback TEXT, idempotency_key TEXT NOT NULL UNIQUE,
   created_at TEXT NOT NULL, decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS runtime_evidence_bundles (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT,
+  owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, version INTEGER NOT NULL,
+  refs TEXT NOT NULL, resolutions TEXT NOT NULL, fingerprint TEXT NOT NULL,
+  status TEXT NOT NULL, idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL, validated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runtime_successor_obligations (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, parent_subject_id TEXT NOT NULL,
@@ -216,7 +223,14 @@ CREATE TABLE IF NOT EXISTS runtime_coordination_subjects (
 );
 CREATE TABLE IF NOT EXISTS runtime_coordination_evidence (
   subject_id TEXT NOT NULL, attempt_id TEXT NOT NULL UNIQUE,
-  refs TEXT NOT NULL, created_at TEXT NOT NULL
+  refs TEXT NOT NULL, bundle_id TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_route_guard_events (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  source_dispatch_id TEXT NOT NULL, from_agent_id TEXT NOT NULL, target_agent_id TEXT NOT NULL,
+  objective_hash TEXT NOT NULL, evidence_fingerprint TEXT NOT NULL,
+  repeated_count INTEGER NOT NULL, outcome TEXT NOT NULL, reason TEXT,
+  created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_runtime_subjects_run ON runtime_subjects(run_id, status);
 CREATE INDEX IF NOT EXISTS idx_runtime_custody_events_subject ON runtime_custody_events(subject_id, created_at);
@@ -224,10 +238,13 @@ CREATE INDEX IF NOT EXISTS idx_runtime_capsules_run ON runtime_handoff_capsules(
 CREATE INDEX IF NOT EXISTS idx_runtime_completion_run ON runtime_completion_evaluations(run_id,seq);
 CREATE INDEX IF NOT EXISTS idx_runtime_candidates_run ON runtime_completion_candidates(run_id,status,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_candidates_subject ON runtime_completion_candidates(subject_id,generation,status);
+CREATE INDEX IF NOT EXISTS idx_runtime_evidence_bundles_run ON runtime_evidence_bundles(run_id,status,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_evidence_bundles_subject ON runtime_evidence_bundles(subject_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_obligations_parent ON runtime_successor_obligations(parent_subject_id,status,generation);
 CREATE INDEX IF NOT EXISTS idx_runtime_obligations_target ON runtime_successor_obligations(target_subject_id,status,generation);
 CREATE INDEX IF NOT EXISTS idx_runtime_obligations_run ON runtime_successor_obligations(run_id,status,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_coordination_subject_plan ON runtime_coordination_subjects(plan_id,revision);
+CREATE INDEX IF NOT EXISTS idx_runtime_route_guard_chain ON runtime_route_guard_events(run_id,subject_id,created_at);
 CREATE TABLE IF NOT EXISTS capability_snapshots (
   id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL
 );

@@ -26,6 +26,12 @@ export interface RuntimeRunContract {
     completionCandidateVersion?: 1;
     /** 缺失表示历史派生义务；1 表示完成判定只读取类型化后继义务投影。 */
     successorObligationVersion?: 1;
+    /** 缺失表示直接重新解析 EvidenceRef；1 表示使用冻结 Bundle 及漂移校验。 */
+    evidenceBundleVersion?: 1;
+    /** 缺失表示次数型 ping-pong；1 表示按 Subject/目标/证据指纹防循环。 */
+    evidenceLoopGuardVersion?: 1;
+    /** 1 表示 Context 由带来源和敏感信息策略的 Contributor Pipeline 组装。 */
+    contextContributorVersion?: 1;
   };
 }
 
@@ -51,6 +57,49 @@ export type RuntimeEvidenceRef =
   | { kind: 'run_event'; id: string }
   | { kind: 'workspace_file'; path: string; sha256: string; workspaceScope?: string };
 
+export type RuntimeEvidenceBundleStatus = 'valid' | 'invalid' | 'drifted';
+export type RuntimeEvidenceBundleOwnerType = 'completion_candidate' | 'handoff_capsule' | 'coordination_step';
+
+export interface RuntimeEvidenceResolution {
+  ref: RuntimeEvidenceRef;
+  trusted: boolean;
+  source: string;
+  excerpt: string | null;
+  contentSha256: string | null;
+  reason: string | null;
+}
+
+export interface RuntimeEvidenceBundle {
+  id: string;
+  version: 1;
+  runId: string;
+  subjectId: string | null;
+  ownerType: RuntimeEvidenceBundleOwnerType;
+  ownerId: string;
+  refs: RuntimeEvidenceRef[];
+  resolutions: RuntimeEvidenceResolution[];
+  fingerprint: string;
+  status: RuntimeEvidenceBundleStatus;
+  idempotencyKey: string;
+  createdAt: string;
+  validatedAt: string;
+}
+
+export interface RuntimeRouteGuardEvent {
+  id: string;
+  runId: string;
+  subjectId: string;
+  sourceDispatchId: string;
+  fromAgentId: string;
+  targetAgentId: string;
+  objectiveHash: string;
+  evidenceFingerprint: string;
+  repeatedCount: number;
+  outcome: 'allowed' | 'warned' | 'blocked';
+  reason: string | null;
+  createdAt: string;
+}
+
 export interface RuntimeHandoffCapsule {
   version: number;
   runId: string;
@@ -64,6 +113,7 @@ export interface RuntimeHandoffCapsule {
   expectedOutput: string;
   successorObligations: string[];
   evidenceRefs: RuntimeEvidenceRef[];
+  evidenceBundleId?: string;
 }
 
 export interface RuntimeCompletionSubject {
@@ -142,6 +192,7 @@ export interface RuntimeCompletionCandidate {
   action: RuntimeControlAction;
   summary: string;
   evidenceRefs: RuntimeEvidenceRef[];
+  evidenceBundleId: string | null;
   exitGuard: { status: string; reasons: string[] };
   status: RuntimeCompletionCandidateStatus;
   reasons: string[];

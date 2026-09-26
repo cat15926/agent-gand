@@ -72,6 +72,11 @@ try {
     assert.equal(handoffDetail.data.completionCandidates[0]?.agentId, 'coder');
     assert.deepEqual(handoffDetail.data.successorObligations.map((item) => [item.kind, item.status]),
       [['handoff_acquire', 'satisfied']], 'handoff 必须在目标 claim 后满足类型化接球义务');
+    assert.deepEqual([...new Set(handoffDetail.data.evidenceBundles.map((item) => item.ownerType))].sort(),
+      ['completion_candidate', 'handoff_capsule']);
+    assert.ok(handoffDetail.data.evidenceBundles.every((item) => item.status === 'valid'));
+    assert.ok(handoffDetail.data.completionCandidates[0]?.evidenceBundleId,
+      '新版 CompletionCandidate 必须引用冻结 EvidenceBundle');
   }
   assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
   const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);

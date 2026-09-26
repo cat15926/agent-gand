@@ -26,6 +26,8 @@ import { closeCollaborationTrace, settleCollaborationRun } from '../collaboratio
 import { listCompletionEvaluations } from '../runtime/completionStore.ts';
 import { listCompletionCandidates } from '../runtime/subjectCompletion.ts';
 import { listSuccessorObligations } from '../runtime/obligations.ts';
+import { listEvidenceBundles } from '../runtime/evidence.ts';
+import { listRouteGuardEvents } from '../runtime/loopGuard.ts';
 import { getCoordinationKernelStatus } from '../runtime/coordinationAdapter.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
@@ -248,6 +250,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       events: listCoordinationEvents({ planId: plan.id }),
       completionEvaluations: listCompletionEvaluations(req.params.runId),
       successorObligations: listSuccessorObligations(req.params.runId),
+      evidenceBundles: listEvidenceBundles(req.params.runId),
+      routeGuardEvents: listRouteGuardEvents(req.params.runId),
       runtimeKernel: getCoordinationKernelStatus(req.params.runId),
     };
   });
@@ -349,6 +353,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const runs = listRunsByConversation(conversation.id).filter((item) => item.mode === 'collaboration');
     return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
       completionCandidates: listCompletionCandidates(item.id), successorObligations: listSuccessorObligations(item.id),
+      evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
       budget: budgetSnapshot(item.id) })) };
   });
   app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
@@ -474,6 +479,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { dispatches: listCollaborationDispatches(item.id), attempts, batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
       completionCandidates: listCompletionCandidates(item.id),
       successorObligations: listSuccessorObligations(item.id),
+      evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
       completionEvaluations: listCompletionEvaluations(item.id),
       activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
       budget: budgetSnapshot(item.id) };

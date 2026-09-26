@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { RuntimeHandoffCapsule } from '@agent-gand/shared';
 import { get, run, tx } from '../db/database.ts';
-import { resolveEvidence } from './evidence.ts';
+import { createEvidenceBundle, resolveEvidence, runtimeEvidenceBundleVersion } from './evidence.ts';
 
 interface CapsuleRow { version: number; payload: string; }
 
@@ -24,15 +24,22 @@ export function saveHandoffCapsule(capsule: RuntimeHandoffCapsule): RuntimeHando
     if (capsule.evidenceRefs.length > 12 || capsule.evidenceRefs.some((ref) => !resolveEvidence(capsule.runId, ref).trusted)) {
       throw new Error('Capsule 含无效、跨 Run 或未完成的证据引用');
     }
+    const subject = get<{ subject_id: string }>('SELECT subject_id FROM runtime_dispatch_subjects WHERE dispatch_id=?', capsule.dispatchId);
+    const bundle = runtimeEvidenceBundleVersion(capsule.runId) === 1
+      ? createEvidenceBundle({ runId: capsule.runId, subjectId: subject?.subject_id ?? null,
+        ownerType: 'handoff_capsule', ownerId: `${capsule.dispatchId}:v${capsule.version}`,
+        refs: capsule.evidenceRefs, idempotencyKey: `capsule-evidence:${capsule.dispatchId}:v${capsule.version}` })
+      : null;
+    const storedCapsule: RuntimeHandoffCapsule = bundle ? { ...capsule, evidenceBundleId: bundle.id } : capsule;
     const latest = get<CapsuleRow>('SELECT version,payload FROM runtime_handoff_capsules WHERE dispatch_id=? ORDER BY version DESC LIMIT 1', capsule.dispatchId);
     if (latest?.version === capsule.version) {
-      if (latest.payload !== JSON.stringify(capsule)) throw new Error('Capsule 同版本内容冲突');
-      return capsule;
+      if (latest.payload !== JSON.stringify(storedCapsule)) throw new Error('Capsule 同版本内容冲突');
+      return storedCapsule;
     }
     if (capsule.version !== (latest?.version ?? 0) + 1) throw new Error('Capsule 版本不连续');
     run('INSERT INTO runtime_handoff_capsules (id,run_id,dispatch_id,version,source_attempt_id,payload,created_at) VALUES (?,?,?,?,?,?,?)',
-      randomUUID(), capsule.runId, capsule.dispatchId, capsule.version, capsule.sourceAttemptId, JSON.stringify(capsule), new Date().toISOString());
-    return capsule;
+      randomUUID(), capsule.runId, capsule.dispatchId, capsule.version, capsule.sourceAttemptId, JSON.stringify(storedCapsule), new Date().toISOString());
+    return storedCapsule;
   });
 }
 

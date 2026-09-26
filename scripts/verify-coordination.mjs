@@ -193,6 +193,8 @@ try {
       && subject.custodyState === 'completed' && subject.holderAgentId && subject.generation >= 2 && subject.evidenceCount >= 1));
     assert.equal(singleRuntime.runtimeKernel.contextCount, 1);
     assert.equal(singleRuntime.completionEvaluations.at(-1).status, 'accepted');
+    assert.equal(singleRuntime.evidenceBundles.length, 1);
+    assert.ok(singleRuntime.evidenceBundles.every((bundle) => bundle.ownerType === 'coordination_step' && bundle.status === 'valid'));
   }
 
   const roomsBeforeDuplicate = await api('/api/conversations');
@@ -269,6 +271,8 @@ try {
     assert.ok(debateRuntime.runtimeKernel.subjects.every((subject) => subject.evidenceCount >= 1));
     assert.equal(debateRuntime.runtimeKernel.contextCount, 7);
     assert.equal(debateRuntime.completionEvaluations.at(-1).status, 'accepted');
+    assert.equal(debateRuntime.evidenceBundles.length, 7);
+    assert.ok(debateRuntime.evidenceBundles.every((bundle) => bundle.status === 'valid'));
   }
   assert.deepEqual(debateMessages.map((message) => message.payload.coordinationStepId), [
     'debate-r1-pro', 'debate-r1-con', 'debate-r2-pro', 'debate-r2-con', 'debate-r3-pro', 'debate-r3-con', 'debate-judge',

@@ -3,7 +3,7 @@ import type {
   RuntimeCompletionEvaluation, RuntimeCompletionInput, RuntimeCompletionSubject, RuntimeRunContract,
 } from '@agent-gand/shared';
 import { all, get, run } from '../db/database.ts';
-import { resolveEvidence } from './evidence.ts';
+import { resolveEvidence, runtimeEvidenceBundleVersion, validateEvidenceBundle } from './evidence.ts';
 import { normalizeRuntimeControlAction } from './controlAction.ts';
 import { requiredSuccessorObligationsSatisfied } from './obligations.ts';
 
@@ -12,7 +12,7 @@ interface SubjectRow {
   custody_state: string; holder_agent_id: string | null; pending_holder_agent_id: string | null; generation: number;
 }
 interface OutputRow { id: string; output: string | null; control_action: string | null; kind: string; agent_id: string; }
-interface CandidateOutputRow { id: string; attempt_id: string; summary: string; evidence_refs: string; agent_id: string; }
+interface CandidateOutputRow { id: string; attempt_id: string; summary: string; evidence_refs: string; evidence_bundle_id: string | null; agent_id: string; }
 interface PartialOutputRow { subject_key: string | null; dispatch_id: string; output: string; agent_id: string; }
 interface CapsuleRow { payload: string; }
 
@@ -43,7 +43,7 @@ export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null
     JOIN runtime_custody c ON c.subject_id=s.id WHERE s.run_id=? ORDER BY s.created_at,s.rowid`, runId);
   const reportParts: CompletionSnapshot['reportParts'] = [];
   const subjects = rows.map((row): RuntimeCompletionSubject => {
-    const acceptedCandidate = candidateOwned ? get<CandidateOutputRow>(`SELECT id,attempt_id,summary,evidence_refs,agent_id
+    const acceptedCandidate = candidateOwned ? get<CandidateOutputRow>(`SELECT id,attempt_id,summary,evidence_refs,evidence_bundle_id,agent_id
       FROM runtime_completion_candidates WHERE subject_id=? AND status='accepted' ORDER BY decided_at DESC,rowid DESC LIMIT 1`, row.id) : undefined;
     const outputs = candidateOwned ? [] : all<OutputRow>(`SELECT a.id,a.output,a.control_action,d.kind,a.agent_id FROM collaboration_attempts a
       JOIN collaboration_dispatches d ON d.id=a.dispatch_id
@@ -69,14 +69,17 @@ export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null
       WHERE m.subject_id=? AND hc.version=(SELECT MAX(version) FROM runtime_handoff_capsules WHERE dispatch_id=hc.dispatch_id)`, row.id);
     const candidateEvidence = acceptedCandidate
       ? JSON.parse(acceptedCandidate.evidence_refs) as Parameters<typeof resolveEvidence>[1][] : [];
+    const bundledEvidence = runtimeEvidenceBundleVersion(runId) === 1;
     const outputEvidenceValid = candidateOwned
-      ? Boolean(acceptedCandidate && finalOutput && candidateEvidence.length > 0
-        && candidateEvidence.every((ref) => resolveEvidence(runId, ref).trusted))
+      ? Boolean(acceptedCandidate && finalOutput && (bundledEvidence
+        ? acceptedCandidate.evidence_bundle_id && validateEvidenceBundle(acceptedCandidate.evidence_bundle_id, runId).valid
+        : candidateEvidence.length > 0 && candidateEvidence.every((ref) => resolveEvidence(runId, ref).trusted)))
       : Boolean(legacyOutput && resolveEvidence(runId, { kind: 'attempt_output', id: legacyOutput.id }).trusted);
     const capsuleEvidenceValid = capsules.every((capsule) => {
       try {
-        const refs = (JSON.parse(capsule.payload) as { evidenceRefs?: Parameters<typeof resolveEvidence>[1][] }).evidenceRefs ?? [];
-        return refs.every((ref) => resolveEvidence(runId, ref).trusted);
+        const value = JSON.parse(capsule.payload) as { evidenceRefs?: Parameters<typeof resolveEvidence>[1][]; evidenceBundleId?: string };
+        if (bundledEvidence) return Boolean(value.evidenceBundleId && validateEvidenceBundle(value.evidenceBundleId, runId).valid);
+        return (value.evidenceRefs ?? []).every((ref) => resolveEvidence(runId, ref).trusted);
       } catch { return false; }
     });
     return {
