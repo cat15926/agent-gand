@@ -34,7 +34,7 @@ Shadow 模式只保存判定结果，不改变旧终局；execute 模式只有 `
 
 ## 发布与回退
 
-- `COORDINATION_RUNTIME_KERNEL=off|shadow|execute`，默认 `off`；
+- `COORDINATION_RUNTIME_KERNEL=off|shadow|execute`，阶段 7 收口后默认 `execute`；
 - `COORDINATION_RUNTIME_PROTOCOLS` 控制 execute 放量协议；不在名单内的新 Run 自动进入 Shadow；
 - 推荐顺序：`single_agent,sequential_pipeline` → `parallel_fanout,supervisor_aggregation` → `review_revision` → `debate`；
 - 模式和协议结果冻结在新 Run Contract。关闭开关只停止新 Run 入场，已经入场的 Run 继续使用冻结模式完成或排空；

@@ -6,8 +6,14 @@
 import type { ApprovalDecision, ApprovalRequest, ApprovalStatus } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.ts';
-import { all, get, run } from '../db/database.ts';
+import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import {
+  cancelDurableHoldsByCondition,
+  createDurableHold,
+  recordRuntimeWakeEvent,
+  runtimeDurableHoldVersion,
+} from '../runtime/holds.ts';
 
 interface ApprovalRow {
   id: string;
@@ -59,6 +65,7 @@ export interface CreateApprovalInput {
   reason: string | null;
   idempotencyKey?: string;
   checkpointId?: string;
+  attemptId?: string;
 }
 
 /** 审批卡是否仍可复用：pending 等待中 / approved / edited 已放行；expired 与 rejected 是终态裁定，重放需发新卡 */
@@ -66,39 +73,76 @@ function usableApproval(row: ApprovalRow): boolean {
   return row.status === 'pending' || row.status === 'approved' || row.status === 'edited';
 }
 
-export function createApproval(input: CreateApprovalInput): ApprovalRequest {
-  let idempotencyKey = input.idempotencyKey ?? null;
-  if (idempotencyKey) {
-    // AG-COORD-04：同一逻辑调用的重放（暂停恢复/进程重启）复用未决或已放行的卡；
-    // 旧卡已 expired/rejected 时不得把旧裁定强加给新执行——顺延 #2/#3… 发一张新卡
-    for (let sequence = 1; ; sequence += 1) {
-      const key = sequence === 1 ? idempotencyKey : `${idempotencyKey}#${sequence}`;
-      const existing = get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', key);
-      if (!existing) { idempotencyKey = key; break; }
-      if (usableApproval(existing)) return rowToApproval(existing);
-    }
+function approvalHoldOpen(runId: string, approvalId: string): boolean {
+  return all<{ condition: string }>("SELECT condition FROM runtime_holds WHERE run_id=? AND status IN ('open','claimed')", runId)
+    .some((row) => {
+      try { const value = JSON.parse(row.condition) as { kind?: string; approvalId?: string };
+        return value.kind === 'approval' && value.approvalId === approvalId; } catch { return false; }
+    });
+}
+
+function ensureApprovalHold(approval: ApprovalRequest, attemptId?: string): void {
+  if (!attemptId || runtimeDurableHoldVersion(approval.runId) !== 1) return;
+  // 已放行卡的重放不是等待：只补 Wake 审计，不能重新创建短暂 open Hold，
+  // 否则工具完成后的 Candidate 会与后台 Hold 扫描发生竞态。
+  if (approval.status !== 'pending') {
+    recordRuntimeWakeEvent({ runId: approval.runId, kind: 'approval', sourceKey: approval.id,
+      payload: { status: approval.status }, idempotencyKey: `approval-wake:${approval.id}:${approval.status}` });
+    return;
   }
-  const approval: ApprovalRequest = {
-    id: randomUUID(),
-    runId: input.runId,
-    agentId: input.agentId,
-    toolName: input.toolName,
-    input: input.input,
-    reason: input.reason,
-    status: 'pending',
-    editedInput: null,
-    decidedBy: null,
-    decidedAt: null,
-    createdAt: new Date().toISOString(),
-  };
-  run(
-    `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at, idempotency_key, checkpoint_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
-    approval.id, approval.runId, approval.agentId, approval.toolName, approval.input, approval.reason,
-    approval.status, approval.createdAt, idempotencyKey, input.checkpointId ?? null,
-  );
-  emit({ type: 'approval.updated', approval });
-  return approval;
+  const attempt = get<{ dispatch_id: string; agent_id: string }>(
+    'SELECT dispatch_id,agent_id FROM collaboration_attempts WHERE id=? AND run_id=?', attemptId, approval.runId);
+  const coordination = attempt ? undefined : get<{ subject_id: string; holder_agent_id: string | null }>(`SELECT m.subject_id,c.holder_agent_id
+    FROM coordination_step_attempts a
+    JOIN runtime_coordination_subjects m ON m.plan_id=a.plan_id AND m.revision=a.revision AND m.step_id=a.step_id
+    JOIN runtime_custody c ON c.subject_id=m.subject_id
+    WHERE a.id=? AND a.run_id=?`, attemptId, approval.runId);
+  if (!attempt && (!coordination || !coordination.holder_agent_id)) return;
+  createDurableHold({ runId: approval.runId,
+    ...(attempt ? { sourceDispatchId: attempt.dispatch_id } : { subjectId: coordination!.subject_id }),
+    sourceAttemptId: attemptId, holderAgentId: attempt?.agent_id ?? coordination!.holder_agent_id!,
+    condition: { kind: 'approval', approvalId: approval.id }, recoveryPolicy: { kind: 'wake_run' },
+    idempotencyKey: `approval-hold:${approval.id}` });
+}
+
+export function createApproval(input: CreateApprovalInput): ApprovalRequest {
+  return tx(() => {
+    let idempotencyKey = input.idempotencyKey ?? null;
+    if (idempotencyKey) {
+      // AG-COORD-04：同一逻辑调用的重放（暂停恢复/进程重启）复用未决或已放行的卡；
+      // 旧卡已 expired/rejected 时不得把旧裁定强加给新执行——顺延 #2/#3… 发一张新卡
+      for (let sequence = 1; ; sequence += 1) {
+        const key = sequence === 1 ? idempotencyKey : `${idempotencyKey}#${sequence}`;
+        const existing = get<ApprovalRow>('SELECT * FROM approvals WHERE idempotency_key = ?', key);
+        if (!existing) { idempotencyKey = key; break; }
+        if (usableApproval(existing)) {
+          const approval = rowToApproval(existing); ensureApprovalHold(approval, input.attemptId); return approval;
+        }
+      }
+    }
+    const approval: ApprovalRequest = {
+      id: randomUUID(),
+      runId: input.runId,
+      agentId: input.agentId,
+      toolName: input.toolName,
+      input: input.input,
+      reason: input.reason,
+      status: 'pending',
+      editedInput: null,
+      decidedBy: null,
+      decidedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    run(
+      `INSERT INTO approvals (id, run_id, agent_id, tool_name, input, reason, status, edited_input, decided_by, decided_at, created_at, idempotency_key, checkpoint_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+      approval.id, approval.runId, approval.agentId, approval.toolName, approval.input, approval.reason,
+      approval.status, approval.createdAt, idempotencyKey, input.checkpointId ?? null,
+    );
+    ensureApprovalHold(approval, input.attemptId);
+    afterCommit(() => emit({ type: 'approval.updated', approval }));
+    return approval;
+  });
 }
 
 export function listApprovals(status?: string): ApprovalRequest[] {
@@ -128,31 +172,28 @@ export interface DecideInput {
 
 /** 三态决策：approve / reject / edit（edit 需给出 editedInput） */
 export function decide(id: string, input: DecideInput): ApprovalRequest {
-  const row = get<ApprovalRow>('SELECT * FROM approvals WHERE id = ?', id);
-  if (!row) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-  if (row.status !== 'pending') {
-    throw new ApprovalError(`approval 已决策过（当前 ${row.status}）`, 409);
-  }
-  if (input.decision === 'edit' && (input.editedInput === undefined || input.editedInput.length === 0)) {
-    throw new ApprovalError('decision=edit 时必须提供 editedInput', 400);
-  }
-  const status = DECISION_TO_STATUS[input.decision];
-  const now = new Date().toISOString();
-  const changes = run(
-    `UPDATE approvals
-     SET status = ?, edited_input = ?, decided_by = ?, decided_at = ?
-     WHERE id = ? AND status = 'pending'`,
-    status,
-    input.decision === 'edit' ? (input.editedInput ?? null) : null,
-    input.by,
-    now,
-    id,
-  );
-  if (changes === 0) throw new ApprovalError('approval 已被他人决策（并发冲突）', 409);
-  const approval = getApproval(id);
-  if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-  emit({ type: 'approval.updated', approval });
-  return approval;
+  return tx(() => {
+    const row = get<ApprovalRow>('SELECT * FROM approvals WHERE id = ?', id);
+    if (!row) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+    if (row.status !== 'pending') throw new ApprovalError(`approval 已决策过（当前 ${row.status}）`, 409);
+    if (input.decision === 'edit' && (input.editedInput === undefined || input.editedInput.length === 0)) {
+      throw new ApprovalError('decision=edit 时必须提供 editedInput', 400);
+    }
+    const status = DECISION_TO_STATUS[input.decision]; const now = new Date().toISOString();
+    const changes = run(`UPDATE approvals SET status=?,edited_input=?,decided_by=?,decided_at=?
+      WHERE id=? AND status='pending'`, status,
+    input.decision === 'edit' ? (input.editedInput ?? null) : null, input.by, now, id);
+    if (changes === 0) throw new ApprovalError('approval 已被他人决策（并发冲突）', 409);
+    const approval = getApproval(id);
+    if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+    if (runtimeDurableHoldVersion(approval.runId) === 1) {
+      recordRuntimeWakeEvent({ runId: approval.runId, kind: 'approval', sourceKey: approval.id,
+        payload: { status: approval.status, decidedBy: approval.decidedBy },
+        idempotencyKey: `approval-wake:${approval.id}:${approval.status}` });
+    }
+    afterCommit(() => emit({ type: 'approval.updated', approval }));
+    return approval;
+  });
 }
 
 export class ApprovalTimeoutError extends Error {
@@ -167,17 +208,19 @@ export class ApprovalTimeoutError extends Error {
  * 不得遗留 pending（真机 run 32b19e2a 实证过遗留 2 条）。并发安全：仅当仍为 pending 时生效。
  */
 function expireApproval(id: string): ApprovalRequest {
-  const now = new Date().toISOString();
-  run(
-    `UPDATE approvals SET status = 'expired', edited_input = NULL, decided_by = 'system:timeout', decided_at = ?
-     WHERE id = ? AND status = 'pending'`,
-    now,
-    id,
-  );
-  const approval = getApproval(id);
-  if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-  emit({ type: 'approval.updated', approval });
-  return approval;
+  return tx(() => {
+    const now = new Date().toISOString();
+    run(`UPDATE approvals SET status='expired',edited_input=NULL,decided_by='system:timeout',decided_at=?
+      WHERE id=? AND status='pending'`, now, id);
+    const approval = getApproval(id);
+    if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+    if (runtimeDurableHoldVersion(approval.runId) === 1) {
+      recordRuntimeWakeEvent({ runId: approval.runId, kind: 'approval', sourceKey: approval.id,
+        payload: { status: approval.status }, idempotencyKey: `approval-wake:${approval.id}:${approval.status}` });
+    }
+    afterCommit(() => emit({ type: 'approval.updated', approval }));
+    return approval;
+  });
 }
 
 /**
@@ -196,7 +239,10 @@ export function expirePendingApprovalsForRun(runId: string, decidedBy = 'system:
       row.id,
     );
     const approval = getApproval(row.id);
-    if (approval) emit({ type: 'approval.updated', approval });
+    if (approval) {
+      cancelDurableHoldsByCondition(runId, 'approval', approval.id, decidedBy);
+      emit({ type: 'approval.updated', approval });
+    }
   }
 }
 
@@ -213,8 +259,16 @@ export async function waitForDecision(
   for (;;) {
     const approval = getApproval(id);
     if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-    if (approval.status !== 'pending') return approval;
-    if (Date.now() >= deadline) return expireApproval(id);
+    if (approval.status !== 'pending') {
+      // 决策行先于 API 路由触发 Wake 扫描可见。等待对应 Hold 真正终结，避免 Agent
+      // 抢先继续并让 CompletionCandidate 被“已满足但尚未投影”的 Hold 误拒绝。
+      if (runtimeDurableHoldVersion(approval.runId) === 1 && approvalHoldOpen(approval.runId, approval.id)) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        continue;
+      }
+      return approval;
+    }
+    if (Date.now() >= deadline) { expireApproval(id); continue; }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }

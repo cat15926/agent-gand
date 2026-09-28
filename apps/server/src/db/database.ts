@@ -102,6 +102,11 @@ ensureColumns('runtime_completion_candidates', [
 ensureColumns('runtime_coordination_evidence', [
   { name: 'bundle_id', sql: 'bundle_id TEXT' },
 ]);
+ensureColumns('coordination_step_attempts', [
+  { name: 'control_action', sql: 'control_action TEXT' },
+  { name: 'exit_guard_status', sql: 'exit_guard_status TEXT' },
+  { name: 'exit_guard_reasons', sql: 'exit_guard_reasons TEXT' },
+]);
 db.exec("CREATE INDEX IF NOT EXISTS idx_collab_dispatch_dedupe ON collaboration_dispatches(run_id,parent_dispatch_id,target_agent_id,content_hash,status)");
 db.exec(`CREATE TABLE IF NOT EXISTS agent_versions (
   agent_id TEXT NOT NULL, version INTEGER NOT NULL, definition TEXT NOT NULL,

@@ -19,7 +19,7 @@ import { recoverPendingConversationRuns } from './conversations/dispatcher.ts';
 import { closeMcp, refreshMcpTools } from './tools/mcp/client.ts';
 import { interruptExpiredAttempts } from './collaboration/store.ts';
 import { recoverCollaborationRuns, sweepCollaborationLeases } from './collaboration/scheduler.ts';
-import { recoverDurableRuns } from './runs/recovery.ts';
+import { recoverDurableHolds, recoverDurableRuns } from './runs/recovery.ts';
 import { recoverInterruptedCoordinationSteps } from './coordination/store.ts';
 
 const app = Fastify({ logger: { level: config.logLevel } });
@@ -41,6 +41,7 @@ interruptExpiredAttempts({ onlyExpired: true });
 recoverInterruptedTasks();
 recoverInterruptedCoordinationSteps();
 recoverPendingConversationRuns();
+recoverDurableHolds();
 recoverCollaborationRuns();
 recoverDurableRuns();
 
@@ -48,10 +49,13 @@ await app.listen({ port: config.port, host: '0.0.0.0' });
 app.log.info(`agent-gand server 就绪: http://localhost:${config.port}（agents=${agents.length}）`);
 const collaborationLeaseTimer = setInterval(sweepCollaborationLeases, Math.max(1_000, Math.floor(config.collaboration.attemptLeaseMs / 3)));
 collaborationLeaseTimer.unref();
+const durableHoldTimer = setInterval(recoverDurableHolds, 1_000);
+durableHoldTimer.unref();
 
 // graceful 退出
 async function shutdown(signal: string): Promise<void> {
   clearInterval(collaborationLeaseTimer);
+  clearInterval(durableHoldTimer);
   app.log.info(`收到 ${signal}，正在关闭…`);
   await app.close();
   await closeMcp();

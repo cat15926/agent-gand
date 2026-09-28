@@ -32,6 +32,8 @@ export interface RuntimeRunContract {
     evidenceLoopGuardVersion?: 1;
     /** 1 表示 Context 由带来源和敏感信息策略的 Contributor Pipeline 组装。 */
     contextContributorVersion?: 1;
+    /** 缺失表示历史直接恢复路径；1 表示等待和唤醒必须经过持久化 Hold/Wake。 */
+    durableHoldVersion?: 1;
   };
 }
 
@@ -97,6 +99,58 @@ export interface RuntimeRouteGuardEvent {
   repeatedCount: number;
   outcome: 'allowed' | 'warned' | 'blocked';
   reason: string | null;
+  createdAt: string;
+}
+
+export type RuntimeDurableHoldStatus = 'open' | 'claimed' | 'resumed' | 'cancelled' | 'failed';
+export type RuntimeWakeEventKind = 'user_decision' | 'approval' | 'timer' | 'event' | 'dependency' | 'lease_recovery';
+
+export type RuntimeDurableHoldCondition =
+  | { kind: 'user_decision'; decisionId: string }
+  | { kind: 'approval'; approvalId: string }
+  | { kind: 'timer'; wakeAt: string }
+  | { kind: 'event'; eventKey: string }
+  | { kind: 'dependency'; subjectIds: string[]; policy: 'all' | 'any' }
+  | { kind: 'lease_recovery'; attemptId: string; leaseExpiredAt: string };
+
+export type RuntimeDurableHoldRecoveryPolicy =
+  | { kind: 'resume_dispatch'; targetAgentId: string; sourceMessageId: string; parentDispatchId: string; depth: number; reason: string }
+  | { kind: 'wake_run' }
+  | { kind: 'requeue_dispatch'; dispatchId: string };
+
+export interface RuntimeDurableHold {
+  id: string;
+  version: 1;
+  runId: string;
+  subjectId: string;
+  sourceDispatchId: string | null;
+  sourceAttemptId: string | null;
+  holderAgentId: string;
+  generation: number;
+  condition: RuntimeDurableHoldCondition;
+  deadlineAt: string | null;
+  recoveryPolicy: RuntimeDurableHoldRecoveryPolicy;
+  status: RuntimeDurableHoldStatus;
+  idempotencyKey: string;
+  claimOwner: string | null;
+  claimToken: string | null;
+  claimExpiresAt: string | null;
+  wakeEventId: string | null;
+  resumedDispatchId: string | null;
+  resolution: Record<string, unknown> | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface RuntimeWakeEvent {
+  id: string;
+  runId: string;
+  kind: RuntimeWakeEventKind;
+  sourceKey: string;
+  payload: Record<string, unknown>;
+  idempotencyKey: string;
   createdAt: string;
 }
 

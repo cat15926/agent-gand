@@ -13,7 +13,14 @@ import type { ApprovalRequest } from './approval.ts';
 import type { Conversation } from './conversation.ts';
 import type { CollaborationAttempt, CollaborationBatch, CollaborationDispatch, CollaborationUserDecision } from './collaboration.ts';
 import type { CoordinationStepState } from './coordination.ts';
-import type { RuntimeCompletionCandidate, RuntimeEvidenceBundle, RuntimeRouteGuardEvent, RuntimeSuccessorObligation } from './runtime.ts';
+import type {
+  RuntimeCompletionCandidate,
+  RuntimeDurableHold,
+  RuntimeEvidenceBundle,
+  RuntimeRouteGuardEvent,
+  RuntimeSuccessorObligation,
+  RuntimeWakeEvent,
+} from './runtime.ts';
 
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
@@ -31,6 +38,8 @@ export type ServerEvent =
   | { type: 'runtime.completion_candidate.updated'; candidate: RuntimeCompletionCandidate }
   | { type: 'runtime.evidence_bundle.updated'; bundle: RuntimeEvidenceBundle }
   | { type: 'runtime.route_guard.updated'; event: RuntimeRouteGuardEvent }
+  | { type: 'runtime.hold.updated'; hold: RuntimeDurableHold }
+  | { type: 'runtime.wake_event.recorded'; wakeEvent: RuntimeWakeEvent }
   | { type: 'runtime.successor_obligation.updated'; obligation: RuntimeSuccessorObligation }
   | { type: 'collaboration.scheduler.updated'; conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number }
   | { type: 'coordination.step.updated'; step: CoordinationStepState }

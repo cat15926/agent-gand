@@ -23,9 +23,11 @@ import type {
   CollaborationDispatch,
   CollaborationUserDecision,
   RuntimeCompletionCandidate,
+  RuntimeDurableHold,
   RuntimeEvidenceBundle,
   RuntimeRouteGuardEvent,
   RuntimeSuccessorObligation,
+  RuntimeWakeEvent,
   CapabilitySnapshot,
   CoordinationEvent,
   CoordinationPlan,
@@ -85,9 +87,12 @@ export interface CoordinationRunDetail {
   steps: CoordinationStepState[];
   attempts: CoordinationStepAttempt[];
   events: CoordinationEvent[];
+  completionCandidates?: RuntimeCompletionCandidate[];
   successorObligations?: RuntimeSuccessorObligation[];
   evidenceBundles?: RuntimeEvidenceBundle[];
   routeGuardEvents?: RuntimeRouteGuardEvent[];
+  durableHolds?: RuntimeDurableHold[];
+  wakeEvents?: RuntimeWakeEvent[];
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
@@ -125,6 +130,8 @@ export interface CollaborationRunDetail {
   successorObligations: RuntimeSuccessorObligation[];
   evidenceBundles: RuntimeEvidenceBundle[];
   routeGuardEvents: RuntimeRouteGuardEvent[];
+  durableHolds: RuntimeDurableHold[];
+  wakeEvents: RuntimeWakeEvent[];
   budget: CollaborationBudgetSnapshot;
   activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
 }

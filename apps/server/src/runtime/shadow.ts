@@ -228,6 +228,20 @@ export function observeAggregateLink(sourceDispatchId: string, aggregateDispatch
   });
 }
 
+/** Wake 恢复沿用原 Subject，并冻结 Hold 创建时的 generation，拒绝迟到唤醒。 */
+export function observeWakeLink(sourceDispatchId: string, resumeDispatchId: string,
+  holdId: string, expectedGeneration: number): void {
+  tx(() => {
+    const subject = subjectForDispatch(sourceDispatchId);
+    if (!subject) throw new CustodyConflictError(`Hold ${holdId} 的来源 Dispatch 缺少 Subject`);
+    const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
+    if (!custody || custody.state !== 'waiting' || custody.generation !== expectedGeneration) {
+      throw new CustodyConflictError(`Hold ${holdId} 的责任代际已失效`);
+    }
+    linkDispatch(resumeDispatchId, subject.id, expectedGeneration);
+  });
+}
+
 export function observeTechnicalBlock(dispatchId: string, attemptId: string, agentId: string): void {
   tx(() => {
     const subject = subjectForDispatch(dispatchId); if (!subject) return;

@@ -10,6 +10,8 @@ import { cancelQueuedRun, createBudgetRevision, createDispatch, getDecision, res
 import { closeCollaborationTrace, finalizeCollaborationRun, kickCollaboration } from './scheduler.ts';
 import { observeAggregateLink, safelyObserve } from '../runtime/shadow.ts';
 import { isCompletionEngineRun } from '../runtime/completionStore.ts';
+import { recordRuntimeWakeEvent, runtimeDurableHoldVersion } from '../runtime/holds.ts';
+import { recoverDurableHolds } from '../runs/recovery.ts';
 
 export class CollaborationDecisionError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -50,9 +52,13 @@ function recordDecisionTrace(sourceRun: Run, decisionId: string, kind: string, i
 
 export function resolveCollaborationDecision(id: string, input: ResolveCollaborationDecision) {
   const initial = assertPending(id);
-  if (initial.status !== 'pending') return { decision: initial, linkedRun: initial.linkedRunId ? getRun(initial.linkedRunId) : null };
+  if (initial.status !== 'pending') {
+    recoverDurableHolds(initial.runId);
+    return { decision: initial, linkedRun: initial.linkedRunId ? getRun(initial.linkedRunId) : null };
+  }
   const sourceRun = getRun(initial.runId);
   if (!sourceRun) throw new CollaborationDecisionError('关联 Run 不存在', 404);
+  const durableHold = runtimeDurableHoldVersion(sourceRun.id) === 1;
 
   if (initial.kind === 'agent_question' && input.action === 'answer') {
     const message = input.message.trim(); if (!message) throw new CollaborationDecisionError('回复内容不能为空');
@@ -62,13 +68,19 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       const current = assertPending(id); if (current.status !== 'pending') return current;
       const userMessage = post({ runId: sourceRun.id, from: 'user', to: agentId, kind: 'user', body: message,
         replyTo: current.promptMessageId, messageType: 'informational', deliveryStatus: 'processing' });
-      const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
-        parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
-        reason: '用户回答协作问题', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:answer`, dedupeText: message });
-      linkResume(current.dispatchId, resume.id);
+      if (!durableHold) {
+        const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
+          parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
+          reason: '用户回答协作问题', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:answer`, dedupeText: message });
+        linkResume(current.dispatchId, resume.id);
+      }
       const resolved = resolveDecision(current.id, 'accepted', { action: input.action, messageId: userMessage.id })!;
-      setRunStatus(sourceRun.id, 'running'); return resolved;
+      if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
+        payload: { action: input.action, messageId: userMessage.id }, idempotencyKey: `decision-wake:${current.id}` });
+      else setRunStatus(sourceRun.id, 'running');
+      return resolved;
     });
+    if (durableHold) recoverDurableHolds(sourceRun.id);
     recordDecisionTrace(sourceRun, id, initial.kind, input, { status: result.status });
     touchConversation(sourceRun.conversationId); kickCollaboration(sourceRun.conversationId);
     return { decision: result, linkedRun: null };
@@ -122,13 +134,19 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       const current = assertPending(id); if (current.status !== 'pending') return current;
       const userMessage = post({ runId: sourceRun.id, from: 'user', to: agentId, kind: 'user', body: reason,
         replyTo: current.promptMessageId, deliveryStatus: 'processing' });
-      const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
-        parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
-        reason: '用户拒绝正式任务提议', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:reject`, dedupeText: reason });
-      linkResume(current.dispatchId, resume.id);
+      if (!durableHold) {
+        const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
+          parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
+          reason: '用户拒绝正式任务提议', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:reject`, dedupeText: reason });
+        linkResume(current.dispatchId, resume.id);
+      }
       const done = resolveDecision(current.id, 'rejected', { action: input.action, reason, messageId: userMessage.id })!;
-      setRunStatus(sourceRun.id, 'running'); return done;
+      if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
+        payload: { action: input.action, messageId: userMessage.id }, idempotencyKey: `decision-wake:${current.id}` });
+      else setRunStatus(sourceRun.id, 'running');
+      return done;
     });
+    if (durableHold) recoverDurableHolds(sourceRun.id);
     recordDecisionTrace(sourceRun, id, initial.kind, input, { status: resolved.status });
     touchConversation(sourceRun.conversationId); kickCollaboration(sourceRun.conversationId);
     return { decision: resolved, linkedRun: null };
@@ -147,6 +165,8 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       const created = createRun(goal, 'supervisor', input.agentIds, sourceRun.workspace ?? null, input.supervisorId,
         sourceRun.conversationId, nextTurnNo(sourceRun.conversationId), input.defaultReviewerId ?? null);
       resolveDecision(current.id, 'accepted', { action: input.action, supervisorId: input.supervisorId, agentIds: input.agentIds }, created.id);
+      if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
+        payload: { action: input.action, linkedRunId: created.id }, idempotencyKey: `decision-wake:${current.id}` });
       if (!completionOwned) finishRun(sourceRun.id, 'completed'); return created;
     });
     if (!linked) throw new CollaborationDecisionError('关联 Supervisor Run 创建失败', 409);

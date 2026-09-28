@@ -28,6 +28,7 @@ import { listByRun } from '../messaging/inbox.ts';
 import { listTasks } from '../messaging/tasks.ts';
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
+import { cancelDurableHolds } from '../runtime/holds.ts';
 
 interface RunRow {
   id: string;
@@ -380,6 +381,7 @@ export function markSpanFirstToken(spanId: string): RunEvent | undefined {
 
 export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): void {
   run('UPDATE runs SET status = ?, finished_at = ? WHERE id = ?', status, new Date().toISOString(), runId);
+  cancelDurableHolds(runId, `run_${status}`);
   const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
   if (row) emit({ type: 'run.updated', run: rowToRun(row) });
 }

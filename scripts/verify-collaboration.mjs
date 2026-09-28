@@ -257,12 +257,19 @@ try {
   let waitingDetail = await api(`/api/runs/${waiting.data.run.id}/collaboration`);
   const question = waitingDetail.data.decisions.find((item) => item.kind === 'agent_question' && item.status === 'pending');
   assert.ok(question);
+  if (completionEngine) assert.ok(waitingDetail.data.durableHolds.some((item) => item.condition.kind === 'user_decision'
+    && item.condition.decisionId === question.id && item.status === 'open'), '用户问题必须形成持久化 Hold');
   const answered = await api(`/api/collaboration/decisions/${question.id}/resolve`, 'POST', { action: 'answer', message: '请按兼容方案继续' });
   assert.equal(answered.status, 200, JSON.stringify(answered.data));
   await waitRun(waiting.data.run.id, ['completed']);
   waitingDetail = await api(`/api/runs/${waiting.data.run.id}/collaboration`);
   assert.equal(waitingDetail.data.decisions.find((item) => item.id === question.id).status, 'accepted');
   assert.ok(waitingDetail.data.dispatches.some((item) => item.kind === 'resume'));
+  if (completionEngine) {
+    assert.ok(waitingDetail.data.durableHolds.some((item) => item.condition.kind === 'user_decision'
+      && item.condition.decisionId === question.id && item.status === 'resumed'));
+    assert.ok(waitingDetail.data.wakeEvents.some((item) => item.kind === 'user_decision' && item.sourceKey === question.id));
+  }
 
   const budgetRun = await api(`/api/conversations/${multi.data.conversation.id}/messages`, 'POST', {
     body: '[collab:ask:coder,reviewer] 请并行检查', recipientIds: ['planner'], clientMessageId: crypto.randomUUID(),
@@ -316,6 +323,8 @@ try {
   assert.equal(stopped.data.status, 'cancelled');
   const stoppedDetail = await api(`/api/runs/${stoppable.data.run.id}/collaboration`);
   assert.ok(stoppedDetail.data.dispatches.every((item) => !['queued', 'running'].includes(item.status)));
+  if (completionEngine) assert.ok(stoppedDetail.data.durableHolds.every((item) => item.status === 'cancelled'),
+    'Stop 必须关闭全部开放 Hold');
 
   console.log('collaboration verification passed');
 } finally {

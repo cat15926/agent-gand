@@ -552,6 +552,7 @@ async function gateToolCall(
           : `agent「${agent.id}」权限模式为 confirm，且 ${tool.name} 不在其工具白名单（非只读类工具，§8.3）`,
       idempotencyKey: `approval:${executionKey}`,
       checkpointId: checkpoint.id,
+      attemptId: opts.attemptId,
     });
     saveCheckpoint({ runId: run.id, kind: 'approval', phase: 'waiting_tool_approval', status: approval.status === 'pending' ? 'waiting' : 'active',
       waitingOn: approval.id, state: { approvalId: approval.id, executionScopeId: opts.executionScopeId ?? null,

@@ -1,4 +1,5 @@
 import type { AgentCapability, PermissionMode } from './agent.ts';
+import type { RuntimeControlAction } from './collaboration.ts';
 import type { RunMode } from './run.ts';
 
 export type CoordinationProtocolId =
@@ -262,6 +263,10 @@ export interface CoordinationStepAttempt {
   idempotencyKey: string;
   input: string | null;
   output: string | null;
+  /** 阶段 7：Coordination 输出进入公共内核前冻结的规范控制动作。 */
+  controlAction: RuntimeControlAction | null;
+  /** 公共 ExitGuard 的最终判定；历史 Attempt 没有该字段。 */
+  exitGuard: { status: string; reasons: string[] } | null;
   error: string | null;
   spanId: string | null;
   createdAt: string;

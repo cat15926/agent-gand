@@ -193,8 +193,12 @@ try {
       && subject.custodyState === 'completed' && subject.holderAgentId && subject.generation >= 2 && subject.evidenceCount >= 1));
     assert.equal(singleRuntime.runtimeKernel.contextCount, 1);
     assert.equal(singleRuntime.completionEvaluations.at(-1).status, 'accepted');
-    assert.equal(singleRuntime.evidenceBundles.length, 1);
-    assert.ok(singleRuntime.evidenceBundles.every((bundle) => bundle.ownerType === 'coordination_step' && bundle.status === 'valid'));
+    assert.equal(singleRuntime.completionCandidates.length, 1);
+    assert.ok(singleRuntime.completionCandidates.every((candidate) => candidate.status === 'accepted'
+      && candidate.action.type === 'complete' && candidate.exitGuard.status === 'allow_candidate'));
+    assert.equal(singleRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'coordination_step').length, 1);
+    assert.equal(singleRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'completion_candidate').length, 1);
+    assert.ok(singleRuntime.evidenceBundles.every((bundle) => bundle.status === 'valid'));
   }
 
   const roomsBeforeDuplicate = await api('/api/conversations');
@@ -271,7 +275,9 @@ try {
     assert.ok(debateRuntime.runtimeKernel.subjects.every((subject) => subject.evidenceCount >= 1));
     assert.equal(debateRuntime.runtimeKernel.contextCount, 7);
     assert.equal(debateRuntime.completionEvaluations.at(-1).status, 'accepted');
-    assert.equal(debateRuntime.evidenceBundles.length, 7);
+    assert.equal(debateRuntime.completionCandidates.length, 7);
+    assert.equal(debateRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'coordination_step').length, 7);
+    assert.equal(debateRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'completion_candidate').length, 7);
     assert.ok(debateRuntime.evidenceBundles.every((bundle) => bundle.status === 'valid'));
   }
   assert.deepEqual(debateMessages.map((message) => message.payload.coordinationStepId), [
@@ -593,8 +599,13 @@ try {
   const resume = await api(`/api/runs/${pauseStarted.run.id}/coordination/resume`, 'POST');
   assert.ok([200, 201].includes(resume.status), JSON.stringify(resume.data));
   const resumedFinal = await approveUntilDone(pauseStarted.run.id);
-  assert.equal(resumedFinal.data.run.status, 'completed', '恢复后应能跑完整个计划');
   const resumedRuntime = await coordination(pauseStarted.run.id);
+  assert.equal(resumedFinal.data.run.status, 'completed', `恢复后应能跑完整个计划：${JSON.stringify({
+    steps: resumedRuntime.steps.map((step) => [step.stepId, step.status, step.error]),
+    attempts: resumedRuntime.attempts.map((attempt) => [attempt.stepId, attempt.status, attempt.error]),
+    candidates: resumedRuntime.completionCandidates.map((candidate) => [candidate.subjectKey, candidate.status, candidate.reasons]),
+    holds: resumedRuntime.durableHolds.map((hold) => [hold.status, hold.condition, hold.idempotencyKey, hold.lastError]),
+  })}`);
   assert.ok(resumedRuntime.events.some((event) => event.kind === 'plan_resumed'));
   assert.equal(attemptsFor(resumedRuntime, 'debate-r1-pro').length, 1, '恢复必须复用暂停的 attempt，不得烧新 attempt');
   // 取消路径：再造一次暂停后直接取消 → run 终态 cancelled

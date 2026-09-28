@@ -232,6 +232,21 @@ CREATE TABLE IF NOT EXISTS runtime_route_guard_events (
   repeated_count INTEGER NOT NULL, outcome TEXT NOT NULL, reason TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runtime_holds (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  source_dispatch_id TEXT, source_attempt_id TEXT, holder_agent_id TEXT NOT NULL,
+  generation INTEGER NOT NULL, version INTEGER NOT NULL, condition TEXT NOT NULL,
+  deadline_at TEXT, recovery_policy TEXT NOT NULL, status TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE, claim_owner TEXT, claim_token TEXT,
+  claim_expires_at TEXT, wake_event_id TEXT, resumed_dispatch_id TEXT,
+  resolution TEXT, last_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS runtime_wake_events (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, kind TEXT NOT NULL,
+  source_key TEXT NOT NULL, payload TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_runtime_subjects_run ON runtime_subjects(run_id, status);
 CREATE INDEX IF NOT EXISTS idx_runtime_custody_events_subject ON runtime_custody_events(subject_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_capsules_run ON runtime_handoff_capsules(run_id,dispatch_id,version);
@@ -245,6 +260,9 @@ CREATE INDEX IF NOT EXISTS idx_runtime_obligations_target ON runtime_successor_o
 CREATE INDEX IF NOT EXISTS idx_runtime_obligations_run ON runtime_successor_obligations(run_id,status,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_coordination_subject_plan ON runtime_coordination_subjects(plan_id,revision);
 CREATE INDEX IF NOT EXISTS idx_runtime_route_guard_chain ON runtime_route_guard_events(run_id,subject_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_holds_run ON runtime_holds(run_id,status,deadline_at,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_holds_subject ON runtime_holds(subject_id,status,generation);
+CREATE INDEX IF NOT EXISTS idx_runtime_wake_events_match ON runtime_wake_events(run_id,kind,source_key,created_at);
 CREATE TABLE IF NOT EXISTS capability_snapshots (
   id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL
 );
@@ -277,7 +295,8 @@ CREATE TABLE IF NOT EXISTS coordination_step_states (
 CREATE TABLE IF NOT EXISTS coordination_step_attempts (
   id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, run_id TEXT NOT NULL, revision INTEGER NOT NULL,
   step_id TEXT NOT NULL, attempt_no INTEGER NOT NULL, status TEXT NOT NULL,
-  idempotency_key TEXT NOT NULL UNIQUE, input TEXT, output TEXT, error TEXT, span_id TEXT,
+  idempotency_key TEXT NOT NULL UNIQUE, input TEXT, output TEXT, control_action TEXT,
+  exit_guard_status TEXT, exit_guard_reasons TEXT, error TEXT, span_id TEXT,
   created_at TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
   UNIQUE(plan_id, revision, step_id, attempt_no)
 );

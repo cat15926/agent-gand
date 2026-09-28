@@ -9,6 +9,7 @@ import type {
   CoordinationPlanStep,
   CoordinationStepAttempt,
   CoordinationStepState,
+  RuntimeControlAction,
 } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
@@ -19,6 +20,7 @@ import {
   observeCoordinationFailure,
   observeCoordinationPause,
   observeCoordinationRevision,
+  submitCoordinationStepCompletion,
 } from '../runtime/coordinationAdapter.ts';
 
 interface PayloadRow { payload: string }
@@ -32,7 +34,7 @@ interface EventRow {
   created_at: string;
 }
 interface StepStateRow { plan_id: string; run_id: string; revision: number; step_id: string; status: CoordinationStepState['status']; attempt_no: number; output: string | null; error: string | null; started_at: string | null; completed_at: string | null; updated_at: string }
-interface StepAttemptRow { id: string; plan_id: string; run_id: string; revision: number; step_id: string; attempt_no: number; status: CoordinationStepAttempt['status']; idempotency_key: string; input: string | null; output: string | null; error: string | null; span_id: string | null; created_at: string; started_at: string; ended_at: string | null }
+interface StepAttemptRow { id: string; plan_id: string; run_id: string; revision: number; step_id: string; attempt_no: number; status: CoordinationStepAttempt['status']; idempotency_key: string; input: string | null; output: string | null; control_action: string | null; exit_guard_status: string | null; exit_guard_reasons: string | null; error: string | null; span_id: string | null; created_at: string; started_at: string; ended_at: string | null }
 
 function parse<T>(row: PayloadRow | undefined): T | undefined {
   return row ? JSON.parse(row.payload) as T : undefined;
@@ -54,7 +56,11 @@ const mapStepState = (row: StepStateRow): CoordinationStepState => ({
 const mapStepAttempt = (row: StepAttemptRow): CoordinationStepAttempt => ({
   id: row.id, planId: row.plan_id, runId: row.run_id, revision: row.revision, stepId: row.step_id,
   attemptNo: row.attempt_no, status: row.status, idempotencyKey: row.idempotency_key, input: row.input,
-  output: row.output, error: row.error, spanId: row.span_id, createdAt: row.created_at,
+  output: row.output,
+  controlAction: row.control_action ? JSON.parse(row.control_action) as RuntimeControlAction : null,
+  exitGuard: row.exit_guard_status ? { status: row.exit_guard_status,
+    reasons: row.exit_guard_reasons ? JSON.parse(row.exit_guard_reasons) as string[] : [] } : null,
+  error: row.error, spanId: row.span_id, createdAt: row.created_at,
   startedAt: row.started_at, endedAt: row.ended_at,
 });
 
@@ -181,7 +187,7 @@ export function claimCoordinationStep(plan: CoordinationPlan, step: Coordination
     const now = new Date().toISOString();
     let attempt: StepAttemptRow;
     if (reusable) {
-      run("UPDATE coordination_step_attempts SET status='running',output=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", now, reusable.id);
+      run("UPDATE coordination_step_attempts SET status='running',output=NULL,control_action=NULL,exit_guard_status=NULL,exit_guard_reasons=NULL,error=NULL,span_id=NULL,started_at=?,ended_at=NULL WHERE id=?", now, reusable.id);
       attempt = get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', reusable.id)!;
     } else {
       const id = randomUUID();
@@ -208,18 +214,40 @@ export function setCoordinationAttemptInput(attemptId: string, input: string): v
   run('UPDATE coordination_step_attempts SET input=? WHERE id=?', input, attemptId);
 }
 
-export function completeCoordinationStep(plan: CoordinationPlan, stepId: string, attemptId: string, output: string): CoordinationStepState {
-  const row = tx(() => {
+export function completeCoordinationStep(plan: CoordinationPlan, stepId: string, attemptId: string, output: string,
+  action: RuntimeControlAction): { state: CoordinationStepState; accepted: boolean; feedback: string | null } {
+  const result = tx(() => {
     const now = new Date().toISOString();
-    run("UPDATE coordination_step_attempts SET status='completed',output=?,error=NULL,ended_at=? WHERE id=?", output, now, attemptId);
     const step = plan.steps.find((item) => item.id === stepId);
-    if (step) observeCoordinationComplete(plan, step, attemptId);
-    run("UPDATE coordination_step_states SET status='completed',output=?,error=NULL,completed_at=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", output, now, now, plan.id, plan.revision, stepId);
-    return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!;
+    if (!step) throw new Error(`Coordination Step 不存在：${stepId}`);
+    run('UPDATE coordination_step_attempts SET output=?,control_action=? WHERE id=? AND status=\'running\'',
+      output, JSON.stringify(action), attemptId);
+    const decision = step.agentId ? submitCoordinationStepCompletion({ plan, step, attemptId, output, action,
+      retryAllowed: get<StepAttemptRow>('SELECT * FROM coordination_step_attempts WHERE id=?', attemptId)!.attempt_no < step.maxAttempts }) : null;
+    const evaluation = decision?.evaluation ?? null;
+    const guard = decision?.exitGuard ?? { status: 'allow_candidate', reasons: ['COORDINATION_GATE'] };
+    if (!evaluation || evaluation.status === 'accepted') {
+      run("UPDATE coordination_step_attempts SET status='completed',output=?,control_action=?,exit_guard_status=?,exit_guard_reasons=?,error=NULL,ended_at=? WHERE id=?",
+        output, JSON.stringify(action), guard.status, JSON.stringify(guard.reasons), now, attemptId);
+      observeCoordinationComplete(plan, step, attemptId);
+      run("UPDATE coordination_step_states SET status='completed',output=?,error=NULL,completed_at=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?",
+        output, now, now, plan.id, plan.revision, stepId);
+      return { row: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!, accepted: true, feedback: null };
+    }
+    const feedback = evaluation.feedback;
+    const retry = evaluation.retryable;
+    run("UPDATE coordination_step_attempts SET status='failed',output=?,control_action=?,exit_guard_status=?,exit_guard_reasons=?,error=?,ended_at=? WHERE id=?",
+      output, JSON.stringify(action), guard.status, JSON.stringify(guard.reasons), feedback, now, attemptId);
+    observeCoordinationFailure(plan, step, attemptId, retry);
+    run('UPDATE coordination_step_states SET status=?,output=?,error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?',
+      retry ? 'ready' : 'failed', output, feedback, now, plan.id, plan.revision, stepId);
+    return { row: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!, accepted: false, feedback };
   });
-  const state = emitStep(row);
-  recordCoordinationEvent({ kind: 'step_completed', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId, attemptNo: state.attemptNo } });
-  return state;
+  const state = emitStep(result.row);
+  recordCoordinationEvent({ kind: result.accepted ? 'step_completed' : state.status === 'ready' ? 'step_retry_scheduled' : 'step_failed',
+    draftId: plan.draftId, planId: plan.id, runId: plan.runId,
+    payload: { stepId, attemptNo: state.attemptNo, ...(result.feedback ? { error: result.feedback } : {}) } });
+  return { state, accepted: result.accepted, feedback: result.feedback };
 }
 
 export function failCoordinationStep(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string, message: string, retry: boolean): CoordinationStepState {
@@ -256,7 +284,9 @@ export function scheduleCoordinationRevision(plan: CoordinationPlan, reviewStep:
   const changed: StepStateRow[] = [];
   tx(() => {
     const now = new Date().toISOString();
-    run("UPDATE coordination_step_attempts SET status='completed',output=?,error=NULL,ended_at=? WHERE id=?", feedback, now, attemptId);
+    const action: RuntimeControlAction = { version: 2, type: 'answer_candidate' };
+    run("UPDATE coordination_step_attempts SET status='completed',output=?,control_action=?,exit_guard_status='allow_candidate',exit_guard_reasons=?,error=NULL,ended_at=? WHERE id=?",
+      feedback, JSON.stringify(action), JSON.stringify(['REVIEW_REVISION_REQUESTED']), now, attemptId);
     observeCoordinationRevision(plan, reviewStep, attemptId, targetStepIds);
     run("UPDATE coordination_step_states SET status='pending',output=?,error=NULL,completed_at=NULL,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", feedback, now, plan.id, plan.revision, reviewStep.id);
     for (const targetId of targetStepIds) run("UPDATE coordination_step_states SET status='ready',output=NULL,error=?,completed_at=NULL,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", feedback, now, plan.id, plan.revision, targetId);

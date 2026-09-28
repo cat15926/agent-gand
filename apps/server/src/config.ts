@@ -142,9 +142,9 @@ export const config = {
     autoStartThreshold: Math.min(0.99, Math.max(0.5, Number(process.env.COORDINATION_AUTO_START_THRESHOLD ?? 0.82) || 0.82)),
   },
   coordinationRuntime: {
-    /** 阶段 7：off 不记录；shadow 只对比；execute 让公共内核接管终局验收。 */
+    /** 阶段 7 已收口：默认 execute；off 不记录，shadow 只对比。环境变量仍可即时回退。 */
     kernelMode: (['shadow', 'execute'].includes(process.env.COORDINATION_RUNTIME_KERNEL ?? '')
-      ? process.env.COORDINATION_RUNTIME_KERNEL : 'off') as 'off' | 'shadow' | 'execute',
+      ? process.env.COORDINATION_RUNTIME_KERNEL : process.env.COORDINATION_RUNTIME_KERNEL === 'off' ? 'off' : 'execute') as 'off' | 'shadow' | 'execute',
     executeProtocols: (process.env.COORDINATION_RUNTIME_PROTOCOLS
       ?? 'single_agent,sequential_pipeline,parallel_fanout,supervisor_aggregation,review_revision,debate')
       .split(',').map((item) => item.trim()).filter(Boolean),

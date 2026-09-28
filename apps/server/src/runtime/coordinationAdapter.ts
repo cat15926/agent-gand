@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run, RuntimeCompletionInput,
-  RuntimeCompletionSubject, RuntimeEvidenceRef, RuntimeRunContract,
+  CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run, RuntimeCompletionCandidate,
+  RuntimeCompletionEvaluation, RuntimeCompletionInput, RuntimeCompletionSubject, RuntimeControlAction, RuntimeEvidenceRef,
+  RuntimeRunContract, RuntimeSubjectCompletionEvaluation,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { all, get, run, tx } from '../db/database.ts';
@@ -13,8 +14,11 @@ import {
   validateEvidenceBundle,
 } from './evidence.ts';
 import { assembleRuntimeContext, runtimeContextContributorVersion, type RuntimeContextContributor } from './context.ts';
-import { describeCompletionReason, evaluateCompletion } from './completion.ts';
+import { evaluateCompletion } from './completion.ts';
 import { recordCompletionEvaluation } from './completionStore.ts';
+import { evaluateExitGuard, runtimeExitGuardPolicy } from './exitGuard.ts';
+import { createDurableHold, hasOpenDurableHold, recordRuntimeWakeEvent, runtimeDurableHoldVersion } from './holds.ts';
+import { submitCompletionCandidateForSubject } from './subjectCompletion.ts';
 import {
   listOpenSuccessorObligations,
   openSuccessorObligation,
@@ -59,6 +63,11 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode): RuntimeRunContra
     requiredSubjectKeys: steps.map((step) => subjectKey(plan, step.id)),
     completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
     features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2,
+      ...(mode === 'execute' ? {
+        exitGuard: { version: 1 as const, maxCorrections: 0, correctionMaxTokens: 512 },
+        completionCandidateVersion: 1 as const,
+        durableHoldVersion: 1 as const,
+      } : {}),
       successorObligationVersion: 1, evidenceBundleVersion: 1, contextContributorVersion: 1 },
   };
 }
@@ -213,20 +222,25 @@ export function observeCoordinationClaim(plan: CoordinationPlan, step: Coordinat
   });
 }
 
-function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
-  if (!plan.runId) return;
-  const link = linkFor(plan, step.id); if (!link) return;
+function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string,
+  outputOverride?: string): { refs: RuntimeEvidenceRef[]; bundleId: string | null; valid: boolean } {
+  if (!plan.runId) return { refs: [], bundleId: null, valid: false };
+  const link = linkFor(plan, step.id); if (!link) return { refs: [], bundleId: null, valid: false };
   const refs: RuntimeEvidenceRef[] = [{ kind: 'attempt_output', id: attemptId }];
   for (const artifactPath of step.expectedArtifacts ?? []) {
     refs.push(createWorkspaceFileEvidence(plan.runId, artifactPath, plan.id.slice(0, 8)));
   }
-  if (refs.some((ref) => !resolveEvidence(plan.runId!, ref).trusted)) throw new Error(`步骤 ${step.id} 的 Runtime Evidence 无效`);
   const encoded = JSON.stringify(refs);
   const bundle = runtimeEvidenceBundleVersion(plan.runId) === 1
     ? createEvidenceBundle({ runId: plan.runId, subjectId: link.subject_id,
       ownerType: 'coordination_step', ownerId: attemptId, refs,
-      idempotencyKey: `coordination-evidence:${attemptId}` })
+      idempotencyKey: `coordination-evidence:${attemptId}`,
+      ...(outputOverride === undefined ? {} : {
+        contentOverrides: { [`attempt_output:${attemptId}`]: outputOverride },
+      }) })
     : null;
+  const valid = bundle ? bundle.status === 'valid' : refs.every((ref) => resolveEvidence(plan.runId!, ref).trusted);
+  if (!valid) throw new Error(`步骤 ${step.id} 的 Runtime Evidence 无效`);
   const existing = get<{ refs: string; bundle_id: string | null }>('SELECT refs,bundle_id FROM runtime_coordination_evidence WHERE attempt_id=?', attemptId);
   if (existing && existing.refs !== encoded) throw new Error(`Attempt ${attemptId} 的 Evidence 发生漂移`);
   if (existing && existing.bundle_id !== (bundle?.id ?? null)) throw new Error(`Attempt ${attemptId} 的 EvidenceBundle 发生漂移`);
@@ -237,6 +251,7 @@ function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemp
       resolutionSourceId: `coord:artifact:${attemptId}`,
       resolution: { attemptId, evidenceRefs: refs, evidenceBundleId: bundle?.id ?? null } });
   }
+  return { refs, bundleId: bundle?.id ?? null, valid };
 }
 
 function settleReviewRevisionObligations(plan: CoordinationPlan, reviewStep: CoordinationPlanStep, attemptId: string): void {
@@ -283,6 +298,73 @@ export function observeCoordinationComplete(plan: CoordinationPlan, step: Coordi
   });
 }
 
+function coordinationReviewAccepted(step: CoordinationPlanStep, output: string): boolean {
+  if (step.protocol !== 'review_revision' || step.type !== 'review') return true;
+  try {
+    const fenced = /```(?:json)?\s*([\s\S]*?)```/u.exec(output.trim());
+    return (JSON.parse((fenced?.[1] ?? output).trim()) as { verdict?: string }).verdict === 'PASS';
+  } catch { return false; }
+}
+
+/**
+ * 阶段 7 execute 路径：Coordination Step 不再直接完成，而是和 Collaboration
+ * 共用 ExitGuard、CompletionCandidate 持久化及 SubjectCompletionEngine。
+ */
+export function submitCoordinationStepCompletion(input: {
+  plan: CoordinationPlan;
+  step: CoordinationPlanStep;
+  attemptId: string;
+  output: string;
+  action: RuntimeControlAction;
+  retryAllowed: boolean;
+}): { candidate: RuntimeCompletionCandidate | null; evaluation: RuntimeSubjectCompletionEvaluation | null;
+  exitGuard: { status: string; reasons: string[] } | null } {
+  const { plan, step, attemptId, output, action } = input;
+  if (!plan.runId || coordinationKernelMode(plan.runId) !== 'execute') {
+    return { candidate: null, evaluation: null, exitGuard: null };
+  }
+  const link = linkFor(plan, step.id);
+  if (!link || !step.agentId) throw new Error(`步骤 ${step.id} 缺少 Runtime Subject 或 Agent`);
+  const attempt = get<{ status: 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled'; error: string | null }>(
+    'SELECT status,error FROM coordination_step_attempts WHERE id=? AND run_id=?', attemptId, plan.runId);
+  const custody = get<{ state: string; holder_agent_id: string | null; pending_holder_agent_id: string | null; generation: number }>(
+    'SELECT state,holder_agent_id,pending_holder_agent_id,generation FROM runtime_custody WHERE subject_id=?', link.subject_id);
+  const subject = get<{ subject_key: string; status: RuntimeCompletionSubject['status'] }>(
+    'SELECT subject_key,status FROM runtime_subjects WHERE id=? AND run_id=?', link.subject_id, plan.runId);
+  if (!attempt || !custody || !subject) throw new Error(`步骤 ${step.id} 缺少 Candidate 上下文`);
+
+  settleReviewRevisionObligations(plan, step, attemptId);
+  const evidence = saveEvidence(plan, step, attemptId, output);
+  const openSuccessors = listOpenSuccessorObligations({ parentSubjectId: link.subject_id }).filter((item) => item.required).length;
+  const policy = runtimeExitGuardPolicy(plan.runId);
+  if (!policy) throw new Error('Coordination execute Run 缺少 ExitGuard 契约');
+  const guard = evaluateExitGuard({ stopReason: 'normal', action, output,
+    hasActiveCustody: custody.state === 'owned', holderMatches: custody.holder_agent_id === step.agentId,
+    openSuccessorObligations: openSuccessors, allowImplicitAnswer: false, protocolRequiresExplicit: true,
+    evidenceCount: evidence.refs.length, correctionAttempt: 0, correctionBudgetAvailable: false, policy });
+  const states = all<{ step_id: string; status: string }>(
+    'SELECT step_id,status FROM coordination_step_states WHERE plan_id=? AND revision=?', plan.id, plan.revision);
+  const stateById = new Map(states.map((item) => [item.step_id, item.status]));
+  const claim = get<{ generation: number }>(`SELECT generation FROM runtime_custody_events
+    WHERE subject_id=? AND (source_event_id=? OR source_event_id LIKE ?) ORDER BY generation DESC LIMIT 1`,
+  link.subject_id, `coord:claim:${attemptId}`, `coord:reclaim:${attemptId}:%`);
+  const decision = submitCompletionCandidateForSubject({ runId: plan.runId, attemptId,
+    agentId: step.agentId, action, summary: output, evidenceRefs: evidence.refs,
+    exitGuard: { status: guard.status, reasons: guard.reasons },
+    idempotencyKey: `coordination-completion:${attemptId}`, retryAllowed: input.retryAllowed }, {
+    subjectId: link.subject_id, subjectKey: subject.subject_key, subjectStatus: subject.status,
+    custodyState: custody.state, holderAgentId: custody.holder_agent_id,
+    pendingHolderAgentId: custody.pending_holder_agent_id, currentGeneration: custody.generation,
+    attemptGeneration: claim?.generation ?? null, attemptStatus: attempt.status,
+    attemptAgentId: step.agentId, attemptError: attempt.error, leaseValid: attempt.status === 'running' || attempt.status === 'completed',
+    openSuccessorObligations: openSuccessors, durableHoldOpen: hasOpenDurableHold(plan.runId, link.subject_id),
+    dependenciesSatisfied: step.dependsOn.every((id) => stateById.get(id) === 'completed'),
+    requiredArtifactsSatisfied: evidence.valid,
+    reviewAccepted: coordinationReviewAccepted(step, output), protocolTerminal: true,
+  });
+  return { ...decision, exitGuard: { status: guard.status, reasons: guard.reasons } };
+}
+
 export function observeCoordinationFailure(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string, retry: boolean): void {
   if (!step.agentId) return;
   observe(plan, retry ? 'retry' : 'failure', () => transition(plan, step.id, `coord:${retry ? 'retry' : 'fail'}:${attemptId}`,
@@ -292,6 +374,29 @@ export function observeCoordinationFailure(plan: CoordinationPlan, step: Coordin
 export function observeCoordinationPause(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
   if (!step.agentId) return;
   observe(plan, 'pause', () => transition(plan, step.id, `coord:pause:${attemptId}`, 'custody.waiting_user', 'waiting', step.agentId, { attemptId }));
+}
+
+export function createCoordinationResumeHold(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
+  if (!plan.runId || !step.agentId || runtimeDurableHoldVersion(plan.runId) !== 1) return;
+  const link = linkFor(plan, step.id); if (!link) return;
+  createDurableHold({ runId: plan.runId, subjectId: link.subject_id, sourceAttemptId: attemptId,
+    holderAgentId: step.agentId, condition: { kind: 'event', eventKey: `coordination:resume:${plan.runId}` },
+    recoveryPolicy: { kind: 'wake_run' }, idempotencyKey: `coordination-resume-hold:${attemptId}` });
+}
+
+/** 返回 true 表示恢复请求已进入公共 Wake 账本，应由 recoverDurableHolds 接管。 */
+export function signalCoordinationKernelResume(runId: string): boolean {
+  if (runtimeDurableHoldVersion(runId) !== 1) return false;
+  const eventKey = `coordination:resume:${runId}`;
+  const open = all<{ condition: string }>("SELECT condition FROM runtime_holds WHERE run_id=? AND status IN ('open','claimed')", runId)
+    .some((row) => {
+      try { const value = JSON.parse(row.condition) as { kind?: string; eventKey?: string };
+        return value.kind === 'event' && value.eventKey === eventKey; } catch { return false; }
+    });
+  if (!open) return false;
+  recordRuntimeWakeEvent({ runId, kind: 'event', sourceKey: eventKey,
+    payload: { requestedBy: 'user' }, idempotencyKey: `coordination-resume-wake:${runId}` });
+  return true;
 }
 
 export function observeCoordinationRevision(plan: CoordinationPlan, reviewStep: CoordinationPlanStep,
@@ -452,10 +557,13 @@ export function evaluateCoordinationKernel(plan: CoordinationPlan, states: Coord
   return { mode, evaluation, input: completionInput };
 }
 
-export function assertCoordinationKernelCompletion(plan: CoordinationPlan, states: CoordinationStepState[]): void {
+/**
+ * Coordination Plan 唯一终局裁决入口。Shadow/历史 Run 只记录对比，不改变旧语义；
+ * execute Run 必须消费公共 Completion Engine 的明确裁决后才能写 Run 终态。
+ */
+export function finalizeCoordinationKernelPlan(plan: CoordinationPlan,
+  states: CoordinationStepState[]): RuntimeCompletionEvaluation {
   const result = evaluateCoordinationKernel(plan, states);
-  if (!result || result.mode === 'shadow') return;
-  if (result.evaluation.status !== 'accepted') {
-    throw new Error(`Completion Engine 拒绝 Coordination 终局：${result.evaluation.reasons.map(describeCompletionReason).join('；')}`);
-  }
+  if (!result || result.mode === 'shadow') return { status: 'accepted', reasons: [], disposition: 'normal' };
+  return result.evaluation;
 }

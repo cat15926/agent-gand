@@ -25,6 +25,7 @@ import {
   openUserDecisionObligations,
   resolveUserDecisionObligations,
 } from '../runtime/obligations.ts';
+import { createDurableHold, runtimeDurableHoldVersion } from '../runtime/holds.ts';
 
 interface DispatchRow {
   id: string; run_id: string; conversation_id: string; source_message_id: string;
@@ -130,7 +131,7 @@ export function createDispatchDetailed(input: CreateDispatchInput): CreateDispat
     input.batchId ?? null, input.kind, input.from, input.targetAgentId, input.reason ?? null,
     input.priority ?? 'normal', input.depth, input.idempotencyKey, contentHash, now);
   const value = toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id)!);
-  emit({ type: 'collaboration.dispatch.updated', dispatch: value });
+  afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: value }));
   return { dispatch: value, created: true, deduplicatedTo: null };
 }
 
@@ -473,6 +474,13 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
         if (config.collaboration.runtimeAtomic) observe();
         else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('terminal_interruption', observe));
       } else {
+        if (runtimeDurableHoldVersion(item.run_id) === 1) {
+          createDurableHold({ runId: item.run_id, sourceDispatchId: item.dispatch_id, sourceAttemptId: item.id,
+            holderAgentId: item.agent_id,
+            condition: { kind: 'lease_recovery', attemptId: item.id, leaseExpiredAt: item.lease_expires_at ?? now },
+            recoveryPolicy: { kind: 'requeue_dispatch', dispatchId: item.dispatch_id },
+            idempotencyKey: `lease-hold:${item.id}` });
+        }
         run("UPDATE collaboration_dispatches SET status='queued',started_at=NULL WHERE id=? AND status='running'", item.dispatch_id);
       }
     });

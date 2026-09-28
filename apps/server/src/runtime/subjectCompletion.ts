@@ -17,6 +17,7 @@ import {
 } from './evidence.ts';
 import { observeCompletionCandidateDecision } from './shadow.ts';
 import { countUnsatisfiedRequiredObligations, successorObligationVersion } from './obligations.ts';
+import { hasOpenDurableHold, runtimeDurableHoldVersion } from './holds.ts';
 
 interface CandidateRow {
   id: string; run_id: string; subject_id: string; subject_key: string; attempt_id: string; generation: number;
@@ -121,7 +122,36 @@ export interface SubmitCompletionCandidateInput {
   retryAllowed?: boolean;
 }
 
-export function submitCompletionCandidate(input: SubmitCompletionCandidateInput): {
+export interface RuntimeCompletionCandidateContext {
+  subjectId: string;
+  subjectKey: string;
+  subjectStatus: RuntimeSubjectCompletionInput['subjectStatus'];
+  custodyState: string;
+  holderAgentId: string | null;
+  pendingHolderAgentId: string | null;
+  currentGeneration: number;
+  attemptGeneration: number | null;
+  attemptStatus: RuntimeSubjectCompletionInput['attemptStatus'];
+  attemptAgentId: string;
+  attemptError: string | null;
+  leaseValid: boolean;
+  openSuccessorObligations: number;
+  durableHoldOpen: boolean;
+  dependenciesSatisfied: boolean;
+  requiredArtifactsSatisfied: boolean;
+  reviewAccepted: boolean;
+  protocolTerminal: boolean;
+}
+
+/**
+ * 公共 SubjectCompletionEngine 提交入口。调用者只负责提供已经冻结的
+ * Attempt/Subject/Custody 快照；Candidate、EvidenceBundle、判定和事件同事务提交。
+ */
+export function submitCompletionCandidateForSubject(
+  input: Omit<SubmitCompletionCandidateInput, 'dispatchId'>,
+  context: RuntimeCompletionCandidateContext,
+  onDecision?: (candidate: RuntimeCompletionCandidate, evaluation: RuntimeSubjectCompletionEvaluation) => void,
+): {
   candidate: RuntimeCompletionCandidate;
   evaluation: RuntimeSubjectCompletionEvaluation;
 } {
@@ -142,19 +172,9 @@ export function submitCompletionCandidate(input: SubmitCompletionCandidateInput)
             feedback: candidate.feedback ?? '完成候选未通过验收。' };
       return { candidate, evaluation };
     }
-    const context = get<CandidateContextRow>(`SELECT s.id subject_id,s.subject_key,s.status subject_status,
-      c.state custody_state,c.holder_agent_id,c.pending_holder_agent_id,c.generation,
-      a.status attempt_status,a.agent_id attempt_agent_id,a.error attempt_error,a.lease_expires_at,a.dispatch_id,
-      (SELECT ce.generation FROM runtime_custody_events ce WHERE ce.source_event_id='claim:' || a.id) attempt_generation
-      FROM collaboration_attempts a
-      JOIN runtime_dispatch_subjects m ON m.dispatch_id=a.dispatch_id
-      JOIN runtime_subjects s ON s.id=m.subject_id
-      JOIN runtime_custody c ON c.subject_id=s.id
-      WHERE a.id=? AND a.run_id=? AND a.dispatch_id=?`, input.attemptId, input.runId, input.dispatchId);
-    if (!context) throw new Error('CompletionCandidate 缺少 Attempt/Subject/Custody 上下文');
     const id = randomUUID(); const now = new Date().toISOString();
     const evidenceBundle = runtimeEvidenceBundleVersion(input.runId) === 1
-      ? createEvidenceBundle({ runId: input.runId, subjectId: context.subject_id,
+      ? createEvidenceBundle({ runId: input.runId, subjectId: context.subjectId,
         ownerType: 'completion_candidate', ownerId: id, refs: input.evidenceRefs,
         idempotencyKey: `completion-evidence:${idempotencyKey}`,
         contentOverrides: { [`attempt_output:${input.attemptId}`]: input.summary.trim() } })
@@ -163,42 +183,38 @@ export function submitCompletionCandidate(input: SubmitCompletionCandidateInput)
       (id,run_id,subject_id,subject_key,attempt_id,generation,agent_id,action,summary,evidence_refs,evidence_bundle_id,
        exit_guard_status,exit_guard_reasons,status,reasons,retryable,feedback,idempotency_key,created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','[]',0,NULL,?,?)`,
-    id, input.runId, context.subject_id, context.subject_key, input.attemptId,
-    context.attempt_generation ?? context.generation, input.agentId,
+    id, input.runId, context.subjectId, context.subjectKey, input.attemptId,
+    context.attemptGeneration ?? context.currentGeneration, input.agentId,
     JSON.stringify(input.action), input.summary.trim(), JSON.stringify(input.evidenceRefs), evidenceBundle?.id ?? null, input.exitGuard.status,
     JSON.stringify(input.exitGuard.reasons), idempotencyKey, now);
     const candidate = toCandidate(get<CandidateRow>('SELECT * FROM runtime_completion_candidates WHERE id=?', id)!);
-    const openSuccessors = successorObligationVersion(input.runId) === 1
-      ? countUnsatisfiedRequiredObligations(context.subject_id)
-      : get<{ n: number }>(`SELECT COUNT(*) n FROM runtime_subjects
-          WHERE parent_subject_id=? AND status<>'completed'`, context.subject_id)?.n ?? 0;
-    const durableHoldOpen = Boolean(get(`SELECT 1 FROM collaboration_user_decisions
-      WHERE run_id=? AND status='pending' AND (dispatch_id=? OR dispatch_id IS NULL) LIMIT 1`, input.runId, input.dispatchId));
     const evidenceValid = evidenceBundle
       ? evidenceBundle.status === 'valid'
       : candidate.evidenceRefs.length > 0 && candidate.evidenceRefs.every((ref) => {
-        if (ref.kind === 'attempt_output' && ref.id === input.attemptId && context.attempt_status === 'running') {
+        if (ref.kind === 'attempt_output' && ref.id === input.attemptId && context.attemptStatus === 'running') {
           return candidate.summary.trim().length > 0;
         }
         return resolveEvidence(input.runId, ref).trusted;
       });
-    const leaseValid = context.attempt_status === 'completed' || (context.lease_expires_at !== null
-      && new Date(context.lease_expires_at).getTime() > Date.now());
-    const evaluation = evaluateSubjectCompletion({
+    const rawEvaluation = evaluateSubjectCompletion({
       candidate: { subjectId: candidate.subjectId, attemptId: candidate.attemptId, generation: candidate.generation,
         agentId: candidate.agentId, action: candidate.action, summary: candidate.summary,
         evidenceRefs: candidate.evidenceRefs, exitGuard: candidate.exitGuard },
-      currentSubjectId: context.subject_id, subjectStatus: context.subject_status, custodyState: context.custody_state,
-      holderAgentId: context.holder_agent_id, pendingHolderAgentId: context.pending_holder_agent_id,
-      currentGeneration: context.generation, attemptStatus: context.attempt_status, attemptAgentId: context.attempt_agent_id,
-      attemptError: context.attempt_error, leaseValid, outputPresent: candidate.summary.trim().length > 0, evidenceValid,
-      openSuccessorObligations: openSuccessors, durableHoldOpen,
-      dependenciesSatisfied: true, requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
+      currentSubjectId: context.subjectId, subjectStatus: context.subjectStatus, custodyState: context.custodyState,
+      holderAgentId: context.holderAgentId, pendingHolderAgentId: context.pendingHolderAgentId,
+      currentGeneration: context.currentGeneration, attemptStatus: context.attemptStatus, attemptAgentId: context.attemptAgentId,
+      attemptError: context.attemptError, leaseValid: context.leaseValid,
+      outputPresent: candidate.summary.trim().length > 0, evidenceValid,
+      openSuccessorObligations: context.openSuccessorObligations, durableHoldOpen: context.durableHoldOpen,
+      dependenciesSatisfied: context.dependenciesSatisfied,
+      requiredArtifactsSatisfied: context.requiredArtifactsSatisfied,
+      reviewAccepted: context.reviewAccepted, protocolTerminal: context.protocolTerminal,
     });
-    observeCompletionCandidateDecision({ candidateId: candidate.id, dispatchId: input.dispatchId,
-      attemptId: input.attemptId, subjectId: candidate.subjectId, generation: candidate.generation,
-      agentId: input.agentId, status: evaluation.status,
-      retryable: evaluation.retryable && input.retryAllowed !== false, reasons: evaluation.reasons });
+    const evaluation: RuntimeSubjectCompletionEvaluation = rawEvaluation.status === 'rejected'
+      && rawEvaluation.retryable && input.retryAllowed === false
+      ? { ...rawEvaluation, retryable: false }
+      : rawEvaluation;
+    onDecision?.(candidate, evaluation);
     const decidedAt = new Date().toISOString();
     run(`UPDATE runtime_completion_candidates SET status=?,reasons=?,retryable=?,feedback=?,decided_at=? WHERE id=? AND status='pending'`,
       evaluation.status, JSON.stringify(evaluation.reasons), evaluation.retryable ? 1 : 0, evaluation.feedback, decidedAt, candidate.id);
@@ -206,6 +222,44 @@ export function submitCompletionCandidate(input: SubmitCompletionCandidateInput)
     afterCommit(() => emit({ type: 'runtime.completion_candidate.updated', candidate: decided }));
     return { candidate: decided, evaluation };
   });
+}
+
+export function submitCompletionCandidate(input: SubmitCompletionCandidateInput): {
+  candidate: RuntimeCompletionCandidate;
+  evaluation: RuntimeSubjectCompletionEvaluation;
+} {
+  const context = get<CandidateContextRow>(`SELECT s.id subject_id,s.subject_key,s.status subject_status,
+    c.state custody_state,c.holder_agent_id,c.pending_holder_agent_id,c.generation,
+    a.status attempt_status,a.agent_id attempt_agent_id,a.error attempt_error,a.lease_expires_at,a.dispatch_id,
+    (SELECT ce.generation FROM runtime_custody_events ce WHERE ce.source_event_id='claim:' || a.id) attempt_generation
+    FROM collaboration_attempts a
+    JOIN runtime_dispatch_subjects m ON m.dispatch_id=a.dispatch_id
+    JOIN runtime_subjects s ON s.id=m.subject_id
+    JOIN runtime_custody c ON c.subject_id=s.id
+    WHERE a.id=? AND a.run_id=? AND a.dispatch_id=?`, input.attemptId, input.runId, input.dispatchId);
+  if (!context) throw new Error('CompletionCandidate 缺少 Attempt/Subject/Custody 上下文');
+  const openSuccessors = successorObligationVersion(input.runId) === 1
+    ? countUnsatisfiedRequiredObligations(context.subject_id)
+    : get<{ n: number }>(`SELECT COUNT(*) n FROM runtime_subjects
+        WHERE parent_subject_id=? AND status<>'completed'`, context.subject_id)?.n ?? 0;
+  const durableHoldOpen = runtimeDurableHoldVersion(input.runId) === 1
+    ? hasOpenDurableHold(input.runId, context.subject_id)
+    : Boolean(get(`SELECT 1 FROM collaboration_user_decisions
+      WHERE run_id=? AND status='pending' AND (dispatch_id=? OR dispatch_id IS NULL) LIMIT 1`, input.runId, input.dispatchId));
+  const leaseValid = context.attempt_status === 'completed' || (context.lease_expires_at !== null
+    && new Date(context.lease_expires_at).getTime() > Date.now());
+  return submitCompletionCandidateForSubject(input, {
+    subjectId: context.subject_id, subjectKey: context.subject_key, subjectStatus: context.subject_status,
+    custodyState: context.custody_state, holderAgentId: context.holder_agent_id,
+    pendingHolderAgentId: context.pending_holder_agent_id, currentGeneration: context.generation,
+    attemptGeneration: context.attempt_generation, attemptStatus: context.attempt_status,
+    attemptAgentId: context.attempt_agent_id, attemptError: context.attempt_error, leaseValid,
+    openSuccessorObligations: openSuccessors, durableHoldOpen,
+    dependenciesSatisfied: true, requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
+  }, (candidate, evaluation) => observeCompletionCandidateDecision({ candidateId: candidate.id,
+    dispatchId: input.dispatchId, attemptId: input.attemptId, subjectId: candidate.subjectId,
+    generation: candidate.generation, agentId: input.agentId, status: evaluation.status,
+    retryable: evaluation.retryable, reasons: evaluation.reasons }));
 }
 
 export function listCompletionCandidates(runId: string): RuntimeCompletionCandidate[] {

@@ -68,8 +68,8 @@
 | 3 | CompletionCandidate 与 SubjectCompletionEngine | 已完成 |
 | 4 | 类型化 Successor Obligation 与 Review Loop | 已完成 |
 | 5 | EvidenceBundle、防循环和 Context Contributor | 已完成 |
-| 6 | Durable Hold/Wake | 待实施 |
-| 7 | Coordination 统一退出路径与旧分支收口 | 待实施 |
+| 6 | Durable Hold/Wake | 已完成 |
+| 7 | Coordination 统一退出路径与旧分支收口 | 已完成 |
 
 阶段必须按顺序推进。后一阶段可以先补纯类型和纯函数测试，但不得在前一阶段验收前切换执行权。
 
@@ -259,6 +259,8 @@ Hold 必须冻结 Subject、holder/generation、唤醒条件、截止时间、�
 
 验收包括：重启前后唤醒、重复事件、定时器竞争、Stop 与 wake 竞态、过期 lease、审批到达及取消后迟到 wake。
 
+实施结果：新增版本化 `runtime_holds` 和幂等 `runtime_wake_events`，冻结 Subject、holder/generation、条件、deadline 与恢复策略。用户决策、工具审批和安全租约恢复已接入；Timer、Event 与 Dependency 由公共扫描器判定。Wake 使用带超时的竞争性 claim，Resume Dispatch、generation fencing 与 Hold 完成同事务提交，崩溃后可重新接管。Run 终态关闭全部开放 Hold，迟到事件只保留审计，不会重新打开 Run。详见 [Runtime Durable Hold/Wake](../architecture/runtime-durable-hold-wake.md)。
+
 ## 12. 阶段 7：Coordination 收口
 
 保留 Coordination 的规划、DAG、协议屏障、Step Attempt、Revision 和 UI 结构；收口以下重复语义：
@@ -368,4 +370,26 @@ Hold 必须冻结 Subject、holder/generation、唤醒条件、截止时间、�
 
 已通过 `verify:runtime-evidence-bundles`、`verify:runtime-loop-guard`、`verify:runtime-context`、Subject/Completion/Obligation/Atomic/Shadow 回归、Collaboration Atomic 端到端、Coordination execute 端到端、可靠性/UI 专项与 `typecheck`。
 
-下一阶段进入 Durable Hold/Wake。
+2026-09-28 完成阶段 6：
+
+- 新增 `runtime_holds` 与 `runtime_wake_events`，覆盖用户决策、审批、Timer、Event、Dependency 和 Lease Recovery；
+- Hold 冻结 Subject、holder/generation、deadline、恢复策略和幂等键，CompletionCandidate 改读开放 Hold；
+- Wake 通过 30 秒 claim 租约竞争接管，Resume Dispatch、责任代际校验和 Hold 终结原子提交；
+- 启动恢复和周期扫描会处理到期或已满足条件，claim 后崩溃可由新进程重新接管；
+- Run 完成、失败或取消时关闭全部开放 Hold，Stop/Wake 竞态和迟到事件不会重开终态；
+- API、WebSocket 与右侧面板已展示 Hold 和 WakeEvent，历史 Contract 保留原直接恢复路径。
+
+已通过 `verify:runtime-durable-holds`、`verify:runtime-atomic`、`verify:runtime-subject-completion`、`verify:p0-tools`、Collaboration Atomic 端到端、可靠性/UI 专项与 `typecheck`。
+
+2026-09-28 完成阶段 7：
+
+- Coordination Agent Step 输出统一冻结为 `RuntimeControlAction v2`，Review FAIL 以中间 AnswerCandidate 配合类型化 Revision 义务继续循环；
+- execute 协议的所有 Subject 完成统一经过 ExitGuard、CompletionCandidate、EvidenceBundle 和 SubjectCompletionEngine，接受/拒绝与 Step Attempt、Custody 投影原子提交；
+- Coordination Approval Attempt 已映射公共 Hold，审批决定等待 Wake 投影后才恢复 Agent；连续超时暂停使用 Event Hold 和幂等 Wake 恢复原 Attempt；
+- Plan 终局改为显式消费公共 Run Completion Engine 的唯一裁决，Completion Gate 不生成重复 Candidate 或第二条最终报告；
+- API/UI 已展示 Coordination Candidate、规范动作、ExitGuard、Hold/Wake 和拒绝原因；冻结的 Shadow/历史 Run 保留兼容读取器；
+- 灰度仍由协议 allowlist 控制，未列入的协议自动降级 Shadow，推荐依次放量 single/sequential、parallel、review_revision、debate。
+
+已通过 `verify:runtime-coordination-closure`、`verify:runtime-coordination-adapter`、`verify:runtime-durable-holds`、`verify:runtime-subject-completion`、Coordination execute 全协议端到端、`typecheck`、文档链接和差异格式检查。详见 [Runtime Coordination Kernel 收口](../architecture/runtime-coordination-kernel-closure.md)。
+
+Runtime v2 责任闭环阶段 0～7 已完成；后续工作进入灰度观测、真实会话验收和历史兼容清理窗口。

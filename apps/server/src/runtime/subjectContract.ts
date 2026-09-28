@@ -13,6 +13,7 @@ export function planCollaborationAdmission(input: {
   evidenceBundleVersion?: 1;
   evidenceLoopGuardVersion?: 1;
   contextContributorVersion?: 1;
+  durableHoldVersion?: 1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
   const targets = [...new Set(input.targetAgentIds)];
@@ -34,6 +35,7 @@ export function planCollaborationAdmission(input: {
         ...(input.evidenceBundleVersion ? { evidenceBundleVersion: input.evidenceBundleVersion } : {}),
         ...(input.evidenceLoopGuardVersion ? { evidenceLoopGuardVersion: input.evidenceLoopGuardVersion } : {}),
         ...(input.contextContributorVersion ? { contextContributorVersion: input.contextContributorVersion } : {}),
+        ...(input.durableHoldVersion ? { durableHoldVersion: input.durableHoldVersion } : {}),
         ...(input.completionEngine ? { completionEngine: true } : {}),
       },
     },

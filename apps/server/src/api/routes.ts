@@ -28,6 +28,7 @@ import { listCompletionCandidates } from '../runtime/subjectCompletion.ts';
 import { listSuccessorObligations } from '../runtime/obligations.ts';
 import { listEvidenceBundles } from '../runtime/evidence.ts';
 import { listRouteGuardEvents } from '../runtime/loopGuard.ts';
+import { listDurableHolds, listRuntimeWakeEvents } from '../runtime/holds.ts';
 import { getCoordinationKernelStatus } from '../runtime/coordinationAdapter.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
@@ -45,9 +46,9 @@ import {
 import { getRunObservability, getRunObservabilitySummary, getSpanDetail } from '../runs/observability.ts';
 import { listCheckpoints } from '../runs/checkpoints.ts';
 import { listToolExecutions } from '../tools/executions.ts';
-import { wakeRun } from '../runs/recovery.ts';
+import { recoverDurableHolds, wakeRun } from '../runs/recovery.ts';
 import { compileCoordinationPlan, CoordinationError, prepareCoordination, previewCoordination, reviseCoordinationPlan } from '../coordination/service.ts';
-import { cancelCoordinationRun, requestCoordinationPause, resumeCoordinationRun } from '../coordination/runtime.ts';
+import { cancelCoordinationRun, requestCoordinationPause, requestCoordinationResume, resumeCoordinationRun } from '../coordination/runtime.ts';
 import { getCapabilitySnapshot, getCoordinationDraft, getCoordinationPlan, getDraftCoordinationPlan, getRunCoordinationPlan, listCoordinationEvents, listCoordinationPlanRevisions, listCoordinationStepAttempts, listCoordinationStepStates, savePlanningResult } from '../coordination/store.ts';
 import { isStructuredFollowupGoal } from '../coordination/planner.ts';
 import { isProtocolId, listProtocols } from '../coordination/protocols.ts';
@@ -249,9 +250,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       attempts: listCoordinationStepAttempts(plan.id),
       events: listCoordinationEvents({ planId: plan.id }),
       completionEvaluations: listCompletionEvaluations(req.params.runId),
+      completionCandidates: listCompletionCandidates(req.params.runId),
       successorObligations: listSuccessorObligations(req.params.runId),
       evidenceBundles: listEvidenceBundles(req.params.runId),
       routeGuardEvents: listRouteGuardEvents(req.params.runId),
+      durableHolds: listDurableHolds(req.params.runId),
+      wakeEvents: listRuntimeWakeEvents(req.params.runId),
       runtimeKernel: getCoordinationKernelStatus(req.params.runId),
     };
   });
@@ -262,7 +266,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const plan = getRunCoordinationPlan(req.params.runId);
     if (!plan) throw httpError(404, '该 Run 没有关联 Coordination Plan');
     if (run.status !== 'waiting_for_user' || plan.status !== 'paused') throw httpError(409, '只有已暂停的运行可以恢复');
-    void resumeCoordinationRun(req.params.runId).catch(() => { /* 失败已在 execute 内落库，仅防 unhandled rejection */ });
+    if (requestCoordinationResume(req.params.runId)) recoverDurableHolds(req.params.runId);
+    else void resumeCoordinationRun(req.params.runId).catch(() => { /* 失败已在 execute 内落库，仅防 unhandled rejection */ });
     return getRun(req.params.runId);
   });
   app.post<{ Params: { runId: string } }>('/api/runs/:runId/coordination/pause', async (req, reply) => {
@@ -354,6 +359,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
       completionCandidates: listCompletionCandidates(item.id), successorObligations: listSuccessorObligations(item.id),
       evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
+      durableHolds: listDurableHolds(item.id), wakeEvents: listRuntimeWakeEvents(item.id),
       budget: budgetSnapshot(item.id) })) };
   });
   app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
@@ -480,6 +486,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       completionCandidates: listCompletionCandidates(item.id),
       successorObligations: listSuccessorObligations(item.id),
       evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
+      durableHolds: listDurableHolds(item.id), wakeEvents: listRuntimeWakeEvents(item.id),
       completionEvaluations: listCompletionEvaluations(item.id),
       activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
       budget: budgetSnapshot(item.id) };
@@ -809,6 +816,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
           editedInput: typeof editedInput === 'string' ? editedInput : undefined,
           by: typeof by === 'string' && by.length > 0 ? by : 'user',
         });
+        recoverDurableHolds(approval.runId);
         wakeRun(approval.runId);
         return approval;
       } catch (err) {

@@ -71,6 +71,7 @@ import {
 import { emit } from '../messaging/bus.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { persistRouteGuardEvent, recordEvidenceAwareRoute, runtimeEvidenceLoopGuardVersion } from '../runtime/loopGuard.ts';
+import { createDurableHold, runtimeDurableHoldVersion } from '../runtime/holds.ts';
 
 const leaseOwner = `server:${process.pid}:${randomUUID()}`;
 const activeConversations = new Set<string>();
@@ -146,7 +147,8 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
       exitGuard: { version: 1, maxCorrections: config.collaboration.exitGuardMaxCorrections,
         correctionMaxTokens: config.collaboration.exitGuardCorrectionMaxTokens },
       ...(runtimeStateEnabled ? { completionCandidateVersion: 1 as const, successorObligationVersion: 1 as const,
-        evidenceBundleVersion: 1 as const, evidenceLoopGuardVersion: 1 as const, contextContributorVersion: 1 as const } : {}) });
+        evidenceBundleVersion: 1 as const, evidenceLoopGuardVersion: 1 as const, contextContributorVersion: 1 as const,
+        durableHoldVersion: 1 as const } : {}) });
     freezeRuntimeContract(planned.contract);
     const initialDispatches = targets.map((target) => createDispatch({
       runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
@@ -475,6 +477,15 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
         }
         observeAction({ dispatchId: dispatch.id, attemptId, agentId: agent.id, action: observedAction,
           childDispatchIds: applied.childDispatchIds, batchId: applied.batchId });
+        if (observedAction.type === 'hold' && applied.decisionId && applied.outputMessageId
+          && runtimeDurableHoldVersion(run.id) === 1) {
+          createDurableHold({ runId: run.id, sourceDispatchId: dispatch.id, sourceAttemptId: attemptId,
+            holderAgentId: agent.id, condition: { kind: 'user_decision', decisionId: applied.decisionId },
+            recoveryPolicy: { kind: 'resume_dispatch', targetAgentId: agent.id,
+              sourceMessageId: applied.outputMessageId, parentDispatchId: dispatch.id,
+              depth: dispatch.depth, reason: '持久化用户决策已到达' },
+            idempotencyKey: `decision-hold:${applied.decisionId}` });
+        }
       };
       if (config.collaboration.runtimeAtomic && localCandidateDecision === null) observe();
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'completed', output, action: normalized.storedAction,

@@ -22,9 +22,11 @@ import {
 } from './store.ts';
 import {
   assembleCoordinationKernelContext,
-  assertCoordinationKernelCompletion,
   closeCoordinationKernelPlan,
+  createCoordinationResumeHold,
   evaluateCoordinationKernel,
+  finalizeCoordinationKernelPlan,
+  signalCoordinationKernelResume,
 } from '../runtime/coordinationAdapter.ts';
 import { hasRuntimeContextAssembly } from '../runtime/context.ts';
 
@@ -161,7 +163,8 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
   setCoordinationAttemptSpan(claimed.attempt.id, span.id);
   try {
     if (step.type === 'completion_gate') {
-      completeCoordinationStep(plan, step.id, claimed.attempt.id, 'completion gate passed');
+      completeCoordinationStep(plan, step.id, claimed.attempt.id, 'completion gate passed',
+        { version: 2, type: 'complete', summary: 'completion gate passed' });
       endSpan(span, { output: 'completion gate passed', status: 'ok' });
       return;
     }
@@ -198,6 +201,7 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     // AG-COORD-04：审批连续超时 → 释放步骤（不烧 attempt 失败）并上抛暂停信号，由 execute() 暂停 run
     if (turn.approvalStarved) {
       releaseCoordinationStep(plan, step, claimed.attempt.id, '审批连续超时，等待用户处理后恢复');
+      createCoordinationResumeHold(plan, step, claimed.attempt.id);
       endSpan(span, { output: '审批连续超时，步骤已暂停', status: 'ok' });
       return 'paused';
     }
@@ -234,8 +238,9 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
         throw new Error(`产物未冻结或过短（${missing.join('、')}）：必须先用 fs.write 写入完整内容`);
       }
     }
-    completeCoordinationStep(plan, step.id, claimed.attempt.id, output);
-    endSpan(span, { output, status: 'ok' });
+    const completion = completeCoordinationStep(plan, step.id, claimed.attempt.id, output,
+      { version: 2, type: 'complete', summary: output });
+    endSpan(span, { output: completion.feedback ?? output, status: completion.accepted ? 'ok' : 'error' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const retry = claimed.attempt.attemptNo < step.maxAttempts;
@@ -280,10 +285,12 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
     for (;;) {
       const currentPlan = getRunCoordinationPlan(run.id) ?? plan;
       const states = listCoordinationStepStates(currentPlan.id);
-      evaluateCoordinationKernel(currentPlan, states);
       if (states.some((state) => state.status === 'failed')) throw new Error(`Coordination Step 失败：${states.find((state) => state.status === 'failed')?.stepId}`);
       if (states.length === currentPlan.steps.length && states.every((state) => state.status === 'completed')) {
-        assertCoordinationKernelCompletion(currentPlan, states);
+        const completion = finalizeCoordinationKernelPlan(currentPlan, states);
+        if (completion.status !== 'accepted') {
+          throw new Error(`Completion Engine 拒绝 Coordination 终局：${completion.reasons.join('；')}`);
+        }
         setCoordinationPlanStatus(currentPlan.id, 'completed');
         recordCoordinationEvent({ kind: 'plan_completed', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { revision: currentPlan.revision } });
         saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'completed', status: 'completed', state: { planId: currentPlan.id, revision: currentPlan.revision } });
@@ -292,6 +299,7 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
         endSpan(root, { output: 'Coordination Plan completed', status: 'ok' });
         return;
       }
+      evaluateCoordinationKernel(currentPlan, states);
       const readyStates = prepareCoordinationReadySteps(currentPlan);
       const ready = readyStates.map((state) => currentPlan.steps.find((step) => step.id === state.stepId)).filter((step): step is CoordinationPlanStep => Boolean(step));
       if (ready.length === 0) {
@@ -352,6 +360,10 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
   }
   await execute(run, plan, contextGoal, run.goal);
   return run;
+}
+
+export function requestCoordinationResume(runId: string): boolean {
+  return signalCoordinationKernelResume(runId);
 }
 
 export function requestCoordinationPause(runId: string): Run | null {
