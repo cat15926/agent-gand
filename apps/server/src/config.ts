@@ -49,22 +49,14 @@ function firstInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-type CollaborationAdmissionProfile = 'legacy' | 'shadow' | 'atomic_compat' | 'execute';
-
-function collaborationAdmissionProfile(): CollaborationAdmissionProfile {
+function collaborationAdmissionProfile(): 'execute' {
   const explicit = process.env.COLLAB_RUNTIME_MODE;
-  if (explicit !== undefined) {
-    if (['legacy', 'shadow', 'atomic_compat', 'execute'].includes(explicit)) {
-      return explicit as CollaborationAdmissionProfile;
-    }
-    throw new Error('COLLAB_RUNTIME_MODE 必须是 legacy、shadow、atomic_compat 或 execute');
+  if (explicit !== undefined && explicit !== 'execute') {
+    throw new Error('COLLAB_RUNTIME_MODE 仅支持 execute；legacy、shadow、atomic_compat 入场已弃用');
   }
-  // 旧三开关只在新 Run 入场时映射一次；执行阶段不得再次读取它们。
-  if (process.env.COLLAB_COMPLETION_ENGINE === 'true') return 'execute';
-  if (process.env.COLLAB_RUNTIME_ATOMIC === 'true') return 'atomic_compat';
-  if (process.env.COLLAB_RUNTIME_SHADOW === 'true') return 'shadow';
-  // 阶段 5：没有显式配置时，新 Collaboration Run 由 Runtime 接管。
-  // 存量 Run 始终读取冻结 Contract，不受该默认值影响。
+  if (process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_RUNTIME_SHADOW === 'true') {
+    throw new Error('COLLAB_RUNTIME_ATOMIC/COLLAB_RUNTIME_SHADOW 已弃用；请移除旧入场开关');
+  }
   return 'execute';
 }
 
@@ -132,12 +124,6 @@ export const config = {
   collaboration: {
     /** 只决定新 Collaboration Run 的入场策略；进入 Run 后以冻结 Contract 为准。 */
     runtimeAdmissionProfile: collaborationAdmissionProfile(),
-    /** @deprecated 仅保留旧配置可见性；业务执行路径不得读取。 */
-    runtimeShadow: process.env.COLLAB_RUNTIME_SHADOW === 'true',
-    /** @deprecated 仅用于旧配置兼容映射。 */
-    runtimeAtomic: process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_COMPLETION_ENGINE === 'true',
-    /** @deprecated 仅用于旧配置兼容映射。 */
-    completionEngine: process.env.COLLAB_COMPLETION_ENGINE === 'true',
     maxDepth: Math.max(1, firstInt(process.env.COLLAB_MAX_DEPTH, 12)),
     maxDispatches: Math.max(1, firstInt(process.env.COLLAB_MAX_DISPATCHES, 20)),
     maxTargets: Math.min(3, Math.max(1, firstInt(process.env.COLLAB_MAX_TARGETS, 3))),

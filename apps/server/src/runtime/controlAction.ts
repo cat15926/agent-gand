@@ -27,6 +27,12 @@ function stringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every(nonEmpty);
 }
 
+function timestamp(value: unknown): string | null {
+  if (!nonEmpty(value)) return null;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+}
+
 function proposal(value: Record<string, unknown>): SupervisorTaskProposal | null {
   if (!nonEmpty(value.title) || !nonEmpty(value.goal) || !stringArray(value.acceptanceCriteria)
     || !stringArray(value.suggestedAssigneeIds) || !nonEmpty(value.reason)) return null;
@@ -58,7 +64,19 @@ function normalizeV2(value: Record<string, unknown>): RuntimeControlAction | nul
   }
   if (value.type === 'hold') {
     const wake = object(value.wake);
-    if (!wake || wake.kind !== 'user_decision' || !nonEmpty(value.reason)) return null;
+    if (!wake || !nonEmpty(value.reason)) return null;
+    if (wake.kind === 'timer') {
+      const wakeAt = timestamp(wake.wakeAt);
+      return wakeAt ? { version: 2, type: 'hold', wake: { kind: 'timer', wakeAt }, reason: value.reason.trim() } : null;
+    }
+    if (wake.kind === 'dependency') {
+      const timeoutAt = timestamp(wake.timeoutAt);
+      if (!stringArray(wake.targetAgentIds) || (wake.policy !== 'all' && wake.policy !== 'any') || !timeoutAt) return null;
+      return { version: 2, type: 'hold', wake: { kind: 'dependency',
+        targetAgentIds: [...new Set(wake.targetAgentIds.map((item) => item.trim()))],
+        policy: wake.policy, timeoutAt }, reason: value.reason.trim() };
+    }
+    if (wake.kind !== 'user_decision') return null;
     if (wake.decisionKind === 'agent_question' && nonEmpty(wake.prompt)) {
       return { version: 2, type: 'hold', wake: { kind: 'user_decision', decisionKind: 'agent_question', prompt: wake.prompt.trim() }, reason: value.reason.trim() };
     }
@@ -126,6 +144,11 @@ export function answerCandidateControlAction(version: RuntimeControlActionVersio
 /** 无冻结标记的历史 Run 固定解释为 v1；不受部署后默认值变化影响。 */
 export function runtimeControlActionVersion(runId: string): RuntimeControlActionVersion {
   return loadRuntimeContract(runId)?.features?.controlActionVersion === 2 ? 2 : 1;
+}
+
+/** 历史 Contract 未冻结该能力时只能使用 consult(all)。 */
+export function runtimeConsultAnyVersion(runId: string): 1 | null {
+  return loadRuntimeContract(runId)?.features?.consultAnyVersion === 1 ? 1 : null;
 }
 
 /** 只插入不覆盖，确保 Run 入场时选定的动作版本永久冻结。 */

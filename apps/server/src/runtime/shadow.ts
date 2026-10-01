@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CollaborationStoredControlAction, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus } from '@agent-gand/shared';
+import type { CollaborationStoredControlAction, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus, RuntimeSuccessorObligation } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { evaluateRequiredSubjects } from './subjectContract.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
@@ -143,14 +143,15 @@ export function observeClaim(dispatchId: string, attemptId: string, agentId: str
   });
 }
 
-export function observeAction(input: { dispatchId: string; attemptId: string; agentId: string; action: CollaborationStoredControlAction; childDispatchIds: string[]; batchId: string | null }): void {
-  tx(() => {
+export function observeAction(input: { dispatchId: string; attemptId: string; agentId: string; action: CollaborationStoredControlAction; childDispatchIds: string[]; batchId: string | null }): RuntimeSuccessorObligation[] {
+  return tx(() => {
+    const opened: RuntimeSuccessorObligation[] = [];
     const normalized = normalizeRuntimeControlAction(input.action);
     if (!normalized.ok) throw new Error(`${normalized.code}: ${normalized.reason}`);
     const action = normalized.action;
-    const subject = subjectForDispatch(input.dispatchId); if (!subject) return;
+    const subject = subjectForDispatch(input.dispatchId); if (!subject) return opened;
     const custody = get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?', subject.id);
-    if (!custody) return;
+    if (!custody) return opened;
     if (action.type === 'handoff') {
       const alreadyRequested = Boolean(get('SELECT id FROM runtime_custody_events WHERE source_event_id=?', `action:${input.attemptId}`));
       if (!alreadyRequested && (custody.state !== 'owned' || custody.holder_agent_id !== input.agentId)) throw new Error('交接发起者不是当前责任持有者');
@@ -158,9 +159,10 @@ export function observeAction(input: { dispatchId: string; attemptId: string; ag
         { childDispatchIds: input.childDispatchIds });
       for (const id of input.childDispatchIds) {
         linkDispatch(id, subject.id, generation);
-        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: subject.id,
+        const obligation = openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: subject.id,
           kind: 'handoff_acquire', sourceActionId: `action:${input.attemptId}`, stableKey: `handoff-acquire:${id}`,
           payload: { dispatchId: id, targetAgentId: action.targetAgentId, requestedGeneration: generation } });
+        if (obligation) opened.push(obligation);
       }
     } else if (action.type === 'consult') {
       const childSubjectIds: string[] = [];
@@ -170,16 +172,18 @@ export function observeAction(input: { dispatchId: string; attemptId: string; ag
           parentKey: subject.subject_key, objective: action.objective, initialHolderAgentId: target }, subject.id);
         childSubjectIds.push(child);
         linkDispatch(dispatchId, child);
-        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: child,
+        const obligation = openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id, targetSubjectId: child,
           kind: 'consult_result', sourceActionId: `action:${input.attemptId}`, stableKey: `consult-result:${dispatchId}`,
           required: action.join === 'all',
           payload: { dispatchId, batchId: input.batchId, targetAgentId: target, join: action.join } });
+        if (obligation) opened.push(obligation);
       });
       if (action.join === 'any') {
-        openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id,
+        const obligation = openSuccessorObligation({ runId: subject.run_id, parentSubjectId: subject.id,
           kind: 'consult_result', sourceActionId: `action:${input.attemptId}`,
           stableKey: `consult-join:${input.batchId}:any`,
           payload: { batchId: input.batchId, join: action.join, targetSubjectIds: childSubjectIds } });
+        if (obligation) opened.push(obligation);
       }
     } else if (action.type === 'complete' || action.type === 'answer_candidate') {
       transition(subject, `action:${input.attemptId}`, 'custody.completed', 'completed', input.agentId, null);
@@ -191,6 +195,7 @@ export function observeAction(input: { dispatchId: string; attemptId: string; ag
     } else if (action.type === 'cancel') {
       transition(subject, `action:${input.attemptId}`, 'custody.cancelled', 'cancelled', input.agentId, null);
     }
+    return opened;
   });
 }
 

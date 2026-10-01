@@ -176,24 +176,64 @@ const MOCK_TOOL_INPUTS: Record<string, string> = {
 /** 从最后一条 user 消息提取 [tool:name] 标记（演示工具链/审批门控用） */
 function extractToolCall(lastUserContent: string, tools: LlmToolSchema[] = []): LlmToolCall | null {
   const available = new Set(tools.map((tool) => tool.name));
+  const handoffTool = available.has('agent.handoff') ? 'agent.handoff'
+    : available.has('agent.send_message') ? 'agent.send_message' : null;
+  const consultTool = available.has('agent.consult') ? 'agent.consult'
+    : available.has('agent.ask_many') ? 'agent.ask_many' : null;
+  const holdTool = available.has('agent.hold') ? 'agent.hold'
+    : available.has('agent.wait_for_user') ? 'agent.wait_for_user' : null;
+  const externalWaitAvailable = tools.some((tool) => tool.name === 'agent.hold'
+    && Object.prototype.hasOwnProperty.call((tool.parameters.properties ?? {}) as Record<string, unknown>, 'delaySeconds'));
+  const consultAnyAvailable = tools.some((tool) => tool.name === 'agent.consult'
+    && Object.prototype.hasOwnProperty.call((tool.parameters.properties ?? {}) as Record<string, unknown>, 'join'));
   // [no-freeze]：验证"承诺冻结但未落盘"场景——抑制一切工具调用，只输出正文
   if (lastUserContent.includes('[no-freeze]')) return null;
   const askReturn = /\[collab:ask-return:([\w-]+):([\w,-]+)\]/.exec(lastUserContent);
-  if (askReturn?.[1] && askReturn[2] && available.has('agent.ask_many')) {
+  if (askReturn?.[1] && askReturn[2] && consultTool) {
+    const objective = `[collab:send:${askReturn[1]}] ${lastUserContent.replace(askReturn[0], '').trim()}`;
     return {
-      name: 'agent.ask_many',
+      name: consultTool,
       input: JSON.stringify({
         targets: askReturn[2].split(',').filter(Boolean),
-        question: `[collab:send:${askReturn[1]}] ${lastUserContent.replace(askReturn[0], '').trim()}`,
+        ...(consultTool === 'agent.consult' ? { objective } : { question: objective }),
         reason: 'mock 并行征询后回发',
       }),
     };
   }
   const send = /\[collab:send:([\w-]+)\]/.exec(lastUserContent);
-  if (send?.[1] && available.has('agent.send_message')) return { name: 'agent.send_message', input: JSON.stringify({ target: send[1], message: `请继续处理：${lastUserContent.replace(send[0], '').trim()}`, reason: 'mock 协作交接' }) };
+  if (send?.[1] && handoffTool) {
+    const objective = `请继续处理：${lastUserContent.replace(send[0], '').trim()}`;
+    return { name: handoffTool, input: JSON.stringify({ target: send[1],
+      ...(handoffTool === 'agent.handoff' ? { objective } : { message: objective }), reason: 'mock 协作交接' }) };
+  }
+  const askAny = /\[collab:ask-any:([\w,-]+)\]/.exec(lastUserContent);
+  if (askAny?.[1] && consultTool === 'agent.consult' && consultAnyAvailable) {
+    const objective = lastUserContent.replace(askAny[0], '').trim() || '请给出一个可直接采用的独立意见';
+    return { name: consultTool, input: JSON.stringify({ targets: askAny[1].split(',').filter(Boolean),
+      objective, reason: 'mock 首个成功结果征询', join: 'any' }) };
+  }
   const ask = /\[collab:ask:([\w,-]+)\]/.exec(lastUserContent);
-  if (ask?.[1] && available.has('agent.ask_many')) return { name: 'agent.ask_many', input: JSON.stringify({ targets: ask[1].split(',').filter(Boolean), question: lastUserContent.replace(ask[0], '').trim() || '请给出独立意见', reason: 'mock 并行征询' }) };
-  if (lastUserContent.includes('[collab:wait]') && available.has('agent.wait_for_user')) return { name: 'agent.wait_for_user', input: JSON.stringify({ question: '请确认下一步如何处理？', reason: 'mock 等待用户' }) };
+  if (ask?.[1] && consultTool) {
+    const objective = lastUserContent.replace(ask[0], '').trim() || '请给出独立意见';
+    return { name: consultTool, input: JSON.stringify({ targets: ask[1].split(',').filter(Boolean),
+      ...(consultTool === 'agent.consult' ? { objective } : { question: objective }), reason: 'mock 并行征询' }) };
+  }
+  const timerHold = /\[collab:hold-timer:(\d+)\]/u.exec(lastUserContent);
+  if (timerHold?.[1] && holdTool === 'agent.hold' && externalWaitAvailable) {
+    return { name: holdTool, input: JSON.stringify({ mode: 'timer', delaySeconds: Number(timerHold[1]),
+      reason: 'mock 定时等待' }) };
+  }
+  const dependencyHold = /\[collab:hold-dependency:([\w,-]+):(all|any):(\d+)\]/u.exec(lastUserContent);
+  if (dependencyHold?.[1] && dependencyHold[2] && dependencyHold[3]
+    && holdTool === 'agent.hold' && externalWaitAvailable) {
+    return { name: holdTool, input: JSON.stringify({ mode: 'dependency',
+      targets: dependencyHold[1].split(',').filter(Boolean), policy: dependencyHold[2],
+      timeoutSeconds: Number(dependencyHold[3]), reason: 'mock 同 Run 依赖等待' }) };
+  }
+  if (lastUserContent.includes('[collab:wait]') && holdTool) {
+    return { name: holdTool, input: JSON.stringify({ ...(holdTool === 'agent.hold' ? { mode: 'user' } : {}),
+      question: '请确认下一步如何处理？', reason: 'mock 等待用户' }) };
+  }
   const proposal = /\[collab:propose:([\w,-]+)\]/.exec(lastUserContent);
   if (proposal?.[1] && available.has('agent.propose_supervisor_task')) return { name: 'agent.propose_supervisor_task', input: JSON.stringify({ title: '正式实施任务', goal: lastUserContent.replace(proposal[0], '').trim() || '完成正式实施', acceptanceCriteria: ['实现完成并通过验证'], suggestedAssigneeIds: proposal[1].split(',').filter(Boolean), reason: 'mock 正式任务提议' }) };
   const match = /\[tool:([a-zA-Z0-9_.-]+)\]/.exec(lastUserContent);
@@ -334,16 +374,20 @@ function buildContent(model: string, goal: string): string {
 }
 
 function inferMockCollaborationToolCall(context: MockCollaborationContext | null, tools: LlmToolSchema[] = []): LlmToolCall | null {
-  if (!context || !tools.some((tool) => tool.name === 'agent.ask_many')) return null;
+  const consultTool = tools.some((tool) => tool.name === 'agent.consult') ? 'agent.consult'
+    : tools.some((tool) => tool.name === 'agent.ask_many') ? 'agent.ask_many' : null;
+  if (!context || !consultTool) return null;
   const asksForTeamStatus = /(?:(?:团队|队友|其他成员|其余成员).*(?:状态|情况|进展)|(?:状态|情况|进展).*(?:团队|队友|其他成员|其余成员))/u.test(context.message);
   if (!asksForTeamStatus) return null;
   const targets = context.memberIds.filter((id) => id !== context.agentId).slice(0, 3);
   if (targets.length === 0) return null;
   return {
-    name: 'agent.ask_many',
+    name: consultTool,
     input: JSON.stringify({
       targets,
-      question: '请分别汇报你当前的工作状态、正在处理的事项，以及是否存在阻塞。',
+      ...(consultTool === 'agent.consult'
+        ? { objective: '请分别汇报你当前的工作状态、正在处理的事项，以及是否存在阻塞。' }
+        : { question: '请分别汇报你当前的工作状态、正在处理的事项，以及是否存在阻塞。' }),
       reason: '用户要求检查团队其他成员的情况',
     }),
   };

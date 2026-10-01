@@ -56,7 +56,7 @@ AgentTurn 候选输出
 新 Run 默认最多纠偏一次。ExitGuard 返回 `continue_same_turn` 时，执行器把结构化反馈追加到原有上下文，并保存 `exit_correction` checkpoint。纠偏具备以下硬边界：
 
 1. 仍使用相同 Attempt、执行权和 `executionScopeId`；
-2. 只下发 `agent.complete/send_message/ask_many/wait_for_user/propose_supervisor_task` 控制工具；
+2. 只下发当前 Run 冻结 `toolApiVersion` 对应的控制工具；v2 为 `agent.complete/handoff/consult/hold/propose_supervisor_task`；
 3. 不下发或执行文件、Shell、HTTP 等普通工具，避免重复副作用；
 4. 单次输出 token 受冻结策略限制；
 5. 次数耗尽、预算不足或纠偏阶段请求普通工具时显式阻断；
@@ -102,5 +102,5 @@ Mock Provider 识别内部纠偏标记并把前一轮答案作为 `agent.complet
 - `pnpm verify:runtime-control-actions`
 - `pnpm verify:collaboration-exit`
 - `pnpm verify:collaboration`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_SHADOW=true pnpm verify:collaboration`
+- `pnpm verify:runtime-compatibility-retirement`
 - `pnpm typecheck`

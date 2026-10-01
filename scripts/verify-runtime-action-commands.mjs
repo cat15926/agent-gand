@@ -103,6 +103,22 @@ try {
   assert.equal(store.listBatches(consult.runId).length, 1);
   assert.equal(store.listDispatches(consult.runId).filter((item) => item.kind === 'fanout').length, 2);
 
+  const consultAny = fixture('consult-any');
+  commands.commitConsultAnyActionCommand({ runId: consultAny.runId, dispatchId: consultAny.dispatchId,
+    commandKey: `consult-any:${consultAny.runId}`, execute: () => {
+      const question = post({ runId: consultAny.runId, from: 'a', to: 'b,c', kind: 'agent',
+        messageType: 'collaboration_question', body: '首个成功即可', clientMessageId: `consult-any:${consultAny.runId}:message` });
+      const batch = store.createBatch({ runId: consultAny.runId, conversationId: consultAny.conversationId,
+        initiatorAgentId: 'a', sourceDispatchId: consultAny.dispatchId, question: '首个成功即可',
+        targetAgentIds: ['b', 'c'], joinPolicy: 'any' });
+      const children = ['b', 'c'].map((target) => store.createDispatchDetailed({ runId: consultAny.runId,
+        conversationId: consultAny.conversationId, sourceMessageId: question.id, parentDispatchId: consultAny.dispatchId,
+        batchId: batch.id, kind: 'fanout', from: 'a', targetAgentId: target, depth: 1,
+        idempotencyKey: `consult-any:${consultAny.runId}:${target}`, dedupeText: '首个成功即可' }).dispatch.id);
+      return { batchId: batch.id, children };
+    } });
+  assert.equal(store.listBatches(consultAny.runId)[0]?.joinPolicy, 'any');
+
   const wake = fixture('wake');
   commands.commitWakeActionCommand({ runId: wake.runId, dispatchId: wake.dispatchId,
     commandKey: `wake:${wake.runId}`, execute: () => {
@@ -129,6 +145,18 @@ try {
   assert.equal(db.get('SELECT COUNT(*) n FROM messages WHERE run_id=? AND client_message_id=?',
     after.runId, `action-handoff:${after.runId}:message`).n, 1);
 
+  const consultAnyBefore = fixture('consult-any-before');
+  crash('action_consult_any_before', consultAnyBefore);
+  assert.equal(commands.listRuntimeActionCommands(consultAnyBefore.runId).length, 0);
+  assert.equal(store.listBatches(consultAnyBefore.runId).length, 0);
+  assert.equal(store.listDispatches(consultAnyBefore.runId).filter((item) => item.kind === 'fanout').length, 0);
+
+  const consultAnyAfter = fixture('consult-any-after');
+  crash('action_consult_any_after', consultAnyAfter);
+  assert.equal(commands.listRuntimeActionCommands(consultAnyAfter.runId)[0]?.kind, 'consult_any');
+  assert.equal(store.listBatches(consultAnyAfter.runId)[0]?.joinPolicy, 'any');
+  assert.equal(store.listDispatches(consultAnyAfter.runId).filter((item) => item.kind === 'fanout').length, 2);
+
   const concurrent = fixture('concurrent');
   const results = await Promise.all([race(concurrent), race(concurrent), race(concurrent)]);
   assert.equal(results.filter((item) => item.committed).length, 1, '同一 handoff 命令跨进程只能提交一次');
@@ -137,8 +165,9 @@ try {
   assert.equal(db.get('SELECT COUNT(*) n FROM messages WHERE run_id=? AND client_message_id=?',
     concurrent.runId, `action-handoff:${concurrent.runId}:message`).n, 1);
 
-  const kinds = [complete, hold, consult, wake].flatMap((item) => commands.listRuntimeActionCommands(item.runId).map((entry) => entry.kind));
-  assert.deepEqual(kinds.sort(), ['complete', 'consult_all', 'hold', 'wake']);
+  const kinds = [complete, hold, consult, consultAny, wake]
+    .flatMap((item) => commands.listRuntimeActionCommands(item.runId).map((entry) => entry.kind));
+  assert.deepEqual(kinds.sort(), ['complete', 'consult_all', 'consult_any', 'hold', 'wake']);
   console.log('Runtime 公共动作命令、幂等账本、跨进程竞态与 SIGKILL 验证通过');
 } finally {
   db.closeDatabase();

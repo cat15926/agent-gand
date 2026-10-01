@@ -23,7 +23,6 @@ async function childRecovery() {
 async function parentVerification() {
   const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-durable-holds-'));
   process.env.DB_PATH = path.join(root, 'test.sqlite');
-  process.env.COLLAB_RUNTIME_ATOMIC = 'true';
   const db = await import('../apps/server/src/db/database.ts');
   const store = await import('../apps/server/src/collaboration/store.ts');
   const inbox = await import('../apps/server/src/messaging/inbox.ts');
@@ -39,7 +38,10 @@ async function parentVerification() {
       runId, label, 'collaboration', conversationId, 1, 'running', '["a"]', now);
     const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: label });
     const planned = planCollaborationAdmission({ runId, objective: label, participantIds: ['a'], targetAgentIds: ['a'],
-      controlActionVersion: 2, durableHoldVersion: 1 });
+      completionEngine: true, controlActionVersion: 2,
+      exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 },
+      completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
+      contextContributorVersion: 1, durableHoldVersion: 1 });
     const dispatch = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
       kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${runId}` });
     observeAdmission(planned.contract, planned.subjects, [dispatch.id]);

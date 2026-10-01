@@ -6,7 +6,6 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-evidence-bundle-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 
 const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
@@ -36,7 +35,9 @@ try {
   const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: '请给出有证据的结果' });
   const plan = planCollaborationAdmission({ runId, objective: '验证 EvidenceBundle', participantIds: ['a'], targetAgentIds: ['a'],
     controlActionVersion: 2, completionCandidateVersion: 1, successorObligationVersion: 1,
-    evidenceBundleVersion: 1, contextContributorVersion: 1, evidenceLoopGuardVersion: 1 });
+    evidenceBundleVersion: 1, contextContributorVersion: 1, evidenceLoopGuardVersion: 1,
+    completionEngine: true, durableHoldVersion: 1,
+    exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 } });
   const dispatch = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
     kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: 'initial' });
   observeAdmission(plan.contract, plan.subjects, [dispatch.id]);

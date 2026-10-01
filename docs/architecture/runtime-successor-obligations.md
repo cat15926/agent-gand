@@ -44,7 +44,7 @@ Agent 不能通过输出“已完成”跳过义务。Runtime 只从结构化义
 | `artifact_commit` | Coordination Plan 接纳声明产物时 | 目标 Attempt 产物和输出证据全部验证可信 |
 | `user_decision` | 预算、Agent 问题或部分结果决策建立时 | 对应决策被明确解决 |
 
-`consult join=any` 用一个必需的组汇合义务和多个非必需成员义务表达。任一成员成功时关闭组义务；单个成员失败不会提前将 `any` 汇合判为失败。
+`consult join=any` 用一个必需的组汇合义务和多个非必需成员义务表达。首个通过 SubjectCompletion 并赢得 Batch CAS 的成员关闭组义务；其他成员以明确的 `cancelled` resolution 结算。单个成员失败不会提前将 `any` 汇合判为失败，全部失败或超时才把组义务结算为 `failed`。完整语义见 [Runtime consult(any)](./runtime-consult-any.md)。
 
 ## Review Revision 代际
 
@@ -87,7 +87,6 @@ API 在 Collaboration Run、Conversation Collaboration 和 Coordination 详情�
 - `pnpm verify:runtime-subject-completion`
 - `pnpm verify:runtime-completion-integration`
 - `pnpm verify:runtime-atomic`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_ATOMIC=true pnpm verify:collaboration`
+- `pnpm verify:runtime-compatibility-retirement`
 - `COORDINATION_RUNTIME_KERNEL=execute pnpm verify:coordination`
 - `pnpm typecheck`
-

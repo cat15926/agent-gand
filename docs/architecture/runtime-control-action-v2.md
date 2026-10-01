@@ -46,10 +46,10 @@ Runtime ControlAction v2 把模型/历史数据使用的多种动作结构归一
 
 ## 边界
 
-- `agent.ask_many` 是 LLM 工具名，可以保留；它产生的 Runtime 动作是 `consult`。
+- Agent API v2 向模型暴露 `agent.handoff/consult/hold`；旧 `agent.send_message/ask_many/wait_for_user` 只用于 v1 Run 和 checkpoint 兼容解析，详见 [Runtime Agent API v2](./runtime-agent-api-v2.md)。
 - Completion Store 读取历史 Attempt 时必须先经过 Adapter。
 - Custody 观察器为重放测试兼容 v1 输入，但进入状态迁移前必须完成归一化。
-- `consult join=any` 已进入协议类型，当前 Scheduler 尚未放量，若被直接提交会显式阻断。
+- `consult join=any` 只在 Contract 冻结 `consultAnyVersion=1` 时放量，并经 accepted Candidate、Batch winner CAS 和显式 join resolution 执行；详见 [Runtime consult(any)](./runtime-consult-any.md)。
 - `cancel` 尚未暴露为 Agent 工具；Agent 直接提交时显式阻断，用户 Stop 仍走现有授权路径。
 
 ## 验收
@@ -59,7 +59,7 @@ Runtime ControlAction v2 把模型/历史数据使用的多种动作结构归一
 - `pnpm verify:runtime-completion-integration`
 - `pnpm verify:collaboration-exit`
 - `pnpm verify:collaboration`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_SHADOW=true pnpm verify:collaboration`
+- `pnpm verify:runtime-compatibility-retirement`
 - `pnpm typecheck`
 
 端到端验收额外断言：新 Run 的 handoff Attempt 保存 `version=2,type=handoff`；简单首轮普通正文保存 `answer_candidate`，动态 handoff 接手者经同轮纠偏后保存 `complete`。

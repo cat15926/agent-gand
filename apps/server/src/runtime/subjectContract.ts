@@ -22,6 +22,9 @@ export function planCollaborationAdmission(input: {
   evidenceLoopGuardVersion?: 1;
   contextContributorVersion?: 1;
   durableHoldVersion?: 1 | 2;
+  externalWaitVersion?: 1;
+  consultAnyVersion?: 1;
+  progressDigestVersion?: 1;
   executionPolicy?: RuntimeExecutionPolicyV1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
@@ -33,7 +36,8 @@ export function planCollaborationAdmission(input: {
   }));
   const hasRuntimeState = Boolean(input.completionCandidateVersion || input.successorObligationVersion
     || input.evidenceBundleVersion || input.evidenceLoopGuardVersion
-    || input.contextContributorVersion || input.durableHoldVersion);
+    || input.contextContributorVersion || input.durableHoldVersion || input.externalWaitVersion
+    || input.consultAnyVersion || input.progressDigestVersion);
   const executionPolicy = input.executionPolicy ?? executionPolicyForProfile(
     input.completionEngine ? 'execute' : hasRuntimeState ? 'atomic_compat' : 'legacy',
   );
@@ -52,6 +56,9 @@ export function planCollaborationAdmission(input: {
         ...(input.evidenceLoopGuardVersion ? { evidenceLoopGuardVersion: input.evidenceLoopGuardVersion } : {}),
         ...(input.contextContributorVersion ? { contextContributorVersion: input.contextContributorVersion } : {}),
         ...(input.durableHoldVersion ? { durableHoldVersion: input.durableHoldVersion } : {}),
+        ...(input.externalWaitVersion ? { externalWaitVersion: input.externalWaitVersion } : {}),
+        ...(input.consultAnyVersion ? { consultAnyVersion: input.consultAnyVersion } : {}),
+        ...(input.progressDigestVersion ? { progressDigestVersion: input.progressDigestVersion } : {}),
         ...(executionPolicy.authority === 'runtime' ? { completionEngine: true } : {}),
       },
     },

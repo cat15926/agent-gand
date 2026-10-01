@@ -90,7 +90,7 @@ features: {
 - `pnpm verify:runtime-completion-integration`
 - `pnpm verify:runtime-atomic`
 - `pnpm verify:runtime-shadow`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_SHADOW=true pnpm verify:collaboration`
+- `pnpm verify:runtime-compatibility-retirement`
 - `pnpm typecheck`
 
 专项矩阵覆盖 accepted、可纠正拒绝、不可重试拒绝、generation 失效、幂等重放、事务回滚、`waiting → owned` 恢复、Run Completion 绕过防护与部分接受例外。

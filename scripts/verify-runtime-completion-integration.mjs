@@ -121,10 +121,11 @@ try {
   assert.equal(inbox.listByRun(bypass.runId).filter((item) => item.messageType === 'collaboration_result').length, 0);
 
   const legacy = fixture('legacy-rollout', ['a'], false);
-  complete(store.claimNextDispatch(legacy.conversationId, 'owner'), '历史 Run 结果');
+  assert.equal(store.claimNextDispatch(legacy.conversationId, 'owner'), null,
+    '退役的 legacy Run 不再允许接球执行');
   finalizeCollaborationRun(legacy.runId);
-  assert.equal(trace.getRun(legacy.runId).status, 'completed');
-  assert.equal(getRunTerminal(legacy.runId), null, 'legacy 兼容完成不得伪造 Runtime 终局记录');
+  assert.equal(trace.getRun(legacy.runId).status, 'running', '退役 Run 不得走旧 finalization');
+  assert.equal(getRunTerminal(legacy.runId), null, '退役 Run 不得伪造 Runtime 终局记录');
   assert.deepEqual(listCompletionEvaluations(legacy.runId), []);
   console.log('Completion Engine 持久化、all-required 与单次发布验证通过');
 } finally {

@@ -95,6 +95,8 @@ export interface AgentTurnOptions {
   displayKind?: 'message' | 'review_protocol';
   /** Collaboration 等编排器注入的服务端控制工具，不进入普通权限白名单。 */
   controlTools?: LlmToolSchema[];
+  /** 仅用于恢复旧 checkpoint 的控制工具别名；不会出现在发给模型的 tools 中。 */
+  controlToolAliases?: string[];
   handleControlCalls?: (calls: LlmToolCall[]) => CollaborationStoredControlAction;
   /** 回合候选退出的纯裁决；仅 continue_same_turn 会在同一 AgentTurn 内追加一次受限纠偏。 */
   reviewExit?: (candidate: AgentTurnResult, correctionAttempt: number) => AgentTurnExitReview;
@@ -188,7 +190,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
   const ordinaryTools = toolsForAgent(agent);
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
-  const controlNames = new Set((opts.controlTools ?? []).map((tool) => tool.name));
+  const controlNames = new Set([
+    ...(opts.controlTools ?? []).map((tool) => tool.name),
+    ...(opts.controlToolAliases ?? []),
+  ]);
   let messages = [...opts.messages];
   // 工具调用指令：插入到首条 system 之后（无 system 则置顶）
   if (tools.length > 0) {

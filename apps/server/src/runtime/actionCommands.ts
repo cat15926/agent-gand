@@ -83,6 +83,7 @@ export const commitWakeActionCommand = <T>(input: RuntimeActionCommandInput<T>) 
 export const commitHoldActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('hold', input);
 export const commitHandoffActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('handoff', input);
 export const commitConsultAllActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('consult_all', input);
+export const commitConsultAnyActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('consult_any', input);
 
 export function getRuntimeActionCommand(commandKey: string): RuntimeActionCommandRecord | null {
   const row = get<CommandRow>('SELECT * FROM runtime_action_commands WHERE command_key=?', commandKey);

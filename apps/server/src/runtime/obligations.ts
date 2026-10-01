@@ -195,6 +195,25 @@ export function settleTargetObligations(input: {
   return changed;
 }
 
+/** consult(any) 的组义务必须显式结算，不能靠“没有开放子工作”推导成功。 */
+export function settleConsultAnyJoin(input: {
+  runId: string;
+  batchId: string;
+  status: 'satisfied' | 'failed' | 'cancelled';
+  resolutionSourceId: string;
+  resolution?: Record<string, unknown>;
+}): number {
+  let changed = 0;
+  for (const obligation of listOpenSuccessorObligations({ runId: input.runId, kind: 'consult_result' })) {
+    if (obligation.targetSubjectId !== null || obligation.payload.join !== 'any'
+      || obligation.payload.batchId !== input.batchId) continue;
+    if (settleSuccessorObligation({ id: obligation.id, expectedGeneration: obligation.generation,
+      status: input.status, resolutionSourceId: input.resolutionSourceId,
+      resolution: { join: 'any', batchId: input.batchId, ...(input.resolution ?? {}) } }).changed) changed++;
+  }
+  return changed;
+}
+
 export function settleSubjectObligations(input: {
   subjectId: string;
   status: 'failed' | 'cancelled';

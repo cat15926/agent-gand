@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-runtime-crash-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
 const { auditShadowRun } = await import('../apps/server/src/runtime/shadow.ts');

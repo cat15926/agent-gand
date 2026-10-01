@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type {
   CollaborationAttempt,
   CollaborationBatch,
+  CollaborationBatchJoinPolicy,
   CollaborationBatchStatus,
   CollaborationBudgetLimits,
   CollaborationBudgetRevision,
@@ -15,7 +16,7 @@ import type {
   CollaborationUserDecision,
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
-import { CustodyConflictError, observeCancellation, observeClaim, observeTerminalInterruption, safelyObserve } from '../runtime/shadow.ts';
+import { CustodyConflictError, observeCancellation, observeClaim, observeTerminalInterruption } from '../runtime/shadow.ts';
 import { emit } from '../messaging/bus.ts';
 import { config } from '../config.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
@@ -24,13 +25,13 @@ import {
   cancelRunObligations,
   openUserDecisionObligations,
   resolveUserDecisionObligations,
+  settleConsultAnyJoin,
 } from '../runtime/obligations.ts';
 import { createDurableHold, runtimeDurableHoldVersion } from '../runtime/holds.ts';
 import {
+  assertExecutableCollaborationPolicy,
   RuntimePolicyError,
   resolveRunPolicy,
-  runtimeStateAuthoritative,
-  runtimeStateShadow,
 } from '../runtime/runPolicy.ts';
 
 interface DispatchRow {
@@ -49,7 +50,8 @@ interface AttemptRow {
 interface BatchRow {
   id: string; run_id: string; conversation_id: string; initiator_agent_id: string;
   source_dispatch_id: string; question: string; target_agent_ids: string; result_dispatch_id: string | null;
-  status: string; timeout_at: string; created_at: string; completed_at: string | null;
+  join_policy: string; winner_dispatch_id: string | null; generation: number;
+  status: string; timeout_at: string; settled_at: string | null; created_at: string; completed_at: string | null;
 }
 interface DecisionRow {
   id: string; run_id: string; conversation_id: string; dispatch_id: string | null;
@@ -82,7 +84,9 @@ const toBatch = (r: BatchRow): CollaborationBatch => ({
   id: r.id, runId: r.run_id, conversationId: r.conversation_id, initiatorAgentId: r.initiator_agent_id,
   sourceDispatchId: r.source_dispatch_id, question: r.question,
   targetAgentIds: JSON.parse(r.target_agent_ids) as string[], resultDispatchId: r.result_dispatch_id,
-  status: r.status as CollaborationBatchStatus, timeoutAt: r.timeout_at,
+  joinPolicy: r.join_policy as CollaborationBatchJoinPolicy, winnerDispatchId: r.winner_dispatch_id,
+  generation: r.generation, status: r.status as CollaborationBatchStatus, timeoutAt: r.timeout_at,
+  settledAt: r.settled_at,
   createdAt: r.created_at, completedAt: r.completed_at,
 });
 const toDecision = (r: DecisionRow): CollaborationUserDecision => ({
@@ -99,10 +103,9 @@ const toRevision = (r: BudgetRevisionRow): CollaborationBudgetRevision => ({
   newLimits: JSON.parse(r.new_limits) as CollaborationBudgetLimits, createdAt: r.created_at,
 });
 
-function observeRuntimeState(runId: string, label: string, observer: () => void): void {
+function observeRuntimeState(runId: string, observer: () => void): void {
   const policy = resolveRunPolicy(runId);
-  if (runtimeStateAuthoritative(policy)) observer();
-  else if (runtimeStateShadow(policy)) afterCommit(() => safelyObserve(label, observer));
+  if (policy.profile === 'execute') observer();
 }
 
 export interface CreateDispatchInput {
@@ -182,7 +185,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId, config.collaboration.maxAttempts);
     if (!row) return null;
     candidateId = row.id;
-    const runtimePolicy = resolveRunPolicy(row.run_id);
+    assertExecutableCollaborationPolicy(row.run_id);
     const now = new Date();
     const changed = run("UPDATE collaboration_dispatches SET status='running',started_at=? WHERE id=? AND status='queued'", now.toISOString(), row.id);
     if (changed === 0) return null;
@@ -192,7 +195,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       (id,dispatch_id,run_id,conversation_id,agent_id,attempt_no,status,lease_owner,lease_expires_at,created_at,started_at)
       VALUES (?,?,?,?,?,?,'running',?,?,?,?)`, attemptId, row.id, row.run_id, row.conversation_id,
       row.target_agent_id, attemptNo, leaseOwner, new Date(now.getTime() + config.collaboration.attemptLeaseMs).toISOString(), now.toISOString(), now.toISOString());
-    if (runtimeStateAuthoritative(runtimePolicy)) observeClaim(row.id, attemptId, row.target_agent_id);
+    observeClaim(row.id, attemptId, row.target_agent_id);
     return {
       dispatch: toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', row.id)!),
       attempt: toAttempt(get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attemptId)!),
@@ -208,9 +211,6 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
     return claimNextDispatch(conversationId, leaseOwner);
   }
   if (claimed) {
-    if (runtimeStateShadow(resolveRunPolicy(claimed.dispatch.runId))) {
-      safelyObserve('claim', () => observeClaim(claimed.dispatch.id, claimed.attempt.id, claimed.dispatch.targetAgentId));
-    }
     emit({ type: 'collaboration.dispatch.updated', dispatch: claimed.dispatch });
     emit({ type: 'collaboration.attempt.updated', attempt: claimed.attempt });
   }
@@ -252,16 +252,18 @@ export function getCompletedDispatchOutput(dispatchId: string): string | null {
   )?.output ?? null;
 }
 
-export function createBatch(input: { runId: string; conversationId: string; initiatorAgentId: string; sourceDispatchId: string; question: string; targetAgentIds: string[] }): CollaborationBatch {
+export function createBatch(input: { runId: string; conversationId: string; initiatorAgentId: string;
+  sourceDispatchId: string; question: string; targetAgentIds: string[]; joinPolicy?: CollaborationBatchJoinPolicy }): CollaborationBatch {
   const now = new Date();
   const id = randomUUID();
   run(`INSERT INTO collaboration_batches
-    (id,run_id,conversation_id,initiator_agent_id,source_dispatch_id,question,target_agent_ids,status,timeout_at,created_at)
-    VALUES (?,?,?,?,?,?,?,'running',?,?)`, id, input.runId, input.conversationId, input.initiatorAgentId,
+    (id,run_id,conversation_id,initiator_agent_id,source_dispatch_id,question,target_agent_ids,join_policy,generation,status,timeout_at,created_at)
+    VALUES (?,?,?,?,?,?,?,?,1,'running',?,?)`, id, input.runId, input.conversationId, input.initiatorAgentId,
     input.sourceDispatchId, input.question, JSON.stringify(input.targetAgentIds),
+    input.joinPolicy ?? 'all',
     new Date(now.getTime() + config.collaboration.batchTimeoutMs).toISOString(), now.toISOString());
   const value = toBatch(get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', id)!);
-  emit({ type: 'collaboration.batch.updated', batch: value });
+  afterCommit(() => emit({ type: 'collaboration.batch.updated', batch: value }));
   return value;
 }
 export function listBatches(runId: string): CollaborationBatch[] {
@@ -272,29 +274,115 @@ export function getBatch(id: string): CollaborationBatch | undefined {
   return row ? toBatch(row) : undefined;
 }
 export function updateBatch(id: string, status: CollaborationBatchStatus, resultDispatchId?: string | null): CollaborationBatch | null {
-  const terminal = ['completed', 'timeout', 'failed'].includes(status);
-  run('UPDATE collaboration_batches SET status=?,result_dispatch_id=COALESCE(?,result_dispatch_id),completed_at=? WHERE id=?',
-    status, resultDispatchId ?? null, terminal ? new Date().toISOString() : null, id);
+  const terminal = ['completed', 'timeout', 'failed', 'cancelled'].includes(status);
+  const now = new Date().toISOString();
+  run(`UPDATE collaboration_batches SET status=?,result_dispatch_id=COALESCE(?,result_dispatch_id),
+    settled_at=CASE WHEN ?=1 THEN COALESCE(settled_at,?) ELSE settled_at END,
+    completed_at=CASE WHEN ?=1 THEN ? ELSE NULL END WHERE id=?`,
+  status, resultDispatchId ?? null, terminal ? 1 : 0, now, terminal ? 1 : 0, now, id);
   const row = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', id);
   if (!row) return null;
-  const value = toBatch(row); emit({ type: 'collaboration.batch.updated', batch: value }); return value;
+  const value = toBatch(row); afterCommit(() => emit({ type: 'collaboration.batch.updated', batch: value })); return value;
 }
 export function listOpenBatches(): CollaborationBatch[] {
   return all<BatchRow>("SELECT * FROM collaboration_batches WHERE status IN ('pending','running','partial') ORDER BY timeout_at").map(toBatch);
 }
+export function listUnaggregatedBatches(runId?: string): CollaborationBatch[] {
+  return all<BatchRow>(`SELECT b.* FROM collaboration_batches b JOIN runs r ON r.id=b.run_id
+    WHERE b.result_dispatch_id IS NULL AND b.status<>'cancelled'
+      AND r.status IN ('pending','running','waiting_for_user','awaiting_approval')${runId ? ' AND b.run_id=?' : ''}
+    ORDER BY b.created_at,b.rowid`, ...(runId ? [runId] : [])).map(toBatch);
+}
+
+export interface CollaborationAnyWinnerResult {
+  batch: CollaborationBatch;
+  selected: boolean;
+  cancelledDispatchIds: string[];
+}
+
+/** 与 accepted CompletionCandidate 同事务调用；SQLite BEGIN IMMEDIATE 使跨进程 winner 选择成为 CAS。 */
+export function selectAnyBatchWinner(input: { batchId: string; dispatchId: string; expectedGeneration: number;
+  candidateId: string }): CollaborationAnyWinnerResult {
+  return tx(() => {
+    const batch = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', input.batchId);
+    if (!batch) throw new Error(`consult(any) Batch 不存在：${input.batchId}`);
+    if (batch.join_policy !== 'any') throw new Error(`Batch ${input.batchId} 不是 consult(any)`);
+    if (batch.generation !== input.expectedGeneration) throw new Error(`Batch ${input.batchId} generation 已失效`);
+    const candidateDispatch = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=? AND batch_id=? AND kind=\'fanout\'',
+      input.dispatchId, input.batchId);
+    if (!candidateDispatch) throw new Error('winner Dispatch 不属于当前 Batch');
+    const acceptedCandidate = get<{ id: string }>(`SELECT c.id FROM runtime_completion_candidates c
+      JOIN collaboration_attempts a ON a.id=c.attempt_id
+      JOIN runtime_dispatch_subjects m ON m.dispatch_id=a.dispatch_id AND m.subject_id=c.subject_id
+      WHERE c.id=? AND c.run_id=? AND c.status='accepted' AND a.dispatch_id=?`,
+    input.candidateId, batch.run_id, input.dispatchId);
+    if (!acceptedCandidate) throw new Error('winner 必须引用当前 Dispatch 已通过 SubjectCompletion 的 Candidate');
+    if (batch.winner_dispatch_id) {
+      if (batch.winner_dispatch_id !== input.dispatchId) return { batch: toBatch(batch), selected: false, cancelledDispatchIds: [] };
+      return { batch: toBatch(batch), selected: true, cancelledDispatchIds: [] };
+    }
+    const now = new Date().toISOString();
+    const selected = run(`UPDATE collaboration_batches SET winner_dispatch_id=?,settled_at=?,status='partial'
+      WHERE id=? AND generation=? AND winner_dispatch_id IS NULL AND settled_at IS NULL
+        AND status IN ('pending','running','partial')`, input.dispatchId, now, input.batchId, input.expectedGeneration) > 0;
+    if (!selected) {
+      const current = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', input.batchId)!;
+      return { batch: toBatch(current), selected: current.winner_dispatch_id === input.dispatchId, cancelledDispatchIds: [] };
+    }
+    const losers = all<DispatchRow>(`SELECT * FROM collaboration_dispatches
+      WHERE batch_id=? AND kind='fanout' AND id<>? AND status IN ('queued','running')`, input.batchId, input.dispatchId);
+    const loserAttempts = all<AttemptRow>(`SELECT a.* FROM collaboration_attempts a
+      JOIN collaboration_dispatches d ON d.id=a.dispatch_id
+      WHERE d.batch_id=? AND d.id<>? AND a.status='running'`, input.batchId, input.dispatchId);
+    const reason = `CONSULT_ANY_NOT_SELECTED:${input.dispatchId}`;
+    run(`UPDATE collaboration_dispatches SET status='cancelled',error=?,finished_at=?
+      WHERE batch_id=? AND kind='fanout' AND id<>? AND status IN ('queued','running')`,
+    reason, now, input.batchId, input.dispatchId);
+    run(`UPDATE collaboration_attempts SET status='cancelled',error=?,ended_at=?,lease_expires_at=NULL
+      WHERE dispatch_id IN (SELECT id FROM collaboration_dispatches WHERE batch_id=? AND id<>?) AND status='running'`,
+    reason, now, input.batchId, input.dispatchId);
+    for (const loser of losers) observeRuntimeState(loser.run_id,
+      () => observeCancellation(loser.id, `consult-any:${input.batchId}:g${input.expectedGeneration}:${input.dispatchId}`));
+    settleConsultAnyJoin({ runId: batch.run_id, batchId: batch.id, status: 'satisfied',
+      resolutionSourceId: `consult-any-winner:${input.candidateId}`,
+      resolution: { winnerDispatchId: input.dispatchId, candidateId: input.candidateId, generation: input.expectedGeneration } });
+    const value = toBatch(get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', input.batchId)!);
+    afterCommit(() => emit({ type: 'collaboration.batch.updated', batch: value }));
+    for (const loser of losers) {
+      const updated = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', loser.id);
+      if (updated) afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch(updated) }));
+    }
+    for (const attempt of loserAttempts) {
+      const updated = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attempt.id);
+      if (updated) afterCommit(() => emit({ type: 'collaboration.attempt.updated', attempt: toAttempt(updated) }));
+    }
+    return { batch: value, selected: true, cancelledDispatchIds: losers.map((item) => item.id) };
+  });
+}
+
 export function expireBatch(id: string): CollaborationBatch | null {
   const now = new Date().toISOString();
-  const queued = tx(() => {
-    const rows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE batch_id=? AND status='queued'", id);
-    run("UPDATE collaboration_dispatches SET status='cancelled',error='并行征询超时',finished_at=? WHERE batch_id=? AND status='queued'", now, id);
-    run("UPDATE collaboration_batches SET status='timeout',completed_at=? WHERE id=? AND status IN ('pending','running','partial')", now, id);
+  const cancelled = tx(() => {
+    const batch = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', id);
+    if (!batch || batch.winner_dispatch_id || !['pending', 'running', 'partial'].includes(batch.status)) return { rows: [], attempts: [] };
+    const rows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE batch_id=? AND status IN ('queued','running')", id);
+    const attempts = all<AttemptRow>(`SELECT a.* FROM collaboration_attempts a JOIN collaboration_dispatches d ON d.id=a.dispatch_id
+      WHERE d.batch_id=? AND a.status='running'`, id);
+    run("UPDATE collaboration_dispatches SET status='cancelled',error='并行征询超时',finished_at=? WHERE batch_id=? AND status IN ('queued','running')", now, id);
+    run(`UPDATE collaboration_attempts SET status='cancelled',error='并行征询超时',ended_at=?,lease_expires_at=NULL
+      WHERE dispatch_id IN (SELECT id FROM collaboration_dispatches WHERE batch_id=?) AND status='running'`, now, id);
+    run("UPDATE collaboration_batches SET status='timeout',settled_at=COALESCE(settled_at,?),completed_at=? WHERE id=? AND status IN ('pending','running','partial')", now, now, id);
     for (const item of rows) {
       const observe = () => observeCancellation(item.id, `batch-timeout:${id}`);
-      observeRuntimeState(item.run_id, 'batch_timeout', observe);
+      observeRuntimeState(item.run_id, observe);
     }
-    return rows;
+    if (batch.join_policy === 'any') settleConsultAnyJoin({ runId: batch.run_id, batchId: id, status: 'failed',
+      resolutionSourceId: `batch-timeout:${id}:g${batch.generation}`,
+      resolution: { reason: 'timeout', generation: batch.generation } });
+    return { rows, attempts };
   });
-  for (const row of queued) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '并行征询超时', finished_at: now }) });
+  for (const row of cancelled.rows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '并行征询超时', finished_at: now }) });
+  for (const row of cancelled.attempts) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt({ ...row, status: 'cancelled', error: '并行征询超时', ended_at: now, lease_expires_at: null }) });
   const row = get<BatchRow>('SELECT * FROM collaboration_batches WHERE id=?', id);
   if (!row) return null; const value = toBatch(row); emit({ type: 'collaboration.batch.updated', batch: value }); return value;
 }
@@ -395,7 +483,7 @@ export function cancelDispatch(id: string): CollaborationDispatch | null {
     if (!row) return null;
     if (changed > 0) {
       const observe = () => observeCancellation(row.id, `dispatch:${row.id}`);
-      observeRuntimeState(row.run_id, 'cancel_dispatch', observe);
+      observeRuntimeState(row.run_id, observe);
     }
     const value = toDispatch(row);
     afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: value }));
@@ -410,17 +498,22 @@ export function cancelCollaborationRun(runId: string): void {
   const now = new Date().toISOString();
   const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE run_id=? AND status IN ('queued','running')", runId);
   const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE run_id=? AND status='running'", runId);
+  const batchRows = all<BatchRow>("SELECT * FROM collaboration_batches WHERE run_id=? AND status IN ('pending','running','partial')", runId);
   tx(() => {
     run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止运行',finished_at=? WHERE run_id=? AND status IN ('queued','running')", now, runId);
     run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止运行',ended_at=?,lease_expires_at=NULL WHERE run_id=? AND status='running'", now, runId);
+    run(`UPDATE collaboration_batches SET status='cancelled',settled_at=COALESCE(settled_at,?),completed_at=?
+      WHERE run_id=? AND status IN ('pending','running','partial')`, now, now, runId);
     for (const row of dispatchRows) {
       const observe = () => observeCancellation(row.id, `run:${runId}`);
-      observeRuntimeState(runId, 'cancel_run', observe);
+      observeRuntimeState(runId, observe);
     }
     cancelRunObligations(runId, `run:${runId}:cancelled`);
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止运行', finished_at: now }) });
   for (const row of attemptRows) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt({ ...row, status: 'cancelled', error: '用户停止运行', ended_at: now, lease_expires_at: null }) });
+  for (const row of batchRows) emit({ type: 'collaboration.batch.updated', batch: toBatch({ ...row,
+    status: 'cancelled', settled_at: row.settled_at ?? now, completed_at: now }) });
 }
 export function cancelAgentWork(conversationId: string, agentId: string): number {
   const now = new Date().toISOString();
@@ -431,7 +524,7 @@ export function cancelAgentWork(conversationId: string, agentId: string): number
     run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running'", now, conversationId, agentId);
     for (const row of dispatchRows) {
       const observe = () => observeCancellation(row.id, `agent:${conversationId}:${agentId}:${now}`);
-      observeRuntimeState(row.run_id, 'cancel_agent', observe);
+      observeRuntimeState(row.run_id, observe);
     }
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止 Agent', finished_at: now }) });
@@ -482,9 +575,9 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
         run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
           hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
         const observe = () => observeTerminalInterruption(item.dispatch_id, item.id, item.agent_id);
-        observeRuntimeState(item.run_id, 'terminal_interruption', observe);
+        observeRuntimeState(item.run_id, observe);
       } else {
-        if (runtimeStateAuthoritative(resolveRunPolicy(item.run_id)) && runtimeDurableHoldVersion(item.run_id) !== null) {
+        if (resolveRunPolicy(item.run_id).profile === 'execute' && runtimeDurableHoldVersion(item.run_id) !== null) {
           createDurableHold({ runId: item.run_id, sourceDispatchId: item.dispatch_id, sourceAttemptId: item.id,
             holderAgentId: item.agent_id,
             condition: { kind: 'lease_recovery', attemptId: item.id, leaseExpiredAt: item.lease_expires_at ?? now },

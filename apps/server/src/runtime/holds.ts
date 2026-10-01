@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type {
   RuntimeDurableHold,
   RuntimeDurableHoldCondition,
@@ -42,6 +42,46 @@ interface CustodyRow { state: string; holder_agent_id: string | null; generation
 const CLAIM_LEASE_MS = 30_000;
 const MAX_BACKOFF_MS = 60_000;
 const ACTIVE_RUN_STATUSES = new Set(['pending', 'running', 'awaiting_approval', 'waiting_for_user']);
+
+export interface RuntimeExternalEventReceiver {
+  id: string;
+  payloadSchemaVersion: 1;
+  validatePayload: (payload: Record<string, unknown>) => boolean;
+}
+
+const externalEventReceivers = new Map<string, RuntimeExternalEventReceiver>();
+
+function nonEmptyBounded(value: string, label: string, max: number): string {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > max) throw new Error(`${label} 必须是 1～${max} 个字符`);
+  return normalized;
+}
+
+function externalEventKey(receiverId: string, correlationId: string, generation: number): string {
+  const digest = createHash('sha256').update(correlationId).digest('hex');
+  return `registered:${receiverId}:g${generation}:${digest}`;
+}
+
+/** 只有服务端代码可注册可信接收器；该注册表不会通过 Agent Tool 或 HTTP 动态扩展。 */
+export function registerRuntimeExternalEventReceiver(receiver: RuntimeExternalEventReceiver): void {
+  const id = nonEmptyBounded(receiver.id, 'External Event receiverId', 100);
+  if (!/^[a-z0-9][a-z0-9._-]*$/u.test(id)) throw new Error('External Event receiverId 格式无效');
+  if (externalEventReceivers.has(id)) throw new Error(`External Event receiver 已注册：${id}`);
+  externalEventReceivers.set(id, { ...receiver, id });
+}
+
+export function registeredRuntimeExternalEventCondition(input: {
+  receiverId: string;
+  correlationId: string;
+  generation: number;
+}): RuntimeDurableHoldCondition {
+  const receiverId = nonEmptyBounded(input.receiverId, 'External Event receiverId', 100);
+  const correlationId = nonEmptyBounded(input.correlationId, 'External Event correlationId', 500);
+  if (!externalEventReceivers.has(receiverId)) throw new Error(`External Event receiver 未注册：${receiverId}`);
+  if (!Number.isInteger(input.generation) || input.generation < 1) throw new Error('External Event generation 无效');
+  return { kind: 'event', receiverId, correlationId, generation: input.generation,
+    eventKey: externalEventKey(receiverId, correlationId, input.generation) };
+}
 
 export class RuntimeHoldRecoveryError extends Error {
   constructor(
@@ -162,7 +202,17 @@ function validateCondition(runId: string, condition: RuntimeDurableHoldCondition
     }
     return;
   }
-  if (condition.kind === 'event' && !condition.eventKey.trim()) throw new Error('Durable Hold 事件键不能为空');
+  if (condition.kind === 'event') {
+    if (!condition.eventKey.trim()) throw new Error('Durable Hold 事件键不能为空');
+    const registered = condition.receiverId !== undefined || condition.correlationId !== undefined
+      || condition.generation !== undefined;
+    if (!registered) return;
+    if (!condition.receiverId || !condition.correlationId || !Number.isInteger(condition.generation)
+      || Number(condition.generation) < 1 || !externalEventReceivers.has(condition.receiverId)
+      || condition.eventKey !== externalEventKey(condition.receiverId, condition.correlationId, condition.generation!)) {
+      throw new Error('Durable Hold 注册事件条件无效或接收器未注册');
+    }
+  }
 }
 
 function recordRecoveryAudit(input: {
@@ -186,6 +236,35 @@ function recordRecoveryAudit(input: {
 export function runtimeDurableHoldVersion(runId: string): 1 | 2 | null {
   const version = loadRuntimeContract(runId)?.features?.durableHoldVersion;
   return version === 1 || version === 2 ? version : null;
+}
+
+export function runtimeExternalWaitVersion(runId: string): 1 | null {
+  return loadRuntimeContract(runId)?.features?.externalWaitVersion === 1 ? 1 : null;
+}
+
+/** 把模型可见的成员 ID 解析成同 Run 的唯一 Subject；Subject ID 不进入模型参数。 */
+export function resolveRunDependencySubjectIds(input: {
+  runId: string;
+  requesterSubjectId: string;
+  targetAgentIds: string[];
+}): string[] {
+  if (runtimeExternalWaitVersion(input.runId) !== 1) throw new Error('当前 Run 未冻结 External Wait v1');
+  const targets = [...new Set(input.targetAgentIds.map((item) => item.trim()))].filter(Boolean);
+  if (targets.length === 0 || targets.length !== input.targetAgentIds.length) {
+    throw new Error('Dependency Hold 的目标成员为空或重复');
+  }
+  return targets.map((agentId) => {
+    const rows = all<{ id: string }>(`SELECT DISTINCT s.id FROM runtime_subjects s
+      JOIN runtime_custody c ON c.subject_id=s.id
+      LEFT JOIN runtime_dispatch_subjects m ON m.subject_id=s.id
+      LEFT JOIN collaboration_dispatches d ON d.id=m.dispatch_id
+      WHERE s.run_id=? AND s.id<>? AND
+        (c.holder_agent_id=? OR c.pending_holder_agent_id=? OR (d.target_agent_id=? AND d.status IN ('queued','running')))`,
+    input.runId, input.requesterSubjectId, agentId, agentId, agentId);
+    if (rows.length === 0) throw new Error(`Dependency Hold 找不到成员 ${agentId} 的同 Run Subject`);
+    if (rows.length > 1) throw new Error(`Dependency Hold 无法唯一确定成员 ${agentId} 的 Subject`);
+    return rows[0]!.id;
+  });
 }
 
 export function createDurableHold(input: {
@@ -291,6 +370,34 @@ export function recordRuntimeWakeEvent(input: {
     afterCommit(() => emit({ type: 'runtime.wake_event.recorded', wakeEvent }));
     return wakeEvent;
   });
+}
+
+/** 可信接收器入口：固定 Run 作用域、correlation/generation、来源事件去重和 payload schema。 */
+export function recordRegisteredRuntimeExternalEvent(input: {
+  receiverId: string;
+  runId: string;
+  correlationId: string;
+  generation: number;
+  sourceEventId: string;
+  payload: Record<string, unknown>;
+}): RuntimeWakeEvent {
+  const receiverId = nonEmptyBounded(input.receiverId, 'External Event receiverId', 100);
+  const correlationId = nonEmptyBounded(input.correlationId, 'External Event correlationId', 500);
+  const sourceEventId = nonEmptyBounded(input.sourceEventId, 'External Event sourceEventId', 200);
+  const receiver = externalEventReceivers.get(receiverId);
+  if (!receiver) throw new Error(`External Event receiver 未注册：${receiverId}`);
+  if (!Number.isInteger(input.generation) || input.generation < 1) throw new Error('External Event generation 无效');
+  if (!get('SELECT 1 FROM runs WHERE id=?', input.runId)) throw new Error('External Event Run 不存在');
+  if (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload)
+    || JSON.stringify(input.payload).length > 16_384 || !receiver.validatePayload(input.payload)) {
+    throw new Error(`External Event payload 不符合 ${receiverId} schema v${receiver.payloadSchemaVersion}`);
+  }
+  const sourceKey = externalEventKey(receiverId, correlationId, input.generation);
+  const sourceDigest = createHash('sha256').update(sourceEventId).digest('hex');
+  return recordRuntimeWakeEvent({ runId: input.runId, kind: 'event', sourceKey,
+    payload: { receiverId, correlationId, generation: input.generation, sourceEventId,
+      payloadSchemaVersion: receiver.payloadSchemaVersion, data: input.payload },
+    idempotencyKey: `external:${receiverId}:${sourceDigest}` });
 }
 
 type HoldReadiness =

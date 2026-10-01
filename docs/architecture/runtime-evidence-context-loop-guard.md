@@ -10,7 +10,7 @@ EvidenceRef
   → EvidenceBundle（冻结解析结果 + 全量内容哈希）
   → Completion / Capsule / Coordination
 
-Subject + responsibility objective + agent pair + evidence fingerprint
+Subject + responsibility objective + agent pair + ProgressDigest
   → Route Guard chain
   → allowed / warned / blocked
 
@@ -20,7 +20,7 @@ Runtime facts
   → 持久化 provenance
 ```
 
-新 Collaboration Runtime Run 冻结 `evidenceBundleVersion=1`、`evidenceLoopGuardVersion=1` 和 `contextContributorVersion=1`。Coordination Kernel 冻结 EvidenceBundle 与 Context Contributor 版本。缺少对应标记的历史 Run 继续使用原 EvidenceRef、次数型 ping-pong 和兼容上下文段。
+新权威 Collaboration Runtime Run 冻结 `evidenceBundleVersion=1`、`evidenceLoopGuardVersion=1`、`progressDigestVersion=1` 和 `contextContributorVersion=1`。Coordination Kernel 冻结 EvidenceBundle 与 Context Contributor 版本。缺少对应标记的历史 Run 继续使用原 EvidenceRef/fingerprint、次数型 ping-pong 和兼容上下文段。
 
 ## EvidenceBundle
 
@@ -44,10 +44,10 @@ CompletionCandidate、Handoff Capsule 和 Coordination Step Evidence 均持久�
 - Run、Subject 和来源 Dispatch；
 - from/to Agent；
 - Subject 冻结责任目标哈希；
-- 当前实质证据 fingerprint；
+- 原始证据 fingerprint 与可选 ProgressDigest 快照；
 - 连续次数、`allowed | warned | blocked` 与结构化原因。
 
-实质证据只计入已完成 ToolExecution、工作区文件和 RunEvent；普通消息或 Attempt 文字不能靠改写说法绕过防循环。同一 Subject、责任目标、Agent 对和 fingerprint 的连续往返使用 Run 入场时的 warn/block 阈值；新的实质证据会产生新 fingerprint 并重置计数。
+新权威 Run 以 ProgressDigest 区分“新增证据记录”和“实际新进展”。重复只读结果、时间戳噪声和普通日志不会改变 digest；稳定资源的内容变化、工作区文件变化或显式标记为 substantive 的 RunEvent 才会改变 digest。普通消息或 Attempt 文字不能靠改写说法绕过防循环。同一 Subject、责任目标、Agent 对和 digest 的连续往返使用 Run 入场时的 warn/block 阈值。完整规则见 [Runtime ProgressDigest 与兼容清理门禁](./runtime-progress-digest-compatibility-retirement.md)。
 
 阻断记录在外层动作事务回滚后重新持久化，不会随未创建的子 Dispatch 一起丢失。Agent 已产生的正文或 handoff objective 以 informational 消息保留，Trace 记录 guard event、次数与 fingerprint，避免“阻断路由同时吞掉输出”。
 
@@ -69,11 +69,11 @@ Collaboration v1 稳定段为 identity、contract、custody、obligation、proto
 
 - `pnpm verify:runtime-evidence-bundles`
 - `pnpm verify:runtime-loop-guard`
+- `pnpm verify:runtime-progress-digest`
 - `pnpm verify:runtime-context`
 - `pnpm verify:runtime-subject-completion`
 - `pnpm verify:runtime-completion-integration`
 - `pnpm verify:runtime-atomic`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_ATOMIC=true pnpm verify:collaboration`
+- `pnpm verify:runtime-progress-digest`
 - `COORDINATION_RUNTIME_KERNEL=execute pnpm verify:coordination`
 - `pnpm typecheck`
-

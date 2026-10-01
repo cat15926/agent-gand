@@ -6,4 +6,6 @@ Run 是用户目标的容器，不拥有单一 holder。单持有约束仅适用
 
 `initial` 创建 root；`handoff` 和 `resume` 延续同一 Subject；`fanout` 创建 consultation 子 Subject，发起者仍持有父责任；`aggregate` 恢复父 Subject 的执行。Coordination Step 在阶段 7 映射为独立 Subject，Plan 仍负责 DAG 和终局条件。
 
+`consult(all)` 将每个 consultation 子 Subject 作为必需成员义务；`consult(any)` 使用一个必需组义务和多个非必需成员义务，首个通过 SubjectCompletion 且赢得 Batch CAS 的子 Subject 满足组义务。未胜出子 Subject 必须显式取消，不能靠忽略子项模拟 any。详见 [Runtime consult(any)](./runtime-consult-any.md)。
+
 Dispatch 表示要执行一次，Attempt 表示执行尝试。Attempt completed 只能表示本次调用结束；Subject completed 必须由完成契约接受，Run completed 还需所有必需 Subject 与协议条件通过。`RunContract` 入场冻结，后续修改使用 Revision。阶段 3 才开始影子持久化，阶段 6 才切换完成判定权。

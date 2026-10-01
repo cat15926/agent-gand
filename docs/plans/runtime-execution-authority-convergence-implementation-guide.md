@@ -1,6 +1,6 @@
 # Runtime 执行权与终局一致性实施指导
 
-> 状态：实施中；阶段 1–5 已完成，下一步为阶段 6 Agent API v2  
+> 状态：阶段 1–10 已编码、已测试；新 Collaboration Run 仅以 execute 入场，阶段 10 清理已完成，终态历史保留只读解释。下文阶段 1–9 的四 Profile/回退验收描述记录的是当时的发布门槛，当前运行配置以阶段 10 为准。
 > 基线：2026-09-29，`agent-gand/main` @ `90ccd01d08fbad7882e2a9662071dd581c36178c`  
 > 前置成果：[Collaboration Runtime Kernel 实施方案](./collaboration-runtime-kernel-implementation-plan.md)、[Runtime v2 责任闭环实施指导](./runtime-v2-responsibility-closure-implementation-guide.md)  
 > 适用范围：Collaboration、Coordination 及后续复用公共 Runtime 的编排入口
@@ -247,7 +247,7 @@ Hold v2 明确区分：
 
 ## 5. P0 实施阶段
 
-### 阶段 1：冻结执行策略
+### 阶段 1：冻结执行策略（已编码、已测试、默认启用）
 
 交付：
 
@@ -265,7 +265,7 @@ Hold v2 明确区分：
 - legacy Run 不因新默认值访问不存在的 Subject/Candidate。
 - 损坏 Contract、未知 policyVersion 和缺失必要 feature 会阻止 claim 并留下明确原因。
 
-### 阶段 2：统一责任与阻断口径
+### 阶段 2：统一责任与阻断口径（已编码、已测试、默认启用）
 
 交付：
 
@@ -284,7 +284,7 @@ Hold v2 明确区分：
 - 相同 agentId 的旧 Attempt 在 generation 更新后仍不能提交。
 - initial/fanout 只有在冻结策略、协议门禁、责任、义务和证据均允许时才能走 implicit answer。
 
-### 阶段 3A：原子终局（已完成）
+### 阶段 3A：原子终局（已编码、已测试、默认启用）
 
 先单独实施 `commitRunTerminal()`，不要与全部动作迁移合并。
 
@@ -303,7 +303,7 @@ Hold v2 明确区分：
 - 报告写入或 Run 更新中间 SIGKILL 后，数据库只出现事务前或事务后完整状态。
 - 回滚不发送描述未提交状态的通知。
 
-### 阶段 3B：公共动作命令（已完成）
+### 阶段 3B：公共动作命令（已编码、已测试、默认启用）
 
 按 `complete → wake → hold → handoff → consult(all)` 的顺序迁移，先覆盖风险最高且边界最明确的动作。
 
@@ -319,7 +319,7 @@ Hold v2 明确区分：
 
 验收：动作事务前后注入 SIGKILL；两个进程提交同一命令时只有一个后继工作和一条有效领域转换。
 
-### 阶段 4：Hold 恢复闭环（已完成）
+### 阶段 4：Hold 恢复闭环（已编码、已测试、默认启用）
 
 交付：
 
@@ -333,7 +333,7 @@ Hold v2 明确区分：
 
 实现说明见 [Runtime Durable Hold/Wake](../architecture/runtime-durable-hold-wake.md)。新 Run 冻结 `durableHoldVersion=2`，v1 行由同一读取器兼容；恢复审计通过 REST/WS/右侧面板可见。专项命令 `pnpm verify:runtime-hold-recovery-v2` 覆盖超时边界、永久/临时错误、代际隔离、Stop/Wake 与跨进程 claim 竞争。
 
-### 阶段 5：混合版本验收与 Collaboration 默认接管（已完成）
+### 阶段 5：混合版本验收与 Collaboration 默认接管（已编码、已测试、默认启用）
 
 Coordination 当前已默认 execute，本阶段的默认切换只针对新的 Collaboration Run。
 
@@ -348,11 +348,11 @@ Coordination 当前已默认 execute，本阶段的默认切换只针对新的 C
 
 回退只停止新的 execute 入场。已冻结为 execute 的 Run 必须由兼容 worker 排空；不得通过关闭进程开关使其落回 legacy finalization。
 
-实现说明见 [Collaboration Runtime 默认接管与回退](../architecture/runtime-collaboration-default-takeover.md)。未显式配置时，新 Collaboration Run 默认冻结为 `execute`；显式 `COLLAB_RUNTIME_MODE=legacy` 仅回退后续新 Run。新增 Shadow Comparison 审计账本，对同一输出和判定前 Responsibility Snapshot 记录 `match/runtime_stricter/runtime_looser/projection_only/observer_error`，并通过 REST、WS 和右侧面板展示。专项命令 `pnpm verify:runtime-default-takeover` 覆盖混合进程读取、回退隔离、分类、幂等及无第二次 Dispatch/消息/工具执行；四 Profile Collaboration E2E 与 Coordination 审批恢复、review_revision 回归通过。
+阶段 5 实施时的入场与回退说明见 [Collaboration Runtime 默认接管与历史兼容](../architecture/runtime-collaboration-default-takeover.md)。当时新 Collaboration Run 默认冻结为 `execute`，显式 `COLLAB_RUNTIME_MODE=legacy` 可只回退后续新 Run；阶段 10 已退役该回退入口。Shadow Comparison 审计账本在阶段 5 对同一输出和判定前 Responsibility Snapshot 记录 `match/runtime_stricter/runtime_looser/projection_only/observer_error`，并通过 REST、WS 和右侧面板展示；新 Run 不再写入。专项命令 `pnpm verify:runtime-default-takeover` 覆盖历史 Profile 读取、分类和幂等。
 
 ## 6. P1 能力建设
 
-### 阶段 6：Agent API v2
+### 阶段 6：Agent API v2（已编码、已测试、默认启用）
 
 按冻结 `toolApiVersion` 暴露工具：
 
@@ -365,7 +365,9 @@ Coordination 当前已默认 execute，本阶段的默认切换只针对新的 C
 
 旧 checkpoint 继续解析旧名称；新 Run 的模型默认只看到一套词汇。模型只填写目标和意图参数，subjectId、generation、obligationId、claimToken 和 commandKey 由 Runtime 生成或校验。
 
-### 阶段 7：Capsule 引用与关键 Context 预算
+实现说明见 [Runtime Agent API v2](../architecture/runtime-agent-api-v2.md)。工具 schema 按冻结 `toolApiVersion` 选择；v2 模型只看到 `agent.complete/handoff/consult/hold`，旧 `send_message/ask_many/wait_for_user` 只进入服务端 checkpoint alias 解析集合。Mock Provider 与真实 Provider 共用同一 schema，`consult` 固定编译为 `join=all`，内部责任和幂等标识不进入模型参数。专项命令 `pnpm verify:runtime-agent-api-v2` 覆盖工具集合互斥、Legacy Alias、真实 `tool_calls_ready` checkpoint 恢复；四 Profile Collaboration E2E 验证 LLM Trace 不再暴露旧名称。
+
+### 阶段 7：Capsule 引用与关键 Context 预算（已编码、已测试、默认启用）
 
 Capsule 增加独立 `schemaVersion`，保留现有 `version` 作为内容修订序号：
 
@@ -384,15 +386,19 @@ Runtime 在 handoff 命令事务中创建义务并写入引用；模型不能编
 
 Context 为当前目标、holder/generation、允许动作、完成阻断项和最近拒绝原因保留受保护预算。聊天与证据使用剩余预算，不能静默截断关键 JSON 或义务引用。
 
-### 阶段 8：外部等待最小闭环
+实现说明见 [Runtime Capsule v2 与关键 Context 预算](../architecture/runtime-capsule-context-v2.md)。`execute/atomic_compat` 的 handoff 命令在同一事务内创建 `handoff_acquire` 义务并写入 Capsule v2；保存和读取均校验 Run、Subject、来源 Attempt、目标 Dispatch、stable key 与 generation。v1 字符串继续只作说明。Context Contributor 新增受保护段，预算不足时显式失败，聊天和证据改用剩余预算。专项命令 `pnpm verify:runtime-capsule-context-v2` 覆盖引用伪造、兼容读取、Evidence 漂移、敏感信息和关键段截断；四 Profile Collaboration E2E 验证真实 Scheduler 与回退语义。
+
+### 阶段 8：外部等待最小闭环（已编码、已测试、默认启用）
 
 开放顺序：timer → 同 Run dependency → 已注册外部 event。approval 和 lease recovery 继续由系统触发。
 
 外部事件必须具有：可信接收器、作用域、correlation/generation、来源事件 ID 去重、event-before-hold 匹配、payload 校验和超时策略。没有真实事件源时只开放 timer/dependency，不向模型暴露空壳 event tool。
 
+实现说明见 [Runtime 外部等待入口](../architecture/runtime-external-waits.md)。新权威 Run 冻结 `externalWaitVersion=1`；`agent.hold` 增加 timer 和同 Run dependency，成员 ID 由 Runtime 唯一解析为 Subject，绝对 wake/timeout 时间在动作解析时冻结。通用 event 不向模型开放。新增服务端可信接收器注册边界，固定 Run scope、correlation/generation、sourceEventId 去重、16 KiB payload schema 和 timeout 语义；`coordination.resume.v1` 是首个真实事件源。Completion 将开放外部 Hold 解释为 waiting，右侧面板展示条件与信封。专项验收覆盖 event-before-hold、重复、跨 Run、旧 generation、非法 payload、事件不到达，以及 timer 的真实 Scheduler 恢复闭环。
+
 ## 7. P2 扩展与清理
 
-### 阶段 9：consult(any)
+### 阶段 9：consult(any)（已编码、已测试、默认启用）
 
 定义为“首个通过 SubjectCompletion 的成功候选”。至少实现：
 
@@ -406,7 +412,9 @@ Context 为当前目标、holder/generation、允许动作、完成阻断项和�
 
 第一版不实现 quorum。
 
-### 阶段 10：进展指纹与兼容清理
+实现说明见 [Runtime consult(any)](../architecture/runtime-consult-any.md)。新权威 Run 冻结 `consultAnyVersion=1`，模型可在同一个 `agent.consult` 工具中选择 `all|any`；历史和 Shadow schema 保持 `all`。Batch 持久化 join policy、winner Dispatch、generation 与 settledAt；只有已通过 SubjectCompletion 的 fanout Candidate 才能在动作事务内 CAS winner。winner 提交同时协作中止其他 queued/running 分支、显式结算成员/组义务并创建单例 aggregate。Completion 忽略 `CONSULT_ANY_NOT_SELECTED` 这种预期取消，但不放宽普通失败。专项与真实 Scheduler 验收覆盖并发、迟到、事务回滚、全失败、超时、Stop、恢复、四 Profile、单贡献和单最终报告。
+
+### 阶段 10：进展指纹与兼容清理（已编码、已测试、默认启用）
 
 - 用 ProgressDigest 区分“新增证据记录”和“实际新进展”。
 - 排除重复只读结果、普通日志和时间戳噪声。
@@ -414,7 +422,13 @@ Context 为当前目标、holder/generation、允许动作、完成阻断项和�
 - 保留历史读取与版本解释。
 - 文档统一使用“已编码、已测试、灰度中、默认启用、已弃用”状态。
 
+实现说明见 [Runtime ProgressDigest 与兼容清理门禁](../architecture/runtime-progress-digest-compatibility-retirement.md)。新权威 Collaboration Run 冻结 `progressDigestVersion=1`；Route Guard 同时持久化原 Evidence fingerprint 和规范化 ProgressDigest，以 Subject/修订/工具类别/稳定资源/内容摘要判断进展。重复只读结果、ISO/RFC 时间噪声、普通 RunEvent/log 以及模型自述不会重置循环计数，实际内容变化才会重置。API/WS/Trace/UI 暴露 digest、项数和排除统计，历史事件继续按 fingerprint 读取。
+
+兼容清理不以代码版本或默认开关为依据。`pnpm runtime:compatibility-inventory` 扫描所有非终态 Collaboration Run 和未完成 checkpoint；未知 Contract、legacy authority、Shadow、`atomic_compat`、Tool API v1 或旧 Alias checkpoint 任一存在即阻止删除。2026-09-16 留存的一条 `waiting_for_user` 历史 Run 经用户明确授权按现有 Stop 语义终止，消息与 Trace 保留；复扫后活跃库存为 0，门禁通过。随后停止向模型暴露旧 alias，拒绝新旧 Profile 入场和旧 Profile 接球，并移除 legacy finalization、atomic/Shadow 执行分支；终态历史记录与版本解释仍保留。
+
 ## 8. 历史 Run 与迁移策略
+
+下表记录阶段 1–5 期间的存量排空策略；阶段 10 清理后，当前 worker 不再接球旧 Profile。其他部署必须先完成自己的兼容库存审计与排空，再升级到此版本。
 
 | 存量情况 | 处理 |
 | --- | --- |
@@ -424,7 +438,7 @@ Context 为当前目标、holder/generation、允许动作、完成阻断项和�
 | 活跃 Run 无法可靠识别 | 暂停 claim，记录待处理原因；不得按当前环境猜测 |
 | 已终态历史 Run | 只读保留，不重新执行，不推导缺失 Custody |
 
-优先让有歧义的活跃 Run 在原版本排空。只有必须让长等待 Run 跨版本恢复，且存在可靠来源证据时，才增加 `runtime_execution_bindings`。该表是一次性兼容绑定，不得成为第二个可变执行权来源。
+历史迁移期间优先让有歧义的活跃 Run 在原版本排空；不得由当前 worker 猜测升级。终态历史仍保留只读 Contract、Hold、Capsule、动作和审计记录，不原地改写 payload。
 
 数据库变更仅做增量迁移；旧 Contract、Hold 和 Capsule 必须保留兼容读取，不原地改写历史 payload。
 
@@ -469,6 +483,9 @@ pnpm verify:runtime-completion-integration
 pnpm verify:runtime-terminal
 pnpm verify:runtime-action-commands
 pnpm verify:runtime-context
+pnpm verify:runtime-consult-any
+pnpm verify:runtime-progress-digest
+pnpm verify:runtime-compatibility-retirement
 pnpm verify:runtime-coordination-closure
 pnpm verify:collaboration
 pnpm verify:coordination
@@ -523,16 +540,16 @@ PR 1/5 完成后，端到端命令改为使用统一 admission mode；在此之�
 
 | 阶段 | 状态 | 验收记录 |
 | --- | --- | --- |
-| 1 冻结执行策略 | 已完成 | 冻结正交 Policy、统一 Contract parser、旧开关 admission 映射、歧义历史阻断、Coordination Revision 继承；四模式 Collaboration E2E、Runtime Policy/Atomic/Crash/Coordination 专项及 typecheck 通过 |
-| 2 统一责任与阻断 | 已完成 | 公共 Responsibility Snapshot 与四类 Blocker Projection；ExitGuard、Context、Subject/Run Completion、API/UI 共用 reason code 和引用；必需 failed/cancelled 义务、非必需 consultation、旧 generation Attempt 专项验收通过 |
-| 3A 原子终局 | 已完成 | `commitRunTerminal()` 以 `BEGIN IMMEDIATE` + 终态 CAS 收口 Completion Evaluation、报告、Run/disposition、Hold/义务和执行载体关闭；Collaboration/Coordination execute、Stop 共用命令；并发 Complete/Fail/Cancel、事务回滚通知和 SIGKILL 前后专项验收通过 |
-| 3B 公共动作命令 | 已完成 | 新增 complete/wake/hold/handoff/consult(all) 命令与持久化幂等账本；Collaboration 各冻结 Profile 共用命令提交，Coordination execute 接入 complete/hold/wake；同命令跨进程竞态、事务前后 SIGKILL、四模式 Collaboration 与 execute Coordination E2E 通过 |
-| 4 Hold 恢复闭环 | 已完成 | Durable Hold v2 拆分 wake/timeout，增加类型化错误、指数退避、重试耗尽和永久关闭；v1 兼容读取、责任恢复审计及 API/WS/UI 展示完成；事件/超时边界、依赖失败、旧 generation 隔离、Stop/Wake、SIGKILL 后租约接管和跨进程 claim 竞争验收通过 |
-| 5 Collaboration 默认接管 | 已完成 | 新 Collaboration 默认冻结 `execute`，显式 legacy 回退仅影响新 Run；Shadow Comparison 对同输出/同快照分类并审计，且不重跑模型、工具或 Dispatch；混合版本、四 Profile、handoff、consult(all)、Hold/Wake、Stop、审批恢复、review_revision、崩溃与竞态验收通过 |
-| 6 Agent API v2 | 未开始 | — |
-| 7 Capsule/Context | 未开始 | — |
-| 8 外部等待 | 未开始 | — |
-| 9 consult(any) | 未开始 | — |
-| 10 兼容清理 | 未开始 | — |
+| 1 冻结执行策略 | 已编码、已测试、默认启用 | 冻结正交 Policy、统一 Contract parser、旧开关 admission 映射、歧义历史阻断、Coordination Revision 继承；四模式 Collaboration E2E、Runtime Policy/Atomic/Crash/Coordination 专项及 typecheck 通过 |
+| 2 统一责任与阻断 | 已编码、已测试、默认启用 | 公共 Responsibility Snapshot 与四类 Blocker Projection；ExitGuard、Context、Subject/Run Completion、API/UI 共用 reason code 和引用；必需 failed/cancelled 义务、非必需 consultation、旧 generation Attempt 专项验收通过 |
+| 3A 原子终局 | 已编码、已测试、默认启用 | `commitRunTerminal()` 以 `BEGIN IMMEDIATE` + 终态 CAS 收口 Completion Evaluation、报告、Run/disposition、Hold/义务和执行载体关闭；Collaboration/Coordination execute、Stop 共用命令；并发 Complete/Fail/Cancel、事务回滚通知和 SIGKILL 前后专项验收通过 |
+| 3B 公共动作命令 | 已编码、已测试、默认启用 | 新增 complete/wake/hold/handoff/consult(all) 命令与持久化幂等账本；Collaboration 各冻结 Profile 共用命令提交，Coordination execute 接入 complete/hold/wake；同命令跨进程竞态、事务前后 SIGKILL、四模式 Collaboration 与 execute Coordination E2E 通过 |
+| 4 Hold 恢复闭环 | 已编码、已测试、默认启用 | Durable Hold v2 拆分 wake/timeout，增加类型化错误、指数退避、重试耗尽和永久关闭；v1 兼容读取、责任恢复审计及 API/WS/UI 展示完成；事件/超时边界、依赖失败、旧 generation 隔离、Stop/Wake、SIGKILL 后租约接管和跨进程 claim 竞争验收通过 |
+| 5 Collaboration 默认接管 | 已编码、已测试、默认启用 | 新 Collaboration 默认冻结 `execute`，显式 legacy 回退仅影响新 Run；Shadow Comparison 对同输出/同快照分类并审计，且不重跑模型、工具或 Dispatch；混合版本、四 Profile、handoff、consult(all)、Hold/Wake、Stop、审批恢复、review_revision、崩溃与竞态验收通过 |
+| 6 Agent API v2 | 已编码、已测试、默认启用 | 按冻结 `toolApiVersion` 下发 v1/v2 工具集合；新 Run 只暴露 `complete/handoff/consult/hold`，旧别名仅用于存量 checkpoint 恢复；模型参数不含 Runtime 内部 ID；Alias、checkpoint 与四 Profile E2E 验收通过 |
+| 7 Capsule/Context | 已编码、已测试、默认启用 | Capsule `schemaVersion=2` 与内容修订版本分离；权威 handoff 命令原子创建并绑定类型化接球义务，v1 字符串仅作说明；当前目标、动作、Custody、Blocker、拒绝反馈和义务引用采用不可静默截断的受保护预算；伪造引用、四 Profile E2E、Context/Evidence 与 typecheck 验收通过 |
+| 8 外部等待 | 已编码、已测试、默认启用 | 新权威 Run 冻结 External Wait v1；Agent timer/dependency 通过公共 Hold/Wake 命令恢复，Subject ID 服务端派生；通用 event 不暴露给模型；Coordination Resume 接入可信注册接收器，具备 Run scope、correlation/revision、sourceEventId 去重、payload schema、event-before-hold 和超时语义；专项、Completion、四 Profile 与 Coordination 验收通过 |
+| 9 consult(any) | 已编码、已测试、默认启用 | 新权威 Run 冻结能力并按版本扩展 Agent schema；accepted Candidate 与 Batch generation 在同一命令事务内 CAS 单 winner，loser queued/running 工作协作中止且迟到结果失去提交权；组/成员义务显式结算，aggregate、贡献和最终报告保持单例；全失败、超时、Stop、崩溃回滚、恢复、四 Profile 与 UI/typecheck 验收通过 |
+| 10 ProgressDigest 与兼容清理 | 已编码、已测试、默认启用 | ProgressDigest 已对新权威 Run 默认启用，重复只读/时间噪声/普通日志及同资源不同写入专项通过；最后一条活跃历史 Run 经授权 Stop，库存门禁归零；旧 alias 模型暴露、legacy finalization、atomic/Shadow 执行分支已清理，旧 Profile 历史读取保留 |
 
 第一批开发只启动 PR 1–4。P0 代码、混合版本测试和竞态验收全部通过后，才能启动 PR 5 的默认接管。P1/P2 可提前完成纯类型或纯函数设计，但不得提前向模型暴露未闭环能力。

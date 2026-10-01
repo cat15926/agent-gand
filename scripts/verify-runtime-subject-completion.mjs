@@ -5,7 +5,6 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-subject-completion-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 process.env.COLLAB_MAX_ATTEMPTS = '2';
 
 const db = await import('../apps/server/src/db/database.ts');

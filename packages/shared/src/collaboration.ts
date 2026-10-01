@@ -45,7 +45,8 @@ export interface CollaborationAttempt {
   endedAt: string | null;
 }
 
-export type CollaborationBatchStatus = 'pending' | 'running' | 'partial' | 'completed' | 'timeout' | 'failed';
+export type CollaborationBatchStatus = 'pending' | 'running' | 'partial' | 'completed' | 'timeout' | 'failed' | 'cancelled';
+export type CollaborationBatchJoinPolicy = 'all' | 'any';
 
 export interface CollaborationBatch {
   id: string;
@@ -55,9 +56,13 @@ export interface CollaborationBatch {
   sourceDispatchId: string;
   question: string;
   targetAgentIds: string[];
+  joinPolicy: CollaborationBatchJoinPolicy;
+  winnerDispatchId: string | null;
+  generation: number;
   resultDispatchId: string | null;
   status: CollaborationBatchStatus;
   timeoutAt: string;
+  settledAt: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -87,7 +92,9 @@ export type RuntimeControlActionVersion = 1 | 2;
 
 export type RuntimeWakeCondition =
   | { kind: 'user_decision'; decisionKind: 'agent_question'; prompt: string }
-  | { kind: 'user_decision'; decisionKind: 'supervisor_task_proposal'; proposal: SupervisorTaskProposal };
+  | { kind: 'user_decision'; decisionKind: 'supervisor_task_proposal'; proposal: SupervisorTaskProposal }
+  | { kind: 'timer'; wakeAt: string }
+  | { kind: 'dependency'; targetAgentIds: string[]; policy: 'all' | 'any'; timeoutAt: string };
 
 /** Runtime 内部唯一消费的规范动作；Agent 只能提出动作，不能直接提交 Subject/Run 终态。 */
 export type RuntimeControlAction =

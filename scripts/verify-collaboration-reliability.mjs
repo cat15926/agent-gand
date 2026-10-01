@@ -12,6 +12,8 @@ const store = await import('../apps/server/src/collaboration/store.ts');
 const trace = await import('../apps/server/src/runs/trace.ts');
 const bus = await import('../apps/server/src/messaging/bus.ts');
 const inbox = await import('../apps/server/src/messaging/inbox.ts');
+const { planCollaborationAdmission } = await import('../apps/server/src/runtime/subjectContract.ts');
+const { observeAdmission } = await import('../apps/server/src/runtime/shadow.ts');
 
 const now = new Date().toISOString();
 const runId = 'run-reliability';
@@ -43,6 +45,12 @@ try {
 
   const secondA = store.createDispatch({ runId, conversationId, sourceMessageId: 'source-3', parentDispatchId: 'parent-2', kind: 'handoff', from: 'user', targetAgentId: 'a', depth: 1, idempotencyKey: 'third', dedupeText: 'different' });
   const firstB = store.createDispatch({ runId, conversationId, sourceMessageId: 'source-4', parentDispatchId: 'parent-3', kind: 'handoff', from: 'user', targetAgentId: 'b', depth: 1, idempotencyKey: 'fourth', dedupeText: 'parallel' });
+  const planned = planCollaborationAdmission({ runId, objective: '验证可靠性', participantIds: ['a', 'b'],
+    targetAgentIds: ['a', 'b'], completionEngine: true, controlActionVersion: 2,
+    exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 },
+    completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
+    contextContributorVersion: 1, durableHoldVersion: 1 });
+  observeAdmission(planned.contract, planned.subjects, [first.dispatch.id, firstB.id]);
   const claimedA = store.claimNextDispatch(conversationId, 'test-owner');
   assert.equal(claimedA?.dispatch.id, first.dispatch.id);
   const claimedB = store.claimNextDispatch(conversationId, 'test-owner');

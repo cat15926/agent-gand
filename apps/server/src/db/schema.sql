@@ -130,8 +130,10 @@ CREATE TABLE IF NOT EXISTS collaboration_batches (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
   initiator_agent_id TEXT NOT NULL, source_dispatch_id TEXT NOT NULL,
   question TEXT NOT NULL, target_agent_ids TEXT NOT NULL, result_dispatch_id TEXT,
-  status TEXT NOT NULL, timeout_at TEXT NOT NULL, created_at TEXT NOT NULL,
-  completed_at TEXT
+  join_policy TEXT NOT NULL DEFAULT 'all', winner_dispatch_id TEXT,
+  generation INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL, timeout_at TEXT NOT NULL, settled_at TEXT,
+  created_at TEXT NOT NULL, completed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS collaboration_user_decisions (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
@@ -249,6 +251,7 @@ CREATE TABLE IF NOT EXISTS runtime_route_guard_events (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
   source_dispatch_id TEXT NOT NULL, from_agent_id TEXT NOT NULL, target_agent_id TEXT NOT NULL,
   objective_hash TEXT NOT NULL, evidence_fingerprint TEXT NOT NULL,
+  progress_digest TEXT, progress_snapshot TEXT,
   repeated_count INTEGER NOT NULL, outcome TEXT NOT NULL, reason TEXT,
   created_at TEXT NOT NULL
 );

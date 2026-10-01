@@ -11,4 +11,4 @@
 
 旧 handoff 没有 Capsule 时，ContextAssembler 使用来源消息生成兼容提示，不从自然语言推断持有人或已验证证据。当前只在 Collaboration 执行路径使用；Coordination 的 expectedArtifacts 仍只是路径，不伪装成独立 Artifact 实体。Capsule 与 Context 不改变阶段 6 尚未实现的完成判定。
 
-验收：`pnpm verify:runtime-context` 覆盖跨 Run、篡改文件、符号链接、敏感值和长度预算；`pnpm verify:runtime-crash` 覆盖交接提交后由新进程读取 Capsule 并组装 Context；`pnpm verify:collaboration` 与 `COLLAB_RUNTIME_ATOMIC=true pnpm verify:collaboration` 覆盖真实调度路径；另执行 `pnpm typecheck`。
+验收：`pnpm verify:runtime-context` 覆盖跨 Run、篡改文件、符号链接、敏感值和长度预算；`pnpm verify:runtime-crash` 覆盖交接提交后由新进程读取 Capsule 并组装 Context；`pnpm verify:collaboration` 覆盖真实 execute 调度路径；另执行 `pnpm typecheck`。

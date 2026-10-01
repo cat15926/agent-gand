@@ -28,13 +28,15 @@ Subject + holder/generation
 - `user_decision`：等待指定 Collaboration Decision；
 - `approval`：等待指定工具审批卡；
 - `timer`：到达冻结的 `wakeAt`；
-- `event`：收到指定业务事件键；
+- `event`：收到指定业务事件键；阶段 8 的新入口必须来自服务端注册接收器；
 - `dependency`：指定 Subject 按 `all | any` 到达完成态；
 - `lease_recovery`：指定 Attempt 已中断且租约截止时间已到。
 
 恢复策略分为创建 `resume` Dispatch、唤醒原 Run，以及确认既有 Dispatch 已安全重新排队。CompletionCandidate 对新版 Run 直接读取开放 Hold，不再把“存在用户决策行”当作完整等待事实。
 
 事件与超时按事实时间裁决：匹配事件的 `createdAt <= timeoutAt` 时事件优先；晚于 `timeoutAt` 的事件只保留审计，不能重新打开 Hold。时间恰好相等也由事件获胜。timer/lease 使用冻结的语义唤醒时间，而不是扫描器实际运行时间，避免进程暂停改变结果。
+
+阶段 8 起，新权威 Run 冻结 `externalWaitVersion=1`。Agent 只可请求 timer 和同 Run dependency；Subject ID 与绝对时间由 Runtime 派生。注册 external event 使用 receiver、Run scope、correlation/generation、sourceEventId 和 payload schema 信封，首个真实接收器为 Coordination Resume。完整边界见 [Runtime 外部等待入口](./runtime-external-waits.md)。
 
 ## Wake 与竞争
 
@@ -70,7 +72,7 @@ dependency 的失败也属于结案事实：`all` 中任一依赖失败/取消�
 - `pnpm verify:runtime-atomic`
 - `pnpm verify:runtime-subject-completion`
 - `pnpm verify:p0-tools`
-- `COLLAB_COMPLETION_ENGINE=true COLLAB_RUNTIME_ATOMIC=true pnpm verify:collaboration`
+- `pnpm verify:runtime-compatibility-retirement`
 - `pnpm typecheck`
 
 v1 用例覆盖重启前后唤醒、重复事件、定时器竞争、Stop/Wake 竞态、过期租约、审批到达、依赖满足和取消后的迟到事件。v2 用例额外覆盖事件/超时边界、event never arrives、依赖失败、临时错误退避、重试耗尽、永久错误隔离、旧 generation 义务隔离、恢复审计以及跨进程 claim 竞争。

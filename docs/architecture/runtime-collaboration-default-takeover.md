@@ -1,59 +1,27 @@
-# Collaboration Runtime 默认接管与回退
+# Collaboration Runtime 默认接管与历史兼容
 
-## 结论
+## 当前行为
 
-从阶段 5 开始，新建 Collaboration Run 在没有显式配置时默认以 `execute` Profile 入场。Runtime 拥有 Subject 完成验收和 Run 终局提交权；`legacy`、`shadow`、`atomic_compat` 继续作为存量排空、差异观测和应急回退的兼容 Profile。
+新建 Collaboration Run 只允许 `execute` Profile。Runtime 拥有 Subject 完成验收和 Run 终局提交权。未设置 `COLLAB_RUNTIME_MODE` 与显式设置 `execute` 等价；配置 `legacy`、`shadow` 或 `atomic_compat` 会在服务启动时被拒绝。`COLLAB_RUNTIME_ATOMIC=true` 和 `COLLAB_RUNTIME_SHADOW=true` 同样被拒绝；`COLLAB_COMPLETION_ENGINE` 不再决定入场语义。
 
-默认值只参与新 Run admission。每个 Run 创建初始 Dispatch 前都会把 `RuntimeExecutionPolicyV1` 和组件版本冻结进 Runtime Contract；后续 worker、恢复扫描和重启都只读取冻结 Contract。
+每个 Run 在初始 Dispatch 前冻结 `RuntimeExecutionPolicyV1` 与组件版本。worker 只接球 `execute` Run，用户决策只恢复 `execute` Run；退役 Profile 的 Contract、动作和审计记录仍可只读解释。历史数据不被自动改写或升级。
 
-## 入场与回退
+## 清理门禁与回退
 
-| 配置 | 新 Run | 已冻结 Run |
-| --- | --- | --- |
-| 未设置 `COLLAB_RUNTIME_MODE` | `execute` | 不变 |
-| `COLLAB_RUNTIME_MODE=execute` | `execute` | 不变 |
-| `COLLAB_RUNTIME_MODE=shadow` | `shadow` | 不变 |
-| `COLLAB_RUNTIME_MODE=atomic_compat` | `atomic_compat` | 不变 |
-| `COLLAB_RUNTIME_MODE=legacy` | `legacy` | 不变 |
+阶段 10 清理前，`pnpm runtime:compatibility-inventory` 已确认本地数据库没有非终态的旧 Profile 或旧 alias checkpoint。唯一停在 `waiting_for_user` 的 2026-09-16 历史 Run，经用户明确授权使用现有 Stop 语义终止，保留了消息与 Trace。随后删除旧 alias 的模型暴露、legacy finalization 和 `atomic_compat` 执行分支；终态历史读取和版本解释保留。详见 [Runtime ProgressDigest 与兼容清理门禁](./runtime-progress-digest-compatibility-retirement.md)。
 
-应急回退使用 `COLLAB_RUNTIME_MODE=legacy`，其含义是停止新的 execute 入场，不是把运行中的 execute Run 降级。已经冻结为 execute 的 Run 必须继续由支持其 Policy 和组件版本的 worker 排空；若兼容 worker 不可用，应明确阻断并告警，不能走 legacy finalization。
+若需要回退新版本，必须部署仍支持冻结 `execute` Contract 的兼容 worker，或暂停新入场并处理活跃 Run。不能仅把环境变量改成 `legacy`，更不能将活跃 `execute` Run 降级为旧执行权。
 
-旧的 `COLLAB_COMPLETION_ENGINE`、`COLLAB_RUNTIME_ATOMIC` 和 `COLLAB_RUNTIME_SHADOW` 只保留 admission 兼容映射。设置统一模式后，`COLLAB_RUNTIME_MODE` 始终优先。
-
-## Shadow 对比契约
-
-Shadow 仍由 legacy 路径拥有业务执行权，但每个正常完成的 Attempt 会写入一条 `runtime_shadow_comparisons` 审计记录：
-
-- 输入是同一份已生成 Agent 输出，不再次调用模型；
-- 判定前冻结 Responsibility Snapshot，并保存快照指纹；
-- 不创建第二次工具执行、消息或 Dispatch；
-- 每个 Attempt 使用唯一账本记录，重放保持幂等；
-- 审计失败只记为 `observer_error` 并告警，不改变已提交的 legacy 结果。
-
-分类口径：
-
-| 分类 | 含义 |
-| --- | --- |
-| `match` | legacy 接受输出，Runtime 完成判定也接受 |
-| `runtime_stricter` | legacy 已接受，但 Runtime 因阻断事实拒绝或判定候选过期 |
-| `runtime_looser` | legacy 阻断，但 Runtime 判定接受 |
-| `projection_only` | handoff、consult、hold 等非终局动作只比较责任投影 |
-| `observer_error` | Shadow 观察或判定失败，需要排障 |
-
-REST 运行详情、WebSocket 事件和右侧协作面板均暴露该记录。发布门槛要求所有差异都有分类与原因，且不得出现无法解释的 `observer_error`。
+历史 `runtime_shadow_comparisons` 仍可通过运行详情、WebSocket 和右侧协作面板读取；新 Run 不再产生 Shadow Comparison。
 
 ## 验收
 
 ```bash
+pnpm runtime:compatibility-inventory
 pnpm verify:runtime-default-takeover
-COLLAB_RUNTIME_MODE=shadow pnpm verify:collaboration
+pnpm verify:runtime-run-policy
+pnpm verify:runtime-agent-api-v2
+pnpm verify:runtime-compatibility-retirement
 pnpm verify:collaboration
-COLLAB_RUNTIME_MODE=legacy pnpm verify:collaboration
-COLLAB_RUNTIME_MODE=atomic_compat pnpm verify:collaboration
-pnpm verify:runtime-action-commands
-pnpm verify:runtime-crash
-pnpm verify:runtime-hold-recovery-v2
 pnpm verify:coordination
 ```
-
-专项测试覆盖默认 execute、显式回退、跨进程混合 Profile 读取、Shadow 分类和幂等、无第二次外部副作用，以及 handoff、consult(all)、hold/wake、Stop、审批恢复和 review_revision 回归。

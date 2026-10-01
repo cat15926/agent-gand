@@ -31,6 +31,11 @@ assert.ok(evaluateCompletion(complete({ protocolTerminal: false })).reasons.incl
 assert.ok(evaluateCompletion(complete({ successorObligationsSatisfied: false })).reasons.includes('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED'));
 assert.ok(evaluateCompletion(complete({ completionBlockers: [{ code: 'REQUIRED_OBLIGATION_FAILED', category: 'work',
   refType: 'obligation', refId: 'review-1', message: 'review 失败' }] })).reasons.includes('REQUIRED_OBLIGATION_FAILED'));
+assert.deepEqual(evaluateCompletion(complete({ subjects: [subject('root:a'), subject('root:b', {
+  status: 'waiting', custodyState: 'waiting', hasOutput: false, evidenceValid: false,
+})], completionBlockers: [{ code: 'EXTERNAL_CONDITION_PENDING', category: 'external',
+  refType: 'hold', refId: 'hold-1', message: '等待外部条件' }] })),
+{ status: 'waiting', reasons: ['EXTERNAL_CONDITION_PENDING'] });
 assert.deepEqual(evaluateCompletion(complete({ disposition: 'partial_user_accepted' })), {
   status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition: 'partial_user_accepted',
 });

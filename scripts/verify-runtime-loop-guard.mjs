@@ -6,7 +6,6 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-loop-guard-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 
 const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
@@ -24,7 +23,9 @@ try {
     runId, '完成同一个修复目标', 'collaboration', conversationId, 1, 'running', '["a","b"]', now);
   const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: '请修复' });
   const plan = planCollaborationAdmission({ runId, objective: '完成同一个修复目标', participantIds: ['a', 'b'], targetAgentIds: ['a'],
-    controlActionVersion: 2, evidenceBundleVersion: 1, evidenceLoopGuardVersion: 1 });
+    completionEngine: true, controlActionVersion: 2, evidenceBundleVersion: 1, evidenceLoopGuardVersion: 1,
+    completionCandidateVersion: 1, successorObligationVersion: 1, contextContributorVersion: 1,
+    durableHoldVersion: 1, exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 } });
   const dispatch = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
     kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: 'initial' });
   observeAdmission(plan.contract, plan.subjects, [dispatch.id]);

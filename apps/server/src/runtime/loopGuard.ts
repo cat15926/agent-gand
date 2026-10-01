@@ -1,27 +1,42 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { RuntimeEvidenceRef, RuntimeRouteGuardEvent } from '@agent-gand/shared';
+import type { RuntimeEvidenceRef, RuntimeProgressDigest, RuntimeRouteGuardEvent } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
-import { evidenceFingerprint, listEvidenceBundles } from './evidence.ts';
+import { buildProgressDigest, evidenceFingerprint, listEvidenceBundles } from './evidence.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 
 interface GuardRow {
   id: string; run_id: string; subject_id: string; source_dispatch_id: string;
   from_agent_id: string; target_agent_id: string; objective_hash: string; evidence_fingerprint: string;
+  progress_digest: string | null; progress_snapshot: string | null;
   repeated_count: number; outcome: RuntimeRouteGuardEvent['outcome']; reason: string | null; created_at: string;
 }
 
+function parseProgressDigest(row: GuardRow): RuntimeProgressDigest | undefined {
+  if (!row.progress_snapshot) return undefined;
+  try {
+    const parsed = JSON.parse(row.progress_snapshot) as RuntimeProgressDigest;
+    return parsed?.version === 1 && parsed.digest === row.progress_digest ? parsed : undefined;
+  } catch { return undefined; }
+}
+
 function toEvent(row: GuardRow): RuntimeRouteGuardEvent {
+  const progressDigest = parseProgressDigest(row);
   return {
     id: row.id, runId: row.run_id, subjectId: row.subject_id, sourceDispatchId: row.source_dispatch_id,
     fromAgentId: row.from_agent_id, targetAgentId: row.target_agent_id, objectiveHash: row.objective_hash,
     evidenceFingerprint: row.evidence_fingerprint, repeatedCount: row.repeated_count,
+    ...(progressDigest ? { progressDigest } : {}),
     outcome: row.outcome, reason: row.reason, createdAt: row.created_at,
   };
 }
 
 export function runtimeEvidenceLoopGuardVersion(runId: string): 1 | null {
   return loadRuntimeContract(runId)?.features?.evidenceLoopGuardVersion === 1 ? 1 : null;
+}
+
+export function runtimeProgressDigestVersion(runId: string): 1 | null {
+  return loadRuntimeContract(runId)?.features?.progressDigestVersion === 1 ? 1 : null;
 }
 
 function substantiveSubjectEvidence(runId: string, subjectId: string): RuntimeEvidenceRef[] {
@@ -57,12 +72,18 @@ export function recordEvidenceAwareRoute(input: {
 }): RuntimeRouteGuardEvent {
   return tx(() => {
     const targetHash = objectiveHash(input.objective);
-    const fingerprint = evidenceFingerprint(input.runId, substantiveSubjectEvidence(input.runId, input.subjectId));
+    const refs = substantiveSubjectEvidence(input.runId, input.subjectId);
+    const fingerprint = evidenceFingerprint(input.runId, refs);
+    const contract = loadRuntimeContract(input.runId);
+    const progressDigest = contract?.features?.progressDigestVersion === 1
+      ? buildProgressDigest({ runId: input.runId, subjectId: input.subjectId,
+        revision: contract.runtimeRevision ?? 1, refs }) : undefined;
+    const currentProgress = progressDigest?.digest ?? fingerprint;
     const history = all<GuardRow>(`SELECT * FROM runtime_route_guard_events
       WHERE run_id=? AND subject_id=? ORDER BY created_at DESC,rowid DESC`, input.runId, input.subjectId);
     let previous = 0;
     for (const item of history) {
-      if (item.objective_hash !== targetHash || item.evidence_fingerprint !== fingerprint
+      if (item.objective_hash !== targetHash || (item.progress_digest ?? item.evidence_fingerprint) !== currentProgress
         || !samePair(item, input.fromAgentId, input.targetAgentId)) break;
       previous += 1;
     }
@@ -77,7 +98,8 @@ export function recordEvidenceAwareRoute(input: {
     const now = new Date().toISOString(); const id = randomUUID();
     const event: RuntimeRouteGuardEvent = { id, runId: input.runId, subjectId: input.subjectId,
       sourceDispatchId: input.sourceDispatchId, fromAgentId: input.fromAgentId, targetAgentId: input.targetAgentId,
-      objectiveHash: targetHash, evidenceFingerprint: fingerprint, repeatedCount, outcome, reason, createdAt: now };
+      objectiveHash: targetHash, evidenceFingerprint: fingerprint, ...(progressDigest ? { progressDigest } : {}),
+      repeatedCount, outcome, reason, createdAt: now };
     persistRouteGuardEvent(event);
     return event;
   });
@@ -85,9 +107,10 @@ export function recordEvidenceAwareRoute(input: {
 
 export function persistRouteGuardEvent(event: RuntimeRouteGuardEvent): void {
   const changed = run(`INSERT OR IGNORE INTO runtime_route_guard_events
-    (id,run_id,subject_id,source_dispatch_id,from_agent_id,target_agent_id,objective_hash,evidence_fingerprint,repeated_count,outcome,reason,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, event.id, event.runId, event.subjectId, event.sourceDispatchId,
+    (id,run_id,subject_id,source_dispatch_id,from_agent_id,target_agent_id,objective_hash,evidence_fingerprint,progress_digest,progress_snapshot,repeated_count,outcome,reason,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, event.id, event.runId, event.subjectId, event.sourceDispatchId,
   event.fromAgentId, event.targetAgentId, event.objectiveHash, event.evidenceFingerprint,
+  event.progressDigest?.digest ?? null, event.progressDigest ? JSON.stringify(event.progressDigest) : null,
   event.repeatedCount, event.outcome, event.reason, event.createdAt);
   if (changed > 0) afterCommit(() => emit({ type: 'runtime.route_guard.updated', event }));
 }

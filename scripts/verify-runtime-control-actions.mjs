@@ -41,13 +41,14 @@ try {
   const call = { id: 'call-1', name: 'agent.send_message', input: JSON.stringify({ target: 'b', message: '接手', reason: '匹配' }) };
   assert.deepEqual(parseControlCall(call, ['a', 'b'], 'a', 1),
     { type: 'handoff', targetAgentId: 'b', message: '接手', reason: '匹配' });
-  assert.deepEqual(parseControlCall(call, ['a', 'b'], 'a', 2),
+  assert.throws(() => parseControlCall(call, ['a', 'b'], 'a', 2), /已退役/u);
+  assert.deepEqual(parseControlCall(call, ['a', 'b'], 'a', 2, { historicalAlias: true }),
     { version: 2, type: 'handoff', targetAgentId: 'b', objective: '接手', reason: '匹配' });
   assert.deepEqual(parseControlCall({ name: 'agent.complete', input: JSON.stringify({ summary: '最终结果' }) }, ['a', 'b'], 'a', 2),
     { version: 2, type: 'complete', summary: '最终结果' });
-  assert.throws(() => parseControlCall({ name: 'agent.send_message', input: JSON.stringify({ target: 'missing', message: '接手', reason: '匹配' }) }, ['a', 'b'], 'a', 2),
+  assert.throws(() => parseControlCall({ name: 'agent.send_message', input: JSON.stringify({ target: 'missing', message: '接手', reason: '匹配' }) }, ['a', 'b'], 'a', 2, { historicalAlias: true }),
     /不是当前聊天室启用成员/u);
-  assert.throws(() => parseControlCall({ name: 'agent.send_message', input: JSON.stringify({ target: 'a', message: '接手', reason: '匹配' }) }, ['a', 'b'], 'a', 2),
+  assert.throws(() => parseControlCall({ name: 'agent.send_message', input: JSON.stringify({ target: 'a', message: '接手', reason: '匹配' }) }, ['a', 'b'], 'a', 2, { historicalAlias: true }),
     /不能把工作交给自己/u);
 
   const contract = { version: 1, runId: 'new-run', objective: '目标', participantIds: ['a'],

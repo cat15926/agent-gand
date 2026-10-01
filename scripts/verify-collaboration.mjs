@@ -115,6 +115,14 @@ try {
   const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);
   assert.match(handoffAttempt?.inputContext ?? '', /交接 Capsule/u);
   assert.match(handoffAttempt?.inputContext ?? '', /经校验的来源摘录/u);
+  if (admissionProfile === 'execute' || admissionProfile === 'atomic_compat') {
+    const handoffObligation = handoffDetail.data.successorObligations.find((item) => item.kind === 'handoff_acquire');
+    assert.ok(handoffObligation, '真实 Scheduler handoff 必须创建类型化接球义务');
+    assert.match(handoffAttempt?.inputContext ?? '', /schema 2/u);
+    assert.match(handoffAttempt?.inputContext ?? '', /Capsule 后继义务引用/u);
+    assert.match(handoffAttempt?.inputContext ?? '', new RegExp(handoffObligation.id),
+      '接手者 Context 必须完整携带 Runtime 生成的义务 ID');
+  }
   const handoffRunDetail = await api(`/api/runs/${handoff.data.run.id}`);
   const traceEvents = handoffRunDetail.data.events;
   const collaborationRoot = traceEvents.find((event) => event.name === `collaboration:${handoff.data.run.id}`);
@@ -126,6 +134,11 @@ try {
   assert.ok(traceEvents.some((event) => event.name === 'exit_guard:continue_same_turn'));
   assert.ok(traceEvents.some((event) => event.name === 'exit_guard:allow_candidate'));
   if (runtimeStateEnabled) assert.ok(traceEvents.some((event) => event.name === 'completion_candidate:accepted'));
+  const firstLlmTools = JSON.parse(traceEvents.find((event) => event.spanKind === 'llm')?.input ?? '{}').tools ?? [];
+  assert.ok(['agent.complete', 'agent.handoff', 'agent.consult', 'agent.hold']
+    .every((name) => firstLlmTools.includes(name)), 'toolApiVersion=2 必须只下发 Agent API v2 领域工具');
+  assert.ok(['agent.send_message', 'agent.ask_many', 'agent.wait_for_user']
+    .every((name) => !firstLlmTools.includes(name)), '新 Run 不得向模型暴露旧工具别名');
   const correctionLlms = traceEvents.filter((event) => event.attributes?.['orchestration.phase'] === 'agent.exit_correction');
   assert.equal(correctionLlms.length, 1, '默认策略只能发起一次同轮纠偏调用');
   const correctionLlm = correctionLlms[0];
@@ -304,6 +317,68 @@ try {
     assert.ok(waitingDetail.data.durableHolds.some((item) => item.condition.kind === 'user_decision'
       && item.condition.decisionId === question.id && item.status === 'resumed'));
     assert.ok(waitingDetail.data.wakeEvents.some((item) => item.kind === 'user_decision' && item.sourceKey === question.id));
+  }
+
+  if (admissionProfile === 'execute' || admissionProfile === 'atomic_compat') {
+    const timerWaiting = await api(`/api/conversations/${multi.data.conversation.id}/messages`, 'POST', {
+      body: '[collab:hold-timer:1] 一秒后自动继续', recipientIds: ['planner'], clientMessageId: crypto.randomUUID(),
+    });
+    assert.equal(timerWaiting.status, 202, JSON.stringify(timerWaiting.data));
+    const timerTerminal = await waitRun(timerWaiting.data.run.id, ['completed', 'failed'], 12_000);
+    const timerDetail = await api(`/api/runs/${timerWaiting.data.run.id}/collaboration`);
+    assert.equal(timerTerminal.status, 'completed', JSON.stringify({ dispatches: timerDetail.data.dispatches,
+      attempts: timerDetail.data.attempts, holds: timerDetail.data.durableHolds,
+      candidates: timerDetail.data.completionCandidates }, null, 2));
+    assert.ok(timerDetail.data.durableHolds.some((item) => item.condition.kind === 'timer' && item.status === 'resumed'),
+      'Agent timer Hold 必须经公共恢复路径结案');
+    assert.ok(timerDetail.data.wakeEvents.some((item) => item.kind === 'timer'));
+    assert.ok(timerDetail.data.dispatches.some((item) => item.kind === 'resume'));
+    assert.ok(['hold', 'wake'].every((kind) => timerDetail.data.actionCommands.some((item) => item.kind === kind)),
+      'timer Hold 与恢复必须经过公共动作命令');
+
+    const consultAny = await api('/api/conversations', 'POST', {
+      goal: '[collab:ask-any:coder,reviewer] 请返回首个通过验收的独立意见', mode: 'collaboration',
+      agentIds: ['planner', 'coder', 'reviewer'], recipientIds: ['planner'],
+    });
+    assert.equal(consultAny.status, 201, JSON.stringify(consultAny.data));
+    await waitRun(consultAny.data.run.id, ['waiting_for_user']);
+    const consultAnyPaused = await api(`/api/runs/${consultAny.data.run.id}/collaboration`);
+    const consultAnyBudget = consultAnyPaused.data.decisions.find((item) => item.kind === 'budget_exhausted' && item.status === 'pending');
+    assert.ok(consultAnyBudget);
+    await api(`/api/collaboration/decisions/${consultAnyBudget.id}/resolve`, 'POST', { action: 'increase_budget', increasePercent: 200 });
+    const consultAnyTerminal = await waitRun(consultAny.data.run.id, ['completed', 'failed'], 12_000);
+    const consultAnyDetail = await api(`/api/runs/${consultAny.data.run.id}/collaboration`);
+    assert.equal(consultAnyTerminal.status, 'completed', JSON.stringify({
+      dispatches: consultAnyDetail.data.dispatches, attempts: consultAnyDetail.data.attempts,
+      batches: consultAnyDetail.data.batches, obligations: consultAnyDetail.data.successorObligations,
+      candidates: consultAnyDetail.data.completionCandidates,
+      evaluations: consultAnyDetail.data.completionEvaluations,
+    }, null, 2));
+    const anyBatch = consultAnyDetail.data.batches[0];
+    assert.equal(anyBatch.joinPolicy, 'any');
+    assert.equal(anyBatch.status, 'completed');
+    assert.equal(anyBatch.generation, 1);
+    assert.ok(anyBatch.winnerDispatchId && anyBatch.settledAt);
+    const anyFanout = consultAnyDetail.data.dispatches.filter((item) => item.kind === 'fanout');
+    assert.equal(anyFanout.filter((item) => item.status === 'completed').length, 1);
+    assert.equal(anyFanout.filter((item) => item.status === 'cancelled'
+      && item.error?.startsWith('CONSULT_ANY_NOT_SELECTED:')).length, 1);
+    assert.equal(consultAnyDetail.data.dispatches.filter((item) => item.kind === 'aggregate').length, 1,
+      'consult(any) 父级只能生成一个 aggregate');
+    assert.ok(consultAnyDetail.data.actionCommands.some((item) => item.kind === 'consult_any'));
+    assert.equal(consultAnyDetail.data.completionCandidates.filter((item) => item.status === 'accepted'
+      && anyFanout.some((dispatch) => dispatch.id === consultAnyDetail.data.attempts
+        .find((attempt) => attempt.id === item.attemptId)?.dispatchId)).length, 1,
+    '只有首个通过 SubjectCompletion 的 fanout 候选可以成为 winner');
+    const anyGroup = consultAnyDetail.data.successorObligations.find((item) => item.required
+      && item.kind === 'consult_result' && item.payload?.join === 'any');
+    assert.equal(anyGroup?.status, 'satisfied');
+    const consultAnyRoom = await api(`/api/conversations/${consultAny.data.conversation.id}`);
+    assert.equal(consultAnyRoom.data.messages.filter((message) => message.runId === consultAny.data.run.id
+      && message.messageType === 'collaboration_contribution').length, 1,
+    '未胜出分支不能发布迟到贡献');
+    assert.equal(consultAnyRoom.data.messages.filter((message) => message.runId === consultAny.data.run.id
+      && message.messageType === 'collaboration_result').length, 1);
   }
 
   const budgetRun = await api(`/api/conversations/${multi.data.conversation.id}/messages`, 'POST', {

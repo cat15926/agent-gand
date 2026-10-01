@@ -3,19 +3,17 @@ import * as registry from '../agents/registry.ts';
 import { afterCommit, tx } from '../db/database.ts';
 import { nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
-import { endSpan, finishRun, getRun, listEvents, setRunStatus, createRun, startSpan } from '../runs/trace.ts';
+import { endSpan, getRun, listEvents, setRunStatus, createRun, startSpan } from '../runs/trace.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { cancelQueuedRun, createBudgetRevision, createDispatch, getDecision, resolveDecision } from './store.ts';
-import { closeCollaborationTrace, finalizeCollaborationRun, kickCollaboration } from './scheduler.ts';
-import { observeAggregateLink, safelyObserve } from '../runtime/shadow.ts';
-import { isCompletionEngineRun } from '../runtime/completionStore.ts';
+import { finalizeCollaborationRun, kickCollaboration } from './scheduler.ts';
+import { observeAggregateLink } from '../runtime/shadow.ts';
 import { recordRuntimeWakeEvent, runtimeDurableHoldVersion } from '../runtime/holds.ts';
 import { recoverDurableHolds } from '../runs/recovery.ts';
 import {
+  assertExecutableCollaborationPolicy,
   resolveRunPolicy,
-  runtimeOwnsCompletion,
   runtimeStateAuthoritative,
-  runtimeStateShadow,
 } from '../runtime/runPolicy.ts';
 
 export class CollaborationDecisionError extends Error {
@@ -30,10 +28,7 @@ function assertPending(id: string) {
 
 function linkResume(runId: string, sourceDispatchId: string | null, resumeDispatchId: string): void {
   if (!sourceDispatchId) return;
-  const policy = resolveRunPolicy(runId);
-  const observe = () => observeAggregateLink(sourceDispatchId, resumeDispatchId);
-  if (runtimeStateAuthoritative(policy)) observe();
-  else if (runtimeStateShadow(policy)) afterCommit(() => safelyObserve('resume_link', observe));
+  observeAggregateLink(sourceDispatchId, resumeDispatchId);
 }
 
 function validateSupervisorTeam(sourceRun: Run, input: Extract<ResolveCollaborationDecision, { action: 'approve_task' }>): void {
@@ -64,6 +59,8 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
   const sourceRun = getRun(initial.runId);
   if (!sourceRun) throw new CollaborationDecisionError('关联 Run 不存在', 404);
+  try { assertExecutableCollaborationPolicy(sourceRun.id); }
+  catch { throw new CollaborationDecisionError('该历史 Collaboration Run 的执行策略已退役，仅保留只读历史', 409); }
   const durableHold = runtimeStateAuthoritative(resolveRunPolicy(sourceRun.id))
     && runtimeDurableHoldVersion(sourceRun.id) !== null;
 
@@ -119,16 +116,14 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
 
   if (initial.kind === 'budget_exhausted' && input.action === 'terminate_at_budget') {
-    const completionOwned = runtimeOwnsCompletion(resolveRunPolicy(sourceRun.id)) && isCompletionEngineRun(sourceRun.id);
     const resolved = tx(() => {
       const current = assertPending(id); if (current.status !== 'pending') return current;
       cancelQueuedRun(sourceRun.id);
       const done = resolveDecision(current.id, 'accepted', { action: input.action, outcome: 'partial_accepted' })!;
-      if (!completionOwned) finishRun(sourceRun.id, 'completed'); return done;
+      return done;
     });
     recordDecisionTrace(sourceRun, id, initial.kind, input, { status: resolved.status, outcome: 'partial_accepted' });
-    if (completionOwned) finalizeCollaborationRun(sourceRun.id, { disposition: 'partial_user_accepted' });
-    else closeCollaborationTrace(sourceRun.id, 'completed');
+    finalizeCollaborationRun(sourceRun.id, { disposition: 'partial_user_accepted' });
     postSystem(sourceRun.id, 'user', '用户选择在预算边界按当前部分结果终止。'); touchConversation(sourceRun.conversationId);
     return { decision: resolved, linkedRun: null };
   }
@@ -160,7 +155,6 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
 
   if (initial.kind === 'supervisor_task_proposal' && input.action === 'approve_task') {
-    const completionOwned = runtimeOwnsCompletion(resolveRunPolicy(sourceRun.id)) && isCompletionEngineRun(sourceRun.id);
     validateSupervisorTeam(sourceRun, input);
     const proposal = initial.payload.proposal as { title?: unknown; goal?: unknown; acceptanceCriteria?: unknown } | undefined;
     const baseGoal = typeof proposal?.goal === 'string' && proposal.goal.trim() ? proposal.goal.trim() : sourceRun.goal;
@@ -174,12 +168,11 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
       resolveDecision(current.id, 'accepted', { action: input.action, supervisorId: input.supervisorId, agentIds: input.agentIds }, created.id);
       if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
         payload: { action: input.action, linkedRunId: created.id }, idempotencyKey: `decision-wake:${current.id}` });
-      if (!completionOwned) finishRun(sourceRun.id, 'completed'); return created;
+      return created;
     });
     if (!linked) throw new CollaborationDecisionError('关联 Supervisor Run 创建失败', 409);
     recordDecisionTrace(sourceRun, id, initial.kind, input, { status: 'accepted', linkedRunId: linked.id });
-    if (completionOwned) finalizeCollaborationRun(sourceRun.id, { disposition: 'delegated', publishResult: false });
-    else closeCollaborationTrace(sourceRun.id, 'completed');
+    finalizeCollaborationRun(sourceRun.id, { disposition: 'delegated', publishResult: false });
     enqueueConversationRun(linked.id); touchConversation(sourceRun.conversationId);
     return { decision: getDecision(id)!, linkedRun: linked };
   }

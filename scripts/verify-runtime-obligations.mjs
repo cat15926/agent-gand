@@ -5,7 +5,6 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-obligations-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 
 const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
@@ -28,7 +27,9 @@ function fixture(name) {
     runId, name, 'collaboration', conversationId, 1, 'running', '["a","b","c"]', now);
   const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: name });
   const plan = planCollaborationAdmission({ runId, objective: name, participantIds: ['a', 'b', 'c'], targetAgentIds: ['a'],
-    controlActionVersion: 2, successorObligationVersion: 1 });
+    completionEngine: true, controlActionVersion: 2, successorObligationVersion: 1,
+    completionCandidateVersion: 1, evidenceBundleVersion: 1, contextContributorVersion: 1,
+    durableHoldVersion: 1, exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 } });
   const dispatch = db.tx(() => {
     const created = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
       kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${name}` });

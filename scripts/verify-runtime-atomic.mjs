@@ -5,7 +5,6 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-runtime-atomic-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
-process.env.COLLAB_RUNTIME_ATOMIC = 'true';
 process.env.COLLAB_MAX_ATTEMPTS = '2';
 const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
@@ -24,7 +23,8 @@ function fixture(id) {
 function admit(id) {
   const ids = fixture(id);
   const plan = planCollaborationAdmission({ runId: ids.runId, objective: id, participantIds: ['a', 'b'], targetAgentIds: ['a'],
-    executionPolicy: executionPolicyForProfile('atomic_compat'), controlActionVersion: 2,
+    executionPolicy: executionPolicyForProfile('execute'), controlActionVersion: 2,
+    exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 },
     completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
     evidenceLoopGuardVersion: 1, contextContributorVersion: 1, durableHoldVersion: 1 });
   return db.tx(() => {

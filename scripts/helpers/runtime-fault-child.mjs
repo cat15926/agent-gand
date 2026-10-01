@@ -45,7 +45,8 @@ if (mode === 'admission_before' || mode === 'admission_after') {
     const dispatch = store.createDispatch({ runId, conversationId, sourceMessageId: `source:${runId}`,
       kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${runId}` });
     const plan = planCollaborationAdmission({ runId, objective: '崩溃注入', participantIds: ['a', 'b'], targetAgentIds: ['a'],
-      executionPolicy: executionPolicyForProfile('atomic_compat'), controlActionVersion: 2,
+      executionPolicy: executionPolicyForProfile('execute'), controlActionVersion: 2,
+      exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 1024 },
       completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
       evidenceLoopGuardVersion: 1, contextContributorVersion: 1, durableHoldVersion: 1 });
     observeAdmission(plan.contract, plan.subjects, [dispatch.id]);
@@ -127,6 +128,22 @@ if (mode === 'admission_before' || mode === 'admission_after') {
   const result = commitHandoffActionCommand({ runId, dispatchId: dispatchId || null,
     commandKey: `action-handoff:${runId}`, execute });
   if (mode === 'action_handoff_after') crash();
+  process.stdout.write(JSON.stringify({ committed: result.committed, ...result.result }));
+} else if (mode === 'action_consult_any_before' || mode === 'action_consult_any_after') {
+  const { commitConsultAnyActionCommand } = await import('../../apps/server/src/runtime/actionCommands.ts');
+  const result = commitConsultAnyActionCommand({ runId, dispatchId: dispatchId || null,
+    commandKey: `action-consult-any:${runId}`, execute: () => {
+      const message = post({ runId, from: 'a', to: 'b,c', kind: 'agent', messageType: 'collaboration_question',
+        body: '首个成功即可', clientMessageId: `action-consult-any:${runId}:message` });
+      const batch = store.createBatch({ runId, conversationId, initiatorAgentId: 'a', sourceDispatchId: dispatchId,
+        question: '首个成功即可', targetAgentIds: ['b', 'c'], joinPolicy: 'any' });
+      for (const target of ['b', 'c']) store.createDispatchDetailed({ runId, conversationId,
+        sourceMessageId: message.id, parentDispatchId: dispatchId || null, batchId: batch.id, kind: 'fanout',
+        from: 'a', targetAgentId: target, depth: 1, idempotencyKey: `action-consult-any:${runId}:${target}` });
+      if (mode === 'action_consult_any_before') crash();
+      return { batchId: batch.id };
+    } });
+  if (mode === 'action_consult_any_after') crash();
   process.stdout.write(JSON.stringify({ committed: result.committed, ...result.result }));
 } else {
   throw new Error(`未知故障注入模式：${mode}`);

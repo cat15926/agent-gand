@@ -10,7 +10,8 @@ export type RuntimePolicyErrorCode =
   | 'RUNTIME_CONTRACT_MISMATCH'
   | 'RUNTIME_POLICY_UNKNOWN_VERSION'
   | 'RUNTIME_POLICY_INVALID'
-  | 'RUNTIME_POLICY_AMBIGUOUS_HISTORY';
+  | 'RUNTIME_POLICY_AMBIGUOUS_HISTORY'
+  | 'RUNTIME_POLICY_RETIRED';
 
 export class RuntimePolicyError extends Error {
   constructor(readonly code: RuntimePolicyErrorCode, message: string) {
@@ -88,7 +89,10 @@ function hasAmbiguousHistoricalRuntimeState(contract: RuntimeRunContract): boole
     || features?.evidenceBundleVersion
     || features?.evidenceLoopGuardVersion
     || features?.contextContributorVersion
-    || features?.durableHoldVersion);
+    || features?.durableHoldVersion
+    || features?.externalWaitVersion
+    || features?.consultAnyVersion
+    || features?.progressDigestVersion);
 }
 
 function assertPolicyCapabilities(runId: string, contract: RuntimeRunContract, policy: RuntimeExecutionPolicyV1): void {
@@ -172,4 +176,15 @@ export function runtimeStateShadow(policy: RuntimeExecutionPolicyV1): boolean {
 
 export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean {
   return policy.authority === 'runtime';
+}
+
+/** 历史 Profile 仍可读取，但 Collaboration worker 只执行已冻结的 execute Run。 */
+export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
+  const policy = resolveRunPolicy(runId);
+  if (policy.profile !== 'execute' || policy.authority !== 'runtime'
+    || policy.atomicity !== 'commands_v1' || policy.toolApiVersion !== 2) {
+    throw new RuntimePolicyError('RUNTIME_POLICY_RETIRED',
+      `Run ${runId} 使用已退役的 Collaboration 执行策略 ${policy.profile}`);
+  }
+  return policy;
 }

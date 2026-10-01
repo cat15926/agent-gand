@@ -41,7 +41,7 @@ function contract(runId, profile) {
   }).contract;
 }
 
-function inspectWithWorker(admissionMode) {
+function inspectWithWorker(admissionMode, expectFailure = false) {
   const loader = path.resolve('apps/server/node_modules/tsx/dist/loader.mjs');
   const configUrl = pathToFileURL(path.resolve('apps/server/src/config.ts')).href;
   const policyUrl = pathToFileURL(path.resolve('apps/server/src/runtime/runPolicy.ts')).href;
@@ -64,6 +64,7 @@ function inspectWithWorker(admissionMode) {
   const result = spawnSync(process.execPath, ['--import', loader, '--input-type=module', '--eval', code], {
     cwd: process.cwd(), env, encoding: 'utf8', timeout: 10_000,
   });
+  if (expectFailure) { assert.notEqual(result.status, 0); return result.stderr; }
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout);
 }
@@ -83,10 +84,8 @@ try {
     legacy: 'legacy', shadow: 'shadow', atomic_compat: 'atomic_compat', execute: 'execute',
   }, '混合版本 worker 必须服从每个 Run 的冻结策略');
 
-  const rollbackWorker = inspectWithWorker('legacy');
-  assert.equal(rollbackWorker.admission, 'legacy', '显式回退只改变新 Run 入场');
-  assert.deepEqual(rollbackWorker.frozen, defaultWorker.frozen,
-    '回退进程不得把存量 execute/shadow/atomic Run 改写为 legacy');
+  assert.match(inspectWithWorker('legacy', true), /仅支持 execute/u,
+    '退役 Profile 不得再用于新 Run 入场');
 
   const accepted = { status: 'accepted', reasons: [], retryable: false, feedback: null };
   assert.equal(classifyRuntimeShadowComparison({ legacyOutcome: 'applied', actionType: 'complete',
@@ -131,7 +130,7 @@ try {
     .map((table) => [table, count(table)])), untouchedBefore,
   'Shadow Comparison 只能写审计账本，不能创建 Dispatch、消息或工具执行');
 
-  console.log('Collaboration 默认 execute、混合版本冻结、回退隔离与 Shadow 纯对比验证通过');
+  console.log('Collaboration execute 独占入场、历史 Profile 只读解释与 Shadow 审计验证通过');
 } finally {
   db.closeDatabase();
   await rm(root, { recursive: true, force: true });

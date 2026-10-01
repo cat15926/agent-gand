@@ -53,6 +53,12 @@ export interface RuntimeRunContract {
     contextContributorVersion?: 1;
     /** 缺失表示历史直接恢复路径；v2 增加超时、退避、错误分类和恢复审计。 */
     durableHoldVersion?: 1 | 2;
+    /** 1 表示 Agent 可请求 timer/dependency Hold，注册事件接收器使用带代际的可信信封。 */
+    externalWaitVersion?: 1;
+    /** 1 表示 consult(any) 由 Batch winner CAS、显式 join resolution 和单例 aggregate 驱动。 */
+    consultAnyVersion?: 1;
+    /** 1 表示防循环按规范化 ProgressDigest 判断实际进展，而不是按 EvidenceRef 身份判断。 */
+    progressDigestVersion?: 1;
   };
 }
 
@@ -115,10 +121,41 @@ export interface RuntimeRouteGuardEvent {
   targetAgentId: string;
   objectiveHash: string;
   evidenceFingerprint: string;
+  /** 历史事件缺失；存在时 repeatedCount 由规范化进展摘要而不是 EvidenceRef 身份驱动。 */
+  progressDigest?: RuntimeProgressDigest;
   repeatedCount: number;
   outcome: 'allowed' | 'warned' | 'blocked';
   reason: string | null;
   createdAt: string;
+}
+
+export type RuntimeProgressEntryKind = 'tool_execution' | 'workspace_file' | 'run_event';
+
+export interface RuntimeProgressDigestEntry {
+  kind: RuntimeProgressEntryKind;
+  category: 'read' | 'write' | 'event' | 'file' | 'other';
+  stableResource: string;
+  contentDigest: string;
+}
+
+/**
+ * Subject 级进展摘要。evidenceFingerprint 继续保留完整审计身份；digest 只包含
+ * 去重、去时间噪声后的实质内容，供 loop guard 判断是否真的取得了新进展。
+ */
+export interface RuntimeProgressDigest {
+  version: 1;
+  runId: string;
+  subjectId: string;
+  revision: number;
+  digest: string;
+  entries: RuntimeProgressDigestEntry[];
+  evidenceRefCount: number;
+  excluded: {
+    duplicateReadOnlyResults: number;
+    ordinaryLogs: number;
+    invalidEvidence: number;
+    timestampNoiseFields: number;
+  };
 }
 
 export type RuntimeDurableHoldStatus = 'open' | 'claimed' | 'resumed' | 'cancelled' | 'failed';
@@ -151,7 +188,7 @@ export type RuntimeDurableHoldCondition =
   | { kind: 'user_decision'; decisionId: string }
   | { kind: 'approval'; approvalId: string }
   | { kind: 'timer'; wakeAt: string }
-  | { kind: 'event'; eventKey: string }
+  | { kind: 'event'; eventKey: string; receiverId?: string; correlationId?: string; generation?: number }
   | { kind: 'dependency'; subjectIds: string[]; policy: 'all' | 'any' }
   | { kind: 'lease_recovery'; attemptId: string; leaseExpiredAt: string };
 
@@ -217,7 +254,7 @@ export interface RuntimeWakeEvent {
   createdAt: string;
 }
 
-export interface RuntimeHandoffCapsule {
+interface RuntimeHandoffCapsuleBase {
   version: number;
   runId: string;
   dispatchId: string;
@@ -232,6 +269,23 @@ export interface RuntimeHandoffCapsule {
   evidenceRefs: RuntimeEvidenceRef[];
   evidenceBundleId?: string;
 }
+
+/** 历史 Capsule：schemaVersion 缺失也按 v1 读取；说明文字不产生机器义务。 */
+export interface RuntimeHandoffCapsuleV1 extends RuntimeHandoffCapsuleBase {
+  schemaVersion?: 1;
+  successorObligationRefs?: never;
+}
+
+/** Capsule v2：内容修订 version 与结构 schemaVersion 分离。 */
+export interface RuntimeHandoffCapsuleV2 extends RuntimeHandoffCapsuleBase {
+  schemaVersion: 2;
+  successorObligationRefs: Array<{
+    obligationId: string;
+    generation: number;
+  }>;
+}
+
+export type RuntimeHandoffCapsule = RuntimeHandoffCapsuleV1 | RuntimeHandoffCapsuleV2;
 
 export interface RuntimeCompletionSubject {
   key: string;
@@ -399,7 +453,7 @@ export interface RuntimeRunTerminalRecord {
   committedAt: string;
 }
 
-export type RuntimeActionCommandKind = 'complete' | 'wake' | 'hold' | 'handoff' | 'consult_all';
+export type RuntimeActionCommandKind = 'complete' | 'wake' | 'hold' | 'handoff' | 'consult_all' | 'consult_any';
 
 /** Runtime 动作命令的持久化幂等账本；result 是命令提交时冻结的最小返回值。 */
 export interface RuntimeActionCommandRecord {

@@ -4,20 +4,20 @@ import type {
   CollaborationDispatch,
   Conversation,
   Run,
-  RuntimeCompletionCandidate,
   RuntimeControlAction,
+  RuntimeDurableHoldCondition,
   RuntimeRouteGuardEvent,
-  RuntimeSubjectCompletionEvaluation,
+  RuntimeSuccessorObligation,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { afterCommit, get, tx } from '../db/database.ts';
 import { listByConversation, listByRun, post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
-import { endSpan, finishRun, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
+import { endSpan, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE, type AgentTurnResult } from '../orchestration/agentStep.ts';
-import { COLLABORATION_CONTROL_TOOLS, parseControlCall } from './controlTools.ts';
-import { classifyCollaborationTurnExit, isTechnicalInterruption } from './turnExit.ts';
+import { collaborationControlTools, parseControlCall } from './controlTools.ts';
+import { classifyCollaborationTurnExit } from './turnExit.ts';
 import { planCollaborationAdmission } from '../runtime/subjectContract.ts';
-import { observeAction, observeAdmission, observeAggregateLink, observeTechnicalBlock, observeTerminalInterruption, safelyObserve } from '../runtime/shadow.ts';
+import { observeAction, observeAdmission, observeAggregateLink, observeTechnicalBlock, observeTerminalInterruption } from '../runtime/shadow.ts';
 import { minimalHandoffCapsule, saveHandoffCapsule } from '../runtime/capsule.ts';
 import { assembleCollaborationContext } from '../runtime/context.ts';
 import { describeCompletionReason, evaluateCompletion } from '../runtime/completion.ts';
@@ -26,6 +26,7 @@ import {
   answerCandidateControlAction,
   freezeRuntimeContract,
   normalizeRuntimeControlAction,
+  runtimeConsultAnyVersion,
   runtimeControlActionVersion,
 } from '../runtime/controlAction.ts';
 import {
@@ -54,7 +55,6 @@ import {
   getCompletedDispatchOutput,
   expireBatch,
   getDispatch,
-  hasOpenDispatches,
   hasPendingDecision,
   isActiveAttempt,
   listConversationDispatches,
@@ -65,30 +65,37 @@ import {
   listRecoverableConversationIds,
   listRunningCollaborationRunIds,
   listOpenBatches,
+  listUnaggregatedBatches,
   interruptExpiredAttempts,
   renewCollaborationLeases,
+  selectAnyBatchWinner,
 } from './store.ts';
 import { emit } from '../messaging/bus.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { persistRouteGuardEvent, recordEvidenceAwareRoute, runtimeEvidenceLoopGuardVersion } from '../runtime/loopGuard.ts';
-import { createDurableHold, runtimeDurableHoldVersion } from '../runtime/holds.ts';
+import {
+  createDurableHold,
+  resolveRunDependencySubjectIds,
+  runtimeDurableHoldVersion,
+  runtimeExternalWaitVersion,
+} from '../runtime/holds.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
-import { recordRuntimeShadowComparison } from '../runtime/shadowComparison.ts';
 import { commitRunTerminal } from '../runtime/terminal.ts';
 import {
   commitCompleteActionCommand,
+  commitConsultAnyActionCommand,
   commitConsultAllActionCommand,
   commitHandoffActionCommand,
   commitHoldActionCommand,
   type RuntimeActionCommandInput,
 } from '../runtime/actionCommands.ts';
+import { settleConsultAnyJoin } from '../runtime/obligations.ts';
 import {
   executionPolicyForProfile,
   resolveRunPolicy,
   runtimeOwnsCompletion,
-  runtimeStateAuthoritative,
   runtimeStateEnabled,
-  runtimeStateShadow,
+  assertExecutableCollaborationPolicy,
 } from '../runtime/runPolicy.ts';
 
 const leaseOwner = `server:${process.pid}:${randomUUID()}`;
@@ -149,41 +156,36 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
     userMessage = post({ runId: run.id, from: 'user', to: input.recipientIds?.join(',') || 'all', kind: 'user', body: run.goal,
       replyTo: input.replyTo ?? null, taskId: input.taskId ?? null, clientMessageId: input.clientMessageId, deliveryStatus: 'processing' });
   }
-  const executionPolicy = executionPolicyForProfile(config.collaboration.runtimeAdmissionProfile);
+  const executionPolicy = executionPolicyForProfile('execute');
   const targets = initialTargets(run, conversation, input, userMessage.id);
   if (targets.length === 0) {
-    postSystem(run.id, 'user', '当前聊天室没有可用 Agent');
-    finishRun(run.id, 'failed');
-    updateRunUserMessageStatus(run.id, 'failed');
+    commitRunTerminal({ runId: run.id, status: 'failed', disposition: 'failed',
+      source: 'collaboration_admission', userMessageStatus: 'failed', prepare: () => ({
+        reasonCodes: ['NO_AVAILABLE_AGENT'], report: { from: 'system', to: 'user', kind: 'system',
+          messageType: 'informational', body: '当前聊天室没有可用 Agent',
+          clientMessageId: `runtime:no-available-agent:${run.id}` },
+      }) });
     return;
   }
   const createAdmission = () => {
     setRunStatus(run.id, 'running');
     ensureCollaborationSpan(run);
-    const stateEnabled = runtimeStateEnabled(executionPolicy);
     const planned = planCollaborationAdmission({ runId: run.id, objective: run.goal, participantIds: run.agentIds,
-      targetAgentIds: targets, completionEngine: runtimeOwnsCompletion(executionPolicy), executionPolicy, controlActionVersion: 2,
+      targetAgentIds: targets, completionEngine: true, executionPolicy, controlActionVersion: 2,
       exitGuard: { version: 1, maxCorrections: config.collaboration.exitGuardMaxCorrections,
         correctionMaxTokens: config.collaboration.exitGuardCorrectionMaxTokens },
-      ...(stateEnabled ? { completionCandidateVersion: 1 as const, successorObligationVersion: 1 as const,
-        evidenceBundleVersion: 1 as const, evidenceLoopGuardVersion: 1 as const, contextContributorVersion: 1 as const,
-        durableHoldVersion: 2 as const } : {}) });
+      completionCandidateVersion: 1, successorObligationVersion: 1,
+      evidenceBundleVersion: 1, evidenceLoopGuardVersion: 1, contextContributorVersion: 1,
+      durableHoldVersion: 2, externalWaitVersion: 1, consultAnyVersion: 1, progressDigestVersion: 1 });
     freezeRuntimeContract(planned.contract);
     const initialDispatches = targets.map((target) => createDispatch({
       runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
       kind: 'initial', from: 'user', targetAgentId: target, reason: '用户发起协作', depth: 0,
       idempotencyKey: `initial:${userMessage.id}:${target}`, dedupeText: userMessage.body,
     }));
-    if (stateEnabled) {
-      const observe = () => {
-        observeAdmission(planned.contract, planned.subjects, initialDispatches.map((item) => item.id));
-      };
-      if (runtimeStateAuthoritative(executionPolicy)) observe();
-      else afterCommit(() => safelyObserve('admission', observe));
-    }
+    observeAdmission(planned.contract, planned.subjects, initialDispatches.map((item) => item.id));
   };
-  // Run 状态、冻结 Contract 和初始 Dispatch 始终作为一个 admission 提交单元；
-  // Shadow 投影仍通过 afterCommit 在 legacy 事务之后观察。
+  // Run 状态、冻结 Contract、初始 Dispatch 与 Subject 同属一个 admission 提交单元。
   tx(createAdmission);
   updateRunUserMessageStatus(run.id, 'processing');
   kickCollaboration(conversation.id);
@@ -328,6 +330,7 @@ function commitCollaborationAction<T>(action: RuntimeControlAction, observedActi
   }
   if (action.type === 'handoff') return commitHandoffActionCommand(input);
   if (action.type === 'consult' && action.join === 'all') return commitConsultAllActionCommand(input);
+  if (action.type === 'consult' && action.join === 'any') return commitConsultAnyActionCommand(input);
   if (action.type === 'hold') return commitHoldActionCommand(input);
   throw new CollaborationGuardError(`动作 ${action.type} 没有 Runtime 命令边界`, 'action');
 }
@@ -344,7 +347,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'cancelled', error: `Run 已进入终态：${run.status}` });
     return;
   }
-  const runtimePolicy = resolveRunPolicy(run.id);
+  const runtimePolicy = assertExecutableCollaborationPolicy(run.id);
   let inputContext: string;
   try {
     inputContext = assembleCollaborationContext({ run, dispatch, agent, attemptId });
@@ -367,14 +370,15 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
   try {
     const actionVersion = runtimeControlActionVersion(run.id);
     const guardPolicy = runtimeExitGuardPolicy(run.id);
-    const controlTools = actionVersion === 1
-      ? COLLABORATION_CONTROL_TOOLS.filter((tool) => tool.name !== 'agent.complete')
-      : COLLABORATION_CONTROL_TOOLS;
+    const externalWaitVersion = runtimeExternalWaitVersion(run.id);
+    const consultAnyVersion = runtimeConsultAnyVersion(run.id);
+    const controlTools = collaborationControlTools(runtimePolicy.toolApiVersion, { externalWaitVersion, consultAnyVersion });
     const turn = await runAgentTurn({ run, agent, parentSpanId: agentSpan.id, agentId: agent.id, attemptId,
       executionScopeId: `collaboration:${dispatch.id}`,
       messages: [{ role: 'system', content: agent.systemPrompt }, { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE }, { role: 'user', content: inputContext }],
       controlTools,
-      handleControlCalls: (calls) => parseControlCall(calls[0]!, run.agentIds, agent.id, actionVersion),
+      handleControlCalls: (calls) => parseControlCall(calls[0]!, run.agentIds, agent.id, actionVersion,
+        { externalWaitVersion, consultAnyVersion }),
       ...(guardPolicy ? {
         exitCorrectionMaxTokens: guardPolicy.correctionMaxTokens,
         reviewExit: (candidate: AgentTurnResult, correctionAttempt: number) => {
@@ -426,14 +430,13 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
         postSystem(run.id, 'user', `协作执行未完成：${exit.detail}`);
         if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
         finalizeRun(run.id);
-        if (runtimeStateAuthoritative(runtimePolicy)) observeTechnicalBlock(dispatch.id, attemptId, agent.id);
-        else if (runtimeStateShadow(runtimePolicy)) afterCommit(() => safelyObserve('technical_block', () => observeTechnicalBlock(dispatch.id, attemptId, agent.id)));
+        observeTechnicalBlock(dispatch.id, attemptId, agent.id);
       });
       endSpan(agentSpan, { output: reason, status: 'error', attributes: { 'collaboration.exit.kind': exit.kind } });
       endSpan(dispatchSpan, { output: reason, status: 'error', attributes: { 'collaboration.exit.kind': exit.kind } });
       return;
     }
-    // 无控制动作只是答案候选；统一进入规范动作，但历史 Run 仍按冻结版本持久化 v1 结构。
+    // 无控制动作只是答案候选；统一进入规范动作。
     const normalized = exit.kind === 'control_action'
       ? normalizeRuntimeControlAction(turn.controlAction, { expectedVersion: actionVersion })
       : answerCandidateControlAction(actionVersion);
@@ -463,19 +466,19 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     const output = fanoutOutput ?? effectiveOutput;
     const observedAction: RuntimeControlAction = fanoutOutput !== null ? { version: 2, type: 'answer_candidate' } : action;
     const candidateVersion = runtimeCompletionCandidateVersion(run.id);
-    let shadowCandidateDecision: { candidate: RuntimeCompletionCandidate; evaluation: RuntimeSubjectCompletionEvaluation } | null = null;
+    let observedObligations: RuntimeSuccessorObligation[] = [];
     const commandResult = commitCollaborationAction(action, observedAction, {
       runId: run.id, attemptId, dispatchId: dispatch.id, commandKey: `collaboration-action:${attemptId}`,
       execute: (): {
-        candidateDecision: { candidate: RuntimeCompletionCandidate; evaluation: RuntimeSubjectCompletionEvaluation } | null;
+        candidateDecision: ReturnType<typeof submitCompletionCandidate> | null;
         applied: ActionApplicationResult;
       } => {
-      let localCandidateDecision: { candidate: RuntimeCompletionCandidate; evaluation: RuntimeSubjectCompletionEvaluation } | null = null;
+      let localCandidateDecision: ReturnType<typeof submitCompletionCandidate> | null = null;
       let localApplied = emptyActionResult();
       if (!isActiveAttempt(attemptId, dispatch.id)) throw new StaleAttemptError('迟到的 Attempt 已失去提交权');
       const attempt = listAttempts(run.id).find((item) => item.id === attemptId);
       const retryAllowed = Boolean(attempt && attempt.attemptNo < config.collaboration.maxAttempts);
-      if (runtimeStateAuthoritative(runtimePolicy) && candidateVersion === 1
+      if (candidateVersion === 1
         && (observedAction.type === 'complete' || observedAction.type === 'answer_candidate')) {
         localCandidateDecision = submitCompletionCandidate({
           runId: run.id, dispatchId: dispatch.id, attemptId, agentId: agent.id, action: observedAction,
@@ -493,6 +496,17 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
           finalizeRun(run.id);
           return { candidateDecision: localCandidateDecision, applied: localApplied };
         }
+        if (dispatch.batchId && dispatch.kind === 'fanout') {
+          const batch = getBatch(dispatch.batchId);
+          if (batch?.joinPolicy === 'any') {
+            if (consultAnyVersion !== 1) throw new Error('consult(any) Batch 缺少冻结能力版本');
+            const winner = selectAnyBatchWinner({ batchId: batch.id, dispatchId: dispatch.id,
+              expectedGeneration: batch.generation, candidateId: localCandidateDecision.candidate.id });
+            if (!winner.selected || winner.batch.winnerDispatchId !== dispatch.id) {
+              throw new StaleAttemptError(`consult(any) winner 已由 ${winner.batch.winnerDispatchId ?? '其他候选'} 占用`);
+            }
+          }
+        }
       }
       if (fanoutOutput !== null) {
         // 辩手原文作为可恢复的发言保留在聊天室，但不是面向用户的最终报告。
@@ -505,68 +519,79 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
         });
         localApplied.outputMessageId = contribution.id;
       } else localApplied = applyAction(run, dispatch, attemptId, agent, effectiveOutput, action);
-      const actionWasDeferred = action.type === 'handoff' && localApplied.childDispatchIds.length === 0 && localApplied.outputMessageId === null;
+      const actionWasDeferred = (action.type === 'handoff'
+        && localApplied.childDispatchIds.length === 0 && localApplied.outputMessageId === null)
+        || (action.type === 'consult' && localApplied.batchId === null);
       const observe = () => {
         if (actionWasDeferred) return;
-        if (candidateVersion === 1 && (observedAction.type === 'complete' || observedAction.type === 'answer_candidate')) {
-          shadowCandidateDecision = submitCompletionCandidate({ runId: run.id, dispatchId: dispatch.id, attemptId, agentId: agent.id,
-            action: observedAction, summary: output, evidenceRefs: [{ kind: 'attempt_output', id: attemptId }],
-            exitGuard: { status: finalExitGuard.status, reasons: finalExitGuard.reasons }, retryAllowed });
-          return;
-        }
-        observeAction({ dispatchId: dispatch.id, attemptId, agentId: agent.id, action: observedAction,
+        observedObligations = observeAction({ dispatchId: dispatch.id, attemptId, agentId: agent.id, action: observedAction,
           childDispatchIds: localApplied.childDispatchIds, batchId: localApplied.batchId });
-        if (observedAction.type === 'hold' && localApplied.decisionId && localApplied.outputMessageId
+        if (observedAction.type === 'hold' && localApplied.outputMessageId
           && runtimeDurableHoldVersion(run.id) !== null) {
+          let condition: RuntimeDurableHoldCondition;
+          let timeoutAt: string | undefined;
+          let timeoutReason: string | undefined;
+          let idempotencyKey: string;
+          let resumeReason: string;
+          if (observedAction.wake.kind === 'user_decision') {
+            if (!localApplied.decisionId) throw new Error('用户决策 Hold 缺少 Decision');
+            condition = { kind: 'user_decision' as const, decisionId: localApplied.decisionId };
+            timeoutAt = runtimeDurableHoldVersion(run.id) === 2
+              ? new Date(Date.now() + config.collaboration.runTimeoutMs).toISOString() : undefined;
+            timeoutReason = '用户决策未在本轮运行时限内到达';
+            idempotencyKey = `decision-hold:${localApplied.decisionId}`;
+            resumeReason = '持久化用户决策已到达';
+          } else if (observedAction.wake.kind === 'timer') {
+            if (externalWaitVersion !== 1) throw new Error('当前 Run 未启用 timer Hold');
+            condition = { kind: 'timer' as const, wakeAt: observedAction.wake.wakeAt };
+            idempotencyKey = `timer-hold:${attemptId}`;
+            resumeReason = '计划等待时间已到';
+          } else {
+            if (externalWaitVersion !== 1) throw new Error('当前 Run 未启用 dependency Hold');
+            const requesterSubjectId = get<{ subject_id: string }>(
+              'SELECT subject_id FROM runtime_dispatch_subjects WHERE dispatch_id=?', dispatch.id)?.subject_id;
+            if (!requesterSubjectId) throw new Error('Dependency Hold 缺少当前 Subject');
+            condition = { kind: 'dependency' as const,
+              subjectIds: resolveRunDependencySubjectIds({ runId: run.id, requesterSubjectId,
+                targetAgentIds: observedAction.wake.targetAgentIds }),
+              policy: observedAction.wake.policy };
+            timeoutAt = observedAction.wake.timeoutAt;
+            timeoutReason = '同 Run 依赖未在期限内完成';
+            idempotencyKey = `dependency-hold:${attemptId}`;
+            resumeReason = '同 Run 依赖已满足';
+          }
           createDurableHold({ runId: run.id, sourceDispatchId: dispatch.id, sourceAttemptId: attemptId,
-            holderAgentId: agent.id, condition: { kind: 'user_decision', decisionId: localApplied.decisionId },
-            ...(runtimeDurableHoldVersion(run.id) === 2 ? {
-              timeoutAt: new Date(Date.now() + config.collaboration.runTimeoutMs).toISOString(),
-              onTimeout: { kind: 'fail' as const, reason: '用户决策未在本轮运行时限内到达' },
-            } : {}),
+            holderAgentId: agent.id, condition,
+            ...(timeoutAt ? { timeoutAt, onTimeout: { kind: 'fail' as const, reason: timeoutReason } } : {}),
             recoveryPolicy: { kind: 'resume_dispatch', targetAgentId: agent.id,
               sourceMessageId: localApplied.outputMessageId, parentDispatchId: dispatch.id,
-              depth: dispatch.depth, reason: '持久化用户决策已到达' },
-            idempotencyKey: `decision-hold:${localApplied.decisionId}` });
+              depth: dispatch.depth, reason: resumeReason }, idempotencyKey });
         }
       };
-      if (runtimeStateAuthoritative(runtimePolicy) && localCandidateDecision === null) observe();
+      if (localCandidateDecision === null) observe();
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'completed', output, action: normalized.storedAction,
         deduplicatedTo: localApplied.deduplicatedTo, outputMessageId: localApplied.outputMessageId });
       if (action.type === 'handoff' && localApplied.childDispatchIds.length === 1 && localApplied.outputMessageId && !localApplied.deduplicatedTo) {
+        const successorObligationRefs = observedObligations
+          .filter((item) => item.kind === 'handoff_acquire'
+            && item.payload.dispatchId === localApplied.childDispatchIds[0])
+          .map((item) => ({ obligationId: item.id, generation: item.generation }));
+        if (successorObligationRefs.length !== 1) {
+          throw new Error('权威 Runtime handoff 未能在命令事务内创建唯一接球义务');
+        }
         saveHandoffCapsule(minimalHandoffCapsule({
           runId: run.id, dispatchId: localApplied.childDispatchIds[0]!, sourceDispatchId: dispatch.id,
           sourceAttemptId: attemptId, objective: run.goal, message: action.objective, reason: action.reason,
           sourceMessageId: localApplied.outputMessageId, completedWork: effectiveOutput,
+          ...(successorObligationRefs.length > 0 ? { successorObligationRefs } : {}),
         }));
       }
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
-      if (runtimeStateShadow(runtimePolicy)) afterCommit(() => {
-        // 先冻结判定前快照；observer 与审计分类消费同一份已生成输出，不重跑模型、工具或 Dispatch。
-        const responsibilitySnapshot = loadResponsibilitySnapshot({ runId: run.id, dispatchId: dispatch.id, attemptId });
-        const observation = safelyObserve('action', observe);
-        try {
-          recordRuntimeShadowComparison({
-            runId: run.id,
-            dispatchId: dispatch.id,
-            attemptId,
-            actionType: observedAction.type,
-            legacyOutcome: actionWasDeferred ? 'deferred' : 'applied',
-            output,
-            responsibilitySnapshot,
-            observation,
-            runtimeEvaluation: shadowCandidateDecision?.evaluation ?? null,
-          });
-        } catch (error) {
-          // Shadow 审计失败不能改变已经提交的 legacy 业务结果。
-          console.warn(`[runtime-shadow] comparison: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      });
       return { candidateDecision: localCandidateDecision, applied: localApplied };
     } });
     applied = commandResult.result.applied;
-    const candidateDecision = commandResult.result.candidateDecision ?? shadowCandidateDecision;
+    const candidateDecision = commandResult.result.candidateDecision;
     if (candidateDecision) {
       const candidateSpan = startSpan(run.id, { parentId: agentSpan.id, spanKind: 'orchestration',
         name: `completion_candidate:${candidateDecision.evaluation.status}`, input: JSON.stringify(candidateDecision.candidate),
@@ -576,7 +601,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
           'orchestration.phase': 'collaboration.completion_candidate' } });
       endSpan(candidateSpan, { output: JSON.stringify(candidateDecision.evaluation),
         status: candidateDecision.evaluation.status === 'accepted' ? 'ok' : 'error' });
-      if (runtimeStateAuthoritative(runtimePolicy) && candidateDecision.evaluation.status !== 'accepted') {
+      if (candidateDecision.evaluation.status !== 'accepted') {
         const result = JSON.stringify({ candidateId: candidateDecision.candidate.id,
           status: candidateDecision.evaluation.status, reasons: candidateDecision.evaluation.reasons });
         endSpan(controlSpan, { output: result, status: 'error' });
@@ -613,13 +638,16 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
       postSystem(run.id, agent.id, `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`);
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
-      if (runtimeStateAuthoritative(runtimePolicy)) observeTerminalInterruption(dispatch.id, attemptId, agent.id);
-      else if (runtimeStateShadow(runtimePolicy)) afterCommit(() => safelyObserve('terminal_failure', () => observeTerminalInterruption(dispatch.id, attemptId, agent.id)));
+      observeTerminalInterruption(dispatch.id, attemptId, agent.id);
     });
     const guardAttributes = blocked ? { 'collaboration.guard': err.code,
       ...(err.routeGuard ? { 'runtime.route_guard.id': err.routeGuard.id,
         'runtime.route_guard.repeated_count': err.routeGuard.repeatedCount,
-        'runtime.evidence.fingerprint': err.routeGuard.evidenceFingerprint } : {}) } : {};
+        'runtime.evidence.fingerprint': err.routeGuard.evidenceFingerprint,
+        ...(err.routeGuard.progressDigest ? {
+          'runtime.progress.digest': err.routeGuard.progressDigest.digest,
+          'runtime.progress.entries': err.routeGuard.progressDigest.entries.length,
+        } : {}) } : {}) } : {};
     if (controlSpan) endSpan(controlSpan, { output: message, status: 'error', attributes: guardAttributes });
     endSpan(agentSpan, { output: message, status: 'error', attributes: guardAttributes });
     endSpan(dispatchSpan, { output: message, status: 'error', attributes: guardAttributes });
@@ -668,11 +696,7 @@ function pingPongCount(runId: string, from: string, to: string): number {
 function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: string,
   agent: AgentDefinition, content: string, action: RuntimeControlAction): ActionApplicationResult {
   if (action.type === 'complete' || action.type === 'answer_candidate') {
-    if (runtimeOwnsCompletion(resolveRunPolicy(run.id)) && isCompletionEngineRun(run.id)) return emptyActionResult();
-    const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_result',
-      body: content.trim() || '已完成当前协作事项。', meta: { dispatchId: dispatch.id, routeFrom: dispatch.from,
-        completionKind: action.type === 'answer_candidate' ? 'answer_candidate' : 'explicit' } });
-    return { ...emptyActionResult(), outputMessageId: message.id };
+    return emptyActionResult();
   }
   if (action.type === 'handoff') {
     if (!guardRoute(run, dispatch, [action.targetAgentId], action.objective)) return emptyActionResult();
@@ -703,12 +727,15 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     return { ...emptyActionResult(), outputMessageId: message.id, childDispatchIds: [created.dispatch.id], deduplicatedTo: created.deduplicatedTo };
   }
   if (action.type === 'consult') {
-    if (action.join !== 'all') throw new CollaborationGuardError('当前 Scheduler 尚未启用 consult join=any', 'action');
+    if (action.join === 'any' && runtimeConsultAnyVersion(run.id) !== 1) {
+      throw new CollaborationGuardError('当前 Run 尚未启用 consult join=any', 'action');
+    }
     if (!guardRoute(run, dispatch, action.targetAgentIds, action.objective)) return emptyActionResult();
     const message = post({ runId: run.id, from: agent.id, to: action.targetAgentIds.join(','), kind: 'agent', messageType: 'collaboration_question',
       body: action.objective, meta: { dispatchId: dispatch.id, routeFrom: agent.id, routeTo: action.targetAgentIds, reason: action.reason } });
     const batch = createBatch({ runId: run.id, conversationId: run.conversationId, initiatorAgentId: agent.id,
-      sourceDispatchId: dispatch.id, question: action.objective, targetAgentIds: action.targetAgentIds });
+      sourceDispatchId: dispatch.id, question: action.objective, targetAgentIds: action.targetAgentIds,
+      joinPolicy: action.join });
     afterCommit(() => scheduleBatchTimeout(batch.id, batch.timeoutAt));
     const children = action.targetAgentIds.map((target) => createDispatchDetailed({ runId: run.id, conversationId: run.conversationId,
       sourceMessageId: message.id, parentDispatchId: dispatch.id, batchId: batch.id, kind: 'fanout', from: agent.id,
@@ -716,7 +743,21 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     return { ...emptyActionResult(), outputMessageId: message.id, childDispatchIds: children.map((item) => item.dispatch.id),
       batchId: batch.id, deduplicatedTo: children.find((item) => item.deduplicatedTo)?.deduplicatedTo ?? null };
   }
-  if (action.type === 'hold' && action.wake.decisionKind === 'agent_question') {
+  if (action.type === 'hold' && action.wake.kind === 'timer') {
+    const message = post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+      body: `当前责任已暂停，将在 ${action.wake.wakeAt} 自动恢复。`,
+      meta: { dispatchId: dispatch.id, reason: action.reason, holdKind: 'timer', wakeAt: action.wake.wakeAt } });
+    return { ...emptyActionResult(), outputMessageId: message.id };
+  }
+  if (action.type === 'hold' && action.wake.kind === 'dependency') {
+    const message = post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+      body: `当前责任已暂停，等待 ${action.wake.targetAgentIds.join('、')} 的同 Run 责任按 ${action.wake.policy} 策略完成；最晚等待至 ${action.wake.timeoutAt}。`,
+      meta: { dispatchId: dispatch.id, reason: action.reason, holdKind: 'dependency',
+        targets: action.wake.targetAgentIds, policy: action.wake.policy, timeoutAt: action.wake.timeoutAt } });
+    return { ...emptyActionResult(), outputMessageId: message.id };
+  }
+  if (action.type === 'hold' && action.wake.kind === 'user_decision'
+    && action.wake.decisionKind === 'agent_question') {
     const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_wait_user',
       body: action.wake.prompt, meta: { dispatchId: dispatch.id, reason: action.reason }, payload: { decisionKind: 'agent_question' } });
     const decision = createDecision({ runId: run.id, conversationId: run.conversationId, dispatchId: dispatch.id,
@@ -726,7 +767,8 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     return { ...emptyActionResult(), outputMessageId: message.id, decisionId: decision.id };
   }
   if (action.type === 'cancel') throw new CollaborationGuardError(`Agent 无权直接取消 Run：${action.reason}`, 'action');
-  if (action.type !== 'hold' || action.wake.decisionKind !== 'supervisor_task_proposal') {
+  if (action.type !== 'hold' || action.wake.kind !== 'user_decision'
+    || action.wake.decisionKind !== 'supervisor_task_proposal') {
     throw new CollaborationGuardError(`未实现的规范控制动作：${action.type}`, 'action');
   }
   const proposal = action.wake.proposal;
@@ -740,28 +782,44 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
 }
 
 function maybeCompleteBatch(batchId: string): void {
-  const batch = getBatch(batchId);
-  if (!batch || batch.resultDispatchId) return;
-  const children = listDispatches(batch.runId).filter((item) => item.batchId === batch.id && item.kind === 'fanout');
-  if (children.length === 0 || children.some((item) => item.status === 'queued' || item.status === 'running')) return;
-  const run = getRun(batch.runId); if (!run) return;
-  const results = children.map((item) => {
-    const output = getCompletedDispatchOutput(item.id)
-      ?? (item.outputMessageId ? listByRun(run.id).find((message) => message.id === item.outputMessageId)?.body : null);
-    return `${item.targetAgentId}（${item.status}）：${output ?? item.error ?? '无结果'}`;
-  }).join('\n\n');
-  const source = post({ runId: run.id, from: 'system', to: batch.initiatorAgentId, kind: 'system', messageType: 'collaboration_routing',
-    body: `并行征询结果已汇总：\n\n${results}`, meta: { batchId: batch.id } });
-  const result = createDispatchDetailed({ runId: run.id, conversationId: run.conversationId, sourceMessageId: source.id,
-    parentDispatchId: batch.sourceDispatchId, batchId: batch.id, kind: 'aggregate', from: 'system', targetAgentId: batch.initiatorAgentId,
-    reason: '并行征询结果回流', depth: Math.max(0, ...children.map((item) => item.depth)), idempotencyKey: `aggregate:${batch.id}`, dedupeText: results });
-  const batchStatus = batch.status === 'timeout' ? 'timeout'
-    : children.every((item) => item.status === 'failed' || item.status === 'blocked' || item.status === 'cancelled') ? 'failed'
-      : children.every((item) => item.status === 'completed') ? 'completed' : 'partial';
-  updateBatch(batch.id, batchStatus, result.dispatch.id);
-  const runtimePolicy = resolveRunPolicy(run.id);
-  if (runtimeStateAuthoritative(runtimePolicy)) observeAggregateLink(batch.sourceDispatchId, result.dispatch.id);
-  else if (runtimeStateShadow(runtimePolicy)) afterCommit(() => safelyObserve('aggregate_link', () => observeAggregateLink(batch.sourceDispatchId, result.dispatch.id)));
+  tx(() => {
+    const batch = getBatch(batchId);
+    if (!batch || batch.resultDispatchId || batch.status === 'cancelled') return;
+    const children = listDispatches(batch.runId).filter((item) => item.batchId === batch.id && item.kind === 'fanout');
+    if (children.length === 0) return;
+    const winner = batch.winnerDispatchId
+      ? children.find((item) => item.id === batch.winnerDispatchId) : undefined;
+    if (batch.joinPolicy === 'any') {
+      if (batch.winnerDispatchId && (!winner || winner.status !== 'completed')) return;
+      if (!batch.winnerDispatchId && children.some((item) => item.status === 'queued' || item.status === 'running')) return;
+    } else if (children.some((item) => item.status === 'queued' || item.status === 'running')) return;
+    const currentRun = getRun(batch.runId); if (!currentRun) return;
+    const resultChildren = batch.joinPolicy === 'any' && winner ? [winner] : children;
+    const results = resultChildren.map((item) => {
+      const output = getCompletedDispatchOutput(item.id)
+        ?? (item.outputMessageId ? listByRun(currentRun.id).find((message) => message.id === item.outputMessageId)?.body : null);
+      return `${item.targetAgentId}（${item.status}）：${output ?? item.error ?? '无结果'}`;
+    }).join('\n\n');
+    if (batch.joinPolicy === 'any' && !winner) {
+      settleConsultAnyJoin({ runId: batch.runId, batchId: batch.id, status: 'failed',
+        resolutionSourceId: `consult-any-exhausted:${batch.id}:g${batch.generation}`,
+        resolution: { reason: batch.status === 'timeout' ? 'timeout' : 'all_candidates_failed', generation: batch.generation } });
+    }
+    const source = post({ runId: currentRun.id, from: 'system', to: batch.initiatorAgentId, kind: 'system',
+      messageType: 'collaboration_routing', body: `并行征询结果已汇总：\n\n${results}`,
+      meta: { batchId: batch.id, joinPolicy: batch.joinPolicy, winnerDispatchId: batch.winnerDispatchId },
+      clientMessageId: `collaboration:batch:${batch.id}:aggregate-source` });
+    const result = createDispatchDetailed({ runId: currentRun.id, conversationId: currentRun.conversationId, sourceMessageId: source.id,
+      parentDispatchId: batch.sourceDispatchId, batchId: batch.id, kind: 'aggregate', from: 'system', targetAgentId: batch.initiatorAgentId,
+      reason: batch.joinPolicy === 'any' ? '首个成功咨询结果回流' : '并行征询结果回流',
+      depth: Math.max(0, ...children.map((item) => item.depth)), idempotencyKey: `aggregate:${batch.id}`, dedupeText: results });
+    const batchStatus = batch.status === 'timeout' ? 'timeout'
+      : batch.joinPolicy === 'any' ? (winner ? 'completed' : 'failed')
+        : children.every((item) => item.status === 'failed' || item.status === 'blocked' || item.status === 'cancelled') ? 'failed'
+          : children.every((item) => item.status === 'completed') ? 'completed' : 'partial';
+    updateBatch(batch.id, batchStatus, result.dispatch.id);
+    observeAggregateLink(batch.sourceDispatchId, result.dispatch.id);
+  });
 }
 
 function scheduleBatchTimeout(batchId: string, timeoutAt: string): void {
@@ -774,14 +832,19 @@ function scheduleBatchTimeout(batchId: string, timeoutAt: string): void {
   timer.unref();
 }
 
+/** 启动恢复和人工取消后共用；重复调用只能得到同一个 aggregate。 */
+export function reconcileCollaborationBatches(runId?: string): void {
+  for (const batch of listUnaggregatedBatches(runId)) maybeCompleteBatch(batch.id);
+}
+
 export function finalizeCollaborationRun(runId: string, options: {
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated'; publishResult?: boolean;
 } = {}): void {
   const run = getRun(runId); if (!run || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
-  const completionOwned = runtimeOwnsCompletion(resolveRunPolicy(runId)) && isCompletionEngineRun(runId);
-  if (run.status === 'waiting_for_user' && !completionOwned && !options.disposition) return;
-  if (completionOwned) {
-    tx(() => {
+  const runtimePolicy = resolveRunPolicy(runId);
+  // 历史 profile 仅保留只读解释；退役后不再走 legacy finalization。
+  if (!runtimeOwnsCompletion(runtimePolicy) || !isCompletionEngineRun(runId)) return;
+  tx(() => {
       const snapshot = loadCompletionSnapshot(runId);
       if (!snapshot) return;
       snapshot.input.disposition = options.disposition ?? 'normal';
@@ -819,16 +882,7 @@ export function finalizeCollaborationRun(runId: string, options: {
           } } : {}),
         }) });
       if (result.committed) afterCommit(() => closeCollaborationTrace(runId, 'completed'));
-    });
-    return;
-  }
-  if (hasOpenDispatches(runId) || hasPendingDecision(runId)) return;
-  const dispatches = listDispatches(runId);
-  const succeeded = !dispatches.some((item) => isTechnicalInterruption(item.error))
-    && dispatches.some((item) => item.status === 'completed');
-  finishRun(runId, succeeded ? 'completed' : 'failed');
-  closeCollaborationTrace(runId, succeeded ? 'completed' : 'failed');
-  try { updateRunUserMessageStatus(runId, succeeded ? 'responded' : 'failed'); } catch { /* legacy */ }
+  });
 }
 
 function finalizeRun(runId: string): void { finalizeCollaborationRun(runId); }
@@ -845,6 +899,7 @@ export function recoverCollaborationRuns(): void {
     if (hasPendingDecision(runId)) setRunStatus(runId, 'waiting_for_user');
     else finalizeRun(runId);
   }
+  reconcileCollaborationBatches();
   for (const conversationId of listRecoverableConversationIds()) kickCollaboration(conversationId);
   for (const batch of listOpenBatches()) scheduleBatchTimeout(batch.id, batch.timeoutAt);
 }
@@ -861,5 +916,6 @@ export function sweepCollaborationLeases(): void {
 export function resumeCollaborationConversation(conversationId: string): void { kickCollaboration(conversationId); }
 export function settleCollaborationRun(runId: string): void {
   const item = getRun(runId); if (!item) return;
+  reconcileCollaborationBatches(runId);
   finalizeRun(runId); kickCollaboration(item.conversationId);
 }

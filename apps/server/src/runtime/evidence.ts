@@ -6,6 +6,8 @@ import type {
   RuntimeEvidenceBundleOwnerType,
   RuntimeEvidenceRef,
   RuntimeEvidenceResolution,
+  RuntimeProgressDigest,
+  RuntimeProgressDigestEntry,
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
@@ -202,4 +204,140 @@ export function evidenceFingerprint(runId: string, refs: RuntimeEvidenceRef[]): 
     .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
   const resolutions = unique.map((ref) => resolveEvidence(runId, ref));
   return resolutionFingerprint(unique, resolutions);
+}
+
+const PROGRESS_TIMESTAMP_KEY = /^(?:timestamp|createdAt|updatedAt|startedAt|endedAt|checkedAt|observedAt|durationMs|elapsedMs)$/iu;
+const PROGRESS_ISO_TIMESTAMP = /\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/gu;
+const PROGRESS_RFC_TIMESTAMP = /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s+\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT\b/giu;
+
+interface ProgressNormalizationStats { timestampNoiseFields: number }
+
+function normalizedProgressText(value: string, stats: ProgressNormalizationStats): string {
+  let replacements = 0;
+  const replaceTimestamp = () => { replacements += 1; return '[timestamp]'; };
+  const normalized = value.normalize('NFKC')
+    .replace(PROGRESS_ISO_TIMESTAMP, replaceTimestamp)
+    .replace(PROGRESS_RFC_TIMESTAMP, replaceTimestamp)
+    .replace(/\r\n?/gu, '\n')
+    .split('\n').map((line) => line.trim()).filter(Boolean).join('\n')
+    .replace(/[ \t]+/gu, ' ')
+    .trim();
+  stats.timestampNoiseFields += replacements;
+  return normalized;
+}
+
+function normalizedProgressValue(value: unknown, stats: ProgressNormalizationStats): unknown {
+  if (Array.isArray(value)) return value.map((item) => normalizedProgressValue(item, stats));
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      if (PROGRESS_TIMESTAMP_KEY.test(key)) { stats.timestampNoiseFields += 1; continue; }
+      result[key] = normalizedProgressValue((value as Record<string, unknown>)[key], stats);
+    }
+    return result;
+  }
+  return typeof value === 'string' ? normalizedProgressText(value, stats) : value;
+}
+
+function normalizedProgressPayload(value: string, stats: ProgressNormalizationStats): string {
+  try {
+    return JSON.stringify(normalizedProgressValue(JSON.parse(value) as unknown, stats));
+  } catch {
+    return normalizedProgressText(value, stats);
+  }
+}
+
+function digestValue(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function toolCategory(toolName: string): RuntimeProgressDigestEntry['category'] {
+  if (/(?:^|[._:/-])(?:read|get|list|search|find|query|fetch|lookup|view|show|inspect|check|status)(?:$|[._:/-])/iu.test(toolName)) return 'read';
+  if (/(?:^|[._:/-])(?:write|create|update|patch|delete|remove|move|copy|commit|apply|send|post|put)(?:$|[._:/-])/iu.test(toolName)) return 'write';
+  return 'other';
+}
+
+function stableToolResource(input: string, stats: ProgressNormalizationStats): string {
+  let parsed: unknown;
+  try { parsed = JSON.parse(input) as unknown; } catch { return `input:${digestValue(normalizedProgressPayload(input, stats)).slice(0, 24)}`; }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const record = parsed as Record<string, unknown>;
+    for (const key of ['path', 'file', 'url', 'uri', 'resource', 'target', 'query', 'command']) {
+      if (record[key] !== undefined) {
+        return `${key}:${JSON.stringify(normalizedProgressValue(record[key], stats))}`;
+      }
+    }
+  }
+  return `input:${digestValue(JSON.stringify(normalizedProgressValue(parsed, stats))).slice(0, 24)}`;
+}
+
+/**
+ * 把证据身份与实质进展拆开：原始 refs/fingerprint 继续用于审计，本摘要只保留
+ * Subject、修订、工具类别、稳定资源与去时间噪声后的内容 digest。
+ */
+export function buildProgressDigest(input: {
+  runId: string;
+  subjectId: string;
+  revision: number;
+  refs: RuntimeEvidenceRef[];
+}): RuntimeProgressDigest {
+  const stats: ProgressNormalizationStats = { timestampNoiseFields: 0 };
+  const excluded = { duplicateReadOnlyResults: 0, ordinaryLogs: 0, invalidEvidence: 0, timestampNoiseFields: 0 };
+  const entries = new Map<string, RuntimeProgressDigestEntry>();
+  const uniqueRefs = [...new Map(input.refs.map((ref) => [JSON.stringify(ref), ref])).values()];
+
+  for (const ref of uniqueRefs) {
+    if (ref.kind === 'tool_execution') {
+      const row = get<{ run_id: string; tool_name: string; input: string; output: string | null; status: string }>(
+        'SELECT run_id,tool_name,input,output,status FROM tool_executions WHERE id=?', ref.id);
+      if (!row || row.run_id !== input.runId || row.status !== 'completed' || row.output === null) {
+        excluded.invalidEvidence += 1; continue;
+      }
+      const category = toolCategory(row.tool_name);
+      const entry: RuntimeProgressDigestEntry = {
+        kind: 'tool_execution', category,
+        stableResource: `${row.tool_name}:${stableToolResource(row.input, stats)}`,
+        contentDigest: digestValue(JSON.stringify({
+          ...(category === 'read' ? {} : { input: normalizedProgressPayload(row.input, stats) }),
+          output: normalizedProgressPayload(row.output, stats),
+        })),
+      };
+      const key = JSON.stringify(entry);
+      if (entries.has(key)) {
+        if (category === 'read') excluded.duplicateReadOnlyResults += 1;
+      } else entries.set(key, entry);
+      continue;
+    }
+    if (ref.kind === 'workspace_file') {
+      const resolution = resolveEvidence(input.runId, ref);
+      if (!resolution.trusted || !resolution.contentSha256) { excluded.invalidEvidence += 1; continue; }
+      const entry: RuntimeProgressDigestEntry = { kind: 'workspace_file', category: 'file',
+        stableResource: `${ref.workspaceScope ?? 'run'}:${ref.path}`, contentDigest: resolution.contentSha256 };
+      entries.set(JSON.stringify(entry), entry);
+      continue;
+    }
+    if (ref.kind === 'run_event') {
+      const row = get<{ run_id: string; name: string; output: string | null; status: string; attributes: string }>(
+        'SELECT run_id,name,output,status,attributes FROM run_events WHERE id=?', ref.id);
+      if (!row || row.run_id !== input.runId || row.status !== 'ok' || row.output === null) {
+        excluded.invalidEvidence += 1; continue;
+      }
+      let attributes: Record<string, unknown> = {};
+      try { attributes = JSON.parse(row.attributes) as Record<string, unknown>; } catch { /* 非法属性不构成进展 */ }
+      const substantive = attributes['runtime.progress'] === true || attributes['evidence.substantive'] === true;
+      if (!substantive) { excluded.ordinaryLogs += 1; continue; }
+      const entry: RuntimeProgressDigestEntry = { kind: 'run_event', category: 'event', stableResource: row.name,
+        contentDigest: digestValue(normalizedProgressPayload(row.output, stats)) };
+      entries.set(JSON.stringify(entry), entry);
+      continue;
+    }
+    // message/attempt_output 是模型叙述或路由产物，不能单独证明工作发生了实质变化。
+  }
+
+  const sortedEntries = [...entries.values()].sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  excluded.timestampNoiseFields = stats.timestampNoiseFields;
+  const digest = digestValue(JSON.stringify({ version: 1, subjectId: input.subjectId,
+    revision: input.revision, entries: sortedEntries }));
+  return { version: 1, runId: input.runId, subjectId: input.subjectId, revision: input.revision,
+    digest, entries: sortedEntries, evidenceRefCount: uniqueRefs.length, excluded };
 }

@@ -11,7 +11,8 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
       ? { status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition }
       : { status: 'rejected', reasons: ['PARTIAL_RESULT_HAS_NO_OUTPUT'] };
   }
-  if (input.dispatches.some((item) => item.status === 'failed' || item.status === 'blocked' || item.status === 'cancelled')) {
+  if (input.dispatches.some((item) => item.status === 'failed' || item.status === 'blocked'
+    || (item.status === 'cancelled' && !item.error?.startsWith('CONSULT_ANY_NOT_SELECTED:')))) {
     reasons.push('FAILED_DISPATCH');
   }
   if (input.batchStatuses.some((status) => status === 'failed' || status === 'partial' || status === 'timeout')) {
@@ -34,6 +35,10 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
   }
   if (input.batchStatuses.some((status) => status === 'running' || status === 'pending')) {
     return { status: 'waiting', reasons: ['OPEN_BATCH'] };
+  }
+  const externalBlockers = input.completionBlockers?.filter((item) => item.category === 'external') ?? [];
+  if (externalBlockers.length > 0) {
+    return { status: 'waiting', reasons: [...new Set(externalBlockers.map((item) => item.code))] };
   }
   for (const key of input.contract.requiredSubjectKeys) {
     const subject = subjects.get(key)!;

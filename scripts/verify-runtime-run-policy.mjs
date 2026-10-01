@@ -14,6 +14,7 @@ const actions = await import('../apps/server/src/runtime/controlAction.ts');
 const { planCollaborationAdmission } = await import('../apps/server/src/runtime/subjectContract.ts');
 const {
   RuntimePolicyError,
+  assertExecutableCollaborationPolicy,
   executionPolicyForProfile,
   loadRuntimeContract,
   resolveRunPolicy,
@@ -59,7 +60,7 @@ function baseHistorical(runId, features) {
   };
 }
 
-function configProfile(env) {
+function configProfile(env, expectFailure = false) {
   const loader = path.resolve('apps/server/node_modules/tsx/dist/loader.mjs');
   const configUrl = pathToFileURL(path.resolve('apps/server/src/config.ts')).href;
   const code = `const { config } = await import(${JSON.stringify(configUrl)}); process.stdout.write(config.collaboration.runtimeAdmissionProfile);`;
@@ -68,6 +69,7 @@ function configProfile(env) {
   const result = spawnSync(process.execPath, ['--import', loader, '--input-type=module', '--eval', code], {
     cwd: process.cwd(), env: { ...clean, ...env }, encoding: 'utf8', timeout: 10_000,
   });
+  if (expectFailure) { assert.notEqual(result.status, 0); return result.stderr; }
   assert.equal(result.status, 0, result.stderr);
   return result.stdout;
 }
@@ -77,6 +79,12 @@ try {
     actions.freezeRuntimeContract(contract(`run-${profile}`, profile));
     assert.deepEqual(resolveRunPolicy(`run-${profile}`), executionPolicyForProfile(profile));
   }
+  const v1Execute = contract('run-v1-execute', 'execute');
+  v1Execute.executionPolicy = executionPolicyForProfile('execute', { toolApiVersion: 1 });
+  actions.freezeRuntimeContract(v1Execute);
+  assert.equal(resolveRunPolicy('run-v1-execute').toolApiVersion, 1, '历史 Tool API v1 保留只读解释');
+  assert.throws(() => assertExecutableCollaborationPolicy('run-v1-execute'),
+    (error) => error instanceof RuntimePolicyError && error.code === 'RUNTIME_POLICY_RETIRED');
 
   process.env.COLLAB_RUNTIME_MODE = 'legacy';
   assert.equal(resolveRunPolicy('run-execute').profile, 'execute', '环境变化不得改写已冻结 execute Run');
@@ -130,10 +138,10 @@ try {
   assert.match(store.getDispatch(dispatch.id)?.error ?? '', /RUNTIME_POLICY_AMBIGUOUS_HISTORY/u);
 
   assert.equal(configProfile({}), 'execute');
-  assert.equal(configProfile({ COLLAB_RUNTIME_SHADOW: 'true' }), 'shadow');
-  assert.equal(configProfile({ COLLAB_RUNTIME_ATOMIC: 'true' }), 'atomic_compat');
+  assert.match(configProfile({ COLLAB_RUNTIME_SHADOW: 'true' }, true), /已弃用/u);
+  assert.match(configProfile({ COLLAB_RUNTIME_ATOMIC: 'true' }, true), /已弃用/u);
   assert.equal(configProfile({ COLLAB_COMPLETION_ENGINE: 'true' }), 'execute');
-  assert.equal(configProfile({ COLLAB_RUNTIME_MODE: 'shadow', COLLAB_COMPLETION_ENGINE: 'true' }), 'shadow');
+  assert.match(configProfile({ COLLAB_RUNTIME_MODE: 'shadow' }, true), /仅支持 execute/u);
 
   const forbidden = /config\.collaboration\.(?:runtimeAtomic|runtimeShadow|completionEngine)/u;
   for (const file of [
@@ -145,7 +153,7 @@ try {
     assert.doesNotMatch(await readFile(file, 'utf8'), forbidden, `${file} 不得在执行阶段读取旧语义开关`);
   }
 
-  console.log('Runtime 冻结策略、历史兼容、未知版本阻断、worker claim 与 admission 配置映射验证通过');
+  console.log('Runtime 冻结策略、历史只读解释、退役执行阻断与 execute 独占入场验证通过');
 } finally {
   db.closeDatabase();
   await rm(root, { recursive: true, force: true });

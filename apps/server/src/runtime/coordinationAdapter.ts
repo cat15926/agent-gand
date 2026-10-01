@@ -17,7 +17,15 @@ import { assembleRuntimeContext, runtimeContextContributorVersion, type RuntimeC
 import { evaluateCompletion } from './completion.ts';
 import { recordCompletionEvaluation } from './completionStore.ts';
 import { evaluateExitGuard, runtimeExitGuardPolicy } from './exitGuard.ts';
-import { createDurableHold, recordRuntimeWakeEvent, runtimeDurableHoldVersion } from './holds.ts';
+import {
+  createDurableHold,
+  recordRegisteredRuntimeExternalEvent,
+  recordRuntimeWakeEvent,
+  registeredRuntimeExternalEventCondition,
+  registerRuntimeExternalEventReceiver,
+  runtimeDurableHoldVersion,
+  runtimeExternalWaitVersion,
+} from './holds.ts';
 import { submitCompletionCandidateForSubject } from './subjectCompletion.ts';
 import {
   listOpenSuccessorObligations,
@@ -47,6 +55,11 @@ export class CoordinationCustodyConflictError extends Error {
   }
 }
 
+const COORDINATION_RESUME_RECEIVER = 'coordination.resume.v1';
+registerRuntimeExternalEventReceiver({ id: COORDINATION_RESUME_RECEIVER, payloadSchemaVersion: 1,
+  validatePayload: (payload) => payload.requestedBy === 'user'
+    && Number.isInteger(payload.revision) && Number(payload.revision) >= 1 });
+
 function subjectKey(plan: CoordinationPlan, stepId: string): string {
   return `coord:r${plan.revision}:${stepId}`;
 }
@@ -73,6 +86,7 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode, executionPolicy: 
         exitGuard: { version: 1 as const, maxCorrections: 0, correctionMaxTokens: 512 },
         completionCandidateVersion: 1 as const,
         durableHoldVersion: 2 as const,
+        externalWaitVersion: 1 as const,
       } : {}),
       successorObligationVersion: 1, evidenceBundleVersion: 1, contextContributorVersion: 1 },
   };
@@ -391,14 +405,37 @@ export function observeCoordinationPause(plan: CoordinationPlan, step: Coordinat
 export function createCoordinationResumeHold(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string): void {
   if (!plan.runId || !step.agentId || runtimeDurableHoldVersion(plan.runId) === null) return;
   const link = linkFor(plan, step.id); if (!link) return;
+  const registered = runtimeExternalWaitVersion(plan.runId) === 1;
   createDurableHold({ runId: plan.runId, subjectId: link.subject_id, sourceAttemptId: attemptId,
-    holderAgentId: step.agentId, condition: { kind: 'event', eventKey: `coordination:resume:${plan.runId}` },
+    holderAgentId: step.agentId,
+    condition: registered
+      ? registeredRuntimeExternalEventCondition({ receiverId: COORDINATION_RESUME_RECEIVER,
+        correlationId: `${plan.runId}:${attemptId}`, generation: plan.revision })
+      : { kind: 'event', eventKey: `coordination:resume:${plan.runId}` },
+    ...(registered ? { timeoutAt: new Date(Date.now() + config.collaboration.runTimeoutMs).toISOString(),
+      onTimeout: { kind: 'fail' as const, reason: 'Coordination 外部恢复事件未在运行时限内到达' } } : {}),
     recoveryPolicy: { kind: 'wake_run' }, idempotencyKey: `coordination-resume-hold:${attemptId}` });
 }
 
 /** 返回 true 表示恢复请求已进入公共 Wake 账本，应由 recoverDurableHolds 接管。 */
 export function signalCoordinationKernelResume(runId: string): boolean {
   if (runtimeDurableHoldVersion(runId) === null) return false;
+  if (runtimeExternalWaitVersion(runId) === 1) {
+    const condition = all<{ condition: string }>(
+      "SELECT condition FROM runtime_holds WHERE run_id=? AND status IN ('open','claimed')", runId)
+      .map((row) => {
+        try { return JSON.parse(row.condition) as { kind?: string; receiverId?: string; correlationId?: string; generation?: number }; }
+        catch { return null; }
+      })
+      .find((item) => item?.kind === 'event' && item.receiverId === COORDINATION_RESUME_RECEIVER
+        && typeof item.correlationId === 'string' && Number.isInteger(item.generation));
+    if (!condition?.correlationId || !condition.generation) return false;
+    recordRegisteredRuntimeExternalEvent({ receiverId: COORDINATION_RESUME_RECEIVER,
+      runId, correlationId: condition.correlationId, generation: condition.generation,
+      sourceEventId: `coordination-resume:${condition.correlationId}:g${condition.generation}`,
+      payload: { requestedBy: 'user', revision: condition.generation } });
+    return true;
+  }
   const eventKey = `coordination:resume:${runId}`;
   const open = all<{ condition: string }>("SELECT condition FROM runtime_holds WHERE run_id=? AND status IN ('open','claimed')", runId)
     .some((row) => {

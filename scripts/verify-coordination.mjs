@@ -611,6 +611,11 @@ try {
   if (runtimeKernelMode === 'execute') {
     assert.ok(pausedRuntime.actionCommands.some((item) => item.kind === 'hold'),
       '审批暂停必须原子提交 Hold 与 Step/Custody 等待状态');
+    const registeredResumeHold = pausedRuntime.durableHolds.find((item) => item.status === 'open'
+      && item.condition.kind === 'event' && item.condition.receiverId === 'coordination.resume.v1');
+    assert.ok(registeredResumeHold, 'Coordination Resume 必须使用已注册的可信事件接收器');
+    assert.equal(registeredResumeHold.condition.generation, pausedRuntime.plan.revision);
+    assert.ok(registeredResumeHold.timeoutAt, '注册外部事件必须有确定的超时策略');
   }
   assert.ok(pausedRuntime.events.some((event) => event.kind === 'plan_paused'));
   const pendingAfterPause = ((await api('/api/approvals?status=pending')).data ?? []).filter((item) => item.runId === pauseStarted.run.id);
@@ -630,6 +635,11 @@ try {
   if (runtimeKernelMode === 'execute') {
     assert.ok(resumedRuntime.actionCommands.some((item) => item.kind === 'wake'), '恢复必须通过公共 wake 命令');
     assert.ok(resumedRuntime.actionCommands.some((item) => item.kind === 'complete'), '恢复后的 Step 必须通过公共 complete 命令');
+    const resumeWake = resumedRuntime.wakeEvents.find((item) => item.kind === 'event'
+      && item.payload.receiverId === 'coordination.resume.v1');
+    assert.ok(resumeWake, '恢复请求必须写入带来源信封的注册 WakeEvent');
+    assert.equal(resumeWake.payload.generation, resumedRuntime.plan.revision);
+    assert.equal(resumeWake.payload.data.requestedBy, 'user');
   }
   // 取消路径：再造一次暂停后直接取消 → run 终态 cancelled
   const cancelPrev = await preview({

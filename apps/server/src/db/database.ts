@@ -94,6 +94,12 @@ ensureColumns('collaboration_dispatches', [
 ensureColumns('collaboration_attempts', [
   { name: 'deduplicated_to', sql: 'deduplicated_to TEXT' },
 ]);
+ensureColumns('collaboration_batches', [
+  { name: 'join_policy', sql: "join_policy TEXT NOT NULL DEFAULT 'all'" },
+  { name: 'winner_dispatch_id', sql: 'winner_dispatch_id TEXT' },
+  { name: 'generation', sql: 'generation INTEGER NOT NULL DEFAULT 1' },
+  { name: 'settled_at', sql: 'settled_at TEXT' },
+]);
 ensureColumns('runtime_dispatch_subjects', [
   { name: 'expected_generation', sql: 'expected_generation INTEGER' },
 ]);
@@ -102,6 +108,10 @@ ensureColumns('runtime_completion_candidates', [
 ]);
 ensureColumns('runtime_coordination_evidence', [
   { name: 'bundle_id', sql: 'bundle_id TEXT' },
+]);
+ensureColumns('runtime_route_guard_events', [
+  { name: 'progress_digest', sql: 'progress_digest TEXT' },
+  { name: 'progress_snapshot', sql: 'progress_snapshot TEXT' },
 ]);
 ensureColumns('runtime_holds', [
   { name: 'wake_at', sql: 'wake_at TEXT' },
