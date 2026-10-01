@@ -23,7 +23,9 @@ await Promise.all([
 const dbPath = path.join(root, 'test.sqlite');
 const port = 44000 + Math.floor(Math.random() * 1000);
 const base = `http://127.0.0.1:${port}`;
-const runtimeKernelEnabled = ['shadow', 'execute'].includes(process.env.COORDINATION_RUNTIME_KERNEL ?? '');
+const runtimeKernelMode = ['shadow', 'execute'].includes(process.env.COORDINATION_RUNTIME_KERNEL ?? '')
+  ? process.env.COORDINATION_RUNTIME_KERNEL : null;
+const runtimeKernelEnabled = runtimeKernelMode !== null;
 let child = null;
 let childExit = null;
 let logs = '';
@@ -186,7 +188,7 @@ try {
   assert.ok(singleRuntime.steps.every((step) => step.status === 'completed'));
   assert.deepEqual(singleRuntime.events.filter((event) => event.kind.startsWith('plan_')).map((event) => event.kind).slice(-2), ['plan_activated', 'plan_completed']);
   if (runtimeKernelEnabled) {
-    assert.equal(singleRuntime.runtimeKernel.mode, process.env.COORDINATION_RUNTIME_KERNEL);
+    assert.equal(singleRuntime.runtimeKernel.mode, runtimeKernelMode);
     assert.equal(singleRuntime.runtimeKernel.runtimeRevision, 1);
     assert.equal(singleRuntime.runtimeKernel.subjects.length, 1);
     assert.ok(singleRuntime.runtimeKernel.subjects.every((subject) => subject.status === 'completed'
@@ -199,6 +201,14 @@ try {
     assert.equal(singleRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'coordination_step').length, 1);
     assert.equal(singleRuntime.evidenceBundles.filter((bundle) => bundle.ownerType === 'completion_candidate').length, 1);
     assert.ok(singleRuntime.evidenceBundles.every((bundle) => bundle.status === 'valid'));
+    if (runtimeKernelMode === 'execute') {
+      assert.deepEqual(singleRuntime.actionCommands.map((item) => item.kind), ['complete', 'complete'],
+        'Agent Step 与 Completion Gate 都必须通过公共 complete 命令提交');
+      assert.equal(singleRuntime.terminal.status, 'completed');
+      assert.equal(singleRuntime.terminal.disposition, 'accepted');
+      assert.ok(singleRuntime.terminal.completionEvaluationSeq);
+      assert.ok(singleRuntime.terminal.reportMessageId);
+    }
   }
 
   const roomsBeforeDuplicate = await api('/api/conversations');
@@ -266,9 +276,12 @@ try {
   const debateStarted = await startDraft(debate, { defaultReviewerId: 'reviewer' });
   const debateDetail = await waitForRun(debateStarted.run.id);
   // 过程消息（工具轮中间正文，informational）与结论消息（result/review_result）分开计
-  const isFinalAgent = (message) => message.kind === 'agent' && message.meta?.round === undefined; // meta.round = 工具轮过程消息
+  const isFinalAgent = (message) => message.kind === 'agent' && message.meta?.round === undefined
+    && message.messageType !== 'collaboration_result'; // meta.round = 工具轮过程消息；终局报告单独计
   const debateMessages = debateDetail.messages.filter(isFinalAgent);
   assert.equal(debateMessages.length, 7, '三轮辩论必须形成六次独立发言和一次裁决');
+  assert.equal(debateDetail.messages.filter((message) => message.messageType === 'collaboration_result').length, 1,
+    'Coordination execute 必须只发布一份终局报告');
   if (runtimeKernelEnabled) {
     const debateRuntime = await coordination(debateStarted.run.id);
     assert.equal(debateRuntime.runtimeKernel.subjects.length, 7);
@@ -286,6 +299,8 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 300));
   const settledDebate = await api(`/api/runs/${debateStarted.run.id}`);
   assert.equal(settledDebate.data.messages.filter(isFinalAgent).length, 7, '完成后不得出现迟到输出');
+  assert.equal(settledDebate.data.messages.filter((message) => message.messageType === 'collaboration_result').length, 1,
+    '完成后不得重复发布终局报告');
   assert.ok(debateMessages.length > 0 && debateDetail.messages.some((message) => message.kind === 'agent' && message.messageType === 'informational' && message.meta?.round !== undefined), '工具轮中间正文应落库为过程消息');
   const observed = await api(`/api/runs/${debateStarted.run.id}/observability`);
   assert.equal(observed.status, 200);
@@ -593,6 +608,10 @@ try {
   assert.equal(pausedRuntime.plan.status, 'paused');
   assert.equal(pausedRuntime.steps.find((step) => step.stepId === 'debate-r1-pro').status, 'ready', '暂停的步骤应释放回 ready');
   assert.ok(pausedRuntime.attempts.some((attempt) => attempt.stepId === 'debate-r1-pro' && attempt.status === 'paused'));
+  if (runtimeKernelMode === 'execute') {
+    assert.ok(pausedRuntime.actionCommands.some((item) => item.kind === 'hold'),
+      '审批暂停必须原子提交 Hold 与 Step/Custody 等待状态');
+  }
   assert.ok(pausedRuntime.events.some((event) => event.kind === 'plan_paused'));
   const pendingAfterPause = ((await api('/api/approvals?status=pending')).data ?? []).filter((item) => item.runId === pauseStarted.run.id);
   assert.equal(pendingAfterPause.length, 0, '暂停后不得遗留 pending 审批卡');
@@ -608,6 +627,10 @@ try {
   })}`);
   assert.ok(resumedRuntime.events.some((event) => event.kind === 'plan_resumed'));
   assert.equal(attemptsFor(resumedRuntime, 'debate-r1-pro').length, 1, '恢复必须复用暂停的 attempt，不得烧新 attempt');
+  if (runtimeKernelMode === 'execute') {
+    assert.ok(resumedRuntime.actionCommands.some((item) => item.kind === 'wake'), '恢复必须通过公共 wake 命令');
+    assert.ok(resumedRuntime.actionCommands.some((item) => item.kind === 'complete'), '恢复后的 Step 必须通过公共 complete 命令');
+  }
   // 取消路径：再造一次暂停后直接取消 → run 终态 cancelled
   const cancelPrev = await preview({
     goal: '进行三轮辩论，正方支持方案 A，反方支持方案 B，最后由 Reviewer 裁判 [tool:fs.write]',
@@ -623,7 +646,13 @@ try {
   const cancelResult = await api(`/api/runs/${cancelStarted.run.id}/coordination/cancel`, 'POST');
   assert.ok([200, 201].includes(cancelResult.status), JSON.stringify(cancelResult.data));
   assert.equal(cancelResult.data.status, 'cancelled');
-  assert.equal((await coordination(cancelStarted.run.id)).plan.status, 'cancelled');
+  const cancelledRuntime = await coordination(cancelStarted.run.id);
+  assert.equal(cancelledRuntime.plan.status, 'cancelled');
+  if (runtimeKernelMode === 'execute') {
+    assert.equal(cancelledRuntime.terminal.status, 'cancelled');
+    assert.equal(cancelledRuntime.terminal.disposition, 'cancelled');
+    assert.ok(cancelledRuntime.terminal.completionEvaluationSeq);
+  }
 
   // ---- 信任目录：注册 trusted 外部工作区 → fs.write 免逐次审批，隔离不变 ----
   const trustedRoot = path.join(root, 'trusted-ws');

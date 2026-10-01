@@ -82,7 +82,7 @@ function approvalHoldOpen(runId: string, approvalId: string): boolean {
 }
 
 function ensureApprovalHold(approval: ApprovalRequest, attemptId?: string): void {
-  if (!attemptId || runtimeDurableHoldVersion(approval.runId) !== 1) return;
+  if (!attemptId || runtimeDurableHoldVersion(approval.runId) === null) return;
   // 已放行卡的重放不是等待：只补 Wake 审计，不能重新创建短暂 open Hold，
   // 否则工具完成后的 Candidate 会与后台 Hold 扫描发生竞态。
   if (approval.status !== 'pending') {
@@ -102,6 +102,10 @@ function ensureApprovalHold(approval: ApprovalRequest, attemptId?: string): void
     ...(attempt ? { sourceDispatchId: attempt.dispatch_id } : { subjectId: coordination!.subject_id }),
     sourceAttemptId: attemptId, holderAgentId: attempt?.agent_id ?? coordination!.holder_agent_id!,
     condition: { kind: 'approval', approvalId: approval.id }, recoveryPolicy: { kind: 'wake_run' },
+    ...(runtimeDurableHoldVersion(approval.runId) === 2 && config.approvalTimeoutMs > 0 ? {
+      timeoutAt: new Date(new Date(approval.createdAt).getTime() + config.approvalTimeoutMs).toISOString(),
+      onTimeout: { kind: 'fail' as const, reason: '审批未在有效期内完成' },
+    } : {}),
     idempotencyKey: `approval-hold:${approval.id}` });
 }
 
@@ -186,7 +190,7 @@ export function decide(id: string, input: DecideInput): ApprovalRequest {
     if (changes === 0) throw new ApprovalError('approval 已被他人决策（并发冲突）', 409);
     const approval = getApproval(id);
     if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-    if (runtimeDurableHoldVersion(approval.runId) === 1) {
+    if (runtimeDurableHoldVersion(approval.runId) !== null) {
       recordRuntimeWakeEvent({ runId: approval.runId, kind: 'approval', sourceKey: approval.id,
         payload: { status: approval.status, decidedBy: approval.decidedBy },
         idempotencyKey: `approval-wake:${approval.id}:${approval.status}` });
@@ -214,7 +218,7 @@ function expireApproval(id: string): ApprovalRequest {
       WHERE id=? AND status='pending'`, now, id);
     const approval = getApproval(id);
     if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
-    if (runtimeDurableHoldVersion(approval.runId) === 1) {
+    if (runtimeDurableHoldVersion(approval.runId) !== null) {
       recordRuntimeWakeEvent({ runId: approval.runId, kind: 'approval', sourceKey: approval.id,
         payload: { status: approval.status }, idempotencyKey: `approval-wake:${approval.id}:${approval.status}` });
     }
@@ -262,7 +266,7 @@ export async function waitForDecision(
     if (approval.status !== 'pending') {
       // 决策行先于 API 路由触发 Wake 扫描可见。等待对应 Hold 真正终结，避免 Agent
       // 抢先继续并让 CompletionCandidate 被“已满足但尚未投影”的 Hold 误拒绝。
-      if (runtimeDurableHoldVersion(approval.runId) === 1 && approvalHoldOpen(approval.runId, approval.id)) {
+      if (runtimeDurableHoldVersion(approval.runId) !== null && approvalHoldOpen(approval.runId, approval.id)) {
         await new Promise((resolve) => setTimeout(resolve, 25));
         continue;
       }

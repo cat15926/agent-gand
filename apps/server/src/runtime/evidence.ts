@@ -6,10 +6,10 @@ import type {
   RuntimeEvidenceBundleOwnerType,
   RuntimeEvidenceRef,
   RuntimeEvidenceResolution,
-  RuntimeRunContract,
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
 import { resolveSandboxPath, workspaceRootDir } from '../tools/builtin/index.ts';
 
 export interface ResolvedEvidence extends RuntimeEvidenceResolution {}
@@ -131,10 +131,7 @@ function resolveForBundle(runId: string, ref: RuntimeEvidenceRef, contentOverrid
 }
 
 export function runtimeEvidenceBundleVersion(runId: string): 1 | null {
-  const row = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!row) return null;
-  try { return (JSON.parse(row.payload) as RuntimeRunContract).features?.evidenceBundleVersion === 1 ? 1 : null; }
-  catch { return null; }
+  return loadRuntimeContract(runId)?.features?.evidenceBundleVersion === 1 ? 1 : null;
 }
 
 export function createEvidenceBundle(input: {

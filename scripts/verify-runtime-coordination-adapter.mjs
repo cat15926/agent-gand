@@ -10,6 +10,7 @@ process.env.COORDINATION_RUNTIME_PROTOCOLS = 'single_agent';
 
 const db = await import('../apps/server/src/db/database.ts');
 const adapter = await import('../apps/server/src/runtime/coordinationAdapter.ts');
+const { resolveRunPolicy } = await import('../apps/server/src/runtime/runPolicy.ts');
 
 function insertRun(id) {
   const now = new Date().toISOString();
@@ -42,12 +43,14 @@ try {
   const initial = plan('run-execute', 'plan-execute', 1);
   db.tx(() => adapter.admitCoordinationKernelPlan(initial));
   assert.equal(adapter.getCoordinationKernelStatus('run-execute').mode, 'execute');
+  assert.equal(resolveRunPolicy('run-execute').profile, 'execute');
   assert.equal(adapter.getCoordinationKernelStatus('run-execute').subjects[0].stepId, 'work-v1');
 
   const revised = plan('run-execute', 'plan-execute', 2);
   db.tx(() => adapter.admitCoordinationKernelPlan(revised));
   const current = adapter.getCoordinationKernelStatus('run-execute');
   assert.equal(current.runtimeRevision, 2);
+  assert.equal(resolveRunPolicy('run-execute').profile, 'execute', 'Plan Revision 不得改变冻结执行策略');
   assert.equal(current.subjects[0].stepId, 'work-v2');
   assert.equal(db.get("SELECT c.state FROM runtime_coordination_subjects m JOIN runtime_custody c ON c.subject_id=m.subject_id WHERE m.plan_id=? AND m.revision=1", 'plan-execute').state, 'cancelled');
   assert.equal(db.get('SELECT COUNT(*) n FROM runtime_contract_revisions WHERE run_id=?', 'run-execute').n, 2);
@@ -75,6 +78,7 @@ try {
   const unlisted = plan('run-shadow', 'plan-shadow', 1, 'debate');
   db.tx(() => adapter.admitCoordinationKernelPlan(unlisted));
   assert.equal(adapter.getCoordinationKernelStatus('run-shadow').mode, 'shadow', '未放量协议必须自动降为 Shadow');
+  assert.equal(resolveRunPolicy('run-shadow').profile, 'shadow');
   console.log('Coordination Step Adapter、Revision、关闭语义与协议灰度验证通过');
 } finally {
   db.closeDatabase();

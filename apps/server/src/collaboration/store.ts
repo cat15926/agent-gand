@@ -26,6 +26,12 @@ import {
   resolveUserDecisionObligations,
 } from '../runtime/obligations.ts';
 import { createDurableHold, runtimeDurableHoldVersion } from '../runtime/holds.ts';
+import {
+  RuntimePolicyError,
+  resolveRunPolicy,
+  runtimeStateAuthoritative,
+  runtimeStateShadow,
+} from '../runtime/runPolicy.ts';
 
 interface DispatchRow {
   id: string; run_id: string; conversation_id: string; source_message_id: string;
@@ -92,6 +98,12 @@ const toRevision = (r: BudgetRevisionRow): CollaborationBudgetRevision => ({
   previousLimits: JSON.parse(r.previous_limits) as CollaborationBudgetLimits,
   newLimits: JSON.parse(r.new_limits) as CollaborationBudgetLimits, createdAt: r.created_at,
 });
+
+function observeRuntimeState(runId: string, label: string, observer: () => void): void {
+  const policy = resolveRunPolicy(runId);
+  if (runtimeStateAuthoritative(policy)) observer();
+  else if (runtimeStateShadow(policy)) afterCommit(() => safelyObserve(label, observer));
+}
 
 export interface CreateDispatchInput {
   runId: string; conversationId: string; sourceMessageId: string; parentDispatchId?: string | null;
@@ -170,6 +182,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId, config.collaboration.maxAttempts);
     if (!row) return null;
     candidateId = row.id;
+    const runtimePolicy = resolveRunPolicy(row.run_id);
     const now = new Date();
     const changed = run("UPDATE collaboration_dispatches SET status='running',started_at=? WHERE id=? AND status='queued'", now.toISOString(), row.id);
     if (changed === 0) return null;
@@ -179,13 +192,13 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       (id,dispatch_id,run_id,conversation_id,agent_id,attempt_no,status,lease_owner,lease_expires_at,created_at,started_at)
       VALUES (?,?,?,?,?,?,'running',?,?,?,?)`, attemptId, row.id, row.run_id, row.conversation_id,
       row.target_agent_id, attemptNo, leaseOwner, new Date(now.getTime() + config.collaboration.attemptLeaseMs).toISOString(), now.toISOString(), now.toISOString());
-    if (config.collaboration.runtimeAtomic) observeClaim(row.id, attemptId, row.target_agent_id);
+    if (runtimeStateAuthoritative(runtimePolicy)) observeClaim(row.id, attemptId, row.target_agent_id);
     return {
       dispatch: toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', row.id)!),
       attempt: toAttempt(get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attemptId)!),
     };
   }); } catch (error) {
-    if (!(error instanceof CustodyConflictError) || !candidateId) throw error;
+    if ((!(error instanceof CustodyConflictError) && !(error instanceof RuntimePolicyError)) || !candidateId) throw error;
     const blockedId = candidateId;
     const now = new Date().toISOString();
     tx(() => run("UPDATE collaboration_dispatches SET status='blocked',error=?,finished_at=? WHERE id=? AND status='queued'", error.message, now, blockedId));
@@ -195,7 +208,9 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
     return claimNextDispatch(conversationId, leaseOwner);
   }
   if (claimed) {
-    if (!config.collaboration.runtimeAtomic && config.collaboration.runtimeShadow) safelyObserve('claim', () => observeClaim(claimed.dispatch.id, claimed.attempt.id, claimed.dispatch.targetAgentId));
+    if (runtimeStateShadow(resolveRunPolicy(claimed.dispatch.runId))) {
+      safelyObserve('claim', () => observeClaim(claimed.dispatch.id, claimed.attempt.id, claimed.dispatch.targetAgentId));
+    }
     emit({ type: 'collaboration.dispatch.updated', dispatch: claimed.dispatch });
     emit({ type: 'collaboration.attempt.updated', attempt: claimed.attempt });
   }
@@ -275,8 +290,7 @@ export function expireBatch(id: string): CollaborationBatch | null {
     run("UPDATE collaboration_batches SET status='timeout',completed_at=? WHERE id=? AND status IN ('pending','running','partial')", now, id);
     for (const item of rows) {
       const observe = () => observeCancellation(item.id, `batch-timeout:${id}`);
-      if (config.collaboration.runtimeAtomic) observe();
-      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('batch_timeout', observe));
+      observeRuntimeState(item.run_id, 'batch_timeout', observe);
     }
     return rows;
   });
@@ -381,8 +395,7 @@ export function cancelDispatch(id: string): CollaborationDispatch | null {
     if (!row) return null;
     if (changed > 0) {
       const observe = () => observeCancellation(row.id, `dispatch:${row.id}`);
-      if (config.collaboration.runtimeAtomic) observe();
-      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_dispatch', observe));
+      observeRuntimeState(row.run_id, 'cancel_dispatch', observe);
     }
     const value = toDispatch(row);
     afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: value }));
@@ -402,8 +415,7 @@ export function cancelCollaborationRun(runId: string): void {
     run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止运行',ended_at=?,lease_expires_at=NULL WHERE run_id=? AND status='running'", now, runId);
     for (const row of dispatchRows) {
       const observe = () => observeCancellation(row.id, `run:${runId}`);
-      if (config.collaboration.runtimeAtomic) observe();
-      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_run', observe));
+      observeRuntimeState(runId, 'cancel_run', observe);
     }
     cancelRunObligations(runId, `run:${runId}:cancelled`);
   });
@@ -419,8 +431,7 @@ export function cancelAgentWork(conversationId: string, agentId: string): number
     run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running'", now, conversationId, agentId);
     for (const row of dispatchRows) {
       const observe = () => observeCancellation(row.id, `agent:${conversationId}:${agentId}:${now}`);
-      if (config.collaboration.runtimeAtomic) observe();
-      else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('cancel_agent', observe));
+      observeRuntimeState(row.run_id, 'cancel_agent', observe);
     }
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止 Agent', finished_at: now }) });
@@ -471,10 +482,9 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
         run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
           hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
         const observe = () => observeTerminalInterruption(item.dispatch_id, item.id, item.agent_id);
-        if (config.collaboration.runtimeAtomic) observe();
-        else if (config.collaboration.runtimeShadow) afterCommit(() => safelyObserve('terminal_interruption', observe));
+        observeRuntimeState(item.run_id, 'terminal_interruption', observe);
       } else {
-        if (runtimeDurableHoldVersion(item.run_id) === 1) {
+        if (runtimeStateAuthoritative(resolveRunPolicy(item.run_id)) && runtimeDurableHoldVersion(item.run_id) !== null) {
           createDurableHold({ runId: item.run_id, sourceDispatchId: item.dispatch_id, sourceAttemptId: item.id,
             holderAgentId: item.agent_id,
             condition: { kind: 'lease_recovery', attemptId: item.id, leaseExpiredAt: item.lease_expires_at ?? now },

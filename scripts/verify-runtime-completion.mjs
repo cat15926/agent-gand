@@ -20,7 +20,8 @@ assert.equal(evaluateCompletion(complete({ dispatches: [
 ] })).status, 'failed', '终态失败不能被仍在运行的 Dispatch 掩盖');
 assert.equal(evaluateCompletion(complete({ subjects: [subject('root:a')] })).status, 'failed');
 assert.equal(evaluateCompletion(complete({ subjects: [subject('root:a'), subject('root:b', { pendingHolderAgentId: 'a' })] })).status, 'rejected');
-assert.equal(evaluateCompletion(complete({ subjects: [subject('root:a'), subject('root:b'), subject('consult:c', { required: false, status: 'active', custodyState: 'owned' })] })).status, 'rejected');
+assert.equal(evaluateCompletion(complete({ subjects: [subject('root:a'), subject('root:b'), subject('consult:c', { required: false, status: 'active', custodyState: 'owned' })] })).status, 'accepted',
+  '非必需 consultation 不能仅因 child Subject 尚未完成而阻断父 Subject');
 assert.equal(evaluateCompletion(complete({ subjects: [subject('root:a'), subject('root:b', { evidenceValid: false })] })).status, 'rejected');
 assert.equal(evaluateCompletion(complete({ batchStatuses: ['partial'] })).status, 'failed');
 assert.ok(evaluateCompletion(complete({ requiredArtifactsSatisfied: false })).reasons.includes('REQUIRED_ARTIFACTS_MISSING'));
@@ -28,6 +29,8 @@ assert.ok(evaluateCompletion(complete({ dependenciesSatisfied: false })).reasons
 assert.ok(evaluateCompletion(complete({ reviewAccepted: false })).reasons.includes('REVIEW_NOT_ACCEPTED'));
 assert.ok(evaluateCompletion(complete({ protocolTerminal: false })).reasons.includes('PROTOCOL_NOT_TERMINAL'));
 assert.ok(evaluateCompletion(complete({ successorObligationsSatisfied: false })).reasons.includes('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED'));
+assert.ok(evaluateCompletion(complete({ completionBlockers: [{ code: 'REQUIRED_OBLIGATION_FAILED', category: 'work',
+  refType: 'obligation', refId: 'review-1', message: 'review 失败' }] })).reasons.includes('REQUIRED_OBLIGATION_FAILED'));
 assert.deepEqual(evaluateCompletion(complete({ disposition: 'partial_user_accepted' })), {
   status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition: 'partial_user_accepted',
 });

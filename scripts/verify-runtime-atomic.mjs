@@ -11,6 +11,7 @@ const db = await import('../apps/server/src/db/database.ts');
 const store = await import('../apps/server/src/collaboration/store.ts');
 const trace = await import('../apps/server/src/runs/trace.ts');
 const { planCollaborationAdmission } = await import('../apps/server/src/runtime/subjectContract.ts');
+const { executionPolicyForProfile } = await import('../apps/server/src/runtime/runPolicy.ts');
 const { observeAdmission, observeAction, auditShadowRun } = await import('../apps/server/src/runtime/shadow.ts');
 
 function fixture(id) {
@@ -22,7 +23,10 @@ function fixture(id) {
 
 function admit(id) {
   const ids = fixture(id);
-  const plan = planCollaborationAdmission({ runId: ids.runId, objective: id, participantIds: ['a', 'b'], targetAgentIds: ['a'] });
+  const plan = planCollaborationAdmission({ runId: ids.runId, objective: id, participantIds: ['a', 'b'], targetAgentIds: ['a'],
+    executionPolicy: executionPolicyForProfile('atomic_compat'), controlActionVersion: 2,
+    completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
+    evidenceLoopGuardVersion: 1, contextContributorVersion: 1, durableHoldVersion: 1 });
   return db.tx(() => {
     const dispatch = store.createDispatch({ ...ids, sourceMessageId: `m-${id}`, kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${id}` });
     observeAdmission(plan.contract, plan.subjects, [dispatch.id]);

@@ -4,7 +4,7 @@
  */
 import type { AgentMessageType, Message, MessageKind } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
-import { all, get, run, tx } from '../db/database.ts';
+import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from './bus.ts';
 
 interface MessageRow {
@@ -72,7 +72,8 @@ export function post(input: PostMessageInput): Message {
       if (input.deliveryStatus && existing.delivery_status !== input.deliveryStatus) {
         run('UPDATE messages SET delivery_status = ? WHERE id = ?', input.deliveryStatus, existing.id);
         existing.delivery_status = input.deliveryStatus;
-        emit({ type: 'message', message: rowToMessage(existing) });
+        const updated = rowToMessage(existing);
+        afterCommit(() => emit({ type: 'message', message: updated }));
       }
       return rowToMessage(existing);
     }
@@ -118,7 +119,7 @@ export function post(input: PostMessageInput): Message {
     message.clientMessageId,
     message.createdAt,
   );
-  emit({ type: 'message', message });
+  afterCommit(() => emit({ type: 'message', message }));
   return message;
   });
 }
@@ -137,7 +138,10 @@ export function listByConversation(conversationId: string): Message[] {
 export function updateRunUserMessageStatus(runId: string, deliveryStatus: NonNullable<Message['deliveryStatus']>): void {
   run("UPDATE messages SET delivery_status = ? WHERE run_id = ? AND kind = 'user'", deliveryStatus, runId);
   const rows = all<MessageRow>("SELECT * FROM messages WHERE run_id = ? AND kind = 'user'", runId);
-  for (const row of rows) emit({ type: 'message', message: rowToMessage(row) });
+  for (const row of rows) {
+    const message = rowToMessage(row);
+    afterCommit(() => emit({ type: 'message', message }));
+  }
 }
 
 export interface ListAgentMessagesOptions {

@@ -47,7 +47,10 @@ function fixture(name) {
     runId, name, 'collaboration', conversationId, 1, 'running', '["a"]', now);
   const message = inbox.post({ runId, from: 'user', to: 'a', kind: 'user', body: name });
   const plan = planCollaborationAdmission({ runId, objective: name, participantIds: ['a'], targetAgentIds: ['a'],
-    completionEngine: true, controlActionVersion: 2, completionCandidateVersion: 1, successorObligationVersion: 1 });
+    completionEngine: true, controlActionVersion: 2,
+    exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 512 },
+    completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1,
+    contextContributorVersion: 1, durableHoldVersion: 1 });
   const dispatch = db.tx(() => {
     const created = store.createDispatch({ runId, conversationId, sourceMessageId: message.id,
       kind: 'initial', from: 'user', targetAgentId: 'a', depth: 0, idempotencyKey: `initial:${name}` });
@@ -109,7 +112,7 @@ try {
       status: 'failed', dispatchStatus: 'blocked', error: 'OPEN_SUCCESSOR_OBLIGATION' });
     return result;
   });
-  assert.deepEqual(blockedByObligation.evaluation.reasons, ['OPEN_SUCCESSOR_OBLIGATION']);
+  assert.deepEqual(blockedByObligation.evaluation.reasons, ['REQUIRED_OBLIGATION_PENDING']);
 
   const stale = fixture('stale-generation');
   const staleClaim = store.claimNextDispatch(stale.conversationId, 'owner');

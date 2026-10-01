@@ -21,7 +21,10 @@ import {
   observeCoordinationPause,
   observeCoordinationRevision,
   submitCoordinationStepCompletion,
+  coordinationKernelMode,
+  createCoordinationResumeHold,
 } from '../runtime/coordinationAdapter.ts';
+import { commitCompleteActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
 
 interface PayloadRow { payload: string }
 interface EventRow {
@@ -216,7 +219,7 @@ export function setCoordinationAttemptInput(attemptId: string, input: string): v
 
 export function completeCoordinationStep(plan: CoordinationPlan, stepId: string, attemptId: string, output: string,
   action: RuntimeControlAction): { state: CoordinationStepState; accepted: boolean; feedback: string | null } {
-  const result = tx(() => {
+  const execute = () => {
     const now = new Date().toISOString();
     const step = plan.steps.find((item) => item.id === stepId);
     if (!step) throw new Error(`Coordination Step 不存在：${stepId}`);
@@ -232,7 +235,10 @@ export function completeCoordinationStep(plan: CoordinationPlan, stepId: string,
       observeCoordinationComplete(plan, step, attemptId);
       run("UPDATE coordination_step_states SET status='completed',output=?,error=NULL,completed_at=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?",
         output, now, now, plan.id, plan.revision, stepId);
-      return { row: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!, accepted: true, feedback: null };
+      const row = get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!;
+      recordCoordinationEvent({ kind: 'step_completed', draftId: plan.draftId, planId: plan.id, runId: plan.runId,
+        payload: { stepId, attemptNo: row.attempt_no } });
+      return { row, accepted: true, feedback: null };
     }
     const feedback = evaluation.feedback;
     const retry = evaluation.retryable;
@@ -241,12 +247,16 @@ export function completeCoordinationStep(plan: CoordinationPlan, stepId: string,
     observeCoordinationFailure(plan, step, attemptId, retry);
     run('UPDATE coordination_step_states SET status=?,output=?,error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?',
       retry ? 'ready' : 'failed', output, feedback, now, plan.id, plan.revision, stepId);
-    return { row: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!, accepted: false, feedback };
-  });
+    const row = get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId)!;
+    recordCoordinationEvent({ kind: retry ? 'step_retry_scheduled' : 'step_failed', draftId: plan.draftId,
+      planId: plan.id, runId: plan.runId, payload: { stepId, attemptNo: row.attempt_no, error: feedback } });
+    return { row, accepted: false, feedback };
+  };
+  const result = plan.runId && coordinationKernelMode(plan.runId) === 'execute'
+    ? commitCompleteActionCommand({ runId: plan.runId, attemptId,
+      commandKey: `coordination-action:${attemptId}`, execute }).result
+    : tx(execute);
   const state = emitStep(result.row);
-  recordCoordinationEvent({ kind: result.accepted ? 'step_completed' : state.status === 'ready' ? 'step_retry_scheduled' : 'step_failed',
-    draftId: plan.draftId, planId: plan.id, runId: plan.runId,
-    payload: { stepId, attemptNo: state.attemptNo, ...(result.feedback ? { error: result.feedback } : {}) } });
   return { state, accepted: result.accepted, feedback: result.feedback };
 }
 
@@ -268,21 +278,28 @@ export function failCoordinationStep(plan: CoordinationPlan, step: CoordinationP
  * 不烧 attempt 失败、不占 maxAttempts；恢复时 claimCoordinationStep 复用原 attempt 行。
  */
 export function releaseCoordinationStep(plan: CoordinationPlan, step: CoordinationPlanStep, attemptId: string, reason: string): CoordinationStepState {
-  const row = tx(() => {
+  const execute = () => {
     const now = new Date().toISOString();
     run("UPDATE coordination_step_attempts SET status='paused',error=?,ended_at=? WHERE id=?", reason, now, attemptId);
     observeCoordinationPause(plan, step, attemptId);
+    createCoordinationResumeHold(plan, step, attemptId);
     run("UPDATE coordination_step_states SET status='ready',error=?,updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", reason, now, plan.id, plan.revision, step.id);
-    return get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!;
-  });
+    const row = get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!;
+    recordCoordinationEvent({ kind: 'step_paused', draftId: plan.draftId, planId: plan.id, runId: plan.runId,
+      payload: { stepId: step.id, attemptNo: row.attempt_no, reason } });
+    return row;
+  };
+  const row = plan.runId && coordinationKernelMode(plan.runId) === 'execute'
+    ? commitHoldActionCommand({ runId: plan.runId, attemptId,
+      commandKey: `coordination-hold:${attemptId}`, execute }).result
+    : tx(execute);
   const state = emitStep(row);
-  recordCoordinationEvent({ kind: 'step_paused', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId: step.id, attemptNo: state.attemptNo, reason } });
   return state;
 }
 
 export function scheduleCoordinationRevision(plan: CoordinationPlan, reviewStep: CoordinationPlanStep, attemptId: string, targetStepIds: string[], feedback: string): void {
-  const changed: StepStateRow[] = [];
-  tx(() => {
+  const execute = () => {
+    const changed: StepStateRow[] = [];
     const now = new Date().toISOString();
     const action: RuntimeControlAction = { version: 2, type: 'answer_candidate' };
     run("UPDATE coordination_step_attempts SET status='completed',output=?,control_action=?,exit_guard_status='allow_candidate',exit_guard_reasons=?,error=NULL,ended_at=? WHERE id=?",
@@ -294,9 +311,15 @@ export function scheduleCoordinationRevision(plan: CoordinationPlan, reviewStep:
       const row = get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, stepId);
       if (row) changed.push(row);
     }
-  });
+    recordCoordinationEvent({ kind: 'step_retry_scheduled', draftId: plan.draftId, planId: plan.id, runId: plan.runId,
+      payload: { stepId: reviewStep.id, targetStepIds, feedback } });
+    return changed;
+  };
+  const changed = plan.runId && coordinationKernelMode(plan.runId) === 'execute'
+    ? commitCompleteActionCommand({ runId: plan.runId, attemptId,
+      commandKey: `coordination-action:${attemptId}`, execute }).result
+    : tx(execute);
   changed.forEach(emitStep);
-  recordCoordinationEvent({ kind: 'step_retry_scheduled', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId: reviewStep.id, targetStepIds, feedback } });
 }
 
 export function recoverInterruptedCoordinationSteps(): string[] {

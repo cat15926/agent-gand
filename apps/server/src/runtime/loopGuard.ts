@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { RuntimeEvidenceRef, RuntimeRouteGuardEvent, RuntimeRunContract } from '@agent-gand/shared';
+import type { RuntimeEvidenceRef, RuntimeRouteGuardEvent } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
 import { evidenceFingerprint, listEvidenceBundles } from './evidence.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
 
 interface GuardRow {
   id: string; run_id: string; subject_id: string; source_dispatch_id: string;
@@ -20,10 +21,7 @@ function toEvent(row: GuardRow): RuntimeRouteGuardEvent {
 }
 
 export function runtimeEvidenceLoopGuardVersion(runId: string): 1 | null {
-  const row = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!row) return null;
-  try { return (JSON.parse(row.payload) as RuntimeRunContract).features?.evidenceLoopGuardVersion === 1 ? 1 : null; }
-  catch { return null; }
+  return loadRuntimeContract(runId)?.features?.evidenceLoopGuardVersion === 1 ? 1 : null;
 }
 
 function substantiveSubjectEvidence(runId: string, subjectId: string): RuntimeEvidenceRef[] {

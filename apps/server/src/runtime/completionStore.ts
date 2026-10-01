@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  RuntimeCompletionEvaluation, RuntimeCompletionInput, RuntimeCompletionSubject, RuntimeRunContract,
+  RuntimeCompletionEvaluation, RuntimeCompletionInput, RuntimeCompletionSubject,
 } from '@agent-gand/shared';
 import { all, get, run } from '../db/database.ts';
 import { resolveEvidence, runtimeEvidenceBundleVersion, validateEvidenceBundle } from './evidence.ts';
 import { normalizeRuntimeControlAction } from './controlAction.ts';
-import { requiredSuccessorObligationsSatisfied } from './obligations.ts';
+import { loadRuntimeContract, resolveRunPolicy, runtimeOwnsCompletion } from './runPolicy.ts';
+import { listResponsibilitySnapshots } from './responsibilitySnapshot.ts';
 
 interface SubjectRow {
   id: string; subject_key: string; status: RuntimeCompletionSubject['status'];
@@ -27,20 +28,19 @@ export interface CompletionSnapshot {
 }
 
 export function isCompletionEngineRun(runId: string): boolean {
-  const contractRow = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!contractRow) return false;
-  try { return (JSON.parse(contractRow.payload) as RuntimeRunContract).features?.completionEngine === true; }
-  catch { return false; }
+  const contract = loadRuntimeContract(runId);
+  return Boolean(contract?.features?.completionEngine === true && runtimeOwnsCompletion(resolveRunPolicy(runId)));
 }
 
 export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null {
-  const contractRow = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!contractRow) return null;
-  const contract = JSON.parse(contractRow.payload) as RuntimeRunContract;
+  const contract = loadRuntimeContract(runId);
+  if (!contract) return null;
   const candidateOwned = contract.features?.completionCandidateVersion === 1;
   const rows = all<SubjectRow>(`SELECT s.id,s.subject_key,s.status,c.state custody_state,c.holder_agent_id,
     c.pending_holder_agent_id,c.generation FROM runtime_subjects s
     JOIN runtime_custody c ON c.subject_id=s.id WHERE s.run_id=? ORDER BY s.created_at,s.rowid`, runId);
+  const responsibilityBySubject = new Map(listResponsibilitySnapshots(runId)
+    .map((snapshot) => [snapshot.subjectId, snapshot] as const));
   const reportParts: CompletionSnapshot['reportParts'] = [];
   const subjects = rows.map((row): RuntimeCompletionSubject => {
     const acceptedCandidate = candidateOwned ? get<CandidateOutputRow>(`SELECT id,attempt_id,summary,evidence_refs,evidence_bundle_id,agent_id
@@ -111,9 +111,13 @@ export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null
       || Boolean(get("SELECT 1 FROM messages WHERE run_id=? AND kind='agent' AND TRIM(body)<>'' LIMIT 1", runId))
     : Boolean(get('SELECT 1 FROM collaboration_attempts WHERE run_id=? AND status=\'completed\' AND TRIM(COALESCE(output,\'\'))<>\'\' LIMIT 1', runId)
       ?? get("SELECT 1 FROM messages WHERE run_id=? AND kind='agent' AND TRIM(body)<>'' LIMIT 1", runId));
+  const completionBlockers = rows
+    .filter((row) => contract.requiredSubjectKeys.includes(row.subject_key))
+    .flatMap((row) => responsibilityBySubject.get(row.id)?.completionBlockers ?? []);
   return { input: { contract, subjects, dispatches, pendingDecisions, batchStatuses, hasAnyOutput,
     dependenciesSatisfied: true, requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
-    successorObligationsSatisfied: requiredSuccessorObligationsSatisfied(runId, rows.map((row) => row.id)) },
+    successorObligationsSatisfied: completionBlockers.every((item) => !item.code.startsWith('REQUIRED_OBLIGATION_')),
+    completionBlockers },
   reportParts, partialReportParts };
 }
 

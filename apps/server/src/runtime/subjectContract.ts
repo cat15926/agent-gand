@@ -1,4 +1,12 @@
-import type { CollaborationDispatchKind, RuntimeContractEvaluation, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus } from '@agent-gand/shared';
+import type {
+  CollaborationDispatchKind,
+  RuntimeContractEvaluation,
+  RuntimeExecutionPolicyV1,
+  RuntimeRunContract,
+  RuntimeSubjectSeed,
+  RuntimeSubjectStatus,
+} from '@agent-gand/shared';
+import { executionPolicyForProfile } from './runPolicy.ts';
 
 export function planCollaborationAdmission(input: {
   runId: string;
@@ -13,7 +21,8 @@ export function planCollaborationAdmission(input: {
   evidenceBundleVersion?: 1;
   evidenceLoopGuardVersion?: 1;
   contextContributorVersion?: 1;
-  durableHoldVersion?: 1;
+  durableHoldVersion?: 1 | 2;
+  executionPolicy?: RuntimeExecutionPolicyV1;
 }): { contract: RuntimeRunContract; subjects: RuntimeSubjectSeed[] } {
   const participants = new Set(input.participantIds);
   const targets = [...new Set(input.targetAgentIds)];
@@ -22,11 +31,18 @@ export function planCollaborationAdmission(input: {
     key: `root:${agentId}`, runId: input.runId, kind: 'root', parentKey: null,
     objective: input.objective, initialHolderAgentId: agentId,
   }));
+  const hasRuntimeState = Boolean(input.completionCandidateVersion || input.successorObligationVersion
+    || input.evidenceBundleVersion || input.evidenceLoopGuardVersion
+    || input.contextContributorVersion || input.durableHoldVersion);
+  const executionPolicy = input.executionPolicy ?? executionPolicyForProfile(
+    input.completionEngine ? 'execute' : hasRuntimeState ? 'atomic_compat' : 'legacy',
+  );
   return {
     contract: {
       version: 1, runId: input.runId, objective: input.objective,
       participantIds: [...input.participantIds], requiredSubjectKeys: subjects.map((item) => item.key),
       completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
+      executionPolicy,
       features: {
         controlActionVersion: input.controlActionVersion ?? 2,
         ...(input.exitGuard ? { exitGuard: input.exitGuard } : {}),
@@ -36,7 +52,7 @@ export function planCollaborationAdmission(input: {
         ...(input.evidenceLoopGuardVersion ? { evidenceLoopGuardVersion: input.evidenceLoopGuardVersion } : {}),
         ...(input.contextContributorVersion ? { contextContributorVersion: input.contextContributorVersion } : {}),
         ...(input.durableHoldVersion ? { durableHoldVersion: input.durableHoldVersion } : {}),
-        ...(input.completionEngine ? { completionEngine: true } : {}),
+        ...(executionPolicy.authority === 'runtime' ? { completionEngine: true } : {}),
       },
     },
     subjects,

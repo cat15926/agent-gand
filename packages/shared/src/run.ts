@@ -13,6 +13,8 @@ export type RunStatus =
   | 'failed'
   | 'cancelled';
 
+export type RunTerminalDisposition = 'accepted' | 'authorized_partial' | 'delegated' | 'failed' | 'cancelled';
+
 export interface Run {
   id: string;
   /** 所属聊天室；旧数据启动时自动回填。 */
@@ -22,6 +24,8 @@ export interface Run {
   goal: string;
   mode: RunMode;
   status: RunStatus;
+  /** 阶段 3A 起与终态 CAS 同事务冻结；非终态及历史 Run 可为空。 */
+  terminalDisposition?: RunTerminalDisposition | null;
   agentIds: string[];
   /** 主管委派模式的显式主管；旧数据可为 null。 */
   supervisorId?: string | null;

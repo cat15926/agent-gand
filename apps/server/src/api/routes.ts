@@ -28,13 +28,16 @@ import { listCompletionCandidates } from '../runtime/subjectCompletion.ts';
 import { listSuccessorObligations } from '../runtime/obligations.ts';
 import { listEvidenceBundles } from '../runtime/evidence.ts';
 import { listRouteGuardEvents } from '../runtime/loopGuard.ts';
-import { listDurableHolds, listRuntimeWakeEvents } from '../runtime/holds.ts';
+import { listDurableHolds, listRuntimeHoldRecoveryAudits, listRuntimeWakeEvents } from '../runtime/holds.ts';
 import { getCoordinationKernelStatus } from '../runtime/coordinationAdapter.ts';
+import { listResponsibilitySnapshots } from '../runtime/responsibilitySnapshot.ts';
+import { commitRunTerminal, getRunTerminal } from '../runtime/terminal.ts';
+import { listRuntimeActionCommands } from '../runtime/actionCommands.ts';
+import { listRuntimeShadowComparisons } from '../runtime/shadowComparison.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
   countRuns,
   createRun,
-  finishRun,
   getRun,
   listRunsByConversation,
   listRuns,
@@ -256,6 +259,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       routeGuardEvents: listRouteGuardEvents(req.params.runId),
       durableHolds: listDurableHolds(req.params.runId),
       wakeEvents: listRuntimeWakeEvents(req.params.runId),
+      holdRecoveryAudits: listRuntimeHoldRecoveryAudits(req.params.runId),
+      responsibilitySnapshots: listResponsibilitySnapshots(req.params.runId),
+      actionCommands: listRuntimeActionCommands(req.params.runId),
+      shadowComparisons: listRuntimeShadowComparisons(req.params.runId),
+      terminal: getRunTerminal(req.params.runId),
       runtimeKernel: getCoordinationKernelStatus(req.params.runId),
     };
   });
@@ -360,6 +368,11 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       completionCandidates: listCompletionCandidates(item.id), successorObligations: listSuccessorObligations(item.id),
       evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
       durableHolds: listDurableHolds(item.id), wakeEvents: listRuntimeWakeEvents(item.id),
+      holdRecoveryAudits: listRuntimeHoldRecoveryAudits(item.id),
+      responsibilitySnapshots: listResponsibilitySnapshots(item.id),
+      actionCommands: listRuntimeActionCommands(item.id),
+      shadowComparisons: listRuntimeShadowComparisons(item.id),
+      terminal: getRunTerminal(item.id),
       budget: budgetSnapshot(item.id) })) };
   });
   app.patch<{ Params: { id: string }; Body: { title?: string; agentIds?: string[]; supervisorId?: string; defaultReviewerId?: string; expectedMembersVersion?: number } }>('/api/conversations/:id', async (req) => {
@@ -487,9 +500,18 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       successorObligations: listSuccessorObligations(item.id),
       evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
       durableHolds: listDurableHolds(item.id), wakeEvents: listRuntimeWakeEvents(item.id),
+      holdRecoveryAudits: listRuntimeHoldRecoveryAudits(item.id),
+      responsibilitySnapshots: listResponsibilitySnapshots(item.id),
+      actionCommands: listRuntimeActionCommands(item.id),
+      shadowComparisons: listRuntimeShadowComparisons(item.id),
+      terminal: getRunTerminal(item.id),
       completionEvaluations: listCompletionEvaluations(item.id),
       activeAgents: attempts.filter((attempt) => attempt.status === 'running').map((attempt) => ({ agentId: attempt.agentId, dispatchId: attempt.dispatchId, startedAt: attempt.startedAt ?? attempt.createdAt })),
       budget: budgetSnapshot(item.id) };
+  });
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/responsibility', async (req) => {
+    if (!getRun(req.params.runId)) throw httpError(404, `Run 不存在: ${req.params.runId}`);
+    return { snapshots: listResponsibilitySnapshots(req.params.runId) };
   });
   app.get<{ Params: { id: string } }>('/api/collaboration/dispatches/:id', async (req) => {
     const item = getDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); return item;
@@ -499,7 +521,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
   app.post<{ Params: { runId: string } }>('/api/collaboration/runs/:runId/stop', async (req) => {
     const item = getRun(req.params.runId); if (!item) throw httpError(404, 'Run 不存在');
-    tx(() => { cancelCollaborationRun(item.id); finishRun(item.id, 'cancelled'); closeCollaborationTrace(item.id, 'cancelled'); });
+    const result = commitRunTerminal({ runId: item.id, status: 'cancelled', disposition: 'cancelled',
+      source: 'user_stop', userMessageStatus: 'failed', closeExecution: () => cancelCollaborationRun(item.id),
+      prepare: () => ({ reasonCodes: ['USER_STOPPED'] }) });
+    if (result.committed) closeCollaborationTrace(item.id, 'cancelled');
     return getRun(item.id)!;
   });
   app.post<{ Params: { agentId: string }; Body: { conversationId?: string } }>('/api/collaboration/agents/:agentId/stop', async (req) => {

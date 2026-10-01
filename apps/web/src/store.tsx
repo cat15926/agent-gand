@@ -25,8 +25,12 @@ import type {
   Conversation,
   RuntimeCompletionCandidate,
   RuntimeDurableHold,
+  RuntimeHoldRecoveryAudit,
   RuntimeEvidenceBundle,
   RuntimeRouteGuardEvent,
+  RuntimeResponsibilitySnapshot,
+  RuntimeActionCommandRecord,
+  RuntimeShadowComparison,
   RuntimeWakeEvent,
   RuntimeSuccessorObligation,
   CollaborationAttempt,
@@ -70,6 +74,10 @@ export interface State {
   routeGuardEvents: RuntimeRouteGuardEvent[];
   durableHolds: RuntimeDurableHold[];
   wakeEvents: RuntimeWakeEvent[];
+  holdRecoveryAudits: RuntimeHoldRecoveryAudit[];
+  responsibilitySnapshots: RuntimeResponsibilitySnapshot[];
+  actionCommands: RuntimeActionCommandRecord[];
+  shadowComparisons: RuntimeShadowComparison[];
   collaborationBudgets: Record<string, CollaborationBudgetSnapshot>;
   collaborationScheduler: { conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number } | null;
   coordinationPlan: CoordinationPlan | null;
@@ -88,6 +96,7 @@ type Action =
   | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null }
   | { type: 'collaborationDetail'; conversationId: string; details: api.CollaborationRunDetail[] }
   | { type: 'coordinationDetail'; runId: string; detail: api.CoordinationRunDetail | null }
+  | { type: 'responsibilityDetail'; runId: string; snapshots: RuntimeResponsibilitySnapshot[] }
   | { type: 'serverEvent'; event: ServerEvent };
 
 const initialState: State = {
@@ -106,7 +115,7 @@ const initialState: State = {
   usage: [],
   streams: {},
   scheduler: null,
-  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], collaborationBudgets: {}, collaborationScheduler: null,
+  collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], holdRecoveryAudits: [], responsibilitySnapshots: [], actionCommands: [], shadowComparisons: [], collaborationBudgets: {}, collaborationScheduler: null,
   coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [],
 };
 
@@ -140,7 +149,7 @@ function reducer(state: State, action: Action): State {
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
       return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
-        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], collaborationBudgets: {}, collaborationScheduler: null,
+        collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], holdRecoveryAudits: [], responsibilitySnapshots: [], actionCommands: [], shadowComparisons: [], collaborationBudgets: {}, collaborationScheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
@@ -152,7 +161,11 @@ function reducer(state: State, action: Action): State {
         evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
         routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents,
         durableHolds: action.coordination?.durableHolds ?? state.durableHolds,
-        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents };
+        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents,
+        holdRecoveryAudits: action.coordination?.holdRecoveryAudits ?? state.holdRecoveryAudits,
+        responsibilitySnapshots: action.coordination?.responsibilitySnapshots ?? state.responsibilitySnapshots,
+        actionCommands: action.coordination?.actionCommands ?? state.actionCommands,
+        shadowComparisons: action.coordination?.shadowComparisons ?? state.shadowComparisons };
     case 'collaborationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state,
@@ -166,6 +179,10 @@ function reducer(state: State, action: Action): State {
         routeGuardEvents: action.details.flatMap((item) => item.routeGuardEvents),
         durableHolds: action.details.flatMap((item) => item.durableHolds),
         wakeEvents: action.details.flatMap((item) => item.wakeEvents),
+        holdRecoveryAudits: action.details.flatMap((item) => item.holdRecoveryAudits),
+        responsibilitySnapshots: action.details.flatMap((item) => item.responsibilitySnapshots),
+        actionCommands: action.details.flatMap((item) => item.actionCommands),
+        shadowComparisons: action.details.flatMap((item) => item.shadowComparisons),
         collaborationBudgets: Object.fromEntries(action.details.flatMap((item) => item.run ? [[item.run.id, item.budget] as const] : [])),
       };
     case 'runDetail':
@@ -179,7 +196,11 @@ function reducer(state: State, action: Action): State {
         evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
         routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents,
         durableHolds: action.coordination?.durableHolds ?? state.durableHolds,
-        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents };
+        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents,
+        holdRecoveryAudits: action.coordination?.holdRecoveryAudits ?? state.holdRecoveryAudits,
+        responsibilitySnapshots: action.coordination?.responsibilitySnapshots ?? state.responsibilitySnapshots,
+        actionCommands: action.coordination?.actionCommands ?? state.actionCommands,
+        shadowComparisons: action.coordination?.shadowComparisons ?? state.shadowComparisons };
     case 'coordinationDetail':
       if (action.runId !== state.activeRunId) return state;
       return { ...state, coordinationPlan: action.detail?.plan ?? null, coordinationSteps: action.detail?.steps ?? [],
@@ -187,7 +208,17 @@ function reducer(state: State, action: Action): State {
         completionCandidates: action.detail?.completionCandidates ?? [],
         successorObligations: action.detail?.successorObligations ?? [],
         evidenceBundles: action.detail?.evidenceBundles ?? [], routeGuardEvents: action.detail?.routeGuardEvents ?? [],
-        durableHolds: action.detail?.durableHolds ?? [], wakeEvents: action.detail?.wakeEvents ?? [] };
+        durableHolds: action.detail?.durableHolds ?? [], wakeEvents: action.detail?.wakeEvents ?? [],
+        holdRecoveryAudits: action.detail?.holdRecoveryAudits ?? [],
+        responsibilitySnapshots: action.detail?.responsibilitySnapshots ?? [],
+        actionCommands: action.detail?.actionCommands ?? [],
+        shadowComparisons: action.detail?.shadowComparisons ?? [] };
+    case 'responsibilityDetail':
+      if (action.runId !== state.activeRunId) return state;
+      return { ...state, responsibilitySnapshots: [
+        ...state.responsibilitySnapshots.filter((snapshot) => snapshot.runId !== action.runId),
+        ...action.snapshots,
+      ] };
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
@@ -242,6 +273,12 @@ function reducer(state: State, action: Action): State {
         case 'runtime.completion_candidate.updated':
           return state.runs.some((run) => run.id === e.candidate.runId && run.conversationId === state.activeConversationId)
             ? { ...state, completionCandidates: upsertBy(state.completionCandidates, e.candidate) } : state;
+        case 'runtime.action_command.committed':
+          return state.runs.some((run) => run.id === e.command.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, actionCommands: upsertBy(state.actionCommands, e.command) } : state;
+        case 'runtime.shadow_comparison.recorded':
+          return state.runs.some((run) => run.id === e.comparison.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, shadowComparisons: upsertBy(state.shadowComparisons, e.comparison) } : state;
         case 'runtime.evidence_bundle.updated':
           return state.runs.some((run) => run.id === e.bundle.runId && run.conversationId === state.activeConversationId)
             ? { ...state, evidenceBundles: upsertBy(state.evidenceBundles, e.bundle) } : state;
@@ -251,6 +288,9 @@ function reducer(state: State, action: Action): State {
         case 'runtime.hold.updated':
           return state.runs.some((run) => run.id === e.hold.runId && run.conversationId === state.activeConversationId)
             ? { ...state, durableHolds: upsertBy(state.durableHolds, e.hold) } : state;
+        case 'runtime.hold_recovery.recorded':
+          return state.runs.some((run) => run.id === e.audit.runId && run.conversationId === state.activeConversationId)
+            ? { ...state, holdRecoveryAudits: upsertBy(state.holdRecoveryAudits, e.audit) } : state;
         case 'runtime.wake_event.recorded':
           return state.runs.some((run) => run.id === e.wakeEvent.runId && run.conversationId === state.activeConversationId)
             ? { ...state, wakeEvents: upsertBy(state.wakeEvents, e.wakeEvent) } : state;
@@ -402,6 +442,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (event.type === 'run.updated' && event.run.id === activeRunRef.current) {
         void loadCoordinationDetail(event.run.id)
           .then((detail) => dispatch({ type: 'coordinationDetail', runId: event.run.id, detail }))
+          .catch(() => { /* 断线期间由下一次 hydrate 回补。 */ });
+      }
+      const responsibilityRunId = event.type === 'collaboration.dispatch.updated' ? event.dispatch.runId
+        : event.type === 'collaboration.attempt.updated' ? event.attempt.runId
+        : event.type === 'runtime.completion_candidate.updated' ? event.candidate.runId
+        : event.type === 'runtime.hold.updated' ? event.hold.runId
+        : event.type === 'runtime.successor_obligation.updated' ? event.obligation.runId
+        : event.type === 'coordination.step.updated' ? event.step.runId
+        : event.type === 'run.updated' ? event.run.id : null;
+      if (responsibilityRunId && responsibilityRunId === activeRunRef.current) {
+        void api.getRunResponsibility(responsibilityRunId)
+          .then((detail) => dispatch({ type: 'responsibilityDetail', runId: responsibilityRunId, snapshots: detail.snapshots }))
           .catch(() => { /* 断线期间由下一次 hydrate 回补。 */ });
       }
     });

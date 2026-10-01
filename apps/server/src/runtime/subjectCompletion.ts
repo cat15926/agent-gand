@@ -3,7 +3,6 @@ import type {
   RuntimeCompletionCandidate,
   RuntimeControlAction,
   RuntimeEvidenceRef,
-  RuntimeRunContract,
   RuntimeSubjectCompletionEvaluation,
   RuntimeSubjectCompletionInput,
 } from '@agent-gand/shared';
@@ -18,6 +17,8 @@ import {
 import { observeCompletionCandidateDecision } from './shadow.ts';
 import { countUnsatisfiedRequiredObligations, successorObligationVersion } from './obligations.ts';
 import { hasOpenDurableHold, runtimeDurableHoldVersion } from './holds.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
+import { loadResponsibilitySnapshot } from './responsibilitySnapshot.ts';
 
 interface CandidateRow {
   id: string; run_id: string; subject_id: string; subject_key: string; attempt_id: string; generation: number;
@@ -44,8 +45,13 @@ export function evaluateSubjectCompletion(input: RuntimeSubjectCompletionInput):
       feedback: '候选对应的工作项已经变化，旧结果不能提交。' };
   }
   if (input.candidate.generation !== input.currentGeneration) {
-    return { status: 'superseded', reasons: ['CANDIDATE_GENERATION_STALE'], retryable: false,
+    return { status: 'superseded', reasons: ['ATTEMPT_GENERATION_STALE'], retryable: false,
       feedback: '责任代际已经推进，旧候选已失效。' };
+  }
+  if (input.completionBlockers && input.completionBlockers.length > 0) {
+    const retryable = input.completionBlockers.every((item) => item.category !== 'stale_responsibility');
+    return rejected(input.completionBlockers.map((item) => item.code), retryable,
+      input.completionBlockers.map((item) => item.message).join('；'));
   }
   if (input.attemptStatus === 'failed' || input.attemptStatus === 'interrupted' || input.attemptStatus === 'cancelled'
     || !input.leaseValid || input.attemptError?.startsWith('AGENT_TURN_')) {
@@ -102,10 +108,7 @@ function toCandidate(row: CandidateRow): RuntimeCompletionCandidate {
 }
 
 export function runtimeCompletionCandidateVersion(runId: string): 1 | null {
-  const row = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!row) return null;
-  try { return (JSON.parse(row.payload) as RuntimeRunContract).features?.completionCandidateVersion === 1 ? 1 : null; }
-  catch { return null; }
+  return loadRuntimeContract(runId)?.features?.completionCandidateVersion === 1 ? 1 : null;
 }
 
 export interface SubmitCompletionCandidateInput {
@@ -172,6 +175,11 @@ export function submitCompletionCandidateForSubject(
             feedback: candidate.feedback ?? '完成候选未通过验收。' };
       return { candidate, evaluation };
     }
+    const responsibility = loadResponsibilitySnapshot({ runId: input.runId,
+      subjectId: context.subjectId, attemptId: input.attemptId });
+    if (!responsibility || !responsibility.attempt) {
+      throw new Error('CompletionCandidate 无法加载最新 Responsibility Snapshot');
+    }
     const id = randomUUID(); const now = new Date().toISOString();
     const evidenceBundle = runtimeEvidenceBundleVersion(input.runId) === 1
       ? createEvidenceBundle({ runId: input.runId, subjectId: context.subjectId,
@@ -184,7 +192,7 @@ export function submitCompletionCandidateForSubject(
        exit_guard_status,exit_guard_reasons,status,reasons,retryable,feedback,idempotency_key,created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','[]',0,NULL,?,?)`,
     id, input.runId, context.subjectId, context.subjectKey, input.attemptId,
-    context.attemptGeneration ?? context.currentGeneration, input.agentId,
+    responsibility.attempt.generation, input.agentId,
     JSON.stringify(input.action), input.summary.trim(), JSON.stringify(input.evidenceRefs), evidenceBundle?.id ?? null, input.exitGuard.status,
     JSON.stringify(input.exitGuard.reasons), idempotencyKey, now);
     const candidate = toCandidate(get<CandidateRow>('SELECT * FROM runtime_completion_candidates WHERE id=?', id)!);
@@ -200,15 +208,20 @@ export function submitCompletionCandidateForSubject(
       candidate: { subjectId: candidate.subjectId, attemptId: candidate.attemptId, generation: candidate.generation,
         agentId: candidate.agentId, action: candidate.action, summary: candidate.summary,
         evidenceRefs: candidate.evidenceRefs, exitGuard: candidate.exitGuard },
-      currentSubjectId: context.subjectId, subjectStatus: context.subjectStatus, custodyState: context.custodyState,
-      holderAgentId: context.holderAgentId, pendingHolderAgentId: context.pendingHolderAgentId,
-      currentGeneration: context.currentGeneration, attemptStatus: context.attemptStatus, attemptAgentId: context.attemptAgentId,
-      attemptError: context.attemptError, leaseValid: context.leaseValid,
+      currentSubjectId: responsibility.subjectId, subjectStatus: responsibility.subjectStatus,
+      custodyState: responsibility.custody.state,
+      holderAgentId: responsibility.custody.holderAgentId,
+      pendingHolderAgentId: responsibility.custody.pendingHolderAgentId,
+      currentGeneration: responsibility.custody.generation,
+      attemptStatus: responsibility.attempt.status === 'paused' ? 'interrupted' : responsibility.attempt.status,
+      attemptAgentId: responsibility.attempt.actorId,
+      attemptError: context.attemptError, leaseValid: responsibility.attempt.leaseValid,
       outputPresent: candidate.summary.trim().length > 0, evidenceValid,
       openSuccessorObligations: context.openSuccessorObligations, durableHoldOpen: context.durableHoldOpen,
       dependenciesSatisfied: context.dependenciesSatisfied,
       requiredArtifactsSatisfied: context.requiredArtifactsSatisfied,
       reviewAccepted: context.reviewAccepted, protocolTerminal: context.protocolTerminal,
+      completionBlockers: responsibility.completionBlockers,
     });
     const evaluation: RuntimeSubjectCompletionEvaluation = rawEvaluation.status === 'rejected'
       && rawEvaluation.retryable && input.retryAllowed === false
@@ -242,7 +255,7 @@ export function submitCompletionCandidate(input: SubmitCompletionCandidateInput)
     ? countUnsatisfiedRequiredObligations(context.subject_id)
     : get<{ n: number }>(`SELECT COUNT(*) n FROM runtime_subjects
         WHERE parent_subject_id=? AND status<>'completed'`, context.subject_id)?.n ?? 0;
-  const durableHoldOpen = runtimeDurableHoldVersion(input.runId) === 1
+  const durableHoldOpen = runtimeDurableHoldVersion(input.runId) !== null
     ? hasOpenDurableHold(input.runId, context.subject_id)
     : Boolean(get(`SELECT 1 FROM collaboration_user_decisions
       WHERE run_id=? AND status='pending' AND (dispatch_id=? OR dispatch_id IS NULL) LIMIT 1`, input.runId, input.dispatchId));

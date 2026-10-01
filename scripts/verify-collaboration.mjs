@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -16,8 +17,12 @@ const definitions = [
 for (const [id, name, model, capabilities, prompt] of definitions) await writeFile(path.join(agentsDir, `${id}.agent.md`), `---\nname: ${name}\ndescription: ${prompt}\nmodel: ${model}\ncapabilities: ${capabilities}\ntools: []\npermissionMode: readonly\ncolor: '#6677aa'\n---\n${prompt}`);
 
 const dbPath = path.join(root, 'test.sqlite');
-const completionEngine = process.env.COLLAB_COMPLETION_ENGINE === 'true';
-const runtimeStateEnabled = process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_RUNTIME_SHADOW === 'true';
+const admissionProfile = process.env.COLLAB_RUNTIME_MODE
+  ?? (process.env.COLLAB_COMPLETION_ENGINE === 'true' ? 'execute'
+    : process.env.COLLAB_RUNTIME_ATOMIC === 'true' ? 'atomic_compat'
+      : process.env.COLLAB_RUNTIME_SHADOW === 'true' ? 'shadow' : 'execute');
+const completionEngine = admissionProfile === 'execute';
+const runtimeStateEnabled = admissionProfile !== 'legacy';
 const port = 41000 + Math.floor(Math.random() * 1000);
 const child = spawn(process.execPath, ['--import', './apps/server/node_modules/tsx/dist/loader.mjs', 'apps/server/src/index.ts'], {
   cwd: repo,
@@ -43,6 +48,24 @@ async function waitRun(runId, statuses, timeoutMs = 8_000) {
   }
   throw new Error(`等待 Run ${runId} 状态 ${statuses.join('/')} 超时，当前状态 ${latest?.status ?? 'unknown'}\n${logs}`);
 }
+function assertShadowComparisons(detail, label) {
+  if (admissionProfile !== 'shadow') return;
+  const completed = detail.attempts.filter((attempt) => attempt.status === 'completed' && attempt.controlAction);
+  assert.equal(detail.shadowComparisons.length, completed.length,
+    `${label}: 每个已完成 Attempt 应有且只有一条 Shadow Comparison`);
+  assert.equal(new Set(detail.shadowComparisons.map((item) => item.attemptId)).size, detail.shadowComparisons.length,
+    `${label}: Shadow Comparison 不得重复`);
+  assert.ok(detail.shadowComparisons.every((item) => item.classification !== 'observer_error'),
+    `${label}: Shadow 差异必须可解释，不能静默观察失败`);
+  for (const comparison of detail.shadowComparisons) {
+    const attempt = completed.find((item) => item.id === comparison.attemptId);
+    assert.ok(attempt, `${label}: Comparison 必须关联已完成 Attempt`);
+    assert.equal(comparison.outputSha256, createHash('sha256').update(attempt.output ?? '').digest('hex'),
+      `${label}: Shadow 必须消费同一份已持久化输出`);
+    assert.ok(comparison.responsibilitySnapshot && comparison.snapshotFingerprint,
+      `${label}: Shadow 必须冻结判定前责任快照`);
+  }
+}
 
 try {
   for (let i = 0; i < 100; i += 1) {
@@ -60,12 +83,18 @@ try {
   const handoffDetail = await api(`/api/runs/${handoff.data.run.id}/collaboration`);
   assert.equal(handoffDetail.status, 200);
   assert.deepEqual(handoffDetail.data.dispatches.map((item) => [item.kind, item.targetAgentId]), [['initial', 'planner'], ['handoff', 'coder']]);
-  assert.ok(handoffDetail.data.dispatches.every((item) => item.status === 'completed'));
+  assert.ok(handoffDetail.data.dispatches.every((item) => item.status === 'completed'),
+    JSON.stringify(handoffDetail.data.dispatches.map((item) => ({ id: item.id, kind: item.kind, status: item.status, error: item.error }))));
   assert.ok(handoffDetail.data.attempts.every((item) => item.controlAction?.version === 2),
     '新 Run 的 Attempt 必须持久化规范 ControlAction v2');
   assert.equal(handoffDetail.data.attempts[0]?.controlAction?.type, 'handoff');
   assert.equal(handoffDetail.data.attempts[1]?.controlAction?.type, 'complete',
     '动态 handoff 接手者必须经同轮纠偏提交显式 complete');
+  assert.deepEqual(handoffDetail.data.actionCommands.map((item) => item.kind), ['handoff', 'complete'],
+    '真实 Scheduler 必须通过公共 handoff/complete 命令提交动作');
+  assert.equal(new Set(handoffDetail.data.actionCommands.map((item) => item.commandKey)).size,
+    handoffDetail.data.actionCommands.length, '每个 Attempt 只能提交一个稳定动作命令');
+  assertShadowComparisons(handoffDetail.data, 'handoff');
   if (runtimeStateEnabled) {
     assert.equal(handoffDetail.data.completionCandidates.length, 1);
     assert.equal(handoffDetail.data.completionCandidates[0]?.status, 'accepted');
@@ -77,6 +106,10 @@ try {
     assert.ok(handoffDetail.data.evidenceBundles.every((item) => item.status === 'valid'));
     assert.ok(handoffDetail.data.completionCandidates[0]?.evidenceBundleId,
       '新版 CompletionCandidate 必须引用冻结 EvidenceBundle');
+  }
+  if (completionEngine) {
+    assert.equal(handoffDetail.data.terminal?.status, 'completed');
+    assert.equal(handoffDetail.data.terminal?.disposition, 'accepted');
   }
   assert.ok(handoffDetail.data.attempts.every((item) => typeof item.inputContext === 'string' && item.inputContext.includes('当前执行信息')));
   const handoffAttempt = handoffDetail.data.attempts.find((item) => item.dispatchId === handoffDetail.data.dispatches[1].id);
@@ -176,6 +209,7 @@ try {
   assert.equal(fanoutExtended.status, 200, JSON.stringify(fanoutExtended.data));
   await waitRun(fanoutReturn.data.run.id, ['completed'], 12_000);
   const fanoutDetail = await api(`/api/runs/${fanoutReturn.data.run.id}/collaboration`);
+  assertShadowComparisons(fanoutDetail.data, 'consult(all)');
   assert.deepEqual(fanoutDetail.data.dispatches.map((item) => item.kind), ['initial', 'resume', 'fanout', 'fanout', 'aggregate']);
   assert.ok(fanoutDetail.data.attempts.filter((item) => fanoutDetail.data.dispatches.some((dispatch) => dispatch.id === item.dispatchId && dispatch.kind === 'fanout')).every((item) => item.output?.includes('请继续处理')));
   if (runtimeStateEnabled) {
@@ -263,6 +297,7 @@ try {
   assert.equal(answered.status, 200, JSON.stringify(answered.data));
   await waitRun(waiting.data.run.id, ['completed']);
   waitingDetail = await api(`/api/runs/${waiting.data.run.id}/collaboration`);
+  assertShadowComparisons(waitingDetail.data, 'hold/wake');
   assert.equal(waitingDetail.data.decisions.find((item) => item.id === question.id).status, 'accepted');
   assert.ok(waitingDetail.data.dispatches.some((item) => item.kind === 'resume'));
   if (completionEngine) {
@@ -322,6 +357,7 @@ try {
   const stopped = await api(`/api/collaboration/runs/${stoppable.data.run.id}/stop`, 'POST');
   assert.equal(stopped.data.status, 'cancelled');
   const stoppedDetail = await api(`/api/runs/${stoppable.data.run.id}/collaboration`);
+  assertShadowComparisons(stoppedDetail.data, 'stop');
   assert.ok(stoppedDetail.data.dispatches.every((item) => !['queued', 'running'].includes(item.status)));
   if (completionEngine) assert.ok(stoppedDetail.data.durableHolds.every((item) => item.status === 'cancelled'),
     'Stop 必须关闭全部开放 Hold');

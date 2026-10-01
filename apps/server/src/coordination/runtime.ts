@@ -1,5 +1,6 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
+import { afterCommit, tx } from '../db/database.ts';
 import { expirePendingApprovalsForRun } from '../hitl/approvals.ts';
 import { post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
@@ -23,12 +24,12 @@ import {
 import {
   assembleCoordinationKernelContext,
   closeCoordinationKernelPlan,
-  createCoordinationResumeHold,
   evaluateCoordinationKernel,
-  finalizeCoordinationKernelPlan,
+  coordinationKernelMode,
   signalCoordinationKernelResume,
 } from '../runtime/coordinationAdapter.ts';
 import { hasRuntimeContextAssembly } from '../runtime/context.ts';
+import { commitRunTerminal } from '../runtime/terminal.ts';
 
 interface RuntimeMessageInput {
   recipientIds?: string[];
@@ -130,10 +131,23 @@ function parseReview(output: string): { verdict: 'PASS' | 'FAIL'; summary: strin
   }
 }
 
-function messageType(step: CoordinationPlanStep): 'result' | 'review_result' | 'collaboration_result' {
+function messageType(step: CoordinationPlanStep): 'result' | 'review_result' {
   if (step.type === 'review') return 'review_result';
-  if (step.type === 'aggregate') return 'collaboration_result';
   return 'result';
+}
+
+function coordinationTerminalReport(plan: CoordinationPlan, states: CoordinationStepState[]): {
+  from: string; body: string;
+} {
+  const completed = plan.steps.flatMap((step) => {
+    if (step.type === 'completion_gate') return [];
+    const output = states.find((state) => state.stepId === step.id)?.output?.trim();
+    return output ? [{ step, output }] : [];
+  });
+  const selected = [...completed].reverse().find((item) => item.step.type === 'aggregate')
+    ?? [...completed].reverse().find((item) => item.step.type === 'review')
+    ?? completed.at(-1);
+  return { from: selected?.step.agentId ?? 'system', body: selected?.output ?? 'Coordination Plan 已完成。' };
 }
 
 async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string): Promise<'paused' | void> {
@@ -201,7 +215,6 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     // AG-COORD-04：审批连续超时 → 释放步骤（不烧 attempt 失败）并上抛暂停信号，由 execute() 暂停 run
     if (turn.approvalStarved) {
       releaseCoordinationStep(plan, step, claimed.attempt.id, '审批连续超时，等待用户处理后恢复');
-      createCoordinationResumeHold(plan, step, claimed.attempt.id);
       endSpan(span, { output: '审批连续超时，步骤已暂停', status: 'ok' });
       return 'paused';
     }
@@ -287,16 +300,38 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
       const states = listCoordinationStepStates(currentPlan.id);
       if (states.some((state) => state.status === 'failed')) throw new Error(`Coordination Step 失败：${states.find((state) => state.status === 'failed')?.stepId}`);
       if (states.length === currentPlan.steps.length && states.every((state) => state.status === 'completed')) {
-        const completion = finalizeCoordinationKernelPlan(currentPlan, states);
-        if (completion.status !== 'accepted') {
-          throw new Error(`Completion Engine 拒绝 Coordination 终局：${completion.reasons.join('；')}`);
+        if (coordinationKernelMode(run.id) === 'execute') {
+          tx(() => {
+            const report = coordinationTerminalReport(currentPlan, states);
+            const result = commitRunTerminal({ runId: run.id, status: 'completed', disposition: 'accepted',
+              source: 'coordination_completion', userMessageStatus: 'responded', closeExecution: () => {
+                setCoordinationPlanStatus(currentPlan.id, 'completed');
+                recordCoordinationEvent({ kind: 'plan_completed', draftId: currentPlan.draftId, planId: currentPlan.id,
+                  runId: run.id, payload: { revision: currentPlan.revision } });
+                saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'completed', status: 'completed',
+                  state: { planId: currentPlan.id, revision: currentPlan.revision } });
+              }, prepare: () => {
+                const kernel = evaluateCoordinationKernel(currentPlan, states);
+                if (!kernel || kernel.evaluation.status !== 'accepted') {
+                  throw new Error(`Completion Engine 拒绝 Coordination 终局：${kernel?.evaluation.reasons.join('；') ?? '缺少终局快照'}`);
+                }
+                return {
+                  completion: { input: kernel.input, evaluation: kernel.evaluation },
+                  report: { from: report.from, to: 'user', kind: 'agent' as const, messageType: 'collaboration_result' as const,
+                    body: report.body, meta: { completionKind: 'runtime_accepted', coordinationPlanId: currentPlan.id,
+                      revision: currentPlan.revision }, clientMessageId: `runtime:completion:${run.id}` },
+                };
+              } });
+            if (result.committed) afterCommit(() => endSpan(root, { output: 'Coordination Plan completed', status: 'ok' }));
+          });
+        } else {
+          setCoordinationPlanStatus(currentPlan.id, 'completed');
+          recordCoordinationEvent({ kind: 'plan_completed', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { revision: currentPlan.revision } });
+          saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'completed', status: 'completed', state: { planId: currentPlan.id, revision: currentPlan.revision } });
+          finishRun(run.id, 'completed');
+          updateRunUserMessageStatus(run.id, 'responded');
+          endSpan(root, { output: 'Coordination Plan completed', status: 'ok' });
         }
-        setCoordinationPlanStatus(currentPlan.id, 'completed');
-        recordCoordinationEvent({ kind: 'plan_completed', draftId: currentPlan.draftId, planId: currentPlan.id, runId: run.id, payload: { revision: currentPlan.revision } });
-        saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'completed', status: 'completed', state: { planId: currentPlan.id, revision: currentPlan.revision } });
-        finishRun(run.id, 'completed');
-        updateRunUserMessageStatus(run.id, 'responded');
-        endSpan(root, { output: 'Coordination Plan completed', status: 'ok' });
         return;
       }
       evaluateCoordinationKernel(currentPlan, states);
@@ -329,14 +364,37 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
     const message = error instanceof Error ? error.message : String(error);
     const failedPlan = getRunCoordinationPlan(run.id) ?? plan;
     const failedStates = listCoordinationStepStates(failedPlan.id);
-    closeCoordinationKernelPlan(failedPlan, failedStates, false);
-    evaluateCoordinationKernel(failedPlan, failedStates);
-    setCoordinationPlanStatus(failedPlan.id, 'failed');
-    recordCoordinationEvent({ kind: 'plan_failed', draftId: failedPlan.draftId, planId: failedPlan.id, runId: run.id, payload: { error: message } });
-    saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'failed', status: 'completed', state: { planId: failedPlan.id, error: message } });
-    finishRun(run.id, 'failed');
-    try { updateRunUserMessageStatus(run.id, 'failed'); } catch { /* user message may not exist */ }
-    endSpan(root, { output: message, status: 'error' });
+    if (coordinationKernelMode(run.id) === 'execute') {
+      tx(() => {
+        const result = commitRunTerminal({ runId: run.id, status: 'failed', disposition: 'failed',
+          source: 'coordination_failure', userMessageStatus: 'failed', closeExecution: () => {
+            closeCoordinationKernelPlan(failedPlan, failedStates, false);
+            setCoordinationPlanStatus(failedPlan.id, 'failed');
+            recordCoordinationEvent({ kind: 'plan_failed', draftId: failedPlan.draftId, planId: failedPlan.id,
+              runId: run.id, payload: { error: message } });
+            saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'failed', status: 'completed',
+              state: { planId: failedPlan.id, error: message } });
+          }, prepare: () => {
+            const kernel = evaluateCoordinationKernel(failedPlan, failedStates);
+            return {
+              ...(kernel ? { completion: { input: kernel.input, evaluation: kernel.evaluation } } : {}),
+              reasonCodes: kernel?.evaluation.reasons ?? ['COORDINATION_FAILED'],
+              report: { from: 'system', to: 'user', kind: 'system' as const, messageType: 'informational' as const,
+                body: `Coordination 执行失败：${message}`, clientMessageId: `runtime:completion-rejected:${run.id}` },
+            };
+          } });
+        if (result.committed) afterCommit(() => endSpan(root, { output: message, status: 'error' }));
+      });
+    } else {
+      closeCoordinationKernelPlan(failedPlan, failedStates, false);
+      evaluateCoordinationKernel(failedPlan, failedStates);
+      setCoordinationPlanStatus(failedPlan.id, 'failed');
+      recordCoordinationEvent({ kind: 'plan_failed', draftId: failedPlan.draftId, planId: failedPlan.id, runId: run.id, payload: { error: message } });
+      saveCheckpoint({ runId: run.id, kind: 'coordination', phase: 'failed', status: 'completed', state: { planId: failedPlan.id, error: message } });
+      finishRun(run.id, 'failed');
+      try { updateRunUserMessageStatus(run.id, 'failed'); } catch { /* user message may not exist */ }
+      endSpan(root, { output: message, status: 'error' });
+    }
     throw error;
   } finally {
     activeRuns.delete(run.id);
@@ -384,12 +442,26 @@ export function cancelCoordinationRun(runId: string): Run | null {
   if (!run || !plan) return run ?? null;
   if (plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run;
   const cancelledStates = listCoordinationStepStates(plan.id);
-  closeCoordinationKernelPlan(plan, cancelledStates, true);
-  evaluateCoordinationKernel(plan, cancelledStates);
-  setCoordinationPlanStatus(plan.id, 'cancelled');
-  recordCoordinationEvent({ kind: 'plan_cancelled', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
-  expirePendingApprovalsForRun(runId, 'system:cancelled');
-  finishRun(runId, 'cancelled');
-  try { updateRunUserMessageStatus(runId, 'failed'); } catch { /* user message may not exist */ }
+  if (coordinationKernelMode(runId) === 'execute') {
+    commitRunTerminal({ runId, status: 'cancelled', disposition: 'cancelled', source: 'coordination_user_cancel',
+      userMessageStatus: 'failed', closeExecution: () => {
+        closeCoordinationKernelPlan(plan, cancelledStates, true);
+        setCoordinationPlanStatus(plan.id, 'cancelled');
+        recordCoordinationEvent({ kind: 'plan_cancelled', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
+        expirePendingApprovalsForRun(runId, 'system:cancelled');
+      }, prepare: () => {
+        const kernel = evaluateCoordinationKernel(plan, cancelledStates);
+        return { ...(kernel ? { completion: { input: kernel.input, evaluation: kernel.evaluation } } : {}),
+          reasonCodes: ['USER_CANCELLED', ...(kernel?.evaluation.reasons ?? [])] };
+      } });
+  } else {
+    closeCoordinationKernelPlan(plan, cancelledStates, true);
+    evaluateCoordinationKernel(plan, cancelledStates);
+    setCoordinationPlanStatus(plan.id, 'cancelled');
+    recordCoordinationEvent({ kind: 'plan_cancelled', draftId: plan.draftId, planId: plan.id, runId, payload: { by: 'user' } });
+    expirePendingApprovalsForRun(runId, 'system:cancelled');
+    finishRun(runId, 'cancelled');
+    try { updateRunUserMessageStatus(runId, 'failed'); } catch { /* user message may not exist */ }
+  }
   return getRun(runId) ?? run;
 }

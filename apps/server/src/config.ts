@@ -49,6 +49,25 @@ function firstInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+type CollaborationAdmissionProfile = 'legacy' | 'shadow' | 'atomic_compat' | 'execute';
+
+function collaborationAdmissionProfile(): CollaborationAdmissionProfile {
+  const explicit = process.env.COLLAB_RUNTIME_MODE;
+  if (explicit !== undefined) {
+    if (['legacy', 'shadow', 'atomic_compat', 'execute'].includes(explicit)) {
+      return explicit as CollaborationAdmissionProfile;
+    }
+    throw new Error('COLLAB_RUNTIME_MODE 必须是 legacy、shadow、atomic_compat 或 execute');
+  }
+  // 旧三开关只在新 Run 入场时映射一次；执行阶段不得再次读取它们。
+  if (process.env.COLLAB_COMPLETION_ENGINE === 'true') return 'execute';
+  if (process.env.COLLAB_RUNTIME_ATOMIC === 'true') return 'atomic_compat';
+  if (process.env.COLLAB_RUNTIME_SHADOW === 'true') return 'shadow';
+  // 阶段 5：没有显式配置时，新 Collaboration Run 由 Runtime 接管。
+  // 存量 Run 始终读取冻结 Contract，不受该默认值影响。
+  return 'execute';
+}
+
 export interface ModelPrice {
   inputPerMillion: number;
   outputPerMillion: number;
@@ -111,10 +130,13 @@ export const config = {
   taskMaxAttempts: Math.max(1, firstInt(process.env.TASK_MAX_ATTEMPTS, 3)),
   taskLeaseMs: Math.max(10_000, firstInt(process.env.TASK_LEASE_MS, 300_000)),
   collaboration: {
+    /** 只决定新 Collaboration Run 的入场策略；进入 Run 后以冻结 Contract 为准。 */
+    runtimeAdmissionProfile: collaborationAdmissionProfile(),
+    /** @deprecated 仅保留旧配置可见性；业务执行路径不得读取。 */
     runtimeShadow: process.env.COLLAB_RUNTIME_SHADOW === 'true',
-    /** 试验性事务级 Custody 记录；默认关闭，旧 Scheduler 仍是执行权威。 */
+    /** @deprecated 仅用于旧配置兼容映射。 */
     runtimeAtomic: process.env.COLLAB_RUNTIME_ATOMIC === 'true' || process.env.COLLAB_COMPLETION_ENGINE === 'true',
-    /** 阶段 6 试验入口；启用时自动要求原子 Custody 记录。 */
+    /** @deprecated 仅用于旧配置兼容映射。 */
     completionEngine: process.env.COLLAB_COMPLETION_ENGINE === 'true',
     maxDepth: Math.max(1, firstInt(process.env.COLLAB_MAX_DEPTH, 12)),
     maxDispatches: Math.max(1, firstInt(process.env.COLLAB_MAX_DISPATCHES, 20)),

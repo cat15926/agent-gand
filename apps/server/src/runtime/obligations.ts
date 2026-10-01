@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  RuntimeRunContract,
   RuntimeSuccessorObligation,
   RuntimeSuccessorObligationKind,
   RuntimeSuccessorObligationStatus,
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
 
 interface ObligationRow {
   id: string;
@@ -51,10 +51,7 @@ function emitAfterCommit(obligation: RuntimeSuccessorObligation): void {
 }
 
 export function successorObligationVersion(runId: string): 1 | null {
-  const row = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!row) return null;
-  try { return (JSON.parse(row.payload) as RuntimeRunContract).features?.successorObligationVersion === 1 ? 1 : null; }
-  catch { return null; }
+  return loadRuntimeContract(runId)?.features?.successorObligationVersion === 1 ? 1 : null;
 }
 
 export interface OpenSuccessorObligationInput {

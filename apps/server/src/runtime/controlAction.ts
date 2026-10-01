@@ -6,7 +6,8 @@ import type {
   RuntimeRunContract,
   SupervisorTaskProposal,
 } from '@agent-gand/shared';
-import { get, run } from '../db/database.ts';
+import { run } from '../db/database.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
 
 export type RuntimeActionSource = 'native_v2' | 'legacy_v1' | 'answer_candidate';
 
@@ -124,18 +125,14 @@ export function answerCandidateControlAction(version: RuntimeControlActionVersio
 
 /** 无冻结标记的历史 Run 固定解释为 v1；不受部署后默认值变化影响。 */
 export function runtimeControlActionVersion(runId: string): RuntimeControlActionVersion {
-  const row = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
-  if (!row) return 1;
-  try {
-    return (JSON.parse(row.payload) as RuntimeRunContract).features?.controlActionVersion === 2 ? 2 : 1;
-  } catch { return 1; }
+  return loadRuntimeContract(runId)?.features?.controlActionVersion === 2 ? 2 : 1;
 }
 
 /** 只插入不覆盖，确保 Run 入场时选定的动作版本永久冻结。 */
 export function freezeRuntimeContract(contract: RuntimeRunContract): RuntimeRunContract {
   run('INSERT OR IGNORE INTO runtime_contracts (run_id,version,payload,created_at) VALUES (?,?,?,?)',
     contract.runId, contract.version, JSON.stringify(contract), new Date().toISOString());
-  const frozen = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', contract.runId);
+  const frozen = loadRuntimeContract(contract.runId);
   if (!frozen) throw new Error(`Run ${contract.runId} 的 Runtime Contract 冻结失败`);
-  return JSON.parse(frozen.payload) as RuntimeRunContract;
+  return frozen;
 }

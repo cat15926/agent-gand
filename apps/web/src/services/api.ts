@@ -24,8 +24,13 @@ import type {
   CollaborationUserDecision,
   RuntimeCompletionCandidate,
   RuntimeDurableHold,
+  RuntimeHoldRecoveryAudit,
   RuntimeEvidenceBundle,
   RuntimeRouteGuardEvent,
+  RuntimeResponsibilitySnapshot,
+  RuntimeActionCommandRecord,
+  RuntimeShadowComparison,
+  RuntimeRunTerminalRecord,
   RuntimeSuccessorObligation,
   RuntimeWakeEvent,
   CapabilitySnapshot,
@@ -93,6 +98,11 @@ export interface CoordinationRunDetail {
   routeGuardEvents?: RuntimeRouteGuardEvent[];
   durableHolds?: RuntimeDurableHold[];
   wakeEvents?: RuntimeWakeEvent[];
+  holdRecoveryAudits?: RuntimeHoldRecoveryAudit[];
+  responsibilitySnapshots?: RuntimeResponsibilitySnapshot[];
+  actionCommands?: RuntimeActionCommandRecord[];
+  shadowComparisons?: RuntimeShadowComparison[];
+  terminal?: RuntimeRunTerminalRecord | null;
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
@@ -132,11 +142,17 @@ export interface CollaborationRunDetail {
   routeGuardEvents: RuntimeRouteGuardEvent[];
   durableHolds: RuntimeDurableHold[];
   wakeEvents: RuntimeWakeEvent[];
+  holdRecoveryAudits: RuntimeHoldRecoveryAudit[];
+  responsibilitySnapshots: RuntimeResponsibilitySnapshot[];
+  actionCommands: RuntimeActionCommandRecord[];
+  shadowComparisons: RuntimeShadowComparison[];
+  terminal?: RuntimeRunTerminalRecord | null;
   budget: CollaborationBudgetSnapshot;
   activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
 }
 export const getConversationCollaboration = (id: string) => request<{ runs: CollaborationRunDetail[] }>(`/api/conversations/${encodeURIComponent(id)}/collaboration`);
 export const getRunCollaboration = (id: string) => request<CollaborationRunDetail>(`/api/runs/${encodeURIComponent(id)}/collaboration`);
+export const getRunResponsibility = (id: string) => request<{ snapshots: RuntimeResponsibilitySnapshot[] }>(`/api/runs/${encodeURIComponent(id)}/responsibility`);
 export const resolveCollaborationDecision = (id: string, input: ResolveCollaborationDecision) => request<{ decision: CollaborationUserDecision; linkedRun: Run | null }>(`/api/collaboration/decisions/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify(input) });
 export const cancelCollaborationDispatch = (id: string) => request<CollaborationDispatch>(`/api/collaboration/dispatches/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 export const stopCollaborationAgent = (agentId: string, conversationId: string) => request<{ cancelled: number }>(`/api/collaboration/agents/${encodeURIComponent(agentId)}/stop`, { method: 'POST', body: JSON.stringify({ conversationId }) });

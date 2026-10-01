@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS runs (
   conversation_id TEXT,
   turn_no INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL, agent_ids TEXT NOT NULL,  -- JSON array
+  terminal_disposition TEXT,
   supervisor_id TEXT,
   default_reviewer_id TEXT,
   workspace TEXT,                                 -- 命名工作区（§10.2，NULL=runId 专属；§11.2 可为 ext:<id>）
@@ -185,6 +186,25 @@ CREATE TABLE IF NOT EXISTS runtime_completion_evaluations (
   snapshot TEXT NOT NULL, created_at TEXT NOT NULL,
   UNIQUE(run_id,seq)
 );
+CREATE TABLE IF NOT EXISTS runtime_run_terminals (
+  run_id TEXT PRIMARY KEY, status TEXT NOT NULL, disposition TEXT NOT NULL,
+  completion_evaluation_seq INTEGER, report_message_id TEXT,
+  reason_codes TEXT NOT NULL, source TEXT NOT NULL, committed_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_action_commands (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, kind TEXT NOT NULL,
+  command_key TEXT NOT NULL UNIQUE, attempt_id TEXT, dispatch_id TEXT,
+  result TEXT NOT NULL, created_at TEXT NOT NULL, committed_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_shadow_comparisons (
+  id TEXT PRIMARY KEY, version INTEGER NOT NULL, run_id TEXT NOT NULL,
+  dispatch_id TEXT NOT NULL, attempt_id TEXT NOT NULL UNIQUE,
+  subject_id TEXT, generation INTEGER, action_type TEXT NOT NULL,
+  legacy_outcome TEXT NOT NULL, runtime_outcome TEXT NOT NULL,
+  classification TEXT NOT NULL, reasons TEXT NOT NULL,
+  responsibility_snapshot TEXT, snapshot_fingerprint TEXT,
+  output_sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS runtime_completion_candidates (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
   subject_key TEXT NOT NULL, attempt_id TEXT NOT NULL, generation INTEGER NOT NULL,
@@ -236,11 +256,19 @@ CREATE TABLE IF NOT EXISTS runtime_holds (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
   source_dispatch_id TEXT, source_attempt_id TEXT, holder_agent_id TEXT NOT NULL,
   generation INTEGER NOT NULL, version INTEGER NOT NULL, condition TEXT NOT NULL,
-  deadline_at TEXT, recovery_policy TEXT NOT NULL, status TEXT NOT NULL,
+  deadline_at TEXT, wake_at TEXT, timeout_at TEXT, on_timeout TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT,
+  max_retries INTEGER NOT NULL DEFAULT 5, recovery_policy TEXT NOT NULL, status TEXT NOT NULL,
   idempotency_key TEXT NOT NULL UNIQUE, claim_owner TEXT, claim_token TEXT,
   claim_expires_at TEXT, wake_event_id TEXT, resumed_dispatch_id TEXT,
-  resolution TEXT, last_error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  resolution TEXT, last_error TEXT, last_error_code TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
   resolved_at TEXT
+);
+CREATE TABLE IF NOT EXISTS runtime_hold_recovery_audit (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  generation INTEGER NOT NULL, hold_id TEXT NOT NULL, outcome TEXT NOT NULL,
+  reason_code TEXT NOT NULL, reason TEXT NOT NULL, details TEXT NOT NULL,
+  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runtime_wake_events (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, kind TEXT NOT NULL,
@@ -251,6 +279,10 @@ CREATE INDEX IF NOT EXISTS idx_runtime_subjects_run ON runtime_subjects(run_id, 
 CREATE INDEX IF NOT EXISTS idx_runtime_custody_events_subject ON runtime_custody_events(subject_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_capsules_run ON runtime_handoff_capsules(run_id,dispatch_id,version);
 CREATE INDEX IF NOT EXISTS idx_runtime_completion_run ON runtime_completion_evaluations(run_id,seq);
+CREATE INDEX IF NOT EXISTS idx_runtime_run_terminals_committed ON runtime_run_terminals(committed_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_action_commands_run ON runtime_action_commands(run_id,committed_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_shadow_comparisons_run ON runtime_shadow_comparisons(run_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_shadow_comparisons_classification ON runtime_shadow_comparisons(classification,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_candidates_run ON runtime_completion_candidates(run_id,status,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_candidates_subject ON runtime_completion_candidates(subject_id,generation,status);
 CREATE INDEX IF NOT EXISTS idx_runtime_evidence_bundles_run ON runtime_evidence_bundles(run_id,status,created_at);
@@ -262,6 +294,8 @@ CREATE INDEX IF NOT EXISTS idx_runtime_coordination_subject_plan ON runtime_coor
 CREATE INDEX IF NOT EXISTS idx_runtime_route_guard_chain ON runtime_route_guard_events(run_id,subject_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_holds_run ON runtime_holds(run_id,status,deadline_at,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_holds_subject ON runtime_holds(subject_id,status,generation);
+CREATE INDEX IF NOT EXISTS idx_runtime_hold_recovery_audit_run ON runtime_hold_recovery_audit(run_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_runtime_hold_recovery_audit_hold ON runtime_hold_recovery_audit(hold_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_runtime_wake_events_match ON runtime_wake_events(run_id,kind,source_key,created_at);
 CREATE TABLE IF NOT EXISTS capability_snapshots (
   id TEXT PRIMARY KEY, payload TEXT NOT NULL, created_at TEXT NOT NULL

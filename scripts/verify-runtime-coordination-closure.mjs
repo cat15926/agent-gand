@@ -93,7 +93,7 @@ try {
     { version: 2, type: 'complete', summary: '被等待阻断的结果' });
   assert.equal(rejected.accepted, false);
   assert.equal(rejected.state.status, 'ready');
-  assert.deepEqual(candidates.listCompletionCandidates('run-held')[0].reasons, ['OPEN_HOLD_OR_TRANSFER']);
+  assert.deepEqual(candidates.listCompletionCandidates('run-held')[0].reasons, ['EXTERNAL_CONDITION_PENDING']);
 
   insertRun('run-shadow');
   const shadowPlan = plan('run-shadow', 'plan-shadow', 'debate');

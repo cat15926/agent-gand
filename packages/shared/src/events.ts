@@ -15,9 +15,12 @@ import type { CollaborationAttempt, CollaborationBatch, CollaborationDispatch, C
 import type { CoordinationStepState } from './coordination.ts';
 import type {
   RuntimeCompletionCandidate,
+  RuntimeActionCommandRecord,
   RuntimeDurableHold,
+  RuntimeHoldRecoveryAudit,
   RuntimeEvidenceBundle,
   RuntimeRouteGuardEvent,
+  RuntimeShadowComparison,
   RuntimeSuccessorObligation,
   RuntimeWakeEvent,
 } from './runtime.ts';
@@ -36,9 +39,12 @@ export type ServerEvent =
   | { type: 'collaboration.batch.updated'; batch: CollaborationBatch }
   | { type: 'collaboration.decision.updated'; decision: CollaborationUserDecision }
   | { type: 'runtime.completion_candidate.updated'; candidate: RuntimeCompletionCandidate }
+  | { type: 'runtime.action_command.committed'; command: RuntimeActionCommandRecord }
   | { type: 'runtime.evidence_bundle.updated'; bundle: RuntimeEvidenceBundle }
   | { type: 'runtime.route_guard.updated'; event: RuntimeRouteGuardEvent }
+  | { type: 'runtime.shadow_comparison.recorded'; comparison: RuntimeShadowComparison }
   | { type: 'runtime.hold.updated'; hold: RuntimeDurableHold }
+  | { type: 'runtime.hold_recovery.recorded'; audit: RuntimeHoldRecoveryAudit }
   | { type: 'runtime.wake_event.recorded'; wakeEvent: RuntimeWakeEvent }
   | { type: 'runtime.successor_obligation.updated'; obligation: RuntimeSuccessorObligation }
   | { type: 'collaboration.scheduler.updated'; conversationId: string; runIds: string[]; activeAgentIds: string[]; queued: number; blocked: number }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { CollaborationStoredControlAction, RuntimeRunContract, RuntimeSubjectSeed, RuntimeSubjectStatus } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { evaluateRequiredSubjects } from './subjectContract.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
 import { normalizeRuntimeControlAction } from './controlAction.ts';
 import {
   listOpenSuccessorObligations,
@@ -41,9 +42,20 @@ export function replayCustodyEvents(events: EventRow[]): Pick<CustodyRow, 'state
   return projection;
 }
 
-/** Shadow 记录绝不能改变 legacy 执行结果；差异保留在日志和投影中供审计。 */
-export function safelyObserve(label: string, observe: () => void): void {
-  try { observe(); } catch (error) { console.warn(`[runtime-shadow] ${label}: ${error instanceof Error ? error.message : String(error)}`); }
+export type RuntimeShadowObservationResult =
+  | { ok: true; error: null }
+  | { ok: false; error: string };
+
+/** Shadow 记录绝不能改变 legacy 执行结果；返回错误供差异账本分类。 */
+export function safelyObserve(label: string, observe: () => void): RuntimeShadowObservationResult {
+  try {
+    observe();
+    return { ok: true, error: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[runtime-shadow] ${label}: ${message}`);
+    return { ok: false, error: message };
+  }
 }
 
 function insertSubject(seed: RuntimeSubjectSeed, parentSubjectId: string | null = null): string {
@@ -290,10 +302,10 @@ export function auditShadowRun(runId: string): string[] {
     if (projection.state === 'owned' && !projection.holder_agent_id) issues.push(`${subject.subject_key}: orphaned_owned`);
     if (projection.state === 'transferring' && (!projection.holder_agent_id || !projection.pending_holder_agent_id)) issues.push(`${subject.subject_key}: invalid_transfer`);
   }
-  const contract = get<{ payload: string }>('SELECT payload FROM runtime_contracts WHERE run_id=?', runId);
+  const contract = loadRuntimeContract(runId);
   const legacyRun = get<{ status: string }>('SELECT status FROM runs WHERE id=?', runId);
   if (contract && legacyRun?.status === 'completed') {
-    const evaluation = evaluateRequiredSubjects(JSON.parse(contract.payload), new Map(subjects.map((subject) => [subject.subject_key, subject.status])));
+    const evaluation = evaluateRequiredSubjects(contract, new Map(subjects.map((subject) => [subject.subject_key, subject.status])));
     if (evaluation.status !== 'completed') issues.push(`run:${runId}: completion_disagreement:${evaluation.status}`);
   }
   return issues;

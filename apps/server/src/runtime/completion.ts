@@ -23,10 +23,12 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
     if (!subject) { reasons.push(`MISSING_REQUIRED_SUBJECT:${key}`); continue; }
     if (subject.status === 'failed' || subject.status === 'cancelled') reasons.push(`FAILED_REQUIRED_SUBJECT:${key}`);
   }
-  for (const subject of input.subjects) {
-    if (subject.status === 'failed' || subject.status === 'cancelled') reasons.push(`FAILED_SUBJECT:${subject.key}`);
+  if (reasons.length > 0) {
+    for (const blocker of input.completionBlockers ?? []) {
+      if (!reasons.includes(blocker.code)) reasons.push(blocker.code);
+    }
+    return { status: 'failed', reasons };
   }
-  if (reasons.length > 0) return { status: 'failed', reasons };
   if (input.dispatches.some((item) => item.status === 'queued' || item.status === 'running')) {
     return { status: 'waiting', reasons: ['OPEN_DISPATCH'] };
   }
@@ -40,16 +42,15 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
     if (!subject.hasOutput) reasons.push(`MISSING_OUTPUT:${key}`);
     if (!subject.evidenceValid) reasons.push(`INVALID_EVIDENCE:${key}`);
   }
-  for (const subject of input.subjects.filter((item) => !item.required)) {
-    if (subject.status !== 'completed' || subject.custodyState !== 'completed') reasons.push(`OPEN_SUCCESSOR_OBLIGATION:${subject.key}`);
-    if (!subject.hasOutput) reasons.push(`MISSING_OUTPUT:${subject.key}`);
-    if (!subject.evidenceValid) reasons.push(`INVALID_EVIDENCE:${subject.key}`);
-  }
   if (!input.dependenciesSatisfied) reasons.push('DEPENDENCIES_NOT_SATISFIED');
   if (!input.requiredArtifactsSatisfied) reasons.push('REQUIRED_ARTIFACTS_MISSING');
   if (!input.reviewAccepted) reasons.push('REVIEW_NOT_ACCEPTED');
   if (!input.protocolTerminal) reasons.push('PROTOCOL_NOT_TERMINAL');
-  if (!input.successorObligationsSatisfied) reasons.push('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED');
+  if (input.completionBlockers) {
+    for (const blocker of input.completionBlockers) {
+      if (!reasons.includes(blocker.code)) reasons.push(blocker.code);
+    }
+  } else if (!input.successorObligationsSatisfied) reasons.push('SUCCESSOR_OBLIGATIONS_NOT_SATISFIED');
   if (reasons.length > 0) return { status: 'rejected', reasons };
   return { status: 'accepted', reasons: [], disposition };
 }
@@ -61,6 +62,19 @@ export function describeCompletionReason(reason: string): string {
     REVIEW_NOT_ACCEPTED: '审查尚未通过', PROTOCOL_NOT_TERMINAL: '协作协议尚未到达终局',
     DEPENDENCIES_NOT_SATISFIED: '依赖步骤尚未满足', REQUIRED_ARTIFACTS_MISSING: '必要产物缺失',
     SUCCESSOR_OBLIGATIONS_NOT_SATISFIED: '仍有必需的后继义务未满足',
+    REQUIRED_OBLIGATION_PENDING: '仍有必需义务等待完成',
+    REQUIRED_OBLIGATION_FAILED: '必需义务已经失败，需要明确处置',
+    REQUIRED_OBLIGATION_CANCELLED: '必需义务已经取消，需要明确处置',
+    EXTERNAL_CONDITION_PENDING: '正在等待外部条件或人工决定',
+    SUBJECT_NOT_ACTIVE: '工作项当前不能提交完成',
+    RESPONSIBILITY_NOT_OWNED: '工作项当前没有有效持有者',
+    RESPONSIBILITY_TRANSFER_PENDING: '责任正在转移',
+    ATTEMPT_MISSING: '缺少可提交的执行尝试',
+    ATTEMPT_NOT_COMMITTABLE: '执行尝试当前不可提交',
+    ATTEMPT_LEASE_EXPIRED: '执行尝试租约已失效',
+    ATTEMPT_GENERATION_STALE: '执行尝试责任代际已失效',
+    ATTEMPT_AGENT_MISMATCH: '执行尝试与提交者不一致',
+    CUSTODY_HOLDER_MISMATCH: '执行者与责任持有者不一致',
     PARTIAL_RESULT_HAS_NO_OUTPUT: '没有可供用户接受的部分结果',
   };
   if (fixed[reason]) return fixed[reason];

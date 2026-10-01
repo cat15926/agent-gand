@@ -20,7 +20,7 @@ import type {
   UsageSummary,
 } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
-import { all, get, run, tx } from '../db/database.ts';
+import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { getAnyAgent } from '../agents/registry.ts';
 import { emit } from '../messaging/bus.ts';
 import { listApprovals } from '../hitl/approvals.ts';
@@ -37,6 +37,7 @@ interface RunRow {
   goal: string;
   mode: string;
   status: string;
+  terminal_disposition: Run['terminalDisposition'];
   agent_ids: string;
   supervisor_id: string | null;
   default_reviewer_id: string | null;
@@ -93,6 +94,7 @@ function rowToRun(row: RunRow): Run {
     goal: row.goal,
     mode: row.mode as RunMode,
     status: row.status as RunStatus,
+    terminalDisposition: row.terminal_disposition ?? null,
     agentIds: JSON.parse(row.agent_ids) as string[],
     supervisorId: row.supervisor_id ?? null,
     defaultReviewerId: row.default_reviewer_id ?? null,
@@ -379,11 +381,19 @@ export function markSpanFirstToken(spanId: string): RunEvent | undefined {
   return event;
 }
 
-export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): void {
-  run('UPDATE runs SET status = ?, finished_at = ? WHERE id = ?', status, new Date().toISOString(), runId);
-  cancelDurableHolds(runId, `run_${status}`);
-  const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
-  if (row) emit({ type: 'run.updated', run: rowToRun(row) });
+export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): boolean {
+  return tx(() => {
+    const disposition = status === 'completed' ? 'accepted' : status;
+    const changed = run(`UPDATE runs SET status=?,terminal_disposition=?,finished_at=?
+      WHERE id=? AND status NOT IN ('completed','failed','cancelled')`, status, disposition, new Date().toISOString(), runId) > 0;
+    if (!changed) return false;
+    cancelDurableHolds(runId, `run_${status}`);
+    afterCommit(() => {
+      const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
+      if (row) emit({ type: 'run.updated', run: rowToRun(row) });
+    });
+    return true;
+  });
 }
 
 export function listEvents(runId: string): RunEvent[] {

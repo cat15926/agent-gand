@@ -64,6 +64,7 @@ ensureColumns('runs', [
   { name: 'conversation_id', sql: 'conversation_id TEXT' },
   { name: 'turn_no', sql: 'turn_no INTEGER NOT NULL DEFAULT 1' },
   { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
+  { name: 'terminal_disposition', sql: 'terminal_disposition TEXT' },
 ]);
 ensureColumns('agents', [
   { name: 'enabled', sql: 'enabled INTEGER NOT NULL DEFAULT 1' },
@@ -102,6 +103,16 @@ ensureColumns('runtime_completion_candidates', [
 ensureColumns('runtime_coordination_evidence', [
   { name: 'bundle_id', sql: 'bundle_id TEXT' },
 ]);
+ensureColumns('runtime_holds', [
+  { name: 'wake_at', sql: 'wake_at TEXT' },
+  { name: 'timeout_at', sql: 'timeout_at TEXT' },
+  { name: 'on_timeout', sql: 'on_timeout TEXT' },
+  { name: 'retry_count', sql: 'retry_count INTEGER NOT NULL DEFAULT 0' },
+  { name: 'next_retry_at', sql: 'next_retry_at TEXT' },
+  { name: 'max_retries', sql: 'max_retries INTEGER NOT NULL DEFAULT 5' },
+  { name: 'last_error_code', sql: 'last_error_code TEXT' },
+]);
+db.exec('CREATE INDEX IF NOT EXISTS idx_runtime_holds_retry ON runtime_holds(status,next_retry_at,timeout_at,wake_at)');
 ensureColumns('coordination_step_attempts', [
   { name: 'control_action', sql: 'control_action TEXT' },
   { name: 'exit_guard_status', sql: 'exit_guard_status TEXT' },

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { recoverCollaborationRuns } from '../collaboration/scheduler.ts';
 import { createDispatch } from '../collaboration/store.ts';
-import { tx } from '../db/database.ts';
 import { resumePipelineRun } from '../orchestration/pipeline.ts';
 import { resumeSupervisorRun } from '../orchestration/supervisor.ts';
 import { getRun, listRuns, setRunStatus } from './trace.ts';
@@ -16,8 +15,10 @@ import {
   completeDurableHoldClaim,
   getRuntimeWakeEvent,
   releaseDurableHoldClaim,
+  RuntimeHoldRecoveryError,
 } from '../runtime/holds.ts';
 import { observeWakeLink } from '../runtime/shadow.ts';
+import { commitWakeActionCommand } from '../runtime/actionCommands.ts';
 
 const durableWakeOwner = `wake:${process.pid}:${randomUUID()}`;
 
@@ -48,16 +49,23 @@ export function recoverDurableHolds(runId?: string): number {
   let resumed = 0;
   for (const claim of claims) {
     try {
-      tx(() => {
+      commitWakeActionCommand({ runId: claim.runId, commandKey: `runtime-wake:${claim.id}:g${claim.generation}`,
+        attemptId: claim.sourceAttemptId, dispatchId: claim.sourceDispatchId, execute: () => {
         const hold = assertDurableHoldClaim(claim.id, claim.claimToken!);
         const wakeEvent = hold.wakeEventId ? getRuntimeWakeEvent(hold.wakeEventId) : null;
         let resumedDispatchId: string | null = null;
         if (hold.recoveryPolicy.kind === 'resume_dispatch') {
-          if (!hold.sourceDispatchId) throw new Error('Durable Hold 缺少来源 Dispatch');
+          if (!hold.sourceDispatchId) {
+            throw new RuntimeHoldRecoveryError('permanent', 'SOURCE_MISSING', 'Durable Hold 缺少来源 Dispatch');
+          }
+          const sourceRun = getRun(hold.runId);
+          if (!sourceRun) {
+            throw new RuntimeHoldRecoveryError('terminal', 'RUN_TERMINAL', 'Durable Hold 所属 Run 不存在');
+          }
           const sourceMessageId = typeof wakeEvent?.payload.messageId === 'string'
             ? wakeEvent.payload.messageId : hold.recoveryPolicy.sourceMessageId;
           const dispatch = createDispatch({ runId: hold.runId,
-            conversationId: getRun(hold.runId)!.conversationId, sourceMessageId,
+            conversationId: sourceRun.conversationId, sourceMessageId,
             parentDispatchId: hold.recoveryPolicy.parentDispatchId, kind: 'resume', from: 'system',
             targetAgentId: hold.recoveryPolicy.targetAgentId, reason: hold.recoveryPolicy.reason,
             depth: hold.recoveryPolicy.depth, priority: 'urgent',
@@ -72,14 +80,19 @@ export function recoverDurableHolds(runId?: string): number {
         }
         completeDurableHoldClaim({ id: hold.id, claimToken: hold.claimToken!, resumedDispatchId,
           resolution: { wakeEventId: wakeEvent?.id ?? null, wakeKind: wakeEvent?.kind ?? hold.condition.kind } });
-      });
+        return { holdId: hold.id, resumedDispatchId, wakeEventId: wakeEvent?.id ?? null };
+      } });
       wakeRunIds.add(claim.runId); resumed++;
     } catch (error) {
       const currentRun = getRun(claim.runId);
       if (!currentRun || ['completed', 'failed', 'cancelled'].includes(currentRun.status)) {
-        cancelDurableHolds(claim.runId, 'run_terminal_before_wake');
+        cancelDurableHolds(claim.runId, 'run_terminal_before_wake', 'RUN_TERMINAL');
       } else {
-        releaseDurableHoldClaim(claim.id, claim.claimToken!, error instanceof Error ? error.message : String(error));
+        const recoveryError = claim.recoveryPolicy.kind === 'resume_dispatch' && !claim.sourceDispatchId
+          ? { kind: 'permanent' as const, code: 'SOURCE_MISSING' as const,
+            message: 'Durable Hold 缺少来源 Dispatch' }
+          : error;
+        releaseDurableHoldClaim(claim.id, claim.claimToken!, recoveryError);
       }
     }
   }

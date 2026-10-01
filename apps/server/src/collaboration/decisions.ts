@@ -1,6 +1,5 @@
 import type { ResolveCollaborationDecision, Run } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
-import { config } from '../config.ts';
 import { afterCommit, tx } from '../db/database.ts';
 import { nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
@@ -12,6 +11,12 @@ import { observeAggregateLink, safelyObserve } from '../runtime/shadow.ts';
 import { isCompletionEngineRun } from '../runtime/completionStore.ts';
 import { recordRuntimeWakeEvent, runtimeDurableHoldVersion } from '../runtime/holds.ts';
 import { recoverDurableHolds } from '../runs/recovery.ts';
+import {
+  resolveRunPolicy,
+  runtimeOwnsCompletion,
+  runtimeStateAuthoritative,
+  runtimeStateShadow,
+} from '../runtime/runPolicy.ts';
 
 export class CollaborationDecisionError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -23,11 +28,12 @@ function assertPending(id: string) {
   return decision;
 }
 
-function linkResume(sourceDispatchId: string | null, resumeDispatchId: string): void {
-  if (!sourceDispatchId || (!config.collaboration.runtimeAtomic && !config.collaboration.runtimeShadow)) return;
+function linkResume(runId: string, sourceDispatchId: string | null, resumeDispatchId: string): void {
+  if (!sourceDispatchId) return;
+  const policy = resolveRunPolicy(runId);
   const observe = () => observeAggregateLink(sourceDispatchId, resumeDispatchId);
-  if (config.collaboration.runtimeAtomic) observe();
-  else afterCommit(() => safelyObserve('resume_link', observe));
+  if (runtimeStateAuthoritative(policy)) observe();
+  else if (runtimeStateShadow(policy)) afterCommit(() => safelyObserve('resume_link', observe));
 }
 
 function validateSupervisorTeam(sourceRun: Run, input: Extract<ResolveCollaborationDecision, { action: 'approve_task' }>): void {
@@ -58,7 +64,8 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
   const sourceRun = getRun(initial.runId);
   if (!sourceRun) throw new CollaborationDecisionError('关联 Run 不存在', 404);
-  const durableHold = runtimeDurableHoldVersion(sourceRun.id) === 1;
+  const durableHold = runtimeStateAuthoritative(resolveRunPolicy(sourceRun.id))
+    && runtimeDurableHoldVersion(sourceRun.id) !== null;
 
   if (initial.kind === 'agent_question' && input.action === 'answer') {
     const message = input.message.trim(); if (!message) throw new CollaborationDecisionError('回复内容不能为空');
@@ -72,7 +79,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
         const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
           parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
           reason: '用户回答协作问题', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:answer`, dedupeText: message });
-        linkResume(current.dispatchId, resume.id);
+        linkResume(sourceRun.id, current.dispatchId, resume.id);
       }
       const resolved = resolveDecision(current.id, 'accepted', { action: input.action, messageId: userMessage.id })!;
       if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
@@ -100,7 +107,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
         sourceMessageId, parentDispatchId,
         kind: 'resume', from: 'system', targetAgentId: agentId, reason: '用户增加预算后重试被阻止的路由',
         depth: typeof current.payload.depth === 'number' ? current.payload.depth : 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:budget-resume`, dedupeText: `budget-resume:${current.id}` });
-        linkResume(current.dispatchId ?? parentDispatchId, resume.id);
+        linkResume(sourceRun.id, current.dispatchId ?? parentDispatchId, resume.id);
       }
       const done = resolveDecision(current.id, 'accepted', { action: input.action, increasePercent: input.increasePercent, revisionId: revision.id, newLimits: revision.newLimits })!;
       setRunStatus(sourceRun.id, 'running'); return done;
@@ -112,7 +119,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
 
   if (initial.kind === 'budget_exhausted' && input.action === 'terminate_at_budget') {
-    const completionOwned = config.collaboration.completionEngine && isCompletionEngineRun(sourceRun.id);
+    const completionOwned = runtimeOwnsCompletion(resolveRunPolicy(sourceRun.id)) && isCompletionEngineRun(sourceRun.id);
     const resolved = tx(() => {
       const current = assertPending(id); if (current.status !== 'pending') return current;
       cancelQueuedRun(sourceRun.id);
@@ -138,7 +145,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
         const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
           parentDispatchId: current.dispatchId, kind: 'resume', from: 'user', targetAgentId: agentId,
           reason: '用户拒绝正式任务提议', depth: 0, priority: 'urgent', idempotencyKey: `decision:${current.id}:reject`, dedupeText: reason });
-        linkResume(current.dispatchId, resume.id);
+        linkResume(sourceRun.id, current.dispatchId, resume.id);
       }
       const done = resolveDecision(current.id, 'rejected', { action: input.action, reason, messageId: userMessage.id })!;
       if (durableHold) recordRuntimeWakeEvent({ runId: sourceRun.id, kind: 'user_decision', sourceKey: current.id,
@@ -153,7 +160,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
 
   if (initial.kind === 'supervisor_task_proposal' && input.action === 'approve_task') {
-    const completionOwned = config.collaboration.completionEngine && isCompletionEngineRun(sourceRun.id);
+    const completionOwned = runtimeOwnsCompletion(resolveRunPolicy(sourceRun.id)) && isCompletionEngineRun(sourceRun.id);
     validateSupervisorTeam(sourceRun, input);
     const proposal = initial.payload.proposal as { title?: unknown; goal?: unknown; acceptanceCriteria?: unknown } | undefined;
     const baseGoal = typeof proposal?.goal === 'string' && proposal.goal.trim() ? proposal.goal.trim() : sourceRun.goal;

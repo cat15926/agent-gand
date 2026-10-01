@@ -1,6 +1,6 @@
 # Runtime v2 责任闭环实施指导
 
-> 状态：阶段 0–5 已完成，阶段 6 待实施
+> 状态：阶段 0–7 已完成；后续执行权、终局事务与恢复语义收口由 [Runtime 执行权与终局一致性实施指导](./runtime-execution-authority-convergence-implementation-guide.md) 承接
 > 基线：2026-09-24，`agent-gand/main` @ `4e5ae5b`  
 > 前置成果：[Collaboration Runtime Kernel 实施方案](./collaboration-runtime-kernel-implementation-plan.md)  
 > 适用范围：Collaboration、Coordination 及后续复用公共 Runtime 的编排入口

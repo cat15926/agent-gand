@@ -1,9 +1,26 @@
 import type { RuntimeControlAction } from './collaboration.ts';
+import type { RunTerminalDisposition } from './run.ts';
 
 /** Runtime v2 领域契约；阶段 2 只定义语义，不接管现有调度。 */
 export type RuntimeSubjectKind = 'root' | 'consultation' | 'review' | 'coordination_step';
 export type RuntimeSubjectStatus = 'active' | 'waiting' | 'completed' | 'failed' | 'cancelled';
 export type RuntimeCompletionPolicy = 'all_required';
+
+/** 新 Run 的入场配置名称；真正的执行语义由 executionPolicy 的正交字段冻结。 */
+export type RuntimeAdmissionProfile = 'legacy' | 'shadow' | 'atomic_compat' | 'execute';
+export type RuntimeAuthority = 'legacy' | 'runtime';
+export type RuntimeStateMode = 'off' | 'shadow' | 'authoritative';
+export type RuntimeAtomicity = 'legacy' | 'custody_v1' | 'commands_v1';
+
+export interface RuntimeExecutionPolicyV1 {
+  policyVersion: 1;
+  profile: RuntimeAdmissionProfile;
+  authority: RuntimeAuthority;
+  runtimeStateMode: RuntimeStateMode;
+  atomicity: RuntimeAtomicity;
+  toolApiVersion: 1 | 2;
+  implicitAnswerPolicy: 'initial_and_consultation' | 'explicit_only';
+}
 
 export interface RuntimeRunContract {
   version: 1;
@@ -13,6 +30,8 @@ export interface RuntimeRunContract {
   requiredSubjectKeys: string[];
   completionPolicy: RuntimeCompletionPolicy;
   partialFailurePolicy: 'needs_attention';
+  /** 缺失表示本阶段之前创建的历史 Contract；只能按可靠特征推断或明确阻断。 */
+  executionPolicy?: RuntimeExecutionPolicyV1;
   /** 冻结 Run 接管语义，避免进程重启或开关变化影响历史 Run。 */
   runtimeRevision?: number;
   features?: {
@@ -32,8 +51,8 @@ export interface RuntimeRunContract {
     evidenceLoopGuardVersion?: 1;
     /** 1 表示 Context 由带来源和敏感信息策略的 Contributor Pipeline 组装。 */
     contextContributorVersion?: 1;
-    /** 缺失表示历史直接恢复路径；1 表示等待和唤醒必须经过持久化 Hold/Wake。 */
-    durableHoldVersion?: 1;
+    /** 缺失表示历史直接恢复路径；v2 增加超时、退避、错误分类和恢复审计。 */
+    durableHoldVersion?: 1 | 2;
   };
 }
 
@@ -103,7 +122,30 @@ export interface RuntimeRouteGuardEvent {
 }
 
 export type RuntimeDurableHoldStatus = 'open' | 'claimed' | 'resumed' | 'cancelled' | 'failed';
-export type RuntimeWakeEventKind = 'user_decision' | 'approval' | 'timer' | 'event' | 'dependency' | 'lease_recovery';
+export type RuntimeWakeEventKind = 'user_decision' | 'approval' | 'timer' | 'timeout' | 'event' | 'dependency' | 'lease_recovery';
+
+export type RuntimeDurableHoldTimeoutPolicy =
+  | { kind: 'fail'; reason?: string }
+  | { kind: 'cancel'; reason?: string }
+  | { kind: 'wake'; reason?: string; payload?: Record<string, unknown> };
+
+export type RuntimeHoldRecoveryErrorKind = 'transient' | 'permanent' | 'stale' | 'terminal';
+export type RuntimeHoldRecoveryReasonCode =
+  | 'WAKE_EVENT_READY'
+  | 'HOLD_TIMEOUT'
+  | 'DEPENDENCY_FAILED'
+  | 'DEPENDENCY_CANCELLED'
+  | 'STALE_GENERATION'
+  | 'RUN_TERMINAL'
+  | 'CLAIM_LEASE_EXPIRED'
+  | 'CLAIM_LOST'
+  | 'SOURCE_MISSING'
+  | 'POLICY_INVALID'
+  | 'RECOVERY_TRANSIENT'
+  | 'RETRY_SCHEDULED'
+  | 'RETRY_EXHAUSTED'
+  | 'RECOVERY_SUCCEEDED'
+  | 'CANCELLED';
 
 export type RuntimeDurableHoldCondition =
   | { kind: 'user_decision'; decisionId: string }
@@ -120,7 +162,7 @@ export type RuntimeDurableHoldRecoveryPolicy =
 
 export interface RuntimeDurableHold {
   id: string;
-  version: 1;
+  version: 1 | 2;
   runId: string;
   subjectId: string;
   sourceDispatchId: string | null;
@@ -128,7 +170,14 @@ export interface RuntimeDurableHold {
   holderAgentId: string;
   generation: number;
   condition: RuntimeDurableHoldCondition;
+  /** v1 的兼容排序字段；v2 调用方应使用 wakeAt/timeoutAt。 */
   deadlineAt: string | null;
+  wakeAt: string | null;
+  timeoutAt: string | null;
+  onTimeout: RuntimeDurableHoldTimeoutPolicy | null;
+  retryCount: number;
+  nextRetryAt: string | null;
+  maxRetries: number;
   recoveryPolicy: RuntimeDurableHoldRecoveryPolicy;
   status: RuntimeDurableHoldStatus;
   idempotencyKey: string;
@@ -139,9 +188,23 @@ export interface RuntimeDurableHold {
   resumedDispatchId: string | null;
   resolution: Record<string, unknown> | null;
   lastError: string | null;
+  lastErrorCode: RuntimeHoldRecoveryReasonCode | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+}
+
+export interface RuntimeHoldRecoveryAudit {
+  id: string;
+  runId: string;
+  subjectId: string;
+  generation: number;
+  holdId: string;
+  outcome: 'claimed' | 'retry_scheduled' | 'resumed' | 'failed' | 'cancelled';
+  reasonCode: RuntimeHoldRecoveryReasonCode;
+  reason: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface RuntimeWakeEvent {
@@ -200,6 +263,8 @@ export interface RuntimeCompletionInput {
   reviewAccepted: boolean;
   protocolTerminal: boolean;
   successorObligationsSatisfied: boolean;
+  /** 阶段 2 起由 Responsibility Snapshot 生成；缺失时兼容历史调用方。 */
+  completionBlockers?: RuntimeCompletionBlocker[];
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated';
 }
 
@@ -233,6 +298,120 @@ export interface RuntimeSuccessorObligation {
   resolution: Record<string, unknown> | null;
   createdAt: string;
   resolvedAt: string | null;
+}
+
+export type RuntimeCompletionBlockerCategory =
+  | 'control_action'
+  | 'work'
+  | 'external'
+  | 'stale_responsibility';
+
+export type RuntimeCompletionBlockerCode =
+  | 'MISSING_CONTROL_DISPOSITION'
+  | 'REQUIRED_OBLIGATION_PENDING'
+  | 'REQUIRED_OBLIGATION_FAILED'
+  | 'REQUIRED_OBLIGATION_CANCELLED'
+  | 'EXTERNAL_CONDITION_PENDING'
+  | 'SUBJECT_NOT_ACTIVE'
+  | 'RESPONSIBILITY_NOT_OWNED'
+  | 'RESPONSIBILITY_TRANSFER_PENDING'
+  | 'ATTEMPT_MISSING'
+  | 'ATTEMPT_NOT_COMMITTABLE'
+  | 'ATTEMPT_LEASE_EXPIRED'
+  | 'ATTEMPT_GENERATION_STALE'
+  | 'ATTEMPT_AGENT_MISMATCH'
+  | 'CUSTODY_HOLDER_MISMATCH';
+
+export interface RuntimeCompletionBlocker {
+  code: RuntimeCompletionBlockerCode;
+  category: RuntimeCompletionBlockerCategory;
+  refType?: 'subject' | 'attempt' | 'obligation' | 'hold';
+  refId?: string;
+  message: string;
+}
+
+export interface RuntimeResponsibilitySnapshot {
+  runId: string;
+  contractRevision: number | null;
+  subjectId: string;
+  subjectKey: string;
+  subjectStatus: RuntimeSubjectStatus;
+  custody: {
+    state: string;
+    holderAgentId: string | null;
+    pendingHolderAgentId: string | null;
+    generation: number;
+    rowVersion: number;
+  };
+  attempt: {
+    id: string;
+    actorId: string;
+    generation: number;
+    status: 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled' | 'paused';
+    leaseValid: boolean;
+  } | null;
+  /** 同一 stableKey 只投影最新 generation，避免已被新代际替代的记录重复阻断。 */
+  requiredObligations: Array<{
+    id: string;
+    generation: number;
+    kind: RuntimeSuccessorObligationKind;
+    status: RuntimeSuccessorObligationStatus;
+  }>;
+  openHoldIds: string[];
+  completionBlockers: RuntimeCompletionBlocker[];
+}
+
+export type RuntimeShadowComparisonClassification =
+  | 'match'
+  | 'runtime_stricter'
+  | 'runtime_looser'
+  | 'projection_only'
+  | 'observer_error';
+
+/** Shadow 对同一份 Agent 输出和判定前责任快照的审计结果。 */
+export interface RuntimeShadowComparison {
+  id: string;
+  version: 1;
+  runId: string;
+  dispatchId: string;
+  attemptId: string;
+  subjectId: string | null;
+  generation: number | null;
+  actionType: RuntimeControlAction['type'];
+  legacyOutcome: string;
+  runtimeOutcome: string;
+  classification: RuntimeShadowComparisonClassification;
+  reasons: string[];
+  responsibilitySnapshot: RuntimeResponsibilitySnapshot | null;
+  snapshotFingerprint: string | null;
+  outputSha256: string;
+  createdAt: string;
+}
+
+export interface RuntimeRunTerminalRecord {
+  runId: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  disposition: RunTerminalDisposition;
+  completionEvaluationSeq: number | null;
+  reportMessageId: string | null;
+  reasonCodes: string[];
+  source: string;
+  committedAt: string;
+}
+
+export type RuntimeActionCommandKind = 'complete' | 'wake' | 'hold' | 'handoff' | 'consult_all';
+
+/** Runtime 动作命令的持久化幂等账本；result 是命令提交时冻结的最小返回值。 */
+export interface RuntimeActionCommandRecord {
+  id: string;
+  runId: string;
+  kind: RuntimeActionCommandKind;
+  commandKey: string;
+  attemptId: string | null;
+  dispatchId: string | null;
+  result: unknown;
+  createdAt: string;
+  committedAt: string;
 }
 
 export interface RuntimeCompletionCandidate {
@@ -278,6 +457,8 @@ export interface RuntimeSubjectCompletionInput {
   requiredArtifactsSatisfied: boolean;
   reviewAccepted: boolean;
   protocolTerminal: boolean;
+  /** 与 Context、ExitGuard 和 UI 共用的责任阻断投影。 */
+  completionBlockers?: RuntimeCompletionBlocker[];
 }
 
 export type RuntimeSubjectCompletionEvaluation =
