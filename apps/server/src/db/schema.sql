@@ -1,6 +1,47 @@
 -- agent-gand P0 schema（规格 §3）
 -- 约定：时间戳一律 ISO 字符串；JSON 数组存 TEXT；ID 用 crypto.randomUUID()
 
+CREATE TABLE IF NOT EXISTS external_agent_executions (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  record TEXT NOT NULL,
+  UNIQUE(run_id, agent_id, scope_id)
+);
+
+CREATE TABLE IF NOT EXISTS external_agent_approvals (
+  approval_id TEXT PRIMARY KEY,
+  execution_id TEXT NOT NULL,
+  request_id TEXT NOT NULL,
+  binding TEXT NOT NULL,
+  UNIQUE(execution_id, request_id)
+);
+
+CREATE TABLE IF NOT EXISTS external_runtime_host (
+  id INTEGER PRIMARY KEY CHECK(id=1), owner TEXT NOT NULL, host TEXT NOT NULL,
+  pid INTEGER NOT NULL, identity TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS external_native_processes (
+  token TEXT PRIMARY KEY, execution_id TEXT NOT NULL, host TEXT NOT NULL,
+  pid INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS external_workspace_leases (
+  resource TEXT NOT NULL, holder TEXT NOT NULL, owner TEXT NOT NULL,
+  host TEXT NOT NULL, pid INTEGER NOT NULL, identity TEXT NOT NULL,
+  readonly INTEGER NOT NULL, expires_at TEXT NOT NULL,
+  PRIMARY KEY(resource,holder)
+);
+CREATE TABLE IF NOT EXISTS external_workspace_bindings (
+  run_id TEXT PRIMARY KEY, record TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS external_agent_sessions (
+  id TEXT PRIMARY KEY, binding_key TEXT NOT NULL, status TEXT NOT NULL,
+  execution_id TEXT, record TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_external_sessions_binding ON external_agent_sessions(binding_key,status);
+
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY, name TEXT NOT NULL, definition TEXT NOT NULL,
   source TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,

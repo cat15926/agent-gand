@@ -24,6 +24,10 @@
 - [工程架构概览](./architecture/engineering-overview.md)
 - [Collaboration 运行架构](./architecture/collaboration-runtime.md)
 - [统一观测协议 v1](./architecture/observability-protocol-v1.md)
+- [外部 Code Agent 阶段 A：架构与使用](./architecture/external-code-agent-phase-a.md)
+- [外部 Code Agent 阶段 B：双向执行、审批与使用](./architecture/external-code-agent-phase-b.md)
+- [外部 Code Agent 阶段 C：Runtime 协作控制与 MCP](./architecture/external-code-agent-phase-c.md)
+- [外部 Code Agent 阶段 D：持久恢复、编码隔离与会话](./architecture/external-code-agent-phase-d.md)
 
 ### 实施计划
 
@@ -34,6 +38,7 @@
 - [Collaboration 模式实施计划](./plans/collaboration-mode-implementation-plan.md)
 - [Agent 通信与调度方案](./plans/agent-communication-scheduling-plan.md)
 - [Agent 角色管理实施指导](./plans/agent-role-management-implementation-guide.md)
+- [外部 Code Agent 接入方案（本地 A–D 已完成）](./plans/external-code-agent-integration-plan.md)
 - [聊天体验优化方案](./plans/agent-chatroom-experience-plan.md)
 - [聊天气泡方向优化方案](./plans/chat-bubble-direction-optimization-plan.md)
 - [观测模块优化方案](./plans/observe-module-optimization-plan.md)
@@ -41,9 +46,15 @@
 ### 外部调研
 
 - [Clowder AI Agent 交互模式调研](./research/clowder-agent-interaction-research.md)
+- [Clowder AI 外部 Code Agent 接入源码调研](./research/clowder-external-code-agent-integration-research.md)
 - [DeepSeek Harness 轨迹模块调研](./research/deepseek-harness-trajectory-research.md)
 
 ### 测试与评估报告
+
+- [外部 Code Agent 阶段 A 验收记录](./reports/external-code-agent-phase-a-acceptance.md)
+- [外部 Code Agent 阶段 B 验收记录](./reports/external-code-agent-phase-b-acceptance.md)
+- [外部 Code Agent 阶段 C 验收记录](./reports/external-code-agent-phase-c-acceptance.md)
+- [外部 Code Agent 阶段 D 验收记录](./reports/external-code-agent-phase-d-acceptance.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

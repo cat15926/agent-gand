@@ -570,7 +570,9 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
         const tools = agentSpan ? all<{ name: string }>("SELECT name FROM run_events WHERE parent_id=? AND span_kind='tool' AND status='ok'", agentSpan.id) : [];
         return tools.some((tool) => !READONLY_TOOLS.has(tool.name.replace(/^tool:/, '')));
       })();
-      const hasPossibleSideEffect = ledger.needsAttention || legacySideEffect;
+      // Native effects are not replayable ToolExecution calls; phase D owns crash recovery.
+      const external = get("SELECT 1 FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.attemptId')=?", item.run_id, item.id);
+      const hasPossibleSideEffect = !!external || ledger.needsAttention || legacySideEffect;
       if (hasPossibleSideEffect || item.attempt_no >= config.collaboration.maxAttempts) {
         run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
           hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);

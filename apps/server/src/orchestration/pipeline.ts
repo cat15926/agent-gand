@@ -25,6 +25,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
   if (activePipelines.has(run.id)) return;
   activePipelines.add(run.id);
     try {
+      if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
       setRunStatus(run.id, 'running');
       const checkpoint = latestCheckpoint(run.id, 'pipeline');
       const recovered = checkpoint?.state as Partial<PipelineState> | undefined;
@@ -39,6 +40,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
         saveCheckpoint({ runId: run.id, kind: 'pipeline', phase: 'user_posted', state: { ...state } });
       }
       for (let index = state.nextAgentIndex; index < agents.length; index += 1) {
+        if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
         const agent = agents[index]!;
         saveCheckpoint({ runId: run.id, kind: 'pipeline', phase: 'agent_running', state: { ...state, nextAgentIndex: index, agentId: agent.id } });
         const agentSpan = startSpan(run.id, {
@@ -59,13 +61,21 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
           messages.push({ role: 'system', content: SESSION_BOUNDARY_DIRECTIVE });
         }
         messages.push({ role: 'user', content: buildUserTurn(goal, state.transcript) });
-        const turn = await runAgentTurn({
+        let turn;
+        try { turn = await runAgentTurn({
           run,
           agent,
           parentSpanId: agentSpan.id,
           messages,
           executionScopeId: `pipeline:${index}:${agent.id}`,
-        });
+        }); } catch (error) {
+          endSpan(agentSpan, { output: error instanceof Error ? error.message : String(error), status: 'error' });
+          throw error;
+        }
+        if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) {
+          endSpan(agentSpan, { output: '运行已终止，迟到结果已丢弃', status: 'error' });
+          return;
+        }
         // 空正文（重试后仍空）时 agentStep 已发 system 失败说明，跳过空 agent 消息
         if (turn.content.trim().length > 0) {
           await post({
@@ -95,7 +105,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
 
 export async function resumePipelineRun(runId: string): Promise<void> {
   const run = getRun(runId);
-  if (!run || run.mode !== 'pipeline' || run.status === 'completed') return;
+  if (!run || run.mode !== 'pipeline' || ['completed', 'failed', 'cancelled'].includes(run.status)) return;
   const snapshots = listRunAgentSnapshots(run.id);
   const agents = run.agentIds.map((id) => snapshots.find((agent) => agent.id === id)).filter((agent): agent is AgentDefinition => Boolean(agent));
   await executePipeline(run, agents, run.goal, (latestCheckpoint(run.id, 'pipeline')?.state.displayGoal as string | undefined) ?? run.goal);

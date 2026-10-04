@@ -12,6 +12,11 @@ import { listTools } from '../tools/builtin/index.ts';
 import { getMcpStatus, refreshMcpTools } from '../tools/mcp/client.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import { config } from '../config.ts';
+import { listDrivers } from '../execution/drivers.ts';
+import { listExecutions } from '../execution/store.ts';
+import { stopExternalRun } from '../execution/runner.ts';
+import { assertExternalAdmission } from '../execution/policy.ts';
+import { getIsolatedWorkspace, exportWorkspacePatch } from '../workspaces/isolated.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
 import { post as postMessage, listMessages } from '../messaging/inbox.ts';
 import { listByConversation } from '../messaging/inbox.ts';
@@ -37,6 +42,7 @@ import { listRuntimeShadowComparisons } from '../runtime/shadowComparison.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
   countRuns,
+  finishRun,
   createRun,
   getRun,
   listRunsByConversation,
@@ -107,6 +113,7 @@ function validateTeam(mode: RunMode, agentIds: string[], supervisorId?: string, 
   if (agents.some((agent) => !agent)) throw httpError(400, 'agentIds 包含未知或已停用成员');
   const active = agents as AgentDefinition[];
   const effectiveSupervisorId = mode === 'supervisor' ? (supervisorId ?? active.find((agent) => agent.capabilities.includes('coordinate'))?.id ?? null) : null;
+  assertExternalAdmission(active, mode, effectiveSupervisorId);
   if (mode === 'supervisor' && (!effectiveSupervisorId || !agentIds.includes(effectiveSupervisorId))) throw httpError(400, 'supervisorId 必须属于 agentIds');
   if (effectiveSupervisorId && !active.find((agent) => agent.id === effectiveSupervisorId)?.capabilities.includes('coordinate')) throw httpError(400, '主管必须具备协调能力');
   const effectiveReviewerId = defaultReviewerId ?? active.find((agent) => agent.capabilities.includes('review'))?.id ?? null;
@@ -175,6 +182,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     }
   });
   app.get('/api/agent-options', async () => ({
+    executionDrivers: await listDrivers(),
     tools: listTools().map((tool) => ({ name: tool.name, description: tool.description, readonly: READONLY_TOOLS.has(tool.name), source: tool.source ?? 'builtin' })),
     capabilities: [{ value: 'execute', label: '执行' }, { value: 'review', label: '审查' }, { value: 'coordinate', label: '协调' }],
     providers: [
@@ -190,6 +198,27 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     ],
   }));
   app.get('/api/tools/mcp/status', async () => getMcpStatus());
+  app.get('/api/execution/drivers', async () => listDrivers(true));
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/executions', async (req) => {
+    if (!getRun(req.params.runId)) throw httpError(404, 'Run 不存在');
+    return listExecutions(req.params.runId);
+  });
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/workspace', async (req) => {
+    if (!getRun(req.params.runId)) throw httpError(404, 'Run 不存在'); return getIsolatedWorkspace(req.params.runId);
+  });
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/workspace/patch', async (req, reply) => {
+    if (!getRun(req.params.runId)) throw httpError(404, 'Run 不存在');
+    try { return reply.type('text/plain; charset=utf-8').header('content-disposition', `attachment; filename="agent-gand-${req.params.runId}.patch"`).send(await exportWorkspacePatch(req.params.runId)); }
+    catch (error) { throw httpError(409, error instanceof Error ? error.message : String(error)); }
+  });
+  app.post<{ Params: { runId: string } }>('/api/runs/:runId/stop', async (req) => {
+    const item = getRun(req.params.runId);
+    if (!item) throw httpError(404, 'Run 不存在');
+    if (!['pipeline', 'supervisor'].includes(item.mode)) throw httpError(409, '此停止入口仅支持流水线和主管委派');
+    finishRun(item.id, 'cancelled');
+    await stopExternalRun(item.id);
+    return getRun(item.id)!;
+  });
   app.post('/api/tools/mcp/refresh', async (_req, reply) => {
     const status = await refreshMcpTools();
     if (status.configured && !status.connected) reply.code(503);
@@ -351,7 +380,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       return { conversation, run, plan };
     });
     const { conversation, run, plan } = created;
-    enqueueConversationRun(run.id, { recipientIds });
+    enqueueConversationRun(run.id, recipientIds?.length ? { recipientIds } : undefined);
     reply.code(201);
     return { run, conversation: getConversation(conversation.id)!, plan };
   });
@@ -517,7 +546,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const item = getDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); return item;
   });
   app.post<{ Params: { id: string } }>('/api/collaboration/dispatches/:id/cancel', async (req) => {
-    const item = cancelDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); settleCollaborationRun(item.runId); return item;
+    const item = cancelDispatch(req.params.id); if (!item) throw httpError(404, 'Dispatch 不存在'); settleCollaborationRun(item.runId); await stopExternalRun(item.runId, item.targetAgentId); return item;
   });
   app.post<{ Params: { runId: string } }>('/api/collaboration/runs/:runId/stop', async (req) => {
     const item = getRun(req.params.runId); if (!item) throw httpError(404, 'Run 不存在');
@@ -525,6 +554,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       source: 'user_stop', userMessageStatus: 'failed', closeExecution: () => cancelCollaborationRun(item.id),
       prepare: () => ({ reasonCodes: ['USER_STOPPED'] }) });
     if (result.committed) closeCollaborationTrace(item.id, 'cancelled');
+    await stopExternalRun(item.id);
     return getRun(item.id)!;
   });
   app.post<{ Params: { agentId: string }; Body: { conversationId?: string } }>('/api/collaboration/agents/:agentId/stop', async (req) => {
@@ -534,6 +564,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const affected = listCollaborationDispatchesForConversation(conversation.id).filter((item) => item.targetAgentId === req.params.agentId && (item.status === 'queued' || item.status === 'running')).map((item) => item.runId);
     const cancelled = cancelAgentWork(conversation.id, req.params.agentId);
     for (const runId of new Set(affected)) settleCollaborationRun(runId);
+    await Promise.all([...new Set(affected)].map((runId) => stopExternalRun(runId, req.params.agentId)));
     return { cancelled };
   });
   app.post<{ Params: { decisionId: string }; Body: ResolveCollaborationDecision }>('/api/collaboration/decisions/:decisionId/resolve', async (req) => {

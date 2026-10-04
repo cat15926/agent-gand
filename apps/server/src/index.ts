@@ -21,6 +21,11 @@ import { interruptExpiredAttempts } from './collaboration/store.ts';
 import { recoverCollaborationRuns, sweepCollaborationLeases } from './collaboration/scheduler.ts';
 import { recoverDurableHolds, recoverDurableRuns } from './runs/recovery.ts';
 import { recoverInterruptedCoordinationSteps } from './coordination/store.ts';
+import { shutdownExternalAgents } from './execution/runner.ts';
+import { recoverExternalExecutions } from './execution/recovery.ts';
+import { claimRuntimeHost, releaseRuntimeHost } from './execution/host.ts';
+
+claimRuntimeHost();
 
 const app = Fastify({ logger: { level: config.logLevel } });
 await app.register(cors, { origin: true });
@@ -36,6 +41,7 @@ seed();
 backfillConversations();
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
+await recoverExternalExecutions();
 interruptRunningAttempts();
 interruptExpiredAttempts({ onlyExpired: true });
 recoverInterruptedTasks();
@@ -57,8 +63,10 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(collaborationLeaseTimer);
   clearInterval(durableHoldTimer);
   app.log.info(`收到 ${signal}，正在关闭…`);
+  await shutdownExternalAgents();
   await app.close();
   await closeMcp();
+  releaseRuntimeHost();
   closeDatabase();
   process.exit(0);
 }

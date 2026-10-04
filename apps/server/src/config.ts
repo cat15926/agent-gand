@@ -84,14 +84,25 @@ function parsePricing(raw: string | undefined): Record<string, ModelPrice> {
   }
 }
 
+const dbPath = process.env.DB_PATH ?? path.join(serverRoot, 'data', 'agent-gand.sqlite');
 export const config = {
   port: firstInt(process.env.PORT, 3010),
   logLevel: process.env.LOG_LEVEL ?? 'info',
   dataDir: path.join(serverRoot, 'data'),
-  dbPath: process.env.DB_PATH ?? path.join(serverRoot, 'data', 'agent-gand.sqlite'),
+  dbPath,
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),
+  externalAgents: {
+    claudeCommand: process.env.EXTERNAL_CLAUDE_COMMAND ?? 'claude',
+    codexCommand: process.env.EXTERNAL_CODEX_COMMAND ?? 'codex',
+    sdkWorkerCommand: process.env.EXTERNAL_CLAUDE_SDK_WORKER_COMMAND || undefined,
+    codexHome: process.env.EXTERNAL_CODEX_HOME ?? path.join(path.dirname(dbPath), 'external', 'codex'),
+    claudeHome: process.env.EXTERNAL_CLAUDE_HOME ?? path.join(path.dirname(dbPath), 'external', 'claude'),
+    workspaceMode: (process.env.EXTERNAL_WORKSPACE_MODE === 'registered' ? 'registered' : 'isolated') as 'registered' | 'isolated',
+    workspaceDir: process.env.EXTERNAL_WORKSPACE_DIR ?? path.join(path.dirname(dbPath), 'external', 'workspaces'),
+    timeoutMs: Math.max(1_000, firstInt(process.env.EXTERNAL_AGENT_TIMEOUT_MS, 180_000)),
+  },
   llm: {
     ...collectLlmEnv(),
     /** 结构化字段（规格 §7.1）：openai-compatible / anthropic / 代理 */

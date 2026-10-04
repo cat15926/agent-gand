@@ -11,7 +11,7 @@ import {
   listTasks,
   transitionTask,
 } from '../messaging/tasks.ts';
-import { endSpan, startSpan } from '../runs/trace.ts';
+import { endSpan, getRun, startSpan } from '../runs/trace.ts';
 import { completeAttempt, createAttempt, failAttempt } from '../tasks/attempts.ts';
 import { createReview } from '../tasks/reviews.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
@@ -19,6 +19,7 @@ import { buildWorkContext } from './contextBuilder.ts';
 import { reviewTask } from './reviewStep.ts';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
+const stopped = (runId: string) => TERMINAL.has(getRun(runId)?.status ?? 'cancelled');
 
 async function mapWithLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
   let cursor = 0;
@@ -44,6 +45,7 @@ async function executeTask(
   agents: Map<string, AgentDefinition>,
   parentSpanId: string,
 ): Promise<void> {
+  if (stopped(run.id)) return;
   const fresh = getTask(initial.id);
   if (!fresh || (fresh.status !== 'pending' && fresh.status !== 'needs_revision')) return;
   initial = fresh;
@@ -112,6 +114,7 @@ async function executeTask(
       executionScopeId: `task:${claimed.id}:work:${claimed.attempt}`,
     });
     output = turn.content.trim();
+    if (stopped(run.id)) throw new Error('运行已终止，丢弃迟到任务结果');
     if (turn.emptyResponse || output === '') throw new Error('Agent 未返回可用结果');
     attempt = completeAttempt(attempt.id, output);
     endSpan(agentSpan, { output, status: 'ok' });
@@ -120,14 +123,14 @@ async function executeTask(
     try { failAttempt(attempt.id, message); } catch { /* attempt 可能已经结束 */ }
     endSpan(agentSpan, { output: message, status: 'error' });
     const current = getTask(claimed.id);
-    if (current && current.status === 'in_progress') {
-      if (current.attempt < current.maxAttempts) {
+    if (!stopped(run.id) && current && current.status === 'in_progress') {
+      if (agent.execution?.kind !== 'external' && current.attempt < current.maxAttempts) {
         transitionTask(current.id, { from: 'in_progress', to: 'needs_revision', error: message });
       } else {
         failTask(current.id, message);
       }
     }
-    await postSystem(run.id, agent.id, `任务「${claimed.title}」执行失败：${message}`);
+    if (!stopped(run.id)) await postSystem(run.id, agent.id, `任务「${claimed.title}」执行失败：${message}`);
     return;
   }
 
@@ -172,7 +175,8 @@ async function executeTask(
       'task.attempt.id': reviewAttempt.id, 'task.attempt.no': awaiting.attempt, 'orchestration.phase': 'task.review' },
   });
   try {
-    const parsed = await reviewTask({ run, task: awaiting, workAttempt: attempt, reviewer, parentSpanId: reviewSpan.id });
+    const parsed = await reviewTask({ run, task: awaiting, workAttempt: attempt, reviewer, parentSpanId: reviewSpan.id, reviewAttemptId: reviewAttempt.id });
+    if (stopped(run.id)) throw new Error('运行已终止，丢弃迟到审查结果');
     const review = createReview({
       taskId: awaiting.id,
       attemptId: attempt.id,
@@ -204,8 +208,7 @@ async function executeTask(
     const message = err instanceof Error ? err.message : String(err);
     try { failAttempt(reviewAttempt.id, message); } catch { /* attempt 可能已经结束 */ }
     endSpan(reviewSpan, { output: message, status: 'error' });
-    failTask(awaiting.id, `审查失败：${message}`);
-    await postSystem(run.id, reviewer.id, `任务「${awaiting.title}」审查失败：${message}`);
+    if (!stopped(run.id)) { failTask(awaiting.id, `审查失败：${message}`); await postSystem(run.id, reviewer.id, `任务「${awaiting.title}」审查失败：${message}`); }
   }
 }
 
@@ -223,6 +226,7 @@ export async function runTaskSchedule(input: {
   const agentMap = new Map(input.agents.map((agent) => [agent.id, agent]));
   for (;;) {
     let tasks = listTasks(input.run.id);
+    if (stopped(input.run.id)) return { tasks, failed: true };
 
     // 依赖失败后，该任务不再可能 ready，明确失败并保留原因。
     for (const task of tasks) {
@@ -255,7 +259,9 @@ export async function runTaskSchedule(input: {
       active: Math.min(config.orchestratorConcurrency, ready.length),
       queued: Math.max(0, ready.length - config.orchestratorConcurrency),
     });
-    await mapWithLimit(ready, config.orchestratorConcurrency, (task) =>
+    // Phase B shares one registered repository across work/review attempts.
+    const concurrency = input.agents.some((agent) => agent.execution?.kind === 'external') ? 1 : config.orchestratorConcurrency;
+    await mapWithLimit(ready, concurrency, (task) =>
       executeTask(input.run, task, agentMap, input.parentSpanId),
     );
   }

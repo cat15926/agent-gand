@@ -12,6 +12,8 @@ import type { LlmToolSchema } from '../../llm/provider.ts';
 import { READONLY_TOOLS, ToolError, expectObject, expectString, type Tool } from '../types.ts';
 import type { AgentDefinition } from '@agent-gand/shared';
 import { externalId, getExternalByIdOrThrow, isExternalWorkspace } from '../../workspaces/external.ts';
+import { getIsolatedWorkspace } from '../../workspaces/isolated.ts';
+import { get } from '../../db/database.ts';
 
 /** §9.1 沙箱区域（§10 后无前缀区可为 run 专属或命名工作区） */
 type SandboxArea = 'run' | 'shared' | 'archive';
@@ -33,10 +35,20 @@ const WORKSPACE_NAME_RE = /^[\w-]{1,32}$/;
  * - 缺省 → sandbox/runs/<runId>/（run 专属）
  * shell.run 的 cwd、search.files 的本区范围共用此函数。
  */
-export function workspaceRootDir(ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null }): string {
+export function workspaceRootDir(ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null; workspaceRoot?: string }): string {
+  if (ctx.workspaceRoot) {
+    const snapshot = get("SELECT id FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.snapshot.path')=?", ctx.runId, ctx.workspaceRoot);
+    if (!snapshot || realpathSync(ctx.workspaceRoot) !== ctx.workspaceRoot) throw new ToolError('审查快照绑定无效');
+    return ctx.workspaceRoot;
+  }
   const ws = ctx.workspace ?? null;
   if (isExternalWorkspace(ws)) {
     const root = getExternalByIdOrThrow(externalId(ws)!).absPath; // 未注册 → ToolError 语义的领域错误
+    const managed = getIsolatedWorkspace(ctx.runId);
+    if (managed) {
+      if (managed.status !== 'ready' || managed.sourceRoot !== root || realpathSync(managed.cwd) !== managed.cwd) throw new ToolError('隔离工作区尚未准备完成或绑定已改变');
+      return managed.cwd;
+    }
     // AG-COORD-03：Coordination run 传 workspaceScope（planId 前 8 位）时映射到子目录，
     // 隔离并发 run 的产物（真机 run ea1af766 裁判读到另一 run 文件的污染实证）。
     // scope 仅允许安全字符，防路径注入；内部/命名工作区本就按 run 或房间隔离，不适用。
@@ -89,7 +101,7 @@ function resolveReal(absPath: string): string {
  */
 export function resolveSandboxPath(
   relPath: string,
-  ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null },
+  ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null; workspaceRoot?: string },
 ): ResolvedSandboxPath {
   if (
     path.isAbsolute(relPath) ||
@@ -110,7 +122,9 @@ export function resolveSandboxPath(
     if (absPath !== root && !absPath.startsWith(root + path.sep)) {
       throw new ToolError(`路径越出外部工作区目录（${root}）: ${relPath}`);
     }
-    return { area: 'run', absPath, readOnly: false };
+    const managed = !!getIsolatedWorkspace(ctx.runId);
+    const metadata = managed && path.relative(root, absPath).split(path.sep).some((part) => part.toLowerCase() === '.git');
+    return { area: 'run', absPath, readOnly: !!ctx.workspaceRoot || metadata };
   }
   let area: SandboxArea;
   let absPath: string;
@@ -204,9 +218,9 @@ const fsWrite: Tool = {
   async run(input, ctx) {
     const obj = expectObject(input);
     const rel = expectString(obj, 'path');
-    const { absPath, readOnly } = resolveSandboxPath(rel, ctx);
+    const { absPath, readOnly, area } = resolveSandboxPath(rel, ctx);
     if (readOnly) {
-      throw new ToolError(`archive/ 是历史归档只读区，不可写入（跨 run 共享请用 shared/ 前缀）: ${rel}`);
+      throw new ToolError(area === 'archive' ? `archive/ 是历史归档只读区，不可写入（跨 run 共享请用 shared/ 前缀）: ${rel}` : `固定审查快照或 Git 元数据不可写入: ${rel}`);
     }
     const content = typeof obj.content === 'string' ? obj.content : '';
     mkdirSync(path.dirname(absPath), { recursive: true });

@@ -63,7 +63,7 @@ export function FleetView() {
                 <span className="flex items-center gap-2">
                   <AgentAvatar agent={agent} className="h-8 w-8 text-sm" />
                   <span className="text-zinc-200">{agent.name}</span>
-                  <span className="text-xs text-zinc-600">{agent.model}</span>
+                  <span className="text-xs text-zinc-600">{agent.execution?.kind === 'external' ? `${agent.execution.driver} · ` : ''}{agent.model}</span>
                 </span>
               </td>
               <td className="max-w-72 truncate py-2.5 text-zinc-400">{summary}</td>

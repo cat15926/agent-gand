@@ -272,6 +272,9 @@ export interface UsageSummary {
   tokensIn: number;
   tokensOut: number;
   costUsd: number;
+  /** 数字汇总仅为已知部分；外部 CLI 缺失的用量/成本不能当作零。 */
+  hasUnknownTokens?: boolean;
+  hasUnknownCost?: boolean;
   llmCalls: number;
   toolCalls: number;
 }

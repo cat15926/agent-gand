@@ -21,14 +21,18 @@ import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { resolveProvider } from '../llm/router.ts';
 import { lookupPricing, type DeltaHandler, type LlmMessage, type LlmToolCall, type LlmResponse, type LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
-import { emit } from '../messaging/bus.ts';
-import { endSpan, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
+import { emit, subscribe } from '../messaging/bus.ts';
+import { endSpan, getRun, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
 import { getTool, isExternalRun, toolsForAgent } from '../tools/builtin/index.ts';
 import { externalId, getExternalByIdOrThrow } from '../workspaces/external.ts';
 import { checkPermission, type Tool } from '../tools/types.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
 import { executeToolOnce, toolExecutionKey } from '../tools/executions.ts';
+import { runExternalAgentTurn } from '../execution/runner.ts';
+import { captureWorkspaceSnapshot, ensureIsolatedWorkspace, getIsolatedWorkspace, reviewSnapshotPath } from '../workspaces/isolated.ts';
+import { waitForDurableLease } from '../execution/leases.ts';
+import { randomUUID } from 'node:crypto';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
@@ -109,6 +113,8 @@ export interface AgentTurnOptions {
    * ext 工作区根下映射到 <extRoot>/<scope>/ 子目录；其他编排器不传保持直访注册根。
    */
   workspaceScope?: string | null;
+  reviewSourceExecutionId?: string;
+  workspaceRoot?: string;
 }
 
 export interface AgentTurnResult {
@@ -142,6 +148,7 @@ export async function chatOnce(
   userContent: string,
   displayKind: 'message' | 'review_protocol' = 'message',
 ): Promise<string> {
+  if (agent.execution?.kind === 'external') throw new Error('阶段 A 外部 Agent 不支持主管规划；请选择内置 LLM 角色');
   const provider = resolveProvider(agent.model);
   const messages: LlmMessage[] = [
     { role: 'system', content: agent.systemPrompt },
@@ -185,6 +192,35 @@ export async function chatOnce(
 }
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.externalAgents.timeoutMs);
+  timer.unref();
+  const unsubscribe = subscribe((event) => {
+    if (event.type === 'run.updated' && event.run.id === opts.run.id && ['completed', 'failed', 'cancelled'].includes(event.run.status)) controller.abort();
+    if (event.type === 'collaboration.attempt.updated' && event.attempt.id === opts.attemptId && event.attempt.status !== 'running') controller.abort();
+  });
+  try {
+    await ensureIsolatedWorkspace(opts.run, controller.signal);
+    if (opts.reviewSourceExecutionId) {
+      const snapshot = reviewSnapshotPath(opts.reviewSourceExecutionId);
+      if (!snapshot) throw new Error('待审原生执行缺少固定工作区快照');
+      opts = { ...opts, workspaceRoot: snapshot, agent: { ...opts.agent, permissionMode: 'readonly' } };
+    }
+    if (opts.agent.execution?.kind === 'external') return runExternalAgentTurn(opts);
+    const managed = getIsolatedWorkspace(opts.run.id);
+    if (!managed) return runBuiltinAgentTurn(opts);
+    const root = opts.workspaceRoot ?? managed.cwd;
+    const release = await waitForDurableLease('workspace:' + root, 'builtin:' + randomUUID(), opts.agent.permissionMode === 'readonly', controller.signal);
+    try {
+      if (controller.signal.aborted || ['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) throw new Error('运行已停止');
+      const result = await runBuiltinAgentTurn(opts);
+      if (!opts.workspaceRoot && !controller.signal.aborted && !['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) await captureWorkspaceSnapshot(opts.run.id, randomUUID(), root);
+      return result;
+    } finally { release(); }
+  } finally { clearTimeout(timer); unsubscribe(); }
+}
+
+async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   const { run, agent, parentSpanId } = opts;
   const provider = resolveProvider(agent.model);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
@@ -631,7 +667,7 @@ async function runTool(
     const executed = await executeToolOnce({ runId: run.id, agentId: agent.id, taskId: opts.taskId,
       attemptId: opts.attemptId, toolName: tool.name, input: inputRaw, idempotencyKey: executionKey,
       replayPolicy, spanId: toolSpan.id, execute: () => tool.run(parsed, {
-        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null,
+        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null, workspaceRoot: opts.workspaceRoot,
       }) });
     const output = executed.output;
     endSpan(toolSpan, { output, status: 'ok' });

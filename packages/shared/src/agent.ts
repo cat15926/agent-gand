@@ -4,6 +4,8 @@
  */
 
 /** 权限三档（P0-5：只读 / 需确认 / 白名单自动） */
+import type { AgentExecutionConfig, ExecutionDriverInfo } from './execution.ts';
+
 export type PermissionMode = 'readonly' | 'confirm' | 'auto';
 export type AgentCapability = 'execute' | 'review' | 'coordinate';
 
@@ -16,8 +18,9 @@ export interface AgentDefinition {
   capabilities: AgentCapability[];
   /** 正文即 system prompt */
   systemPrompt: string;
-  /** 模型路由串，如 'mock:planner' | 'openai:gpt-5' | 'anthropic:claude-...' */
+  /** 内置后端为 provider:model 路由；外部后端为原生模型名或 default。 */
   model: string;
+  execution?: AgentExecutionConfig;
   /** 工具白名单 */
   tools: string[];
   disallowedTools: string[];
@@ -40,6 +43,7 @@ export interface AgentInput {
   capabilities: AgentCapability[];
   systemPrompt: string;
   model: string;
+  execution?: AgentExecutionConfig;
   tools: string[];
   disallowedTools: string[];
   permissionMode: PermissionMode;
@@ -55,6 +59,7 @@ export interface AgentTemplate {
 }
 
 export interface AgentOptions {
+  executionDrivers?: ExecutionDriverInfo[];
   tools: Array<{ name: string; description: string; readonly: boolean; source: 'builtin' | 'mcp' }>;
   capabilities: Array<{ value: AgentCapability; label: string }>;
   providers: Array<{ value: 'mock' | 'openai' | 'anthropic'; label: string; configured: boolean }>;

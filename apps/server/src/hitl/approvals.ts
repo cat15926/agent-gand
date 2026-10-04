@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { config } from '../config.ts';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import { executionAuthorized } from '../execution/authority.ts';
+import type { ExternalAgentExecution } from '@agent-gand/shared';
 import {
   cancelDurableHoldsByCondition,
   createDurableHold,
@@ -32,6 +34,7 @@ interface ApprovalRow {
 }
 
 function rowToApproval(row: ApprovalRow): ApprovalRequest {
+  const native = get<{ binding: string }>('SELECT binding FROM external_agent_approvals WHERE approval_id=?', row.id);
   return {
     id: row.id,
     runId: row.run_id,
@@ -44,6 +47,7 @@ function rowToApproval(row: ApprovalRow): ApprovalRequest {
     decidedBy: row.decided_by,
     decidedAt: row.decided_at,
     createdAt: row.created_at,
+    ...(native ? { native: JSON.parse(native.binding) as NonNullable<ApprovalRequest['native']> } : {}),
   };
 }
 
@@ -66,6 +70,7 @@ export interface CreateApprovalInput {
   idempotencyKey?: string;
   checkpointId?: string;
   attemptId?: string;
+  native?: NonNullable<ApprovalRequest['native']>;
 }
 
 /** 审批卡是否仍可复用：pending 等待中 / approved / edited 已放行；expired 与 rejected 是终态裁定，重放需发新卡 */
@@ -144,6 +149,10 @@ export function createApproval(input: CreateApprovalInput): ApprovalRequest {
       approval.status, approval.createdAt, idempotencyKey, input.checkpointId ?? null,
     );
     ensureApprovalHold(approval, input.attemptId);
+    if (input.native) {
+      run('INSERT INTO external_agent_approvals (approval_id,execution_id,request_id,binding) VALUES (?,?,?,?)', approval.id, input.native.executionId, input.native.requestId, JSON.stringify(input.native));
+      approval.native = input.native;
+    }
     afterCommit(() => emit({ type: 'approval.updated', approval }));
     return approval;
   });
@@ -180,6 +189,12 @@ export function decide(id: string, input: DecideInput): ApprovalRequest {
     const row = get<ApprovalRow>('SELECT * FROM approvals WHERE id = ?', id);
     if (!row) throw new ApprovalError(`approval 不存在: ${id}`, 404);
     if (row.status !== 'pending') throw new ApprovalError(`approval 已决策过（当前 ${row.status}）`, 409);
+    const native = get<{ execution_id: string; binding: string }>('SELECT execution_id,binding FROM external_agent_approvals WHERE approval_id=?', id);
+    if (native) {
+      const execution = get<{ record: string }>('SELECT record FROM external_agent_executions WHERE id=?', native.execution_id);
+      if (!execution || !executionAuthorized(JSON.parse(execution.record) as ExternalAgentExecution)) throw new ApprovalError('原生审批绑定的执行或责任代际已失效', 409);
+      if (input.decision === 'edit') throw new ApprovalError('原生审批支持批准或拒绝，不支持改写原生请求', 400);
+    }
     if (input.decision === 'edit' && (input.editedInput === undefined || input.editedInput.length === 0)) {
       throw new ApprovalError('decision=edit 时必须提供 editedInput', 400);
     }
@@ -211,7 +226,7 @@ export class ApprovalTimeoutError extends Error {
  * 超时把 pending 置 expired（规格 §8.2）：decidedBy='system:timeout'，
  * 不得遗留 pending（真机 run 32b19e2a 实证过遗留 2 条）。并发安全：仅当仍为 pending 时生效。
  */
-function expireApproval(id: string): ApprovalRequest {
+export function expireApproval(id: string): ApprovalRequest {
   return tx(() => {
     const now = new Date().toISOString();
     run(`UPDATE approvals SET status='expired',edited_input=NULL,decided_by='system:timeout',decided_at=?

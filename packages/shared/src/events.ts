@@ -4,6 +4,7 @@
  */
 
 import type { AgentDefinition } from './agent.ts';
+import type { ExternalAgentExecution, NativeAgentEvent } from './execution.ts';
 import type { Message } from './message.ts';
 import type { Task } from './task.ts';
 import type { TaskAttempt } from './task.ts';
@@ -52,5 +53,8 @@ export type ServerEvent =
   | { type: 'run.updated'; run: Run }
   | { type: 'run.event'; event: RunEvent }
   | { type: 'llm.delta'; runId: string; spanId: string; text: string; agentId?: string; taskId?: string; attemptId?: string; displayKind?: 'message' | 'review_protocol' }
+  | { type: 'llm.snapshot'; runId: string; spanId: string; text: string; displayKind?: 'message' | 'review_protocol' }
+  | { type: 'execution.updated'; execution: ExternalAgentExecution }
+  | { type: 'execution.native'; runId: string; executionId: string; event: NativeAgentEvent }
   | { type: 'approval.updated'; approval: ApprovalRequest }
   | { type: 'usage'; usage: UsageSummary };

@@ -13,6 +13,8 @@ export interface ToolContext {
   workspace?: string | null;
   /** 外部工作区隔离（AG-COORD-03）：ext 工作区根下再映射 <extRoot>/<scope>/ 子目录；仅 Coordination 传入 */
   workspaceScope?: string | null;
+  /** Server-selected immutable review snapshot, never accepted from model arguments. */
+  workspaceRoot?: string;
 }
 
 export interface Tool {

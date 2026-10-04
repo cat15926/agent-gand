@@ -7,7 +7,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
 import type { AgentCapability, AgentDefinition, PermissionMode } from '@agent-gand/shared';
-import { inferCapabilities, normalizeAgent } from './validation.ts';
+import { assertExternalPolicy, inferCapabilities, normalizeAgent, parseExecution } from './validation.ts';
 
 const PERMISSION_MODES: readonly PermissionMode[] = ['readonly', 'confirm', 'auto'];
 
@@ -45,13 +45,14 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
   const permissionMode: PermissionMode =
     rawPermission && PERMISSION_MODES.includes(rawPermission) ? rawPermission : 'confirm';
 
-  return normalizeAgent({
+  const definition = normalizeAgent({
     id,
     name: str(fields.name) ?? id,
     description: str(fields.description),
     capabilities: (strArray(fields.capabilities) as AgentCapability[]).length ? strArray(fields.capabilities) as AgentCapability[] : inferCapabilities(id),
     systemPrompt: body,
     model,
+    execution: parseExecution(fields.execution),
     tools: strArray(fields.tools),
     disallowedTools: strArray(fields.disallowedTools),
     permissionMode,
@@ -59,6 +60,8 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
     avatar: str(fields.avatar) ?? '',
     source: 'file',
   });
+  assertExternalPolicy(definition);
+  return definition;
 }
 
 export interface LoadedAgentFile {

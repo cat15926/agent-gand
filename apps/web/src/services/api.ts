@@ -5,6 +5,7 @@ import type {
   AgentDefinition,
   AgentInput,
   AgentOptions,
+  ExternalWorkspaceBinding,
   ApprovalDecision,
   ApprovalRequest,
   Message,
@@ -157,6 +158,8 @@ export const resolveCollaborationDecision = (id: string, input: ResolveCollabora
 export const cancelCollaborationDispatch = (id: string) => request<CollaborationDispatch>(`/api/collaboration/dispatches/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
 export const stopCollaborationAgent = (agentId: string, conversationId: string) => request<{ cancelled: number }>(`/api/collaboration/agents/${encodeURIComponent(agentId)}/stop`, { method: 'POST', body: JSON.stringify({ conversationId }) });
 export const stopCollaborationRun = (runId: string) => request<Run>(`/api/collaboration/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
+export const stopPipelineRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
+export const getExternalExecutions = (runId: string) => request<import('@agent-gand/shared').ExternalAgentExecution[]>(`/api/runs/${encodeURIComponent(runId)}/executions`);
 
 export const getAgents = (includeDisabled = false) => request<AgentDefinition[]>(`/api/agents${includeDisabled ? '?includeDisabled=1' : ''}`);
 export async function uploadAgentAvatar(file: File): Promise<{ avatar: string }> {
@@ -190,6 +193,7 @@ export const renameRun = (id: string, title: string) =>
 export const softDeleteRun = (id: string) =>
   request<Run>(`/api/runs/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getRun = (id: string) => request<RunDetail>(`/api/runs/${id}`);
+export const getRunWorkspace = (id: string) => request<ExternalWorkspaceBinding | null>(`/api/runs/${encodeURIComponent(id)}/workspace`);
 export const getRunObservability = (id: string) => request<RunObservability>(`/api/runs/${encodeURIComponent(id)}/observability`);
 export const getRunObservabilitySummary = (id: string) => request<RunObservabilitySummary>(`/api/runs/${encodeURIComponent(id)}/observability?payload=summary`);
 export const getSpanDetail = (runId: string, spanId: string) => request<SpanDetail>(`/api/runs/${encodeURIComponent(runId)}/spans/${encodeURIComponent(spanId)}`);

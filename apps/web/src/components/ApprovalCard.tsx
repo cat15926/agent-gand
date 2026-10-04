@@ -31,6 +31,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
         <span className="text-zinc-500">{approval.agentId}</span>
       </div>
       {approval.reason && <p className="mb-2 text-zinc-400">{approval.reason}</p>}
+      {approval.native && <p className="mb-2 break-all text-zinc-500">当前原生执行 {approval.native.executionId} · 单次批准</p>}
 
       {editing ? (
         <textarea
@@ -64,13 +65,13 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
             >
               拒绝
             </button>
-            <button
+            {!approval.native && <button
               disabled={busy}
               onClick={() => setEditing(true)}
               className="rounded-md bg-zinc-700/60 px-2.5 py-1 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
             >
               编辑
-            </button>
+            </button>}
           </>
         ) : (
           <>

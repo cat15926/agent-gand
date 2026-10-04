@@ -314,6 +314,12 @@ export function recoverInterruptedTasks(): Task[] {
   );
   const recovered: Task[] = [];
   for (const row of rows) {
+    const uncertain = get(`SELECT e.id FROM external_agent_executions e JOIN task_attempts a ON a.id=json_extract(e.record,'$.attemptId')
+      WHERE a.task_id=? AND a.attempt_no=? AND e.status IN ('interrupted','failed','cancelled') LIMIT 1`, row.id, row.attempt);
+    if (uncertain) {
+      run("UPDATE tasks SET status='failed',last_error=?,updated_at=? WHERE id=?", '原生执行中断，已保留工作区和恢复证据，未重新派发', new Date().toISOString(), row.id);
+      const task = getTask(row.id); if (task) { recovered.push(task); emit({ type: 'task.updated', task }); } continue;
+    }
     const next: TaskStatus = row.attempt > 1 ? 'needs_revision' : 'pending';
     const error = '服务重启，正在从最近持久化边界恢复';
     run('UPDATE tasks SET status = ?, attempt = MAX(0, attempt - 1), last_error = ?, updated_at = ? WHERE id = ?', next, error, new Date().toISOString(), row.id);

@@ -106,6 +106,10 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
           ],
           executionScopeId: `fastpath:${run.id}:${index}:${agent.id}`,
         });
+        if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) {
+          endSpan(agentSpan, { output: '运行已终止，迟到结果已丢弃', status: 'error' });
+          return { agent, index, failed: true, answered: false };
+        }
         if (turn.content.trim().length > 0) {
           await post({
             runId: run.id, from: agent.id, to: 'all', kind: 'agent', body: turn.content,
@@ -121,6 +125,7 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
       }
     }));
     const failed = outcomes.filter((outcome) => outcome.failed);
+    if (getRun(run.id)?.status === 'cancelled') { endSpan(root, { output: '运行已停止', status: 'error' }); return; }
     const succeeded = outcomes.filter((outcome) => outcome.answered).length;
     for (const outcome of failed) {
       await post({
@@ -296,7 +301,7 @@ async function drain(conversationId: string): Promise<void> {
       const orchestrator = current.mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
       try {
         await orchestrator.start(current, agents, contextGoal, current.goal, messageInput);
-        updateRunUserMessageStatus(current.id, 'responded');
+        updateRunUserMessageStatus(current.id, getRun(current.id)?.status === 'cancelled' ? 'failed' : 'responded');
       } catch {
         try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* 用户消息可能在启动前失败 */ }
       } finally {

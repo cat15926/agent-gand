@@ -38,10 +38,10 @@ function patchNodes(nodes: TraceTreeSummaryNode[], event: RunEvent): { nodes: Tr
   return { nodes: next, found };
 }
 
-function patchDelta(nodes: TraceTreeSummaryNode[], spanId: string, text: string): TraceTreeSummaryNode[] {
+function patchDelta(nodes: TraceTreeSummaryNode[], spanId: string, text: string, replace = false): TraceTreeSummaryNode[] {
   return nodes.map((node) => node.span.id === spanId
-    ? { ...node, span: { ...node.span, hasOutput: true, outputPreview: `${node.span.outputPreview ?? ''}${text}`.slice(-180) } }
-    : { ...node, children: patchDelta(node.children, spanId, text) });
+    ? { ...node, span: { ...node.span, hasOutput: true, outputPreview: `${replace ? '' : node.span.outputPreview ?? ''}${text}`.slice(-180) } }
+    : { ...node, children: patchDelta(node.children, spanId, text, replace) });
 }
 
 export function useRunObservability(runId: string | null, live: boolean) {
@@ -91,6 +91,9 @@ export function useRunObservability(runId: string | null, live: boolean) {
           const next = { ...current }; delete next[event.event.id]; return next;
         });
         scheduleRefresh();
+      } else if (event.type === 'llm.snapshot' && event.runId === runId && event.displayKind !== 'review_protocol') {
+        setLiveDeltas((previous) => ({ ...previous, [event.spanId]: event.text }));
+        setData((current) => current ? { ...current, trace: { ...current.trace, roots: patchDelta(current.trace.roots, event.spanId, event.text, true) } } : current);
       } else if (event.type === 'llm.delta' && event.runId === runId && event.displayKind !== 'review_protocol') {
         setLiveDeltas((current) => ({ ...current, [event.spanId]: `${current[event.spanId] ?? ''}${event.text}` }));
         setData((current) => current ? { ...current, trace: { ...current.trace, roots: patchDelta(current.trace.roots, event.spanId, event.text) } } : current);

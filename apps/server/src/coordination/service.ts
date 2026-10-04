@@ -23,6 +23,7 @@ import {
 import { validateCoordinationPlan } from './validator.ts';
 import { getCoordinationCalibration, recordPlannerFeedback } from './calibration.ts';
 import { saveCheckpoint } from '../runs/checkpoints.ts';
+import { getAgent } from '../agents/registry.ts';
 
 export class CoordinationError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -36,6 +37,7 @@ export async function prepareCoordination(input: CoordinationPreviewInput): Prom
   if (!input.goal.trim()) throw new CoordinationError(400, 'goal 必填');
   if (input.agentIds.length === 0) throw new CoordinationError(400, 'agentIds 必须是非空数组');
   if (new Set(input.agentIds).size !== input.agentIds.length) throw new CoordinationError(400, 'agentIds 不能包含重复成员');
+  if (input.agentIds.some((id) => getAgent(id)?.execution?.kind === 'external')) throw new CoordinationError(400, '阶段 A 外部 Agent 请使用手动顺序流水线，尚未接入 Coordination 控制桥');
   const snapshot = createCapabilitySnapshot(input.agentIds);
   if (snapshot.agents.length !== input.agentIds.length) throw new CoordinationError(400, 'agentIds 包含未知或已停用成员');
   if (input.defaultReviewerId && !input.agentIds.includes(input.defaultReviewerId)) throw new CoordinationError(400, 'defaultReviewerId 必须属于当前团队');
@@ -89,6 +91,7 @@ export async function previewCoordination(input: CoordinationPreviewInput): Prom
 }
 
 export function compileCoordinationPlan(draftId: string, runId: string, goal: string, agents: AgentDefinition[]): CoordinationPlan {
+  if (agents.some((agent) => agent.execution?.kind === 'external')) throw new CoordinationError(400, '阶段 A 外部 Agent 尚未接入 Coordination 控制桥');
   const draft = getCoordinationDraft(draftId);
   if (!draft) throw new CoordinationError(404, `Coordination Draft 不存在: ${draftId}`);
   const snapshot = getCapabilitySnapshot(draft.capabilitySnapshotId);

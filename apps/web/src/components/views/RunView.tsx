@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { AgentDefinition, CollaborationUserDecision, CoordinationPreview, CoordinationProtocolId, FollowupPreview, Message, RunMode } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationUserDecision, CoordinationPreview, CoordinationProtocolId, ExternalWorkspaceBinding, FollowupPreview, Message, RunMode } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
@@ -84,6 +84,27 @@ function leadingMentionRecipientIds(text: string, agents: AgentDefinition[], all
 
 function combineRecipients(mentioned: string[], selected: string[]): string[] {
   return [...new Set([...mentioned, ...selected])];
+}
+
+function RunWorkspaceCard({ runId, revision }: { runId: string; revision: string }) {
+  const [binding, setBinding] = useState<ExternalWorkspaceBinding | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    setBinding(null); setError('');
+    void api.getRunWorkspace(runId).then((value) => { if (live) setBinding(value); }).catch((reason) => { if (live) setError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { live = false; };
+  }, [runId, revision]);
+  if (error) return <p className="mt-2 text-xs text-amber-300">工作区信息获取失败：{error}</p>;
+  if (!binding) return null;
+  return <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-xs text-zinc-400">
+    <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sky-200">{binding.status === 'ready' ? '隔离编码工作区' : binding.status === 'preparing' ? '正在准备隔离工作区' : '工作区需要检查'}</span>
+      {binding.latestSnapshot && <a href={`/api/runs/${encodeURIComponent(runId)}/workspace/patch`} download className="rounded bg-sky-500/15 px-2 py-1 text-sky-200 hover:bg-sky-500/25">下载变更补丁</a>}
+    </div>
+    <p className="mt-1">变更保存在独立工作区；下载补丁后可在原仓库检查并应用。</p>
+    <details className="mt-1"><summary className="cursor-pointer">查看目录与快照</summary><p className="mt-1 break-all">原仓库：{binding.sourceRoot}</p><p className="mt-1 break-all">编码目录：{binding.cwd}</p>{binding.latestSnapshot && <p className="mt-1 break-all">快照：{binding.latestSnapshot.commit}</p>}</details>
+    {binding.error && <p className="mt-1 whitespace-pre-wrap text-amber-300">{binding.error}</p>}
+  </div>;
 }
 
 function ReviewIssues({ message }: { message: Message }) {
@@ -247,7 +268,7 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
 function NewRoomComposer() {
   const { state, setActiveConversation } = useStore();
   const [goal, setGoal] = useState('');
-  const [modeChoice, setModeChoice] = useState<'auto' | RunMode>('auto');
+  const [requestedModeChoice, setModeChoice] = useState<'auto' | RunMode>('auto');
   const [selected, setSelected] = useState<string[]>(state.agents.map((agent) => agent.id));
   const [initialTargets, setInitialTargets] = useState<string[]>([]);
   const initialized = useRef(state.agents.length > 0);
@@ -260,6 +281,9 @@ function NewRoomComposer() {
   const [planPreview, setPlanPreview] = useState<CoordinationPreview | null>(null);
   const [error, setError] = useState('');
   const mentionedTargets = useMemo(() => leadingMentionRecipientIds(goal, state.agents, selected), [goal, state.agents, selected]);
+  const hasExternal = state.agents.some((agent) => selected.includes(agent.id) && agent.execution?.kind === 'external');
+  const hasReadonlyCli = state.agents.some((agent) => selected.includes(agent.id) && agent.execution?.kind === 'external' && ['claude-cli', 'codex-exec'].includes(agent.execution.driver));
+  const modeChoice = hasExternal && (hasReadonlyCli || requestedModeChoice === 'auto') ? 'pipeline' : requestedModeChoice;
   const effectiveTargets = useMemo(() => combineRecipients(mentionedTargets, initialTargets), [mentionedTargets, initialTargets]);
   const mode = modeChoice === 'auto' ? planPreview?.draft.runtimeMode ?? null : modeChoice;
   useEffect(() => {
@@ -310,7 +334,7 @@ function NewRoomComposer() {
     <textarea id="goal-input" value={goal} onChange={(event) => setGoal(event.target.value)} rows={5} placeholder="描述希望团队完成的目标…"
       className="resize-none rounded-2xl bg-zinc-900 p-4 text-sm outline-none ring-1 ring-zinc-700 placeholder:text-zinc-600 focus:ring-violet-500" />
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-      <select value={modeChoice} onChange={(event) => { setModeChoice(event.target.value as 'auto' | RunMode); setPlanPreview(null); }} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="auto">✨ 智能匹配</option><option value="collaboration">自由协作</option><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
+      <select disabled={hasReadonlyCli} value={modeChoice} onChange={(event) => { setModeChoice(event.target.value as 'auto' | RunMode); setPlanPreview(null); }} className="rounded-lg bg-zinc-800 px-3 py-2"><option disabled={hasExternal} value="auto">✨ 智能匹配</option><option disabled={hasReadonlyCli} value="collaboration">自由协作</option><option value="supervisor">主管委派</option><option value="pipeline">顺序流水线</option></select>
       {mode === 'supervisor' && <select value={supervisorId} onChange={(event) => setSupervisorId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2">{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('coordinate')).map((agent) => <option key={agent.id} value={agent.id}>主管：{agent.name}</option>)}</select>}
       <select value={defaultReviewerId} onChange={(event) => setDefaultReviewerId(event.target.value)} className="rounded-lg bg-zinc-800 px-3 py-2"><option value="">不设默认评审</option>{state.agents.filter((agent) => selected.includes(agent.id) && agent.capabilities.includes('review')).map((agent) => <option key={agent.id} value={agent.id}>评审：{agent.name}</option>)}</select>
       <button onClick={() => setWorkspaceOpen(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-zinc-400">🗂 {workspace || '自动创建房间工作区'} ▾</button>
@@ -318,6 +342,7 @@ function NewRoomComposer() {
         className="rounded-full px-3 py-1.5" style={{ color: selected.includes(agent.id) ? agent.color : '#71717a', backgroundColor: selected.includes(agent.id) ? `${agent.color}20` : 'transparent' }}>{agent.name}</button>)}
       <button disabled={busy || planning || !goal.trim() || selected.length === 0 || (modeChoice === 'auto' && Boolean(planPreview) && (!mode || planPreview?.draft.decision === 'clarify' || planPreview?.draft.decision === 'unavailable'))} onClick={() => void create()} className="ml-auto rounded-lg bg-violet-500 px-5 py-2 font-medium text-white disabled:opacity-40">{planning ? '正在分析…' : busy ? '正在创建…' : modeChoice === 'auto' && !planPreview ? '智能规划并开始' : modeChoice === 'auto' && planPreview?.draft.decision === 'auto_start' ? '自动开始' : modeChoice === 'auto' ? '确认并开始' : '创建并发送'}</button>
     </div>
+    {hasExternal && <p className="mt-3 text-xs text-amber-300">{hasReadonlyCli ? '只读 CLI 使用顺序流水线。' : '双向后端支持自由协作、流水线和内置主管委派；可完成、交接、咨询其他成员或等待用户。'}编码任务请选择已注册的 Git 仓库根目录。</p>}
     {modeChoice === 'auto' && planPreview && <div className={`mt-3 rounded-2xl border p-4 text-sm ${planPreview.draft.validationErrors.length > 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-violet-500/30 bg-violet-500/5'}`}>
       <div className="flex items-start gap-3"><div className="mt-0.5 rounded-lg bg-violet-500/15 px-2 py-1 text-violet-200">{planPreview.draft.decision === 'auto_start' ? '可自动开始' : planPreview.draft.decision === 'clarify' ? '需要确认' : planPreview.draft.decision === 'unavailable' ? '暂不可用' : planPreview.draft.risk === 'high' ? '高风险，需确认' : '推荐'}</div><div className="min-w-0 flex-1"><div className="font-medium text-zinc-100">{planPreview.draft.displayName}</div><p className="mt-1 text-xs text-zinc-400">{planPreview.draft.summary}</p><div className="mt-2 flex flex-wrap gap-2 text-[11px] text-zinc-500"><span>置信度 {Math.round(planPreview.draft.platformConfidence * 100)}%</span><span>{planPreview.draft.planning.source === 'model' || planPreview.draft.planning.source === 'model_repaired' ? '模型规划' : planPreview.draft.planning.source === 'deterministic_fallback' ? '安全回退' : '规则规划'}</span><span>风险：{planPreview.draft.risk === 'low' ? '低' : planPreview.draft.risk === 'medium' ? '中' : '高'}</span><span>{planPreview.snapshot.agents.length} 位 Agent</span><span>{planPreview.plan.steps.length} 个计划步骤</span></div></div></div>
       {planPreview.draft.risk === 'high' && <div className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-200">该任务可能包含部署、删除、发布或其他高风险操作。系统不会自动开始，请确认计划和审批点后再启动。</div>}
@@ -442,6 +467,7 @@ export function RunView() {
   const { state, setActiveConversation, refreshConversation } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [reply, setReply] = useState<Message | null>(null);
+  const [stopping, setStopping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollControllerRef = useRef<ChatScrollController | null>(null);
   if (!scrollControllerRef.current) scrollControllerRef.current = new ChatScrollController();
@@ -468,6 +494,13 @@ export function RunView() {
     try { await api.cancelCoordinationRun(activeRun.id); await refreshConversation(); }
     catch (reason) { window.alert(reason instanceof Error ? reason.message : String(reason)); }
   }
+  async function stopPipeline() {
+    if (!activeRun || stopping) return;
+    setStopping(true);
+    try { await api.stopPipelineRun(activeRun.id); await refreshConversation(); }
+    catch (reason) { window.alert(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setStopping(false); }
+  }
   return <div className="flex h-full">
     <SessionSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed((value) => !value)} activeConversationId={state.activeConversationId}
       onSelect={setActiveConversation} onNewSession={() => setActiveConversation(null)} />
@@ -476,10 +509,34 @@ export function RunView() {
         <header className="shrink-0 border-b border-zinc-800 bg-zinc-950/80 px-5 py-3">
           <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-medium text-zinc-100">{room.title}</h2><p className="mt-1 text-[11px] text-zinc-500">{state.coordinationPlan ? '智能匹配' : room.mode === 'supervisor' ? `主管：${agentName(room.supervisorId ?? '', state.agents)}` : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'} · 第 {activeRun?.turnNo ?? room.runCount} 轮 · {activeRun?.status === 'running' ? '团队正在协作' : activeRun?.status === 'pending' ? '已排队' : activeRun?.status === 'waiting_for_user' ? '等待你的决定' : activeRun?.status === 'completed' ? '本轮已完成' : activeRun?.status ?? '空闲'} · 🗂 {room.workspace}</p></div>
             <div className="flex -space-x-2">{room.agentIds.map((id) => { const agent = state.agents.find((item) => item.id === id); return <AgentAvatar key={id} agent={agent} label={id} className="h-8 w-8 border-2 border-zinc-950 text-xs" />; })}</div>
+            {activeRun && ['pipeline', 'supervisor'].includes(activeRun.mode) && ['pending', 'running', 'awaiting_approval'].includes(activeRun.status) && <button disabled={stopping} onClick={() => void stopPipeline()} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-300 disabled:opacity-40">{stopping ? '正在停止…' : '停止运行'}</button>}
             <button onClick={() => void archiveRoom()} className="rounded-lg px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-800 hover:text-zinc-300" title="归档聊天室">•••</button>
           </div>
           {state.scheduler && <div className="mt-2 h-1 overflow-hidden rounded bg-zinc-800"><div className="h-full animate-pulse rounded bg-violet-500" style={{ width: `${Math.max(20, 100 * state.scheduler.active / Math.max(1, state.scheduler.active + state.scheduler.queued))}%` }} /></div>}
           {state.collaborationScheduler && <div className="mt-2 flex gap-3 text-[10px] text-zinc-500"><span>活跃 Agent {state.collaborationScheduler.activeAgentIds.length}</span><span>排队 {state.collaborationScheduler.queued}</span>{state.collaborationScheduler.blocked > 0 && <span className="text-amber-300">阻断 {state.collaborationScheduler.blocked}</span>}</div>}
+          {activeRun?.workspace?.startsWith('ext:') && <RunWorkspaceCard key={activeRun.id} runId={activeRun.id} revision={`${activeRun.status}:${state.executions.filter((item) => item.runId === activeRun.id).map((item) => `${item.id}:${item.status}:${item.snapshot?.commit ?? ''}`).join(',')}:${state.messages.length}`} />}
+          {state.executions.filter((item) => item.runId === activeRun?.id).map((item) => <details key={item.id} className="mt-2 rounded-lg bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
+            <summary className="cursor-pointer">{agentName(item.agentId, state.agents)} · {item.driver} · {item.permissionMode === 'confirm' ? '需确认' : item.permissionMode === 'auto' ? '白名单自动' : '只读'} · {{ running: '执行中', completed: '已完成', failed: '失败', cancelled: '已停止', interrupted: '已中断' }[item.status]}</summary>
+            <p className="mt-2 break-all">版本：{item.driverVersion ?? '未检测'} · 工作区：{item.cwd}</p>
+            <p className="mt-1 break-all">会话：{item.sessionId ?? '尚未绑定'}</p>
+            {item.sessionMode && <p className="mt-1">{item.sessionMode === 'resume' ? '已续接完成会话' : '已建立新会话'} · {item.sessionReason}</p>}
+            {item.snapshot && <p className="mt-1 break-all">固定审查快照：{item.snapshot.commit}</p>}
+            {item.recovery && <p className={`mt-1 ${item.recovery.state === 'attention' ? 'text-amber-300' : 'text-zinc-400'}`}>恢复检查：{item.recovery.reason}</p>}
+            {item.controlAction && <p className="mt-1">已提交协作动作：{item.controlAction.type}{item.exitCorrectionAttempts ? ` · 纠偏 ${item.exitCorrectionAttempts} 次` : ''}</p>}
+            <p className="mt-1">输入/输出 tokens：{item.tokensIn ?? '未知'} / {item.tokensOut ?? '未知'} · CLI 报告成本：{item.costUsd === null ? '未知' : `$${item.costUsd.toFixed(4)}`}</p>
+            {item.error && <p className="mt-1 whitespace-pre-wrap text-red-300">{item.errorCode}：{item.error}</p>}
+            {item.evidence && <div className="mt-2 space-y-2">
+              <p>权限：{item.permissionMode} · Git HEAD：{item.evidence.head ?? '未知'}{item.evidence.truncated ? ' · 证据已截断' : ''}</p>
+              <details>
+                <summary className="cursor-pointer">查看实际 diff 和工具结果</summary>
+                <p className="mt-2">执行前的工作区变更</p>
+                <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-zinc-950 p-2">{item.evidence.beforeDiff || '（无 diff）'}</pre>
+                <p className="mt-2">执行后的工作区变更</p>
+                <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-zinc-950 p-2">{item.evidence.afterDiff || '（无 diff）'}</pre>
+                {item.evidence.commands.map((command) => <pre key={command.itemId} className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-zinc-950 p-2">{command.name} · exit={command.exitCode ?? '未知'}{'\n'}{command.output}</pre>)}
+              </details>
+            </div>}
+          </details>)}
         </header>
         {activeRun?.status === 'waiting_for_user' && state.coordinationPlan?.status === 'paused' && <div className="shrink-0 border-b border-amber-500/20 bg-amber-500/5 px-5 py-3 text-xs text-amber-200">
           <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3">

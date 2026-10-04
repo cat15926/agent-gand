@@ -22,4 +22,5 @@ export interface ApprovalRequest {
   decidedBy: string | null;
   decidedAt: string | null;
   createdAt: string;
+  native?: { executionId: string; driver: string; requestId: string; attemptId: string | null; editable: false };
 }

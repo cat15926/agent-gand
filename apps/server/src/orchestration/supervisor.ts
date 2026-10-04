@@ -160,9 +160,11 @@ async function scheduleAndSummarize(
 ): Promise<void> {
   saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'scheduling', state: {} });
   const scheduled = await runTaskSchedule({ run, agents, parentSpanId });
+  if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
   saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'summarizing', state: { failed: scheduled.failed } });
   const summaryPrompt = buildSupervisorSummaryContext(run, scheduled.tasks);
   const summary = await chatOnce(supervisor, run.id, parentSpanId, summaryPrompt);
+  if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
   if (summary.trim() !== '') {
     await post({
       runId: run.id,

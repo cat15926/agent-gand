@@ -22,6 +22,7 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { getAnyAgent } from '../agents/registry.ts';
+import { assertExternalAdmission } from '../execution/policy.ts';
 import { emit } from '../messaging/bus.ts';
 import { listApprovals } from '../hitl/approvals.ts';
 import { listByRun } from '../messaging/inbox.ts';
@@ -159,6 +160,7 @@ export function createRun(
       if (!agent?.enabled) throw new Error(`Agent 不存在或已停用: ${id}`);
       return agent;
     });
+    assertExternalAdmission(agents, mode, supervisorId);
     run(
       `INSERT INTO runs (id,conversation_id,turn_no,goal,mode,status,agent_ids,supervisor_id,default_reviewer_id,workspace,title,created_at,finished_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
@@ -415,6 +417,8 @@ interface UsageRow {
   cost_usd: number;
   llm_calls: number;
   tool_calls: number;
+  tokens_unknown: number;
+  cost_unknown: number;
 }
 
 function rowToUsage(row: UsageRow): UsageSummary {
@@ -425,6 +429,8 @@ function rowToUsage(row: UsageRow): UsageSummary {
     costUsd: row.cost_usd,
     llmCalls: row.llm_calls,
     toolCalls: row.tool_calls,
+    ...(row.tokens_unknown > 0 ? { hasUnknownTokens: true } : {}),
+    ...(row.cost_unknown > 0 ? { hasUnknownCost: true } : {}),
   };
 }
 
@@ -434,9 +440,13 @@ const USAGE_SQL = `
          SUM(tokens_out) AS tokens_out,
          SUM(cost_usd)   AS cost_usd,
          SUM(CASE WHEN span_kind = 'llm'  THEN 1 ELSE 0 END) AS llm_calls,
-         SUM(CASE WHEN span_kind = 'tool' THEN 1 ELSE 0 END) AS tool_calls
+         SUM(CASE WHEN span_kind = 'tool' THEN 1 ELSE 0 END) AS tool_calls,
+         SUM(CASE WHEN span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL
+           AND COALESCE(json_extract(attributes, '$."execution.usage_known"'),0)=0 THEN 1 ELSE 0 END) AS tokens_unknown,
+         SUM(CASE WHEN span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL
+           AND COALESCE(json_extract(attributes, '$."execution.cost_known"'),0)=0 THEN 1 ELSE 0 END) AS cost_unknown
   FROM run_events
-  WHERE status = 'ok'`;
+  WHERE (status = 'ok' OR (status = 'error' AND span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL))`;
 
 export function usageForRun(runId: string): UsageSummary | null {
   const row = get<UsageRow>(`${USAGE_SQL} AND run_id = ? GROUP BY run_id`, runId);

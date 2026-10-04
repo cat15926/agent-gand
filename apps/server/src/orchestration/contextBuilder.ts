@@ -2,6 +2,7 @@ import type { Run, Task, TaskAttempt } from '@agent-gand/shared';
 import { getTask } from '../messaging/tasks.ts';
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
+import { listExecutions } from '../execution/store.ts';
 
 function criteria(task: Task): string {
   return task.acceptanceCriteria.length > 0
@@ -46,6 +47,8 @@ export function buildWorkContext(run: Run, task: Task): string {
 }
 
 export function buildReviewContext(run: Run, task: Task, workAttempt: TaskAttempt): string {
+  const execution = listExecutions(run.id).find((execution) => execution.scopeId === `task:${task.id}:work:${workAttempt.attemptNo}` && execution.agentId === workAttempt.agentId);
+  const evidence = execution?.evidence;
   return [
     '__AGENT_GAND_REVIEW_JSON__',
     `总体目标：${run.goal}`,
@@ -54,6 +57,8 @@ export function buildReviewContext(run: Run, task: Task, workAttempt: TaskAttemp
     `验收标准：\n${criteria(task)}`,
     `依赖任务结果：\n${dependencyResults(task)}`,
     `Coder 本次输出：\n${workAttempt.output ?? '（空）'}`,
+    ...(execution?.snapshot ? [`本次审查使用固定快照：${execution.snapshot.commit}，目录 ${execution.snapshot.path}。`] : []),
+    ...(evidence ? [`平台采集的 Git HEAD：${evidence.head ?? '未知'}；证据${evidence.truncated ? '已截断，需检查真实文件' : '未截断'}\n执行前 diff：\n${evidence.beforeDiff || '（无）'}\n执行后 diff：\n${evidence.afterDiff || '（无）'}\n原生工具结果：\n${evidence.commands.map((command) => `${command.name} exit=${command.exitCode ?? '未知'}\n${command.output}`).join('\n')}`] : []),
     '请检查当前工作区中的真实产物。严格只输出 JSON，不要附加 Markdown 围栏或其他文字。',
   ].join('\n\n');
 }

@@ -48,6 +48,7 @@ import { armPermissionRequest, notifyApproval } from './services/notify';
 import { onServerEvent, onWsStatus } from './services/ws';
 
 export interface State {
+  executions: import('@agent-gand/shared').ExternalAgentExecution[];
   wsConnected: boolean;
   agents: AgentDefinition[];
   runs: Run[];
@@ -90,16 +91,17 @@ type Action =
   | { type: 'ws'; connected: boolean }
   | { type: 'hydrate'; runs: Run[]; conversations: Conversation[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
   | { type: 'agents'; agents: AgentDefinition[] }
-  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null }
+  | { type: 'runDetail'; runId: string; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null; executions: State['executions'] }
   | { type: 'setActiveRun'; runId: string | null }
   | { type: 'setActiveConversation'; conversationId: string | null; runId: string | null }
-  | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null }
+  | { type: 'conversationDetail'; conversationId: string; runs: Run[]; messages: Message[]; events: RunEvent[]; attempts: TaskAttempt[]; reviews: TaskReview[]; coordination: api.CoordinationRunDetail | null; executions: State['executions'] }
   | { type: 'collaborationDetail'; conversationId: string; details: api.CollaborationRunDetail[] }
   | { type: 'coordinationDetail'; runId: string; detail: api.CoordinationRunDetail | null }
   | { type: 'responsibilityDetail'; runId: string; snapshots: RuntimeResponsibilitySnapshot[] }
   | { type: 'serverEvent'; event: ServerEvent };
 
 const initialState: State = {
+  executions: [],
   wsConnected: false,
   agents: [],
   runs: [],
@@ -145,15 +147,15 @@ function reducer(state: State, action: Action): State {
     case 'agents':
       return { ...state, agents: action.agents };
     case 'setActiveRun':
-      return { ...state, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+      return { ...state, activeRunId: action.runId, executions: [], messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
-      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, executions: [], messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
         collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], holdRecoveryAudits: [], responsibilitySnapshots: [], actionCommands: [], shadowComparisons: [], collaborationBudgets: {}, collaborationScheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
-      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
+      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, executions: action.executions, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
         coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
         coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
         completionCandidates: action.coordination?.completionCandidates ?? state.completionCandidates,
@@ -188,7 +190,7 @@ function reducer(state: State, action: Action): State {
     case 'runDetail':
       // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
       if (action.runId !== state.activeRunId) return state;
-      return { ...state, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
+      return { ...state, executions: action.executions, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
         coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
         coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
         completionCandidates: action.coordination?.completionCandidates ?? state.completionCandidates,
@@ -222,6 +224,8 @@ function reducer(state: State, action: Action): State {
     case 'serverEvent': {
       const e = action.event;
       switch (e.type) {
+        case 'execution.updated':
+          return e.execution.runId === state.activeRunId ? { ...state, executions: upsertBy(state.executions, e.execution) } : state;
         case 'agent.updated':
           return { ...state, agents: e.agent.enabled ? upsertBy(state.agents, e.agent) : state.agents.filter((agent) => agent.id !== e.agent.id) };
         case 'message':
@@ -232,6 +236,9 @@ function reducer(state: State, action: Action): State {
           return { ...state, conversations: (e.conversation.archivedAt
             ? state.conversations.filter((item) => item.id !== e.conversation.id)
             : upsertBy(state.conversations, e.conversation)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) };
+        case 'llm.snapshot':
+          if (e.displayKind === 'review_protocol') return state;
+          return e.runId === state.activeRunId ? { ...state, streams: { ...state.streams, [e.spanId]: e.text } } : state;
         case 'llm.delta':
           if (e.displayKind === 'review_protocol') return state;
           // 流式增量只累积当前活动 run（其他 run 的 span 明细本就不维护）
@@ -354,7 +361,7 @@ async function loadCoordinationDetail(runId: string): Promise<api.CoordinationRu
 }
 
 async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Promise<void> {
-  const [detail, coordination] = await Promise.all([api.getRun(runId), loadCoordinationDetail(runId)]);
+  const [detail, coordination, executions] = await Promise.all([api.getRun(runId), loadCoordinationDetail(runId), api.getExternalExecutions(runId)]);
   dispatch({
     type: 'runDetail',
     runId,
@@ -363,17 +370,18 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
     attempts: detail.attempts,
     reviews: detail.reviews,
     coordination,
+    executions,
   });
 }
 
 async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
   const [room, collaboration] = await Promise.all([api.getConversation(conversationId), api.getConversationCollaboration(conversationId)]);
   const latest = room.runs.at(-1);
-  const [detail, coordination] = latest
-    ? await Promise.all([api.getRun(latest.id), loadCoordinationDetail(latest.id)])
-    : [null, null];
+  const [detail, coordination, executions] = latest
+    ? await Promise.all([api.getRun(latest.id), loadCoordinationDetail(latest.id), api.getExternalExecutions(latest.id)])
+    : [null, null, []];
   dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: room.messages,
-    events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [], coordination });
+    events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [], coordination, executions });
   dispatch({ type: 'collaborationDetail', conversationId, details: collaboration.runs });
 }
 

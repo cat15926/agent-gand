@@ -30,7 +30,7 @@ export function ObserveView() {
   const [graphFilter, setGraphFilter] = useState<RunGraphNode | null>(null);
   const [highlightedGraphNode, setHighlightedGraphNode] = useState<RunGraphNode | null>(null);
   const selectedRun = state.runs.find((run) => run.id === selected) ?? null;
-  const live = Boolean(selectedRun && !['completed', 'failed'].includes(selectedRun.status));
+  const live = Boolean(selectedRun && !['completed', 'failed', 'cancelled'].includes(selectedRun.status));
   const { data: observation, loading, error, liveDeltas, refresh } = useRunObservability(selected, live);
 
   useEffect(() => {
@@ -47,6 +47,8 @@ export function ObserveView() {
       duration: rows.length > 0 ? Math.max(...ends) - Math.min(...starts) : 0,
       tokens: rows.reduce((sum, node) => sum + node.span.tokensIn + node.span.tokensOut, 0),
       cost: rows.reduce((sum, node) => sum + node.span.costUsd, 0),
+      tokensUnknown: rows.some((node) => node.span.spanKind === 'llm' && node.span.attributes['execution.id'] && node.span.attributes['execution.usage_known'] !== true),
+      costUnknown: rows.some((node) => node.span.spanKind === 'llm' && node.span.attributes['execution.id'] && node.span.attributes['execution.cost_known'] !== true),
       errors: rows.filter((node) => node.span.status === 'error').length,
       agents: new Set(rows.map((node) => node.span.attributes['agent.id']).filter((value): value is string => typeof value === 'string')).size,
     };
@@ -64,7 +66,7 @@ export function ObserveView() {
       {!selectedRun && <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">选择左侧运行查看执行轨迹</div>}
       {selectedRun && <>
         <header className="shrink-0 border-b border-zinc-800 bg-[#111114] px-5 py-3"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><div className="mb-1 flex items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-[10px] ${STATUS_STYLE[selectedRun.status]}`}>{selectedRun.status}</span><span className="text-[10px] uppercase tracking-wider text-zinc-600">{selectedRun.mode} · Turn {selectedRun.turnNo}</span>{live && <span className="flex items-center gap-1 text-[10px] text-sky-300"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-300" />实时</span>}</div><h1 className="max-w-3xl truncate text-sm font-medium text-zinc-100" title={selectedRun.goal}>{selectedRun.title ?? selectedRun.goal}</h1></div><div className="flex items-center gap-2"><div className="flex rounded-lg bg-zinc-950 p-1 text-xs"><button type="button" onClick={() => setView('trajectory')} className={`rounded-md px-3 py-1.5 ${view === 'trajectory' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-500 hover:text-zinc-300'}`}>执行轨迹</button><button type="button" onClick={() => setView('graph')} className={`rounded-md px-3 py-1.5 ${view === 'graph' ? 'bg-violet-500/20 text-violet-200' : 'text-zinc-500 hover:text-zinc-300'}`}>编排拓扑</button></div><button type="button" onClick={refresh} disabled={loading} className="rounded-lg border border-zinc-800 px-2.5 py-2 text-xs text-zinc-500 hover:text-zinc-200 disabled:opacity-50" title="刷新观测数据">↻</button></div></div>
-          {observation && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">{[['总耗时', formatDuration(metrics.duration)], ['Span', String(observation.trace.totalSpans)], ['Agent', String(metrics.agents)], ['Token', metrics.tokens.toLocaleString()], ['成本', `$${metrics.cost.toFixed(4)}`], ['错误', String(metrics.errors)]].map(([label, value]) => <div key={label} className={`rounded-lg border px-3 py-2 ${label === '错误' && metrics.errors > 0 ? 'border-rose-500/30 bg-rose-500/5' : 'border-zinc-800 bg-zinc-950/50'}`}><div className="text-[9px] uppercase tracking-wider text-zinc-600">{label}</div><div className={`mt-0.5 font-mono text-xs ${label === '错误' && metrics.errors > 0 ? 'text-rose-300' : 'text-zinc-300'}`}>{value}</div></div>)}</div>}
+          {observation && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">{[['总耗时', formatDuration(metrics.duration)], ['Span', String(observation.trace.totalSpans)], ['Agent', String(metrics.agents)], ['Token', `${metrics.tokens.toLocaleString()}${metrics.tokensUnknown ? ' + 未知' : ''}`], ['成本', metrics.costUnknown ? '未知' : `$${metrics.cost.toFixed(4)}`], ['错误', String(metrics.errors)]].map(([label, value]) => <div key={label} className={`rounded-lg border px-3 py-2 ${label === '错误' && metrics.errors > 0 ? 'border-rose-500/30 bg-rose-500/5' : 'border-zinc-800 bg-zinc-950/50'}`}><div className="text-[9px] uppercase tracking-wider text-zinc-600">{label}</div><div className={`mt-0.5 font-mono text-xs ${label === '错误' && metrics.errors > 0 ? 'text-rose-300' : 'text-zinc-300'}`}>{value}</div></div>)}</div>}
         </header>
         {loading && !observation && <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">正在加载轨迹…</div>}
         {error && <div className="m-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-sm text-rose-300">观测数据加载失败：{error}</div>}

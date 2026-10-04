@@ -1,4 +1,5 @@
 export * from './agent.ts';
+export * from './execution.ts';
 export * from './message.ts';
 export * from './task.ts';
 export * from './run.ts';

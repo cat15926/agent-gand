@@ -1,6 +1,7 @@
 import type { AgentDefinition, ReviewIssue, Run, Task, TaskAttempt, TaskReview } from '@agent-gand/shared';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
 import { buildReviewContext } from './contextBuilder.ts';
+import { listExecutions } from '../execution/store.ts';
 
 const REVIEW_PROTOCOL = `返回格式：
 {"verdict":"PASS|FAIL","summary":"审查摘要","issues":[{"severity":"blocking|warning","file":"可选文件路径","line":1,"problem":"问题","suggestion":"修改建议"}]}
@@ -54,8 +55,10 @@ export async function reviewTask(input: {
   workAttempt: TaskAttempt;
   reviewer: AgentDefinition;
   parentSpanId: string;
+  reviewAttemptId?: string;
 }): Promise<Omit<TaskReview, 'id' | 'taskId' | 'attemptId' | 'reviewerId' | 'createdAt'>> {
   const base = buildReviewContext(input.run, input.task, input.workAttempt);
+  const source = listExecutions(input.run.id).find((execution) => execution.scopeId === `task:${input.task.id}:work:${input.workAttempt.attemptNo}` && execution.agentId === input.workAttempt.agentId);
   let previous = '';
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const prompt = attempt === 0
@@ -72,9 +75,10 @@ export async function reviewTask(input: {
       ],
       agentId: input.reviewer.id,
       taskId: input.task.id,
-      attemptId: input.workAttempt.id,
+      attemptId: input.reviewAttemptId ?? input.workAttempt.id,
       displayKind: 'review_protocol',
       executionScopeId: `task:${input.task.id}:review:${input.workAttempt.attemptNo}:${attempt}`,
+      reviewSourceExecutionId: source?.snapshot ? source.id : undefined,
     });
     previous = turn.content;
     const parsed = parseReview(previous);

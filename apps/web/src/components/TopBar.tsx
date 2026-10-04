@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<string, string> = {
   waiting_for_user: '等待你的决定',
   completed: '已完成',
   failed: '失败',
+  cancelled: '已停止',
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -19,6 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
   waiting_for_user: 'bg-violet-400 animate-pulse',
   completed: 'bg-emerald-400',
   failed: 'bg-red-500',
+  cancelled: 'bg-zinc-500',
 };
 
 export function TopBar() {
@@ -49,7 +51,7 @@ export function TopBar() {
       )}
 
       <span className="ml-auto text-xs text-zinc-400">
-        用量 <span className="font-mono text-zinc-200">{tokens.toLocaleString()}</span> tokens
+        用量 <span className="font-mono text-zinc-200">{tokens.toLocaleString()}</span> tokens{state.usage.some((item) => item.hasUnknownTokens) ? ' + 未知用量' : ''}
       </span>
       <span className="flex items-center gap-1.5 text-xs text-zinc-500">
         <span
