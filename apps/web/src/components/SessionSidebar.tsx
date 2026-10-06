@@ -36,16 +36,16 @@ export function SessionSidebar(props: {
 
   if (props.collapsed) return (
     <aside className="flex w-12 shrink-0 flex-col items-center gap-2 border-r border-zinc-800 bg-zinc-900/70 py-3">
-      <button onClick={props.onToggleCollapse} className="rounded-lg px-2 py-1 text-zinc-400 hover:bg-zinc-800" title="展开聊天室">»</button>
-      <button onClick={props.onNewSession} className="rounded-lg px-2 py-1 text-violet-300 hover:bg-violet-500/15" title="新聊天室">＋</button>
+      <button onClick={props.onToggleCollapse} className="rounded-lg px-2 py-1 text-zinc-400 hover:bg-zinc-800" aria-label="展开聊天室" title="展开聊天室">»</button>
+      <button onClick={props.onNewSession} className="rounded-lg px-2 py-1 text-violet-300 hover:bg-violet-500/15" aria-label="新聊天室" title="新聊天室">＋</button>
     </aside>
   );
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/70">
+    <aside className="flex w-64 max-md:w-40 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/70">
       <div className="flex gap-2 border-b border-zinc-800 p-3">
         <button onClick={props.onNewSession} className="flex-1 rounded-lg bg-violet-500/20 px-3 py-2 text-xs text-violet-200 hover:bg-violet-500/30">＋ 新聊天室</button>
-        <button onClick={props.onToggleCollapse} className="rounded-lg px-2 text-zinc-500 hover:bg-zinc-800">«</button>
+        <button aria-label="收起聊天室" onClick={props.onToggleCollapse} className="rounded-lg px-2 text-zinc-500 hover:bg-zinc-800">«</button>
       </div>
       <div className="border-b border-zinc-800 p-3">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索聊天室…"
@@ -66,7 +66,7 @@ export function SessionSidebar(props: {
               </div>
               <p className="mt-1 truncate pl-4 text-[11px] text-zinc-500">{room.latestMessage ?? `${room.runCount} 轮执行`}</p>
               <div className="mt-1.5 flex gap-1.5 pl-4 text-[10px] text-zinc-600">
-                <span>{room.mode === 'supervisor' ? '主管委派' : room.mode === 'collaboration' ? '自由协作' : '顺序流水线'}</span><span>·</span><span>{room.agentIds.length} 位成员</span>
+                <span>{'候选团队'}</span><span>·</span><span>{room.agentIds.length} 位成员</span>
               </div>
             </>}
           </button>;

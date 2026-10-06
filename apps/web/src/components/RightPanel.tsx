@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { ApprovalCard } from './ApprovalCard';
 import * as api from '../services/api';
-import { canStopCollaborationRun, collaborationAttemptTone, collaborationBatchProgress } from '../collaborationView';
+import { collaborationAttemptTone, collaborationBatchProgress } from '../collaborationView';
 
 const SPAN_COLOR: Record<string, string> = {
   llm: 'text-sky-300',
@@ -53,19 +53,17 @@ const SHADOW_CLASSIFICATION_LABEL: Record<string, string> = {
 };
 
 export function RightPanel() {
-  const { state, refreshConversation } = useStore();
+  const { state } = useStore();
   const [tab, setTab] = useState<'collaboration' | 'tasks' | 'approvals' | 'trace' | 'usage'>('collaboration');
+  const [actionError, setActionError] = useState('');
   const [actingTask, setActingTask] = useState<string | null>(null);
-  const [stoppingRun, setStoppingRun] = useState(false);
-  const [coordinationAction, setCoordinationAction] = useState(false);
-  const [revisionInstruction, setRevisionInstruction] = useState('');
 
   async function taskAction(taskId: string, action: 'retry' | 'cancel') {
-    setActingTask(taskId);
+    setActingTask(taskId); setActionError('');
     try {
       if (action === 'retry') await api.retryTask(taskId);
       else await api.cancelTask(taskId);
-    } finally {
+    } catch (reason) { setActionError(reason instanceof Error ? reason.message : String(reason)); } finally {
       setActingTask(null);
     }
   }
@@ -104,36 +102,8 @@ export function RightPanel() {
   const activeBlockers = activeResponsibilitySnapshots.flatMap((snapshot) => snapshot.completionBlockers
     .map((blocker) => ({ snapshot, blocker })));
 
-  async function stopRun() {
-    if (!activeRun || stoppingRun || !window.confirm('停止本轮协作？正在运行和排队的工作都会取消。')) return;
-    setStoppingRun(true);
-    try { await api.stopCollaborationRun(activeRun.id); await refreshConversation(); }
-    finally { setStoppingRun(false); }
-  }
-
-  async function pausePlan() {
-    if (!activeRun || coordinationAction) return;
-    setCoordinationAction(true);
-    try { await api.pauseCoordinationRun(activeRun.id); await refreshConversation(); }
-    finally { setCoordinationAction(false); }
-  }
-
-  async function resumePlan() {
-    if (!activeRun || coordinationAction) return;
-    setCoordinationAction(true);
-    try { await api.resumeCoordinationRun(activeRun.id); await refreshConversation(); }
-    finally { setCoordinationAction(false); }
-  }
-
-  async function revisePlan() {
-    if (!activeRun || coordinationAction || !revisionInstruction.trim()) return;
-    setCoordinationAction(true);
-    try { await api.reviseCoordinationRun(activeRun.id, revisionInstruction.trim()); setRevisionInstruction(''); await refreshConversation(); }
-    finally { setCoordinationAction(false); }
-  }
-
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-800 bg-zinc-900/60">
+    <aside className="hidden w-80 shrink-0 xl:flex flex-col border-l border-zinc-800 bg-zinc-900/60">
       <div className="flex shrink-0 border-b border-zinc-800 text-xs">
         {(
           [
@@ -159,19 +129,14 @@ export function RightPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'collaboration' && <div className="space-y-3 text-xs">
           {terminalDispositionLabel && <div className={`rounded-lg border px-3 py-2 ${activeRun?.terminalDisposition === 'failed' ? 'border-red-500/20 bg-red-500/5 text-red-300' : activeRun?.terminalDisposition === 'cancelled' ? 'border-amber-500/20 bg-amber-500/5 text-amber-300' : 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'}`}><span className="text-zinc-500">本轮终局：</span>{terminalDispositionLabel}</div>}
-          {!state.coordinationPlan && canStopCollaborationRun(activeRun) && <button disabled={stoppingRun} onClick={() => void stopRun()} className="w-full rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-left text-red-300 disabled:opacity-50">{stoppingRun ? '正在停止…' : '停止本轮协作'}</button>}
+
           {state.coordinationPlan && <>
             <div className="rounded-lg border border-fuchsia-500/20 bg-fuchsia-500/5 p-2.5">
               <div className="flex items-center justify-between gap-2"><span className="font-medium text-fuchsia-200">Coordination Plan</span><span className={state.coordinationPlan.status === 'failed' ? 'text-red-300' : state.coordinationPlan.status === 'completed' ? 'text-emerald-300' : 'text-sky-300'}>{state.coordinationPlan.status}</span></div>
               <div className="mt-1 text-[11px] text-zinc-500">{state.coordinationPlan.protocols.map((item) => item.protocol).join(' → ')}</div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-fuchsia-400 transition-all" style={{ width: `${state.coordinationSteps.length > 0 ? coordinationCompleted / state.coordinationSteps.length * 100 : 0}%` }} /></div>
               <div className="mt-1 text-right text-[10px] text-zinc-600">{coordinationCompleted}/{state.coordinationSteps.length} 步</div>
-              <div className="mt-2 flex gap-2">
-                {['validated', 'active'].includes(state.coordinationPlan.status) && <button disabled={coordinationAction} onClick={() => void pausePlan()} className="rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200 disabled:opacity-40">暂停并调整</button>}
-                {state.coordinationPlan.status === 'pause_requested' && <span className="text-[11px] text-amber-300">将在当前步骤批次结束后暂停</span>}
-                {state.coordinationPlan.status === 'paused' && <button disabled={coordinationAction} onClick={() => void resumePlan()} className="rounded bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200 disabled:opacity-40">直接恢复</button>}
-              </div>
-              {state.coordinationPlan.status === 'paused' && <div className="mt-2 space-y-2"><textarea value={revisionInstruction} onChange={(event) => setRevisionInstruction(event.target.value)} rows={2} placeholder="用自然语言调整后续计划…" className="w-full rounded bg-zinc-950/70 p-2 text-[11px] text-zinc-300 outline-none ring-1 ring-zinc-700 focus:ring-fuchsia-500" /><button disabled={coordinationAction || !revisionInstruction.trim()} onClick={() => void revisePlan()} className="rounded bg-fuchsia-500/20 px-2 py-1 text-[11px] text-fuchsia-200 disabled:opacity-40">生成新 Revision</button></div>}
+              <p className="mt-2 text-[11px] text-zinc-500">暂停、恢复和修订请使用聊天中的对应任务卡。</p>
             </div>
             <div className="space-y-1.5">{state.coordinationSteps.map((step) => {
               const definition = state.coordinationPlan?.steps.find((item) => item.id === step.stepId);
@@ -201,6 +166,7 @@ export function RightPanel() {
         </div>}
         {tab === 'tasks' && (
           <div className="space-y-2">
+            {actionError && <p role="alert" className="text-xs text-red-300">{actionError}</p>}
             {state.scheduler && (
               <div className="rounded-md bg-violet-500/10 px-2 py-1.5 text-[11px] text-violet-300">
                 调度中 {state.scheduler.active} · 排队 {state.scheduler.queued}
@@ -252,7 +218,7 @@ export function RightPanel() {
                     )}
                     {task.lastError && <div className="text-red-300">{task.lastError}</div>}
                     <div className="flex gap-2 pt-1">
-                      {task.status === 'failed' && (
+                      {task.status === 'failed' && activeRun?.mode === 'supervisor' && task.createdBy !== 'system' && (
                         <button disabled={actingTask === task.id} onClick={() => void taskAction(task.id, 'retry')} className="rounded bg-violet-500/20 px-2 py-1 text-violet-200 disabled:opacity-40">
                           人工重试
                         </button>

@@ -31,15 +31,18 @@ const provider = createServer((request, response) => { void (async () => {
   } catch (error) { providerError = error; response.writeHead(500).end('{}'); }
 })(); });
 await new Promise((resolve) => provider.listen(0, '127.0.0.1', resolve));
-Object.assign(process.env, { DB_PATH: path.join(root, 'test.sqlite'), EXTERNAL_CLAUDE_HOME: configDir,
+Object.assign(process.env, { AGENT_GAND_ISOLATED_WORKER: '1', AGENT_GAND_PRIVATE_DIR: path.join(root, 'private'), ACCOUNT_MASTER_KEY: '',
+  DB_PATH: path.join(root, 'test.sqlite'), EXTERNAL_CLAUDE_HOME: configDir,
   ANTHROPIC_API_KEY: 'fixture-no-inference', ANTHROPIC_BASE_URL: `http://127.0.0.1:${provider.address().port}`,
   CLAUDE_CODE_OAUTH_TOKEN: '', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_TELEMETRY: '1' });
 delete process.env.EXTERNAL_CLAUDE_SDK_WORKER_COMMAND;
 const { invokeClaudeSdk } = await import('../apps/server/src/execution/nativeDrivers.ts');
 const { closeDatabase } = await import('../apps/server/src/db/database.ts');
+const { cleanEnvironment } = await import('../apps/server/src/accounts/environment.ts');
 const id = randomUUID(); const projectDir = 'agent-gand-probe-' + randomUUID();
 const observed = [];
 const base = { cwd, model: 'default', instructions: 'Answer the current local fixture briefly.', permissionMode: 'readonly', controlOnly: true,
+  environment: cleanEnvironment({ ANTHROPIC_API_KEY: 'fixture-no-inference', ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' }),
   correctionMaxTokens: 2048, signal: new AbortController().signal, timeoutMs: 30000, onEvent: (event) => observed.push(event) };
 try {
   const first = await invokeClaudeSdk({ ...base, prompt: 'SDK_FIRST_TASK_MARKER', session: { id, resume: false, configDir, projectDir } });

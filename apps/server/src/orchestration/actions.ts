@@ -20,6 +20,7 @@ import { resumeSupervisorRun } from './supervisor.ts';
 import { prepareAdapterTurns } from './admittedTurn.ts';
 import { config } from '../config.ts';
 import { post } from '../messaging/inbox.ts';
+import { assertLegacyAdmission } from './rollout.ts';
 
 const terminal = (item: Run) => ['completed','failed','cancelled'].includes(item.status);
 const reject = (message: string, status = 409): never => { throw Object.assign(new Error(message), { status }); };
@@ -91,6 +92,7 @@ export function retryTaskExecution(taskId: string): Task {
     || get("SELECT id FROM tool_executions WHERE run_id=? AND (status IN ('running','needs_attention') OR (replay_policy='manual' AND status IN ('failed','interrupted')))", source.id)) return reject('存在未确认的执行或写入，需先核对工作区并创建新任务');
   if (get("SELECT id FROM external_agent_executions WHERE run_id=? AND COALESCE(json_extract(record,'$.permissionMode'),'readonly')!='readonly'", source.id)) return reject('原生写入分支需要先核对并迁移已确认的工作区，不能只复用文字结果');
   if (!terminal(source)) { const retried = retryTask(taskId); void resumeSupervisorRun(source.id).catch(() => {}); return retried; }
+  assertLegacyAdmission(); // A terminal branch retry creates a new Run; an active branch stays admitted.
   const result = tx(() => {
     const duplicate = get<{ target_task_id: string }>('SELECT target_task_id FROM orchestration_task_retries WHERE source_task_id=?', taskId);
     if (duplicate) return getTask(duplicate.target_task_id)!;

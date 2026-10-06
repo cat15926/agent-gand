@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import type { OrchestrationPreview, OrchestrationPreviewInput, OrchestrationSource, RunOrchestrationSnapshot } from '@agent-gand/shared';
+import { validateRoomPreferences } from '../conversations/entry.ts';
 import { getAnyAgent } from '../agents/registry.ts';
 import { get, run, tx } from '../db/database.ts';
 import { createConversation, getConversation, nextTurnNo, touchConversation } from '../conversations/service.ts';
@@ -20,6 +21,7 @@ import { parseDecomposition, type DecomposedTask } from './supervisor.ts';
 import { saveCheckpoint } from '../runs/checkpoints.ts';
 import { assertCoordinationRecoveryReady } from '../coordination/runtime.ts';
 import { getRun } from '../runs/trace.ts';
+import { assertOrchestrationAdmission, orchestrationAdmissionIssues } from './rollout.ts';
 
 const fields = ['goal','conversationId','agentIds','recipientIds','strategy','workflow','workspace','supervisorId',
   'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning'];
@@ -30,11 +32,14 @@ const shape = (preview: OrchestrationPreview) => preview.plan?.plan.steps.map(({
   ({ id, protocol, type, agentId, dependsOn, metadata, toolPolicy, maxAttempts, tokenBudget, timeoutMs })) ?? null;
 
 function prepare(value: Record<string, unknown>, source: OrchestrationSource): StoredPreview {
-  const input = { ...value, strategy: value.strategy ?? 'auto', workflow: value.workflow ?? 'routine' } as unknown as OrchestrationPreviewInput;
+  const room = typeof value.conversationId === 'string' ? getConversation(value.conversationId) : null;
+  if (room?.preferencesIssue && value.revisionRunId === undefined) invalid('ROOM_PREFERENCES_INVALID',room.preferencesIssue);
+  const defaults = room?.preferences;
+  const input = { ...(defaults ?? {}), ...value, strategy: value.strategy ?? defaults?.strategy ?? 'auto', workflow: value.workflow ?? defaults?.workflow ?? 'routine' } as unknown as OrchestrationPreviewInput;
   const old = prepareOrchestration(input, source);
   const replied = input.replyTo && input.conversationId
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
-  const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined);
+  const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
   const add = (code: string, message: string) => decision.issues.push({ code, message, severity: 'error' });
@@ -62,9 +67,23 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource): S
 
 export async function previewExecutionOrchestration(value: unknown, source: OrchestrationSource = 'unified_preview'): Promise<OrchestrationPreview> {
   const body = objectInput(value);
-  if (Object.keys(body).some(key => !fields.includes(key))) invalid('UNKNOWN_FIELD','预览请求包含未知字段',400);
+  if (Object.keys(body).some(key => ![...fields,'revisionRunId'].includes(key))) invalid('UNKNOWN_FIELD','预览请求包含未知字段',400);
+  const revisionRun = typeof body.revisionRunId === 'string' ? getRun(body.revisionRunId) : null;
+  if (body.revisionRunId !== undefined && (!revisionRun || revisionRun.conversationId !== body.conversationId
+    || revisionRun.status !== 'waiting_for_user' || getRunCoordinationPlan(revisionRun.id)?.status !== 'paused'
+    || getRunOrchestrationSnapshot(revisionRun.id)?.execution?.engine !== 'coordination')) invalid('REVISION_UNSUPPORTED','修订预览需要属于当前房间的已暂停步骤图');
   if (body.planning !== undefined && !['rules','detailed'].includes(String(body.planning))) invalid('INVALID_PLANNING','planning 必须为 rules 或 detailed',400);
   const stored = prepare(body, source), preview = stored.preview;
+  if (revisionRun) {
+    const original=getRunOrchestrationSnapshot(revisionRun.id)!;
+    assertCoordinationRecoveryReady(revisionRun.id);
+    if (preview.request.workflow !== original.request.workflow
+      || preview.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
+      || stableDigest(preview.request.constraints) !== stableDigest(original.request.constraints)) {
+      invalid('REVISION_POLICY_CONFLICT','修订预览必须保留原任务的工作流、工作区和预算；修改这些设置请创建新任务');
+    }
+  }
+  if (body.planning === 'detailed' && !revisionRun) assertOrchestrationAdmission(preview);
   if (body.planning === 'detailed' && !preview.decision.execution!.plannerRequired) invalid('DETAILED_PLANNING_NOT_REQUIRED','详细规划只用于主管拆解；当前工作流使用确定性模板',400);
   if (body.planning === 'detailed' && !hasErrors(preview)) {
     const agents = preview.decision.execution!.participantIds.map(id => getAnyAgent(id)!);
@@ -103,6 +122,9 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
   }
   preview.previewId = randomUUID();
   run('INSERT INTO orchestration_previews(id,fingerprint,payload,created_at) VALUES (?,?,?,?)', preview.previewId, preview.fingerprint, JSON.stringify(stored), new Date().toISOString());
+  // Rollout conditions are absent from frozen fingerprints. Already admitted graph revisions
+  // remain available when new entry is closed; submission still checks its own gate.
+  if (!revisionRun) preview.decision.issues.push(...orchestrationAdmissionIssues(preview));
   return preview;
 }
 
@@ -112,7 +134,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
   const body = objectInput(value);
   if (conversationId && body.conversationId !== undefined && body.conversationId !== conversationId) invalid('ROOM_REFERENCE_CONFLICT','conversationId 与请求路径不一致',400);
   conversationId ??= typeof body.conversationId === 'string' ? body.conversationId : undefined;
-  const allowed = [...fields,'entryVersion','previewId','orchestrationFingerprint','body','clientMessageId','mode'];
+  const allowed = [...fields,'entryVersion','previewId','orchestrationFingerprint','body','clientMessageId','mode','roomTitle','roomPreferences'];
   if (Object.keys(body).some(key => !allowed.includes(key))) invalid('UNKNOWN_FIELD','提交包含未知字段',400);
   if (body.entryVersion !== undefined && body.entryVersion !== 1) invalid('INVALID_ENTRY_VERSION','entryVersion 必须为 1',400);
   const input = Object.fromEntries(fields.filter(key => body[key] !== undefined).map(key => [key,body[key]]));
@@ -122,7 +144,10 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
   if (typeof input.clientRequestId !== 'string' || input.clientRequestId.length < 8 || input.clientRequestId.length > 100) invalid('INVALID_IDEMPOTENCY_KEY','clientRequestId 长度必须为 8～100',400);
   if (typeof input.goal !== 'string' || !input.goal.trim()) invalid('MISSING_GOAL','goal 必填',400);
   const scope = conversationId ? `conversation:${conversationId}` : `entry:${source}`;
-  const submissionDigest = stableDigest({ entryVersion: 1, input, previewId: body.previewId ?? null });
+  if (conversationId && (body.roomTitle !== undefined || body.roomPreferences !== undefined)) invalid('INVALID_ROOM_SETTINGS','房间设置需要通过独立入口修改',400);
+  if (body.roomTitle !== undefined && (typeof body.roomTitle !== 'string' || !body.roomTitle.trim() || body.roomTitle.length > 80)) invalid('INVALID_TITLE','房间名称长度应为 1～80',400);
+  const roomPreferences = body.roomPreferences !== undefined ? validateRoomPreferences(body.roomPreferences, input.agentIds as string[]) : undefined;
+  const submissionDigest = stableDigest({ entryVersion: 1, input, previewId: body.previewId ?? null, roomTitle: body.roomTitle, roomPreferences });
   return tx(() => {
     const existing = getSubmissionSnapshot(scope, input.clientRequestId as string);
     if (existing) {
@@ -133,6 +158,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
         plan: getRunCoordinationPlan(currentRun.id) ?? null, deduplicated: true };
     }
     const fresh = prepare(input, source);
+    assertOrchestrationAdmission(fresh.preview);
     let prepared = fresh.preview;
     if (typeof body.previewId === 'string') {
       const row = get<{ payload: string }>('SELECT payload FROM orchestration_previews WHERE id=?', body.previewId);
@@ -146,7 +172,8 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
     if (prepared.decision.execution!.plannerRequired && !prepared.plan) invalid('DETAILED_PLAN_REQUIRED','请显式生成详细主管计划并确认后执行');
     const request = { ...prepared.request, source, clientRequestId: input.clientRequestId as string };
     const decision = prepared.decision;
-    const room = conversationId ? getConversation(conversationId)! : createConversation({ title: request.goal.slice(0,80),
+    const room = conversationId ? getConversation(conversationId)! : createConversation({ title: typeof body.roomTitle === 'string' ? body.roomTitle.trim() : request.goal.slice(0,80),
+      preferences: roomPreferences, stableWorkspace: true,
       mode: 'collaboration', agentIds: request.agentIds, workspace: request.workspace,
       supervisorId: request.supervisorId, defaultReviewerId: request.defaultReviewerId });
     const currentRun = createRun(request.goal, decision.execution!.engine === 'collaboration' ? 'collaboration' : 'pipeline',
@@ -205,7 +232,7 @@ export function reviseExecutionOrchestration(runId: string, value: unknown) {
     if (!row) invalid('PREVIEW_NOT_FOUND','修订预览不存在');
     const stored = JSON.parse(row.payload) as StoredPreview, candidate = stored.preview;
     if (candidate.fingerprint !== body.orchestrationFingerprint || hasErrors(candidate) || !candidate.plan) invalid('REVISION_PREVIEW_INVALID','修订预览未通过校验或未生成完整图');
-    if (candidate.request.conversationId !== currentRun.conversationId || candidate.request.workspace !== original.request.workspace
+    if (candidate.request.conversationId !== currentRun.conversationId || candidate.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
       || candidate.request.workflow !== original.request.workflow || candidate.decision.execution?.engine !== 'coordination'
       || stableDigest(candidate.request.constraints) !== stableDigest(original.request.constraints)
       || candidate.decision.execution.readonly !== original.execution.readonly) invalid('REVISION_POLICY_CONFLICT','本轮工作流、工作区、预算和读写政策已冻结；改变这些设置请创建新任务');

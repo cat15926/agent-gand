@@ -76,9 +76,32 @@ export function memberQueue(runId?: string) {
 export function recoverMemberAdmissions(): void {
   for (const item of all<Ticket>("SELECT * FROM execution_member_tickets WHERE status='active'")) {
     if (item.owner && ownerAlive(item)) continue;
+    const source = get<{ attempt_id: string | null }>('SELECT attempt_id FROM execution_member_tickets WHERE seq=?',item.seq);
+    if (source?.attempt_id) {
+      // The member ticket proves this attempt's process is gone. Let the existing lease
+      // recovery interrupt it now instead of delaying a known approval boundary for 5 min.
+      run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE id=? AND status='running'",new Date().toISOString(),source.attempt_id);
+    }
     const scope = item.ticket_key.slice(`${item.run_id}:${item.agent_id}:`.length);
     const persisted = get("SELECT id FROM run_checkpoints WHERE run_id=? AND kind='agent_turn' AND phase='completed' AND json_extract(state,'$.executionScopeId')=?", item.run_id, scope);
     if (persisted) { run("UPDATE execution_member_tickets SET status='done' WHERE seq=?", item.seq); continue; }
+    // A builtin response already persisted its tool calls and is waiting for approval.
+    // Recover gates with the same logical keys; never resend that model request. A native
+    // approval or an uncertain manual tool remains fenced and cannot use this exception.
+    const approvalBoundary = get(`SELECT a.id FROM approvals a JOIN run_checkpoints p ON p.id=a.checkpoint_id
+      JOIN runs r ON r.id=a.run_id JOIN run_agent_snapshots s ON s.run_id=r.id AND s.agent_id=a.agent_id
+      WHERE a.run_id=? AND a.agent_id=? AND a.status='pending' AND r.status='awaiting_approval'
+        AND COALESCE(json_extract(s.definition,'$.execution.kind'),'builtin')!='external'
+        AND json_extract(p.state,'$.executionScopeId')=?
+        AND NOT EXISTS (SELECT 1 FROM external_agent_approvals n WHERE n.approval_id=a.id)
+        AND NOT EXISTS (SELECT 1 FROM tool_executions t WHERE t.run_id=r.id
+          AND (t.status IN ('running','needs_attention') OR t.replay_policy='manual' AND t.status IN ('failed','interrupted')))
+        AND EXISTS (SELECT 1 FROM run_checkpoints c WHERE c.id=(SELECT id FROM run_checkpoints WHERE run_id=r.id AND kind='agent_turn' ORDER BY seq DESC LIMIT 1)
+          AND c.phase='tool_calls_ready' AND json_extract(c.state,'$.executionScopeId')=?)`,item.run_id,item.agent_id,scope,scope);
+    if (approvalBoundary) {
+      run("UPDATE execution_member_tickets SET status='waiting',owner=NULL,host=NULL,pid=NULL,identity=NULL,started_at=NULL WHERE seq=?",item.seq);
+      continue;
+    }
     const current = getRun(item.run_id);
     run("UPDATE execution_member_tickets SET status='interrupted' WHERE seq=?", item.seq);
     if (current && !['completed','failed','cancelled'].includes(current.status)) {

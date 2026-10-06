@@ -1,4 +1,6 @@
 import { applyRunAction, cancelTaskExecution, retryTaskExecution } from '../orchestration/actions.ts';
+import { get } from '../db/database.ts';
+import { createEmptyRoom, validateRoomPreferences } from '../conversations/entry.ts';
 import { memberQueue } from '../execution/memberAdmission.ts';
 /**
  * REST API（规格 §4.3 全部端点）
@@ -11,7 +13,8 @@ import type { AgentSaveInput, AgentMessageType, CoordinationPreviewInput, Follow
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
 import { preflightAgent } from '../agents/preflight.ts';
-import { prepareOrchestration, submitLegacyOrchestration, validateLegacyTeam as validateTeam } from '../orchestration/service.ts';
+import { prepareOrchestration, submitLegacyOrchestration } from '../orchestration/service.ts';
+import { assertLegacyAdmission, entryStatistics, recordEntryStatistics } from '../orchestration/rollout.ts';
 import { OrchestrationError } from '../orchestration/normalize.ts';
 import { getRunOrchestrationSnapshot } from '../orchestration/store.ts';
 import { previewExecutionOrchestration, submitExecutionOrchestration, reviseExecutionOrchestration, usesExecutionEntry } from '../orchestration/entry.ts';
@@ -32,7 +35,7 @@ import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, re
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
 import { resumeSupervisorRun } from '../orchestration/supervisor.ts';
-import { archiveConversation, getConversation, listConversations, renameConversation, updateConversationMembers } from '../conversations/service.ts';
+import { archiveConversation, getConversation, listConversations, renameConversation, updateConversationMembers, updateRoomPreferences } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import { resolveCollaborationDecision, CollaborationDecisionError } from '../collaboration/decisions.ts';
 import { closeCollaborationTrace, settleCollaborationRun } from '../collaboration/scheduler.ts';
@@ -127,6 +130,20 @@ function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: un
 }
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  const entryEndpoints = new Set(['/api/conversations','/api/conversations/empty','/api/conversations/:id/messages','/api/conversations/:id/requests','/api/runs','/api/orchestration/preview','/api/coordination/preview','/api/conversations/:id/followup-preview']);
+  const format = (endpoint: string, body: unknown): 'legacy' | 'unified' => ['/api/coordination/preview','/api/conversations/:id/followup-preview'].includes(endpoint)
+    || ['/api/conversations','/api/conversations/:id/messages','/api/runs'].includes(endpoint) && !usesExecutionEntry(body && typeof body === 'object' ? body as Record<string,unknown> : {}) ? 'legacy' : 'unified';
+  app.addHook('onSend', async (req,reply,payload) => {
+    const endpoint = req.routeOptions.url ?? '';
+    if (req.method === 'POST' && entryEndpoints.has(endpoint) && format(endpoint,req.body) === 'legacy') {
+      reply.header('Deprecation','true'); reply.header('Link','</api/orchestration/preview>; rel="successor-version"');
+    }
+    return payload;
+  });
+  app.addHook('onResponse', async (req,reply) => {
+    const endpoint = req.routeOptions.url ?? '';
+    if (req.method === 'POST' && entryEndpoints.has(endpoint)) recordEntryStatistics(endpoint,format(endpoint,req.body),reply.statusCode);
+  });
   app.setErrorHandler((err, req, reply) => {
     const status = (err as { status?: number }).status;
     const code = typeof status === 'number' ? status : 500;
@@ -232,7 +249,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: unknown }>('/api/orchestration/preview', async (req) => previewExecutionOrchestration(req.body));
   app.get('/api/orchestration/options', async () => ({ version: 'o4-workflows-v1', templateVersion: 'o4-workflows-v1', resolverVersion: 'o4-rules-v1',
     strategies: ['auto','parallel','serial'], workflows: ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'],
+    admission: config.orchestrationRollout,
+    verificationEnvironment: { fixture: process.env.NODE_ENV === 'test', claudeSdkWorker: config.externalAgents.sdkWorkerCommand ? 'custom' : 'bundled' },
     detailedPlanning: { explicitOnly: true, consumesQuota: true, maximumTasks: 5 }, maximumDebateRounds: 10 }));
+  app.get('/api/orchestration/entry-statistics', async () => ({ statistics: entryStatistics(), containsRequestContent: false }));
   app.post<{ Params: { id: string }; Body: unknown }>('/api/conversations/:id/requests', async (req, reply) => {
     const result = submitExecutionOrchestration(req.body, req.params.id);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
@@ -248,6 +268,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { snapshot, comparisonOnly: snapshot?.comparisonOnly ?? true };
   });
   app.post<{ Body: Partial<CoordinationPreviewInput> }>('/api/coordination/preview', async (req, reply) => {
+    assertLegacyAdmission();
     const { goal, agentIds, defaultReviewerId, requestedProtocol, replacesDraftId } = req.body ?? {};
     if (typeof goal !== 'string' || goal.trim().length === 0) throw httpError(400, 'goal 必填');
     if (!Array.isArray(agentIds) || agentIds.length === 0 || !agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
@@ -377,6 +398,31 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 聊天室：一个房间包含多轮 Run ----
 
+  app.post<{ Body: unknown }>('/api/conversations/empty', async (req,reply) => { reply.code(201); return { conversation: createEmptyRoom(req.body) }; });
+  app.get('/api/orchestration/members', async () => ({ reservations: memberQueue() }));
+  app.get<{ Params: { id: string } }>('/api/conversations/:id/task-state', async req => {
+    if (!getConversation(req.params.id)) throw httpError(404,'聊天室不存在');
+    return { tasks: listRunsByConversation(req.params.id).map(item => {
+      const plan = getRunCoordinationPlan(item.id);
+      const control = get<{ pause_requested: number; recovery_attention: number; reason: string | null }>('SELECT * FROM orchestration_run_controls WHERE run_id=?', item.id);
+      const unknown = Boolean(control?.recovery_attention || get("SELECT id FROM external_agent_executions WHERE run_id=? AND status='interrupted' LIMIT 1",item.id));
+      const snapshot = getRunOrchestrationSnapshot(item.id);
+      const writeStarted = snapshot?.execution?.readonly === false && Boolean(get('SELECT id FROM coordination_step_attempts WHERE run_id=? LIMIT 1',item.id));
+      const latestPreview = plan && plan.revision > 1 ? get<{ payload: string }>("SELECT p.payload FROM orchestration_previews p JOIN coordination_plan_revisions r ON p.id=json_extract(r.payload,'$.confirmationPreviewId') WHERE r.plan_id=? AND r.revision=?",plan.id,plan.revision) : null;
+      return { runId: item.id, revisedGoal: latestPreview ? JSON.parse(latestPreview.payload).preview.request.goal as string : null, revisionBlockedReason: writeStarted ? '写入任务已经开始，不能重建图；请检查变更后创建新任务。' : null, snapshot, planStatus: plan?.status ?? null,
+        revision: plan?.revision ?? null, pauseRequested: Boolean(control?.pause_requested || plan?.status === 'pause_requested'),
+        paused: item.status === 'waiting_for_user' && (plan?.status === 'paused' || Boolean(control?.pause_requested)),
+        attention: unknown, reason: control?.reason ?? (unknown ? '原生执行结果未知，请核对工作区后创建新任务' : null),
+        reservations: memberQueue(item.id) };
+    }) };
+  });
+  app.patch<{ Params: { id: string }; Body: { preferences?: unknown; expectedMembersVersion?: number } }>('/api/conversations/:id/preferences', async req => {
+    const room = getConversation(req.params.id); if (!room || room.archivedAt) throw httpError(404,'聊天室不存在或已归档');
+    if (!Number.isInteger(req.body?.expectedMembersVersion)) throw httpError(400,'expectedMembersVersion 必填');
+    const preferences = validateRoomPreferences(req.body.preferences,room.agentIds);
+    const updated = updateRoomPreferences(room.id,preferences,req.body.expectedMembersVersion!);
+    if (!updated) throw httpError(409,'房间设置已改变，请刷新后重试'); return updated;
+  });
   app.get('/api/conversations', async () => listConversations());
   app.post<{ Body: Record<string, unknown> }>('/api/conversations', async (req, reply) => {
     const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body) : submitLegacyOrchestration('room_create', req.body);
@@ -408,9 +454,18 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (req.body?.agentIds) {
       const current = getConversation(req.params.id); if (!current) throw httpError(404, `聊天室不存在: ${req.params.id}`);
       if (!Number.isInteger(req.body.expectedMembersVersion)) throw httpError(400, 'expectedMembersVersion 必填');
-      if (req.body.agentIds.length === 0 || !req.body.agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
-      const team = validateTeam(current.mode, req.body.agentIds, req.body.supervisorId, req.body.defaultReviewerId);
-      const updated = updateConversationMembers(current.id, { agentIds: req.body.agentIds, supervisorId: team.effectiveSupervisorId, defaultReviewerId: team.effectiveReviewerId, expectedMembersVersion: req.body.expectedMembersVersion! });
+      if (!Array.isArray(req.body.agentIds) || req.body.agentIds.length === 0 || !req.body.agentIds.every((id) => typeof id === 'string')) throw httpError(400, 'agentIds 必须是非空字符串数组');
+      // A room is a candidate team, independent of its historical mode. Validate default roles
+      // only as future preferences; removing them requires reconfiguration of a later task.
+      const ids = req.body.agentIds;
+      if (new Set(ids).size !== ids.length || ids.some(id => !registry.getAgent(id))) throw httpError(400,'候选团队包含重复、未知或停用的成员');
+      const supervisorId = req.body.supervisorId !== undefined ? req.body.supervisorId : current.preferences?.supervisorId ?? current.supervisorId;
+      const reviewerId = req.body.defaultReviewerId !== undefined ? req.body.defaultReviewerId : current.preferences?.defaultReviewerId ?? current.defaultReviewerId;
+      const supervisor = supervisorId && ids.includes(supervisorId) ? registry.getAgent(supervisorId) : null;
+      const reviewer = reviewerId && ids.includes(reviewerId) ? registry.getAgent(reviewerId) : null;
+      if (req.body.supervisorId && (!supervisor?.capabilities.includes('coordinate') || supervisor.execution?.kind === 'external')) throw httpError(400,'默认主管必须属于团队且具备模型 API 协调能力');
+      if (req.body.defaultReviewerId && !reviewer?.capabilities.includes('review')) throw httpError(400,'默认评审者必须属于团队且具备审查能力');
+      const updated = updateConversationMembers(current.id, { agentIds: ids, supervisorId: supervisor?.id ?? null, defaultReviewerId: reviewer?.id ?? null, expectedMembersVersion: req.body.expectedMembersVersion! });
       if (!updated) throw httpError(409, '聊天室成员已被其他操作修改，请刷新后重试');
       return updated;
     }
@@ -426,6 +481,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return conversation;
   });
   app.post<{ Params: { id: string }; Body: { body?: string; recipientIds?: string[]; replyTo?: string | null; wholeTeam?: boolean } }>('/api/conversations/:id/followup-preview', async (req): Promise<FollowupPreview> => {
+    assertLegacyAdmission();
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
     const goal = req.body?.body?.trim();

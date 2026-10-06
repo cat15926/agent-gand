@@ -1,5 +1,5 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
-import { getConversation } from '../conversations/service.ts';
+import { getConversation, conversationHistory } from '../conversations/service.ts';
 import { admitCollaborationRun, recoverCollaborationRuns, settleCollaborationRun } from '../collaboration/scheduler.ts';
 import { cancelCollaborationRun } from '../collaboration/store.ts';
 import { requestAdapterPause } from '../runtime/runControls.ts';
@@ -426,6 +426,7 @@ export async function runCoordinationPlan(run: Run, contextGoal: string, display
   assertCoordinationRecoveryReady(run.id);
   const plan = getRunCoordinationPlan(run.id);
   if (!plan) throw new Error(`Run ${run.id} 没有关联 Coordination Plan`);
+  if (getRun(run.id)?.status === 'waiting_for_user' && plan.status === 'paused') return;
   if (plan.executionAdapter === 'collaboration') {
     const room = run.conversationId && getConversation(run.conversationId);
     if (!room) throw new Error('动态协作需要聊天室');
@@ -486,6 +487,17 @@ export function requestCoordinationPause(runId: string): Run | null {
   if (plan.executionAdapter === 'collaboration') { requestAdapterPause(runId); settleCollaborationRun(runId); return getRun(runId) ?? run; }
   if (plan.status === 'paused') return run;
   if (!['validated', 'active'].includes(plan.status) || !['pending', 'running', 'awaiting_approval'].includes(run.status)) return run;
+  // A queued graph has no active side effects; freeze it before first admission.
+  const pausedBeforeStart = tx(() => {
+    if (getRun(runId)?.status !== 'pending' || get('SELECT 1 FROM coordination_step_attempts WHERE run_id=? LIMIT 1',runId)) return false;
+    const history = conversationHistory(run.conversationId,run.turnNo);
+    setRunStatus(runId,'waiting_for_user'); setCoordinationPlanStatus(plan.id,'paused');
+    saveCheckpoint({ runId,kind:'coordination',phase:'waiting_for_user',status:'waiting',state:{planId:plan.id,revision:plan.revision,
+      contextGoal:history ? `前序上下文：\n${history}\n\n本轮任务：\n${run.goal}` : run.goal,reason:'user_requested_before_admission'} });
+    recordCoordinationEvent({kind:'plan_paused',draftId:plan.draftId,planId:plan.id,runId,payload:{reason:'user_requested_before_admission'}});
+    return true;
+  });
+  if (pausedBeforeStart) return getRun(runId) ?? run;
   setCoordinationPlanStatus(plan.id, 'pause_requested');
   recordCoordinationEvent({ kind: 'plan_pause_requested', draftId: plan.draftId, planId: plan.id, runId, payload: { revision: plan.revision } });
   return getRun(runId) ?? run;

@@ -7,11 +7,12 @@ import * as api from '../services/api';
 
 export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(approval.input ?? '');
 
   async function decide(decision: 'approve' | 'reject' | 'edit') {
-    setBusy(true);
+    setBusy(true); setError('');
     try {
       await api.decideApproval(approval.id, {
         decision,
@@ -19,7 +20,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
         by: 'user',
       });
       setEditing(false);
-    } finally {
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally {
       setBusy(false);
     }
   }
@@ -30,6 +31,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
         <span className="font-medium text-amber-200">⚠ {approval.toolName}</span>
         <span className="text-zinc-500">{approval.agentId}</span>
       </div>
+      {error && <p role="alert" className="mb-2 text-red-300">{error}</p>}
       {approval.reason && <p className="mb-2 text-zinc-400">{approval.reason}</p>}
       {approval.native && <p className="mb-2 break-all text-zinc-500">当前原生执行 {approval.native.executionId} · 单次批准</p>}
 

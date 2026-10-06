@@ -1,6 +1,6 @@
 # 编排入口收敛实施计划（实施中）
 
-状态：**实施中。用户已授权实施 O1–O4；四阶段本地实现完成，O5–O7 尚未启动。**
+状态：**实施中。用户已授权实施 O1–O7；七阶段本地实现与验收完成，O7 的真实账户验收待用户指定账户，兼容清理待用户验收确认。**
 日期：2026-10-06。阶段编号采用 **O1–O7**，避免与已实施的外部 Agent A–D、账户 E1–E4、历史 Collaboration 阶段编号混淆。
 
 ## 1. 评审摘要
@@ -337,6 +337,8 @@ Coordination 的图依赖和步骤领取继续由现有协调器管理，步骤/
 
 ### O5：前端统一入口与任务交互
 
+状态：已完成本地实现与隔离浏览器验收，详见 [O5 架构](../architecture/orchestration-entry-phase-o5.md)和 [O5 验收记录](../reports/orchestration-entry-phase-o5-acceptance.md)。全量迁移与真实供应商连接分别留到 O6、O7。
+
 **交付**：建房/首轮/后续同一消息组件；团队与本轮目标；策略/工作流控件；计划确认；任务卡/队列/等待/审批/返工；观察/画布标签；v2 草稿迁移。
 
 **涉及**：RunView/RoomComposer（可抽取）、roomDraft、API service、App、SideNav、Observe/Canvas、公共任务状态投影。
@@ -345,11 +347,15 @@ Coordination 的图依赖和步骤领取继续由现有协调器管理，步骤/
 
 ### O6：迁移、兼容和故障恢复
 
+状态：已完成本地实现与隔离跨进程故障验收，详见 [O6 架构](../architecture/orchestration-entry-phase-o6.md)和 [O6 验收记录](../reports/orchestration-entry-phase-o6-acceptance.md)。用户业务库在部署本次代码后启动时自动映射；真实供应商及整体演示留到 O7。
+
 **交付**：新增表/字段版本化迁移；旧 mode 默认偏好映射；旧草稿安全升级；旧 API 包装；灰度开关；迁移审计及回滚说明；跨进程故障验证。
 
 **验收**：旧终态记录可读取；旧活跃 Run 不重新规划；回滚关闭新任务入口，已有新契约由兼容 worker 继续收尾；不删除新状态或降级契约；重复升级不产生重复任务；未知副作用必须经过检查。
 
 ### O7：整体验收与收尾
+
+状态：本地工具与 12 项整体回归完成，详见 [O7 架构及演示](../architecture/orchestration-entry-phase-o7.md)、[验收记录](../reports/orchestration-entry-phase-o7-acceptance.md)、[API 迁移说明](../architecture/orchestration-api-migration.md)和[清理清单](./orchestration-compatibility-cleanup-checklist.md)。真实 SDK/app-server 用户账户均未调用，因此 O7 最终验收尚未完成；没有移除兼容分支。
 
 **交付**：本地服务、演示脚本与测试报告；用户指定账户的最小真实测试；文档与 API 迁移说明；弃用入口统计及清理清单。
 

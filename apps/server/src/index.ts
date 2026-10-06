@@ -6,7 +6,8 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocketPlugin from '@fastify/websocket';
 import { config } from './config.ts';
-import { closeDatabase } from './db/database.ts';
+import { closeDatabase, db } from './db/database.ts';
+import { migrateRoomPreferences } from './db/orchestrationMigrations.ts';
 import * as registry from './agents/registry.ts';
 import { registerRoutes } from './api/routes.ts';
 import { registerAccountRoutes } from './api/accountRoutes.ts';
@@ -45,6 +46,8 @@ const agents = registry.syncFromFiles();
 backfillRunAgentSnapshots();
 seed();
 backfillConversations();
+const preferenceMigration = migrateRoomPreferences(db);
+app.log.info({ preferenceMigration }, '编排房间默认偏好迁移完成');
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
 await recoverAccountLogins();

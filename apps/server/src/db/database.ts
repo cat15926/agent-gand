@@ -7,10 +7,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { config } from '../config.ts';
+import { assertOrchestrationSchemaCompatible, applyOrchestrationSchemaMigrations, assertActiveOrchestrationCompatible } from './orchestrationMigrations.ts';
 
 mkdirSync(path.dirname(config.dbPath), { recursive: true });
 
 export const db = new Database(config.dbPath, { timeout: 5000 });
+assertOrchestrationSchemaCompatible(db);
+assertActiveOrchestrationCompatible(db);
 db.pragma('journal_mode = WAL');
 
 // schema.sql 与本文件同目录，tsx 下路径不变，可直接读
@@ -75,6 +78,7 @@ ensureColumns('agents', [
 ]);
 ensureColumns('accounts', [{ name: 'identity_generation', sql: 'identity_generation INTEGER' }]);
 ensureColumns('conversations', [
+  { name: 'preferences', sql: 'preferences TEXT' },
   { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
   { name: 'members_version', sql: 'members_version INTEGER NOT NULL DEFAULT 1' },
 ]);
@@ -142,6 +146,7 @@ db.exec('CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_i
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_seq ON messages(conversation_id, seq)');
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client ON messages(conversation_id, client_message_id) WHERE client_message_id IS NOT NULL");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approvals_idempotency ON approvals(idempotency_key) WHERE idempotency_key IS NOT NULL");
+applyOrchestrationSchemaMigrations(db);
 
 export function all<T>(sql: string, ...params: unknown[]): T[] {
   return db.prepare(sql).all(...params) as T[];

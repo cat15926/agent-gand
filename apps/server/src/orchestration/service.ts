@@ -14,6 +14,7 @@ import { orchestrationCapabilities } from './capabilities.ts';
 import { normalizeOrchestrationRequest, objectInput, OrchestrationError, semanticRequest, stableDigest, stringIds } from './normalize.ts';
 import { resolveOrchestration } from './resolver.ts';
 import { getSubmissionSnapshot, saveSubmissionSnapshot } from './store.ts';
+import { assertLegacyAdmission } from './rollout.ts';
 
 export function validateLegacyTeam(mode: RunMode, agentIds: string[], supervisorId?: string | null, defaultReviewerId?: string | null) {
   const active = agentIds.map(id => getAgent(id));
@@ -123,6 +124,7 @@ export function submitLegacyOrchestration(source: SubmissionSource, value: unkno
         return { run, conversation, message: old, plan: getRunCoordinationPlan(run.id) ?? null, deduplicated: true };
       }
     }
+    assertLegacyAdmission();
     if (body.followupRouting !== undefined && body.followupRouting !== 'room_mode') throw new OrchestrationError(400, 'INVALID_ROUTING', 'followupRouting 无效');
     if (body.coordinationDraftId !== undefined && (typeof body.coordinationDraftId !== 'string' || !body.coordinationDraftId)) throw new OrchestrationError(400, 'INVALID_DRAFT', 'coordinationDraftId 无效');
     if (body.coordinationDraftId && body.followupRouting) throw new OrchestrationError(400, 'ROUTING_CONFLICT', '不能同时选择推荐计划和房间原模式');

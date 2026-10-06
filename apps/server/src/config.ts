@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { parseOrchestrationRollout } from './orchestration/rolloutPolicy.ts';
 
 /** apps/server/src → apps/server */
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -100,6 +101,7 @@ export const config = {
   logLevel: process.env.LOG_LEVEL ?? 'info',
   dataDir: path.join(serverRoot, 'data'),
   dbPath,
+  orchestrationRollout: parseOrchestrationRollout(process.env),
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),

@@ -86,7 +86,18 @@
     "accounts:backup": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/accounts-maintenance.mjs backup",
     "accounts:verify-backup": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/accounts-maintenance.mjs verify-backup",
     "verify:orchestration-o3": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o3.mjs",
-    "verify:orchestration-o4": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o4.mjs"
+    "verify:orchestration-o4": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o4.mjs",
+    "verify:orchestration-o5": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o5.mjs",
+    "verify:orchestration-o6": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o6.mjs",
+    "orchestration:audit": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-maintenance.mjs audit",
+    "orchestration:migrate": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-maintenance.mjs migrate",
+    "orchestration:rollback-check": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-maintenance.mjs rollback-check",
+    "verify:orchestration-o7": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o7.mjs",
+    "orchestration:acceptance": "node scripts/orchestration-acceptance-suite.mjs",
+    "orchestration:acceptance-real": "node scripts/orchestration-real-acceptance.mjs",
+    "orchestration:demo": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-demo.mjs",
+    "orchestration:cleanup-inventory": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-cleanup-inventory.mjs",
+    "verify:orchestration-o7-demo-ui": "node scripts/verify-orchestration-o7-demo-ui.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

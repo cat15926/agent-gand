@@ -376,6 +376,7 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
 
 async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
   const [room, collaboration] = await Promise.all([api.getConversation(conversationId), api.getConversationCollaboration(conversationId)]);
+  dispatch({ type: 'serverEvent', event: { type: 'conversation.updated', conversation: room.conversation } });
   const latest = room.runs.at(-1);
   const [detail, coordination, executions] = latest
     ? await Promise.all([api.getRun(latest.id), loadCoordinationDetail(latest.id), api.getExternalExecutions(latest.id)])

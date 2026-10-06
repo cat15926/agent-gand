@@ -37,6 +37,8 @@ export interface OrchestrationPreviewInput {
   wholeTeam?: boolean;
   /** Detailed planning is explicit and may consume model quota. */
   planning?: 'rules' | 'detailed';
+  /** Preview only: validates an existing paused graph; never bypasses new-task admission. */
+  revisionRunId?: string;
 }
 
 export interface OrchestrationRequest {

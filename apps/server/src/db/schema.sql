@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, mode TEXT NOT NULL,
   agent_ids TEXT NOT NULL, supervisor_id TEXT, default_reviewer_id TEXT,
-  members_version INTEGER NOT NULL DEFAULT 1, workspace TEXT,
+  members_version INTEGER NOT NULL DEFAULT 1, workspace TEXT, preferences TEXT,
+  preferences_version INTEGER, preferences_origin TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived_at TEXT
 );
 -- O1 comparison records only. Existing Runtime contracts remain execution authority.

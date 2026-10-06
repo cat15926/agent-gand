@@ -5,13 +5,16 @@ export function resolveOrchestration(request: OrchestrationRequest, snapshot: Or
   const error = (code: string, message: string, agentId?: string) => issues.push({ code, severity: 'error', message, ...(agentId ? { agentId } : {}) });
   const team = snapshot.agents;
   const mentions: string[] = [];
-  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Exact ID/name tokens only. Plain mentions in prose are not assignments.
-  for (const agent of team) if ([agent.id, agent.name].some(name => new RegExp(`(?:^|[\\s，,；;])@${escape(name)}(?=$|[\\s，,。！？!?:：；;])`, 'u').test(request.goal))) mentions.push(agent.id);
-  for (const match of request.goal.matchAll(/(?:^|[\s，,；;])@([^\s，,。！？!?:：；;]+)/gu)) {
-    const matches = team.filter(agent => agent.id === match[1] || agent.name === match[1]);
-    if (!matches.length) error('UNRESOLVED_MENTION', '正文 @ 的成员不在候选团队或无法识别，请明确加入团队');
-    if (matches.length > 1) error('AMBIGUOUS_MENTION', '正文 @ 对应多位同名成员，请使用唯一角色 ID');
+  // Longest exact ID/name wins, including names containing spaces. Preserve mention order.
+  for (const match of request.goal.matchAll(/(?:^|[\s，,；;、])@/gu)) {
+    const remaining = request.goal.slice(match.index! + match[0].length);
+    const matching = team.flatMap(agent => [agent.id,agent.name].filter(name => remaining.startsWith(name)
+      && (!remaining[name.length] || /[\s，,。！？!?:：；;、]/u.test(remaining[name.length]!))).map(name => ({id:agent.id,length:name.length})))
+      .sort((a,b) => b.length-a.length);
+    const ids = [...new Set(matching.filter(item => item.length === matching[0]?.length).map(item => item.id))];
+    if (!ids.length) error('UNRESOLVED_MENTION', '正文 @ 的成员不在候选团队或无法识别，请明确加入团队');
+    else if (ids.length > 1) error('AMBIGUOUS_MENTION', '正文 @ 对应多位同名成员，请使用唯一角色 ID');
+    else if (!mentions.includes(ids[0]!)) mentions.push(ids[0]!);
   }
   let targetIds = [...request.recipientIds];
   let targetSource: OrchestrationDecision['targetSource'] = targetIds.length ? 'explicit' : 'automatic';
@@ -122,9 +125,9 @@ export function resolveExecutableOrchestration(request: OrchestrationRequest, sn
   }
   if (targetSource === 'mention' && auxiliary) targetIds = targetIds.filter(id => id !== auxiliary);
   if (request.recipientIds.length) {
-    const mentionedWorkers = base.targetSource === 'explicit'
-      ? resolveOrchestration({ ...request, recipientIds: [], workflow: 'routine', wholeTeam: false }, snapshot).targetIds.filter(id => id !== auxiliary) : [];
-    if (/@/.test(request.goal) && mentionedWorkers.length && (mentionedWorkers.length !== targetIds.length || mentionedWorkers.some(id => !targetIds.includes(id)))) error('TARGET_CONFLICT', '正文 @ 与本轮目标不一致，请重新选择');
+    const mentionOnly = resolveOrchestration({ ...request, recipientIds: [], workflow: 'routine', wholeTeam: false }, snapshot);
+    const mentionedWorkers = mentionOnly.targetSource === 'mention' ? mentionOnly.targetIds.filter(id => id !== auxiliary) : [];
+    if (mentionedWorkers.length && (mentionedWorkers.length !== targetIds.length || mentionedWorkers.some(id => !targetIds.includes(id)))) error('TARGET_CONFLICT', '正文 @ 与本轮目标不一致，请重新选择');
   }
   if (targetSource === 'automatic' && (request.strategy !== 'auto' || ['analysis_summary','bounded_debate','supervisor_decomposition'].includes(request.workflow)
     || readonly && /分别|各自|独立|并行/.test(request.goal))) {

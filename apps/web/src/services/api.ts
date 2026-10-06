@@ -2,6 +2,7 @@
  * REST 客户端：对应 server §4.3 的 API 表（dev 经 vite proxy）
  */
 import type {
+  OrchestrationPreview, OrchestrationPreviewInput, RunOrchestrationSnapshot, RoomPreferences,
   AgentDefinition,
   AgentInput,
   AgentSaveInput,
@@ -62,15 +63,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const text = await res.text();
   if (!res.ok) {
-    let detail = ''; let fieldErrors: Record<string, string> = {};
-    try { const parsed = JSON.parse(text) as { error?: unknown; fieldErrors?: Record<string, string> }; detail = String(parsed.error ?? ''); fieldErrors = parsed.fieldErrors ?? {}; } catch { detail = text.slice(0, 200); }
-    throw new ApiError(detail || `${init?.method ?? 'GET'} ${path} → ${res.status}`, res.status, fieldErrors);
+    let detail = ''; let errorCode: string | undefined; let fieldErrors: Record<string, string> = {};
+    try { const parsed = JSON.parse(text) as { error?: unknown; code?: string; fieldErrors?: Record<string, string> }; detail = String(parsed.error ?? ''); errorCode = parsed.code; fieldErrors = parsed.fieldErrors ?? {}; } catch { detail = text.slice(0, 200); }
+    throw new ApiError(detail || `${init?.method ?? 'GET'} ${path} → ${res.status}`, res.status, fieldErrors, errorCode);
   }
   return JSON.parse(text) as T;
 }
 
 export class ApiError extends Error {
-  constructor(message: string, public status: number, public fieldErrors: Record<string, string>) { super(message); }
+  constructor(message: string, public status: number, public fieldErrors: Record<string, string>, public code?: string) { super(message); }
 }
 
 export interface RunDetail {
@@ -109,6 +110,19 @@ export interface CoordinationRunDetail {
 }
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
+export interface OrchestrationAdmission { entryMode: 'execute' | 'preview' | 'closed'; legacyEntryEnabled: boolean; enabledWorkflows: RoomPreferences['workflow'][]; enabledDrivers: string[]; existingRunsContinue: true }
+export const getOrchestrationOptions = () => request<{ admission: OrchestrationAdmission }>('/api/orchestration/options');
+export interface MemberReservation { runId: string; agentId: string; attemptId: string | null; status: string; position: number }
+export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[] }
+export const previewOrchestration = (input: OrchestrationPreviewInput) => request<OrchestrationPreview>('/api/orchestration/preview', { method: 'POST', body: JSON.stringify(input) });
+export const createEmptyRoom = (input: { title: string; agentIds: string[]; workspace: string | null; preferences: RoomPreferences }) => request<{ conversation: Conversation }>('/api/conversations/empty', { method: 'POST', body: JSON.stringify(input) });
+export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
+export const saveRoomPreferences = (id: string, preferences: RoomPreferences, expectedMembersVersion: number) => request<Conversation>(`/api/conversations/${encodeURIComponent(id)}/preferences`, { method: 'PATCH', body: JSON.stringify({ preferences, expectedMembersVersion }) });
+export const getRunOrchestration = (id: string) => request<{ snapshot: RunOrchestrationSnapshot | null }>(`/api/runs/${encodeURIComponent(id)}/orchestration`);
+export const getTaskStates = (id: string) => request<{ tasks: TaskState[] }>(`/api/conversations/${encodeURIComponent(id)}/task-state`);
+export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
+export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
+export const reviseTaskPlan = (id: string, preview: OrchestrationPreview, instruction: string) => request<{ plan: CoordinationPlan }>(`/api/runs/${encodeURIComponent(id)}/orchestration/revisions`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint, instruction }) });
 export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 }

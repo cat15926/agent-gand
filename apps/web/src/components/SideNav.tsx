@@ -5,7 +5,7 @@ import type { ViewKey } from '../App';
 
 const ITEMS: Array<{ key: ViewKey; label: string; icon: string }> = [
   { key: 'run', label: '聊天', icon: '◉' },
-  { key: 'canvas', label: '编排', icon: '⬡' },
+  { key: 'canvas', label: '任务图', icon: '⬡' },
   { key: 'fleet', label: '舰队', icon: '▦' },
   { key: 'accounts', label: '账户', icon: '⚿' },
   { key: 'observe', label: '观测', icon: '◎' },
