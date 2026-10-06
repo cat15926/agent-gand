@@ -6,6 +6,7 @@
  */
 import { execFile } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { isAccountPrivatePath } from '../../accounts/privatePaths.ts';
 import path from 'node:path';
 import { config } from '../../config.ts';
 import type { LlmToolSchema } from '../../llm/provider.ts';
@@ -14,6 +15,7 @@ import type { AgentDefinition } from '@agent-gand/shared';
 import { externalId, getExternalByIdOrThrow, isExternalWorkspace } from '../../workspaces/external.ts';
 import { getIsolatedWorkspace } from '../../workspaces/isolated.ts';
 import { get } from '../../db/database.ts';
+import { cleanEnvironment } from '../../accounts/environment.ts';
 
 /** §9.1 沙箱区域（§10 后无前缀区可为 run 专属或命名工作区） */
 type SandboxArea = 'run' | 'shared' | 'archive';
@@ -37,7 +39,8 @@ const WORKSPACE_NAME_RE = /^[\w-]{1,32}$/;
  */
 export function workspaceRootDir(ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null; workspaceRoot?: string }): string {
   if (ctx.workspaceRoot) {
-    const snapshot = get("SELECT id FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.snapshot.path')=?", ctx.runId, ctx.workspaceRoot);
+    const snapshot = get("SELECT id FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.snapshot.path')=?", ctx.runId, ctx.workspaceRoot)
+      ?? get("SELECT id FROM execution_bindings WHERE run_id=? AND json_extract(record,'$.workspaceSnapshot.path')=?", ctx.runId, ctx.workspaceRoot);
     if (!snapshot || realpathSync(ctx.workspaceRoot) !== ctx.workspaceRoot) throw new ToolError('审查快照绑定无效');
     return ctx.workspaceRoot;
   }
@@ -119,6 +122,7 @@ export function resolveSandboxPath(
     }
     const root = resolveReal(workspaceRootDir(ctx)); // 注册根再消解（双保险，注册时已 realpath）
     const absPath = resolveReal(path.resolve(root, relPath)); // 符号链接消解后再判包含
+    if (isAccountPrivatePath(absPath)) throw new ToolError('账户私有文件不可作为工作区文件访问');
     if (absPath !== root && !absPath.startsWith(root + path.sep)) {
       throw new ToolError(`路径越出外部工作区目录（${root}）: ${relPath}`);
     }
@@ -148,6 +152,7 @@ export function resolveSandboxPath(
     absPath = path.resolve(workspaceRootDir(ctx), relPath);
   }
   // 兜底防逃逸：解析结果必须落在沙箱内（覆盖盘符等 path.isAbsolute 未拦的变体）
+  if (isAccountPrivatePath(resolveReal(absPath))) throw new ToolError('账户私有文件不可作为工作区文件访问');
   if (absPath !== sandbox && !absPath.startsWith(sandbox + path.sep)) {
     throw new ToolError(`路径越出沙箱目录: ${relPath}`);
   }
@@ -256,7 +261,7 @@ const SHELL_WHITELIST = new Set(['echo', 'date', 'pwd']);
 
 function execFileP(cmd: string, args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { cwd, timeout: 3000 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { cwd, timeout: 3000, env: cleanEnvironment() }, (err, stdout, stderr) => {
       if (err) reject(new ToolError(stderr.length > 0 ? stderr : String(err)));
       else resolve(String(stdout));
     });
@@ -290,6 +295,7 @@ const shellRun: Tool = {
 
 /** 递归收集目录下文件（跳过 sqlite 二进制）；exclude 目录名集合整棵跳过 */
 function walkFiles(dir: string, out: string[] = [], exclude: Set<string> = new Set()): string[] {
+  if (isAccountPrivatePath(dir)) return out;
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -299,6 +305,7 @@ function walkFiles(dir: string, out: string[] = [], exclude: Set<string> = new S
   for (const entry of entries) {
     if (exclude.has(entry)) continue;
     const full = path.join(dir, entry);
+    if (isAccountPrivatePath(full)) continue;
     let st;
     try {
       st = statSync(full);

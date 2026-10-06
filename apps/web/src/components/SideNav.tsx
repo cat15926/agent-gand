@@ -7,6 +7,7 @@ const ITEMS: Array<{ key: ViewKey; label: string; icon: string }> = [
   { key: 'run', label: '聊天', icon: '◉' },
   { key: 'canvas', label: '编排', icon: '⬡' },
   { key: 'fleet', label: '舰队', icon: '▦' },
+  { key: 'accounts', label: '账户', icon: '⚿' },
   { key: 'observe', label: '观测', icon: '◎' },
 ];
 
@@ -17,6 +18,7 @@ export function SideNav({ view, onChange }: { view: ViewKey; onChange: (v: ViewK
         <button
           key={item.key}
           title={item.label}
+          aria-label={item.label}
           onClick={() => onChange(item.key)}
           className={`flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] ${
             view === item.key

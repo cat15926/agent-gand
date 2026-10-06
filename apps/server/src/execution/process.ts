@@ -1,5 +1,6 @@
 import { ExecutionError, exitError } from './errors.ts';
 import { spawnOwnedProcess, type OwnedProcessInput } from './ownedProcess.ts';
+import { cleanEnvironment } from '../accounts/environment.ts';
 
 export interface JsonProcessInput {
   command: string;
@@ -8,6 +9,7 @@ export interface JsonProcessInput {
   stdin: string;
   signal: AbortSignal;
   timeoutMs: number;
+  env?: NodeJS.ProcessEnv;
   onRecord: (record: unknown) => void;
   onProcess?: OwnedProcessInput['onProcess'];
   onProcessStopped?: OwnedProcessInput['onProcessStopped'];
@@ -17,7 +19,7 @@ export interface JsonProcessInput {
 export async function runJsonProcess(input: JsonProcessInput): Promise<void> {
   if (process.platform === 'win32') throw new ExecutionError('unsupported_cli', '阶段 A 的进程树停止目前仅支持 macOS/Linux');
   if (input.signal.aborted) throw new ExecutionError('cancelled', '执行已停止');
-  const env = { ...process.env }; delete env.CLAUDECODE;
+  const env = input.env ?? cleanEnvironment();
   const owned = await spawnOwnedProcess({ ...input, env });
   await new Promise<void>((resolve, reject) => {
     const child = owned.child;

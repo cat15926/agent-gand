@@ -6,11 +6,17 @@ import { post, postSystem } from '../messaging/inbox.ts';
 import { createTask } from '../messaging/tasks.ts';
 import { endSpan, finishRun, getRun, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { saveCheckpoint } from '../runs/checkpoints.ts';
-import { chatOnce } from './agentStep.ts';
+import { runAdmittedTurn, prepareAdapterTurns, adapterSafeBoundary, adapterRecoveryReady, RunPausedError } from './admittedTurn.ts';
+import { admitTaskAdapter, admitTaskSubject, finishAdapterRun } from '../runtime/taskAdapter.ts';
 import { buildSupervisorSummaryContext } from './contextBuilder.ts';
 import { runTaskSchedule } from './scheduler.ts';
 import type { Orchestrator } from './types.ts';
-import { tx } from '../db/database.ts';
+import { tx, get } from '../db/database.ts';
+import { ownOrchestration } from './ownership.ts';
+import { latestCheckpoint } from '../runs/checkpoints.ts';
+import { isAdapterTurnTask } from '../runtime/taskAdapter.ts';
+import { listTasks } from '../messaging/tasks.ts';
+import { listByRun } from '../messaging/inbox.ts';
 
 interface DecomposedTask {
   title: string;
@@ -163,7 +169,10 @@ async function scheduleAndSummarize(
   if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
   saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'summarizing', state: { failed: scheduled.failed } });
   const summaryPrompt = buildSupervisorSummaryContext(run, scheduled.tasks);
-  const summary = await chatOnce(supervisor, run.id, parentSpanId, summaryPrompt);
+  adapterSafeBoundary(run.id);
+  const summary = (await runAdmittedTurn({ run, agent: supervisor, disableTools: true, parentSpanId,
+    messages: [{ role: 'system', content: supervisor.systemPrompt }, { role: 'user', content: summaryPrompt }],
+    executionScopeId: 'supervisor:summary' })).content;
   if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
   if (summary.trim() !== '') {
     await post({
@@ -177,7 +186,8 @@ async function scheduleAndSummarize(
       clientMessageId: `durable:${run.id}:supervisor:summary`,
     });
   }
-  finishRun(run.id, scheduled.failed ? 'failed' : 'completed');
+  adapterSafeBoundary(run.id);
+  finishAdapterRun(run.id, scheduled.failed ? 'failed' : 'completed');
   saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'completed', status: 'completed', state: { failed: scheduled.failed } });
 }
 
@@ -185,15 +195,25 @@ async function scheduleAndSummarize(
 export async function resumeSupervisorRun(runId: string): Promise<void> {
   if (activeSchedules.has(runId)) return;
   const run = getRun(runId);
-  if (!run || run.mode !== 'supervisor') return;
+  if (!run || run.mode !== 'supervisor' || ['completed','failed','cancelled'].includes(run.status)) return;
+  if (!adapterRecoveryReady(runId)) return;
+  adapterSafeBoundary(run.id);
   const supervisorId = run.supervisorId ?? run.agentIds[0];
   if (!supervisorId) return;
   const snapshots = listRunAgentSnapshots(run.id);
   const agents = run.agentIds.map((id) => snapshots.find((agent) => agent.id === id))
     .filter((agent): agent is AgentDefinition => agent !== undefined);
+  if (agents.length !== run.agentIds.length) { finishRun(run.id, 'failed'); return; }
   const supervisor = agents.find((agent) => agent.id === supervisorId);
   if (!supervisor) return;
   const ordered = [supervisor, ...agents.filter((agent) => agent.id !== supervisor.id)];
+  if (!listTasks(runId).some(task => !isAdapterTurnTask(task.id))) {
+    const checkpoint = latestCheckpoint(runId, 'supervisor');
+    await supervisorOrchestrator.start(run, ordered, String(checkpoint?.state.contextGoal ?? run.goal),
+      String(checkpoint?.state.displayGoal ?? run.goal));
+    return;
+  }
+  const release = ownOrchestration(runId); if (!release) return;
   activeSchedules.add(runId);
   setRunStatus(runId, 'running');
   const span = startSpan(runId, { spanKind: 'orchestration', name: `resume:${supervisor.id}`, input: '恢复已落库任务',
@@ -204,19 +224,26 @@ export async function resumeSupervisorRun(runId: string): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     endSpan(span, { output: message, status: 'error' });
-    finishRun(runId, 'failed');
+    if (err instanceof RunPausedError) return;
+    finishAdapterRun(runId, 'failed');
     throw err;
   } finally {
     activeSchedules.delete(runId);
+    release();
   }
 }
 
 export const supervisorOrchestrator: Orchestrator = {
   async start(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage): Promise<void> {
+    if (activeSchedules.has(run.id)) return;
+    const release = ownOrchestration(run.id); if (!release) return;
+    activeSchedules.add(run.id);
     try {
+      adapterSafeBoundary(run.id);
+      admitTaskAdapter(run);
       setRunStatus(run.id, 'running');
-      await post({ runId: run.id, from: 'user', to: userMessage?.recipientIds?.join(',') || 'all', kind: 'user', body: displayGoal,
-        replyTo: userMessage?.replyTo, taskId: userMessage?.taskId, clientMessageId: userMessage?.clientMessageId, deliveryStatus: 'processing' });
+      if (!listByRun(run.id).some(message => message.kind === 'user')) await post({ runId: run.id, from: 'user', to: userMessage?.recipientIds?.join(',') || 'all', kind: 'user', body: displayGoal,
+        replyTo: userMessage?.replyTo, taskId: userMessage?.taskId, clientMessageId: userMessage?.clientMessageId ?? `durable:${run.id}:user`, deliveryStatus: 'processing' });
       const supervisor = agents[0];
       if (!supervisor) throw new Error('supervisor 模式至少需要 1 个 agent');
       if (!supervisor.capabilities.includes('coordinate')) throw new Error(`主管 ${supervisor.id} 不具备协调能力`);
@@ -229,16 +256,16 @@ export const supervisorOrchestrator: Orchestrator = {
         input: goal,
         attributes: { 'agent.id': supervisor.id, 'agent.role': 'supervisor', 'orchestration.phase': 'supervisor.schedule' },
       });
-      saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'planning', state: { supervisorId: supervisor.id } });
+      saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'planning', state: { supervisorId: supervisor.id, contextGoal: goal, displayGoal } });
 
       let specs: DecomposedTask[] | null = null;
-      if (!supervisor.model.startsWith('mock:')) {
+      if (!supervisor.model.startsWith('mock:') || get('SELECT task_id FROM orchestration_turn_tasks WHERE run_id=? AND scope=?', run.id, 'supervisor:planning')) {
         try {
-          const raw = await chatOnce(supervisor, run.id, supervisorSpan.id, decomposePrompt(goal, workers, agents), 'review_protocol');
+          const raw = (await runAdmittedTurn({ run, agent: supervisor, disableTools: true, parentSpanId: supervisorSpan.id,
+            messages: [{ role: 'system', content: supervisor.systemPrompt }, { role: 'user', content: decomposePrompt(goal, workers, agents) }],
+            displayKind: 'review_protocol', executionScopeId: 'supervisor:planning' })).content;
           specs = parseDecomposition(raw, workers, agents, run.defaultReviewerId);
-        } catch {
-          specs = null;
-        }
+        } catch (error) { throw error; }
       }
       if (!specs) {
         specs = fallbackTasks(goal, workers, agents, run.defaultReviewerId);
@@ -263,9 +290,12 @@ export const supervisorOrchestrator: Orchestrator = {
               .map((title) => titleToId.get(title))
               .filter((id): id is string => id !== undefined),
           });
+          admitTaskSubject(task.id, 'work');
+          if (task.reviewerId) admitTaskSubject(task.id, 'review');
           titleToId.set(spec.title, task.id);
         }
       });
+      prepareAdapterTurns(run, [{ scope: 'supervisor:summary', agentId: supervisor.id }]);
       saveCheckpoint({ runId: run.id, kind: 'supervisor', phase: 'tasks_created', state: { taskCount: specs.length } });
 
       activeSchedules.add(run.id);
@@ -284,8 +314,12 @@ export const supervisorOrchestrator: Orchestrator = {
         activeSchedules.delete(run.id);
       }
     } catch (err) {
-      finishRun(run.id, 'failed');
+      if (err instanceof RunPausedError) return;
+      finishAdapterRun(run.id, 'failed');
       throw err;
+    } finally {
+      activeSchedules.delete(run.id);
+      release();
     }
   },
 };

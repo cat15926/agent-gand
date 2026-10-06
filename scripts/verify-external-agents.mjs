@@ -11,7 +11,7 @@ for (const name of ['claude', 'codex']) {
   const file = path.join(root, `fake ${name}`);
   await copyFile(new URL('./fixtures/external-agent-cli.mjs', import.meta.url), file); await chmod(file, 0o755);
 }
-Object.assign(process.env, { DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: root, EXTERNAL_CLAUDE_COMMAND: path.join(root, 'fake claude'), EXTERNAL_CODEX_COMMAND: path.join(root, 'fake codex'), EXTERNAL_AGENT_TIMEOUT_MS: '1000', FAKE_AGENT_LOG: log, MCP_SERVER_CMD: '', LOG_LEVEL: 'silent' });
+Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: root, EXTERNAL_CLAUDE_COMMAND: path.join(root, 'fake claude'), EXTERNAL_CODEX_COMMAND: path.join(root, 'fake codex'), EXTERNAL_AGENT_TIMEOUT_MS: '1000', FAKE_AGENT_LOG: log, MCP_SERVER_CMD: '', LOG_LEVEL: 'silent' });
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');
 const { registerRoutes } = await import('../apps/server/src/api/routes.ts');
 const { db, closeDatabase } = await import('../apps/server/src/db/database.ts');

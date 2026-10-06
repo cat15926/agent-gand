@@ -14,6 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "verify:scheduler": "node scripts/verify-scheduler.mjs",
     "verify:agents": "node scripts/verify-agent-management.mjs",
+    "verify:accounts-e1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e1.mjs",
+    "accounts:login": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/login-account.mjs",
     "verify:external-agents": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-external-agents.mjs",
     "verify:external-agents-b": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-external-agents-b.mjs",
     "verify:external-agents-c": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-external-agents-c.mjs",
@@ -67,7 +69,23 @@
     "verify:coordination-stage-e": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-coordination-stage-e.mjs",
     "evaluate:coordination-planner": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/evaluate-coordination-planner.mjs",
     "verify:docs": "node scripts/verify-doc-links.mjs",
-    "db:reset": "rm -f apps/server/data/*.sqlite*"
+    "verify:orchestration-o1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o1.mjs",
+    "verify:orchestration-o2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o2.mjs",
+    "db:reset": "rm -f apps/server/data/*.sqlite*",
+    "verify:accounts-e2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e2.mjs",
+    "verify:accounts-e2-protocol": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e2-protocol.mjs",
+    "verify:accounts-e2-sdk": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e2-sdk.mjs",
+    "verify:accounts-connection": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-connection.mjs",
+    "verify:accounts-e2-codex": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e2-codex.mjs",
+    "verify:accounts-e2-ui": "node scripts/verify-accounts-e2-ui.mjs",
+    "verify:accounts-e3": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e3.mjs",
+    "verify:accounts-e3-ui": "node scripts/verify-accounts-e3-ui.mjs",
+    "verify:room-members-ui": "node scripts/verify-room-members-ui.mjs",
+    "verify:accounts-e4": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e4.mjs",
+    "accounts:audit": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/accounts-maintenance.mjs audit",
+    "accounts:backup": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/accounts-maintenance.mjs backup",
+    "accounts:verify-backup": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/accounts-maintenance.mjs verify-backup",
+    "verify:orchestration-o3": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-orchestration-o3.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

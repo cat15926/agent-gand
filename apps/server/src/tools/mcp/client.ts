@@ -6,6 +6,8 @@ import type { McpStatus } from '@agent-gand/shared';
 import { config } from '../../config.ts';
 import { registerTool, unregisterTools } from '../builtin/index.ts';
 import { ToolError, type Tool } from '../types.ts';
+import { cleanEnvironment } from '../../accounts/environment.ts';
+import { redactSecrets } from '../../accounts/secrets.ts';
 
 export interface McpToolInfo {
   name: string;
@@ -50,8 +52,8 @@ export async function connectMcp(
   onClosed?: () => void,
 ): Promise<McpClient> {
   const client = new Client({ name: 'agent-gand', version: '0.1.0' }, {});
-  const transport = new StdioClientTransport({ command: cfg.command, args: cfg.args, stderr: 'pipe' });
-  transport.stderr?.on('data', (chunk) => process.stderr.write(`[mcp] ${String(chunk).slice(0, 2_000)}`));
+  const transport = new StdioClientTransport({ command: cfg.command, args: cfg.args, env: cleanEnvironment() as Record<string, string>, stderr: 'pipe' });
+  transport.stderr?.on('data', (chunk) => process.stderr.write(`[mcp] ${redactSecrets(String(chunk)).slice(0, 2_000)}`));
   await client.connect(transport);
   client.onclose = () => onClosed?.();
   return {

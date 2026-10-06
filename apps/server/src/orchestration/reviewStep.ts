@@ -2,6 +2,7 @@ import type { AgentDefinition, ReviewIssue, Run, Task, TaskAttempt, TaskReview }
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
 import { buildReviewContext } from './contextBuilder.ts';
 import { listExecutions } from '../execution/store.ts';
+import { get } from '../db/database.ts';
 
 const REVIEW_PROTOCOL = `返回格式：
 {"verdict":"PASS|FAIL","summary":"审查摘要","issues":[{"severity":"blocking|warning","file":"可选文件路径","line":1,"problem":"问题","suggestion":"修改建议"}]}
@@ -59,6 +60,8 @@ export async function reviewTask(input: {
 }): Promise<Omit<TaskReview, 'id' | 'taskId' | 'attemptId' | 'reviewerId' | 'createdAt'>> {
   const base = buildReviewContext(input.run, input.task, input.workAttempt);
   const source = listExecutions(input.run.id).find((execution) => execution.scopeId === `task:${input.task.id}:work:${input.workAttempt.attemptNo}` && execution.agentId === input.workAttempt.agentId);
+  const bound = get<{ record: string }>('SELECT record FROM execution_bindings WHERE attempt_id=? AND completed_at IS NOT NULL', input.workAttempt.id);
+  const snapshot = bound ? (JSON.parse(bound.record) as { workspaceSnapshot?: { path: string } }).workspaceSnapshot?.path : undefined;
   let previous = '';
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const prompt = attempt === 0
@@ -66,7 +69,7 @@ export async function reviewTask(input: {
       : `${base}\n\n${REVIEW_PROTOCOL}\n\n上一次输出无法通过协议校验：\n${previous}\n请重新输出合法 JSON。`;
     const turn = await runAgentTurn({
       run: input.run,
-      agent: input.reviewer,
+      agent: { ...input.reviewer, permissionMode: 'readonly' },
       parentSpanId: input.parentSpanId,
       messages: [
         { role: 'system', content: input.reviewer.systemPrompt },
@@ -79,6 +82,8 @@ export async function reviewTask(input: {
       displayKind: 'review_protocol',
       executionScopeId: `task:${input.task.id}:review:${input.workAttempt.attemptNo}:${attempt}`,
       reviewSourceExecutionId: source?.snapshot ? source.id : undefined,
+      workspaceRoot: snapshot,
+      nativeWorkspaceRoot: snapshot,
     });
     previous = turn.content;
     const parsed = parseReview(previous);

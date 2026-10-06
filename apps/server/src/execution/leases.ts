@@ -6,6 +6,7 @@ interface Lease { holder: string; readonly: number; owner: string; host: string;
 /** Durable resource fencing. Expiry alone never authorizes overlap with a live owner. */
 export function acquireDurableLease(resource: string, holder: string, readonly: boolean): () => void {
   tx(() => {
+    if (resource.startsWith('member:') && get("SELECT id FROM external_agent_executions WHERE agent_id=? AND json_extract(record,'$.recovery.state')='attention'", resource.slice('member:'.length))) throw new ExecutionError('interrupted', '此成员仍有无法验证的旧原生进程，需先收敛恢复围栏');
     if (resource.startsWith('workspace:') && get("SELECT id FROM external_agent_executions WHERE json_extract(record,'$.cwd')=? AND json_extract(record,'$.recovery.state')='attention'", resource.slice('workspace:'.length))) throw new ExecutionError('interrupted', '此工作区存在无法验证的旧进程，需先人工核对并解除恢复围栏');
     const leases = all<Lease>('SELECT * FROM external_workspace_leases WHERE resource=?', resource);
     for (const lease of leases) {

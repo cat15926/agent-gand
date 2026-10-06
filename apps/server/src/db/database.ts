@@ -73,6 +73,7 @@ ensureColumns('agents', [
   { name: 'source_path', sql: 'source_path TEXT' },
   { name: 'sync_error', sql: 'sync_error TEXT' },
 ]);
+ensureColumns('accounts', [{ name: 'identity_generation', sql: 'identity_generation INTEGER' }]);
 ensureColumns('conversations', [
   { name: 'default_reviewer_id', sql: 'default_reviewer_id TEXT' },
   { name: 'members_version', sql: 'members_version INTEGER NOT NULL DEFAULT 1' },

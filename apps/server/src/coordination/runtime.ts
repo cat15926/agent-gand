@@ -1,6 +1,6 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
-import { afterCommit, tx } from '../db/database.ts';
+import { afterCommit, get, tx } from '../db/database.ts';
 import { expirePendingApprovalsForRun } from '../hitl/approvals.ts';
 import { post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
@@ -30,6 +30,8 @@ import {
 } from '../runtime/coordinationAdapter.ts';
 import { hasRuntimeContextAssembly } from '../runtime/context.ts';
 import { commitRunTerminal } from '../runtime/terminal.ts';
+import { assertBindingAuthorized, bindingCanFailAttempt, coordinationReviewSnapshot } from '../execution/authority.ts';
+import { getIsolatedWorkspace } from '../workspaces/isolated.ts';
 
 interface RuntimeMessageInput {
   recipientIds?: string[];
@@ -196,9 +198,16 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     }
     const agent = step.agentId ? agents.get(step.agentId) : undefined;
     if (!agent) throw new Error(`步骤 ${step.id} 的 Agent 不存在于 Run 快照`);
+    const reviewSnapshot = step.type === 'review' && claimed.executionBinding ? coordinationReviewSnapshot(claimed.executionBinding) : undefined;
+    if (step.type === 'review' && getIsolatedWorkspace(run.id) && !reviewSnapshot) throw new Error('独立评审缺少前序步骤的固定工作区快照');
+    // Frozen step policy narrows the role; reviewers always run readonly.
+    const stepAgent: AgentDefinition = { ...agent, tools: agent.tools.filter(name => step.toolPolicy.allowedTools.includes(name)),
+      ...(step.type === 'review' ? { permissionMode: 'readonly' as const } : {}),
+      ...(agent.execution?.kind === 'external' ? { execution: { ...agent.execution,
+        platformTools: agent.execution.platformTools?.filter(name => step.toolPolicy.allowedTools.includes(name)) } } : {}) };
     const turn = await runAgentTurn({
       run,
-      agent,
+      agent: stepAgent,
       parentSpanId: span.id,
       messages: [
         { role: 'system', content: agent.systemPrompt },
@@ -209,9 +218,13 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       attemptId: claimed.attempt.id,
       displayKind: step.type === 'review' ? 'review_protocol' : 'message',
       executionScopeId: claimed.attempt.idempotencyKey,
+      executionBinding: claimed.executionBinding,
+      ...(reviewSnapshot ? { workspaceRoot: reviewSnapshot.path,
+        ...(agent.execution?.kind === 'external' ? { nativeWorkspaceRoot: reviewSnapshot.path } : {}) } : {}),
       // AG-COORD-03：外部工作区按 plan 隔离；内部/命名工作区忽略 scope（本就按 run/房间隔离）
       workspaceScope: plan.id.slice(0, 8),
     });
+    assertBindingAuthorized(claimed.executionBinding);
     // AG-COORD-04：审批连续超时 → 释放步骤（不烧 attempt 失败）并上抛暂停信号，由 execute() 暂停 run
     if (turn.approvalStarved) {
       releaseCoordinationStep(plan, step, claimed.attempt.id, '审批连续超时，等待用户处理后恢复');
@@ -257,7 +270,8 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const retry = claimed.attempt.attemptNo < step.maxAttempts;
-    failCoordinationStep(plan, step, claimed.attempt.id, message, retry);
+    // A stale owner must not fail or overwrite a reclaimed/revised step either.
+    if (!claimed.executionBinding || bindingCanFailAttempt(claimed.executionBinding)) failCoordinationStep(plan, step, claimed.attempt.id, message, retry);
     endSpan(span, { output: message, status: 'error' });
   }
 }
@@ -402,6 +416,7 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
 }
 
 export async function runCoordinationPlan(run: Run, contextGoal: string, displayGoal = run.goal, userMessage?: RuntimeMessageInput): Promise<void> {
+  assertCoordinationRecoveryReady(run.id);
   const plan = getRunCoordinationPlan(run.id);
   if (!plan) throw new Error(`Run ${run.id} 没有关联 Coordination Plan`);
   await execute(run, plan, contextGoal, displayGoal, userMessage);
@@ -411,6 +426,7 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan || plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run ?? null;
+  assertCoordinationRecoveryReady(runId);
   const checkpoint = latestCheckpoint(runId, 'coordination');
   const contextGoal = typeof checkpoint?.state.contextGoal === 'string' ? checkpoint.state.contextGoal : run.goal;
   if (plan.status === 'paused') {
@@ -421,7 +437,21 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
 }
 
 export function requestCoordinationResume(runId: string): boolean {
+  assertCoordinationRecoveryReady(runId);
   return signalCoordinationKernelResume(runId);
+}
+
+/** Unknown started calls and native turns without a committed step cannot be replayed. */
+export function assertCoordinationRecoveryReady(runId: string): void {
+  const control = get<{ reason: string | null }>('SELECT reason FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1', runId);
+  if (control) {
+    throw Object.assign(new Error(control.reason ?? '本计划存在结果未确认的调用，请核对后创建新运行'), { status: 409, statusCode: 409 });
+  }
+  if (get(`SELECT 1 FROM external_agent_executions e WHERE e.run_id=? AND
+    (e.status='interrupted' OR json_extract(e.record,'$.executionBinding.attemptId') IN
+      (SELECT id FROM coordination_step_attempts WHERE run_id=? AND status='interrupted'))`, runId, runId)) {
+    throw Object.assign(new Error('本计划存在重启后状态不确定的原生执行，请检查实际变更后创建新运行；不能直接恢复并重放写入'), { status: 409, statusCode: 409 });
+  }
 }
 
 export function requestCoordinationPause(runId: string): Run | null {

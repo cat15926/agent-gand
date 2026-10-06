@@ -1,6 +1,78 @@
 -- agent-gand P0 schema（规格 §3）
 -- 约定：时间戳一律 ISO 字符串；JSON 数组存 TEXT；ID 用 crypto.randomUUID()
 
+-- Adapter references existing tasks/attempts; these are not another attempt scheduler.
+CREATE TABLE IF NOT EXISTS runtime_task_subjects (
+  task_id TEXT NOT NULL, kind TEXT NOT NULL, subject_id TEXT NOT NULL UNIQUE,
+  PRIMARY KEY(task_id,kind)
+);
+CREATE TABLE IF NOT EXISTS orchestration_turn_tasks (
+  run_id TEXT NOT NULL, scope TEXT NOT NULL, task_id TEXT NOT NULL UNIQUE,
+  PRIMARY KEY(run_id,scope)
+);
+-- Resource FIFO tickets preserve admission order across processes and restarts.
+CREATE TABLE IF NOT EXISTS execution_member_tickets (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT, ticket_key TEXT NOT NULL UNIQUE,
+  run_id TEXT NOT NULL, agent_id TEXT NOT NULL, attempt_id TEXT,
+  status TEXT NOT NULL, owner TEXT, host TEXT, pid INTEGER, identity TEXT,
+  created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_member_ticket ON execution_member_tickets(agent_id,status,seq);
+CREATE TABLE IF NOT EXISTS orchestration_run_controls (
+  run_id TEXT PRIMARY KEY, pause_requested INTEGER NOT NULL DEFAULT 0,
+  recovery_attention INTEGER NOT NULL DEFAULT 0, reason TEXT
+);
+CREATE TABLE IF NOT EXISTS orchestration_task_retries (
+  source_task_id TEXT PRIMARY KEY, target_task_id TEXT NOT NULL, target_run_id TEXT NOT NULL
+);
+
+-- Account metadata and immutable connection/credential revisions. Never store plaintext keys.
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY, display_name TEXT NOT NULL, provider TEXT NOT NULL,
+  auth_type TEXT NOT NULL, source TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1, archived INTEGER NOT NULL DEFAULT 0,
+  version INTEGER NOT NULL, config_version INTEGER NOT NULL, credential_version INTEGER,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS account_versions (
+  account_id TEXT NOT NULL, version INTEGER NOT NULL, connection TEXT NOT NULL,
+  created_at TEXT NOT NULL, PRIMARY KEY(account_id, version)
+);
+CREATE TABLE IF NOT EXISTS account_credentials (
+  account_id TEXT NOT NULL, version INTEGER NOT NULL, key_id TEXT NOT NULL,
+  ciphertext TEXT NOT NULL, nonce TEXT NOT NULL, tag TEXT NOT NULL, suffix TEXT NOT NULL,
+  created_at TEXT NOT NULL, PRIMARY KEY(account_id, version)
+);
+-- Freeze these references atomically at Run admission; preserve immutable revisions for existing Runs.
+CREATE TABLE IF NOT EXISTS run_account_bindings (
+  run_id TEXT NOT NULL, agent_id TEXT NOT NULL, account_id TEXT NOT NULL,
+  config_version INTEGER NOT NULL, credential_version INTEGER, identity_generation INTEGER,
+  backend TEXT NOT NULL, model TEXT NOT NULL, PRIMARY KEY(run_id, agent_id)
+);
+CREATE INDEX IF NOT EXISTS idx_run_account_binding ON run_account_bindings(account_id,run_id);
+-- Freeze an optional configured planner independently of participant roles. NULL means use the team planner.
+CREATE TABLE IF NOT EXISTS run_planner_snapshots (
+  run_id TEXT PRIMARY KEY, definition TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS account_native_identities (
+  account_id TEXT NOT NULL, generation INTEGER NOT NULL, client TEXT NOT NULL,
+  directory TEXT NOT NULL, status TEXT NOT NULL, summary TEXT, identity_hash TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(account_id,generation)
+);
+CREATE TABLE IF NOT EXISTS account_login_operations (
+  id TEXT PRIMARY KEY, account_id TEXT NOT NULL, generation INTEGER NOT NULL,
+  client TEXT NOT NULL, status TEXT NOT NULL, owner_session TEXT NOT NULL,
+  error TEXT, expires_at TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS account_checks (
+  id TEXT PRIMARY KEY, account_id TEXT NOT NULL, backend TEXT NOT NULL, model TEXT NOT NULL,
+  config_version INTEGER NOT NULL, credential_version INTEGER, identity_generation INTEGER,
+  status TEXT NOT NULL, error TEXT, tested_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS account_revocations (
+  account_id TEXT PRIMARY KEY, revoked_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS external_agent_executions (
   id TEXT PRIMARY KEY,
   run_id TEXT NOT NULL,
@@ -71,6 +143,22 @@ CREATE TABLE IF NOT EXISTS conversations (
   members_version INTEGER NOT NULL DEFAULT 1, workspace TEXT,
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived_at TEXT
 );
+-- O1 comparison records only. Existing Runtime contracts remain execution authority.
+-- Additive migration: old Runs are intentionally not backfilled with current capabilities.
+CREATE TABLE IF NOT EXISTS orchestration_requests (
+  id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL CHECK(schema_version=1),
+  idempotency_scope TEXT NOT NULL,
+  client_request_id TEXT,
+  conversation_id TEXT NOT NULL,
+  run_id TEXT NOT NULL UNIQUE,
+  submission_digest TEXT NOT NULL,
+  snapshot TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orchestration_request_key
+  ON orchestration_requests(idempotency_scope,client_request_id) WHERE client_request_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_orchestration_request_conversation ON orchestration_requests(conversation_id,created_at);
 CREATE TABLE IF NOT EXISTS run_agent_snapshots (
   run_id TEXT NOT NULL, agent_id TEXT NOT NULL, version INTEGER NOT NULL,
   definition TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(run_id, agent_id)
@@ -407,3 +495,15 @@ CREATE INDEX IF NOT EXISTS idx_coordination_events_run ON coordination_events(ru
 CREATE INDEX IF NOT EXISTS idx_coordination_step_states_run ON coordination_step_states(run_id, status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_coordination_step_attempts_run ON coordination_step_attempts(run_id, step_id, attempt_no);
 CREATE INDEX IF NOT EXISTS idx_coordination_planner_feedback_created ON coordination_planner_feedback(created_at DESC);
+-- O2: metadata for existing attempts; authority remains in scheduler/Runtime tables.
+CREATE TABLE IF NOT EXISTS execution_bindings (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  record TEXT NOT NULL,
+  completed_at TEXT,
+  UNIQUE(origin, attempt_id, generation)
+);
+CREATE INDEX IF NOT EXISTS idx_execution_bindings_run ON execution_bindings(run_id, completed_at);

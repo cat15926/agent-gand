@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>agent-gand · 编排入口交互评审</title>
+  <style>
+    :root{color-scheme:dark;--bg:#11151b;--panel:#191f28;--muted:#9daabd;--text:#ecf1f7;--line:#303b4b;--accent:#8ac9ff;--green:#87dab5;--amber:#f4cc83;--red:#ffadb0;--radius:12px;font-family:system-ui,-apple-system,"PingFang SC",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.65}button,input,textarea,select{font:inherit}button{cursor:pointer}button,input,textarea,select{border:1px solid var(--line);border-radius:9px;background:#222b38;color:var(--text)}button{padding:8px 12px}button:hover{border-color:var(--accent)}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px}a{color:var(--accent)}input,textarea,select{padding:9px 11px;width:100%;min-width:0}textarea{resize:vertical;min-height:100px}h1,h2,h3,p{margin:0}h1{font-size:21px}h2{font-size:17px}h3{font-size:14px}fieldset{border:0;padding:0;margin:0;min-width:0}legend{font-weight:600;margin-bottom:8px}.muted,.help{color:var(--muted)}.help{font-size:12px;margin-top:6px}.small{font-size:12px}.pill{border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-size:12px;display:inline-flex;align-items:center;gap:5px;color:var(--muted)}.pill.good{color:var(--green);border-color:#376654}.pill.warn{color:var(--amber);border-color:#725a35}.pill.bad{color:var(--red);border-color:#775153}.primary{background:#83c4f5;color:#102233;border-color:#83c4f5;font-weight:650}.primary:hover{background:#a3d7ff}.quiet{background:transparent}.danger{color:var(--red)}[hidden]{display:none!important}
+    .notice{padding:9px 20px;text-align:center;color:var(--amber);border-bottom:1px solid #57482f;background:#282319;font-size:12px}.app{display:grid;grid-template-columns:218px minmax(0,1fr) 268px;min-height:calc(100vh - 39px)}.sidebar{padding:24px 15px;border-right:1px solid var(--line)}.brand{font-size:18px;font-weight:750;letter-spacing:.02em}.sidebar .muted{margin:6px 0 24px;font-size:12px}.scenario-list{display:flex;flex-direction:column;gap:7px;margin-top:12px}.scenario-list button{text-align:left;background:transparent;border-color:transparent}.scenario-list button[aria-current="true"]{background:#26384a;border-color:#44627c;color:#b8deff}.side-foot{margin-top:28px;color:var(--muted);font-size:12px}.main{min-width:0;padding:25px 26px 38px;scrollbar-gutter:stable}.content{width:100%;min-width:0;max-width:820px;margin:0 auto}.room-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:18px}.room-meta{color:var(--muted);font-size:12px;margin-top:5px}.scenario-guide{padding:13px 15px;border:1px solid #425774;border-radius:var(--radius);background:#1b2c3e;margin-bottom:18px}.scenario-guide h2{font-size:14px;color:#b8ddff;margin-bottom:4px}.scenario-guide p{color:#c1d0e2;font-size:13px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.field{margin-bottom:15px}.field>label{display:block;font-weight:600;margin-bottom:7px}.members,.targets{display:flex;flex-wrap:wrap;gap:8px}.member{display:flex;align-items:center;gap:8px;text-align:left;min-width:130px;flex:1;padding:9px 10px;background:#202733}.member[aria-pressed="true"]{border-color:#719bbd;background:#273a4c}.avatar{font-size:20px;flex-shrink:0}.member-title{font-weight:600}.member-sub{font-size:11px;color:var(--muted);display:block}.check{margin-left:auto;color:var(--accent)}.target[aria-pressed="true"]{background:#2b4055;border-color:#79a9ce}.target{font-size:12px;padding:6px 9px}.two-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:13px}.role-fields{padding:12px;background:#202835;border-radius:10px;margin:0 0 15px}.role-fields label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:14px}.preview{border:1px solid #496179;border-radius:10px;background:#1b2b3b;padding:13px;margin-top:14px}.preview.blocked{border-color:#765d37;background:#31291e}.preview ul{margin:8px 0;padding-left:20px;color:#c8d8e8}.preview.blocked ul{color:#f0d5a5}.preview li{margin:3px 0}.decision-title{font-weight:650}.draft-info{font-size:12px;color:var(--muted);margin-top:10px}.order-row{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:8px}.order-row button{font-size:12px;padding:4px 8px}.timeline-title{margin:25px 0 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.empty{padding:30px 18px;text-align:center;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}.task{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px;margin-bottom:13px}.task-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.task-id{font-size:11px;color:var(--muted)}.task-goal{margin:8px 0 12px;overflow-wrap:anywhere}.status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}.progress{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0}.step{font-size:11px;border-radius:6px;background:#242d3a;border:1px solid var(--line);padding:4px 7px;color:var(--muted)}.step.active{color:#b3dbff;border-color:#75a4ca;background:#283c51}.step.done{color:var(--green);border-color:#3b6755}.result{padding:11px;border-radius:8px;background:#202b37;margin:12px 0;font-size:13px}.result.fail{background:#332829;border:1px solid #765154}.result strong{display:block;margin-bottom:3px}.task details{margin-top:12px;font-size:12px;color:var(--muted)}.task summary{cursor:pointer;color:#b5cbe0}.task ul{margin:6px 0;padding-left:20px}.task-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.task-actions button{font-size:12px}.wait-card{background:#30291f;border:1px solid #79603a;border-radius:10px;padding:13px;margin-top:12px}.wait-card label{display:block;margin:7px 0}.wait-card input{background:#231f1a}.wait-card .actions{justify-content:flex-start}.right{border-left:1px solid var(--line);padding:25px 18px;background:#151b23}.right h2{font-size:14px;margin-bottom:14px}.review-point{margin:0 0 19px}.review-point strong{display:block;margin-bottom:4px;font-size:13px}.review-point p{color:var(--muted);font-size:12px}.right ul{padding-left:18px;font-size:12px;color:var(--muted)}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 28px);border:1px solid #4d7896;background:#233d51;color:#d6edff;border-radius:10px;padding:10px 15px;box-shadow:0 8px 25px #0005;z-index:10;font-size:13px}.member-status{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.member-state{font-size:11px;padding:3px 7px;background:#202b38;border-radius:6px;color:var(--muted)}.member-state.busy{color:var(--amber)}
+    @media(max-width:1250px){.app{grid-template-columns:196px minmax(0,1fr)}.right{display:none}.main{padding:24px 22px}}@media(max-width:760px){.app{display:block}.sidebar{padding:14px;border-right:0;border-bottom:1px solid var(--line)}.sidebar .muted,.side-foot{display:none}.brand{font-size:16px}.scenario-list{flex-direction:row;overflow-x:auto;margin-top:9px;gap:5px;padding:3px}.scenario-list button{white-space:nowrap;font-size:12px;padding:7px 9px;flex-shrink:0}.main{padding:18px 14px 28px}.room-head{gap:8px}.room-head h1{font-size:18px}.room-head>button{font-size:12px;padding:6px 8px;white-space:nowrap;flex-shrink:0}.panel{padding:14px}.two-columns{grid-template-columns:1fr;gap:0}.member{min-width:126px}.notice{padding:8px 12px;font-size:11px}.actions>button{flex:1}.task{padding:13px}.scenario-guide{padding:11px}.progress{gap:5px}.target{padding:6px 8px}}
+  </style>
+</head>
+<body>
+  <div class="notice">评审原型 · 模拟角色、账户与执行结果 · 所有操作均为本地演示，不调用模型、不写项目文件</div>
+  <div class="app">
+    <aside class="sidebar" aria-label="评审场景">
+      <div class="brand">◈ agent-gand</div><p class="muted">编排入口收敛 · O1–O7 草案</p>
+      <h2 class="small muted">选择体验场景</h2><nav class="scenario-list" id="scenarios"></nav>
+      <div class="side-foot">场景会重置模拟状态。<br>点“演示下一步”推进执行，便于逐步评审。<br><br><a href="../plans/orchestration-entry-convergence-implementation-plan.md">完整实施计划</a></div>
+    </aside>
+    <main class="main"><div class="content" id="content">
+      <header class="room-head"><div><h1 id="roomTitle">项目协作</h1><p class="room-meta" id="roomMeta"></p><div class="member-status" id="memberStatus"></div></div><button class="quiet" id="reset">重置场景</button></header>
+      <div class="scenario-guide"><h2 id="scenarioTitle"></h2><p id="scenarioHint"></p></div>
+      <section class="panel" aria-labelledby="composerTitle" id="composer">
+        <div class="section-head"><h2 id="composerTitle">发送新任务</h2><span class="pill" id="scopeLabel">仅本轮</span></div>
+        <div id="roomFields" hidden><div class="field"><label for="roomName">聊天室名称</label><input id="roomName" value="项目协作"></div><div class="field"><label for="workspace">工作区</label><select id="workspace"><option>agent-gand · 已注册 Git 工作区（模拟）</option><option>只读分析 · 不使用项目工作区（模拟）</option></select></div></div>
+        <fieldset class="field"><legend>舰队成员 <span class="small muted">· 聊天室候选团队</span></legend><div class="members" id="members"></div><p class="help">选中成员只加入团队，每轮可以单独指派。选择 Claude SDK 成员不会切换策略。</p></fieldset>
+        <div id="turnFields">
+          <div class="two-columns"><div class="field"><label for="strategy">本轮策略</label><select id="strategy"><option value="auto">自动 · 按明确目标和能力安排</option><option value="parallel">并行分析 · 独立只读输出</option><option value="serial">顺序接力 · 按目标顺序执行</option></select></div><div class="field"><label for="workflow">工作流</label><select id="workflow"><option value="routine">常规协作</option><option value="summary">分析与汇总</option><option value="review">开发与评审</option><option value="supervisor">主管拆解</option><option value="debate">固定轮次辩论</option></select></div></div>
+          <fieldset class="field"><legend>本轮交给谁 <span class="small muted">· 可选多个</span></legend><div class="targets" id="targets"></div><p class="help" id="targetsHelp"></p><div id="order" class="order-row" hidden></div></fieldset>
+          <div class="role-fields" id="roleFields" hidden></div>
+          <div class="field"><label for="goal">任务内容</label><textarea id="goal" placeholder="输入任务，可以 @鸡腿 指定成员"></textarea><p class="help">默认发送新任务；成员忙碌时排队。需要回答当前任务的问题，请使用任务卡内的输入框。</p></div>
+        </div>
+        <div class="draft-info" id="draftInfo"></div>
+        <div class="actions"><button id="previewButton" class="quiet">查看安排</button><button id="sendButton" class="primary">发送模拟任务</button><button id="createButton" class="primary" hidden>创建聊天室</button></div>
+        <div id="preview" aria-live="polite"></div>
+      </section>
+      <div class="timeline-title"><h2>任务进展 <span class="small muted" id="taskCount"></span></h2><span class="small muted">同一任务内接力、等待与返工</span></div>
+      <section id="tasks" aria-label="模拟任务列表" aria-live="polite"></section>
+    </div></main>
+    <aside class="right" aria-label="评审要点"><h2>这次评审关注什么</h2>
+      <div class="review-point"><strong>团队 ≠ 全员调用</strong><p>聊天室选择候选团队；每轮可以指派一个成员，也可以选择多人协作。</p></div>
+      <div class="review-point"><strong>任务决定策略</strong><p>自动、并行与接力作用于本轮。工作流决定必要步骤，外部成员按能力参与。</p></div>
+      <div class="review-point"><strong>结果必须可核对</strong><p>开发评审失败进入返工；新制品重新评审。输出一句“完成”不直接结束任务。</p></div>
+      <div class="review-point"><strong>等待不是新建任务</strong><p>回答问题或处理审批后恢复原任务。暂停、停止和重试明确作用范围。</p></div>
+      <div class="review-point"><strong>后端统一，权限明确</strong><p>角色驱动只在详情中展示。可执行的安排必须符合账户、工具和工作区权限。</p></div>
+      <h2>原型范围</h2><ul><li>模拟阶段由按钮推进</li><li>无真实账户或服务调用</li><li>模拟测试证据并非项目验收</li><li>实施计划评审后再改业务代码</li></ul>
+    </aside>
+  </div><div class="toast" id="toast" role="status" hidden></div>
+  <script>
+    'use strict';
+    const members = [
+      {id:'planner',name:'Planner',avatar:'🧭',detail:'模型 API · 协调 / 执行',execute:true,coordinate:true},
+      {id:'coder',name:'Coder',avatar:'💻',detail:'模型 API · 执行',execute:true},
+      {id:'chicken',name:'鸡腿',avatar:'🍗',detail:'Claude SDK · 执行 / 评审',execute:true,review:true},
+      {id:'reviewer',name:'Reviewer',avatar:'🔍',detail:'Codex app-server · 评审 / 执行',execute:true,review:true},
+      {id:'cli',name:'只读 CLI',avatar:'📖',detail:'CLI · 仅明确只读任务',execute:true,readonly:true}
+    ];
+    const scenes = {
+      create:{label:'创建聊天室',title:'先建房，再发任务',hint:'选择候选团队，点“创建聊天室”。空房不会发起 Run。选中或取消鸡腿，观察表单宽度和默认策略。',goal:'',targets:[],workflow:'routine',strategy:'auto'},
+      routine:{label:'自动指派 SDK',title:'自动模式支持明确指派 Claude SDK 成员',hint:'保持“自动”，直接发送预填的 @鸡腿 任务。查看安排解释、成员状态与任务结果；选择团队成员不会改动策略。',goal:'@鸡腿 检查登录失败的原因，先只读分析并给出建议。',targets:['chicken'],workflow:'routine',strategy:'auto'},
+      parallel:{label:'并行分析',title:'独立输出，汇总由你明确选择',hint:'鸡腿与 Reviewer 同时只读分析。默认展示两份结果；切到“分析与汇总”后可指定汇总者并查看依赖。',goal:'比较两种登录接口设计，分别分析兼容性和错误恢复，不修改文件。',targets:['chicken','reviewer'],workflow:'routine',strategy:'parallel'},
+      review:{label:'开发与评审',title:'实现 → 独立评审 → 返工 → 复审',hint:'先查看安排并确认发送。多次点“演示下一步”，检查 FAIL 是否交回鸡腿，以及新快照通过复审后才完成。',goal:'修复登录失败后没有提示的问题，并补齐必要验证，交给独立成员评审。',targets:['chicken'],workflow:'review',strategy:'auto'},
+      waiting:{label:'等待与恢复',title:'回答问题，继续原来的任务',hint:'发送后推进至“等待回答”。在任务卡内回答，观察任务编号保持不变；也可以切换演示工具审批。',goal:'@鸡腿 排查登录问题，遇到需要我选择的行为请先询问。',targets:['chicken'],workflow:'routine',strategy:'auto'},
+      busy:{label:'忙碌与排队',title:'同成员排队，独立成员可以并行',hint:'任务 A 已占用鸡腿。把新任务交给鸡腿会排队；改交空闲 Reviewer 可独立只读处理。停止某个任务只影响该任务。',goal:'补充分析登录错误的用户提示，不修改文件。',targets:['chicken'],workflow:'routine',strategy:'auto'},
+      restricted:{label:'能力不足',title:'解释不兼容原因，提供明确修正方式',hint:'只读 CLI 不能承担开发实现。查看安排后，选择鸡腿作实现者，或切换到常规只读任务；界面不会偷偷改工作流。',goal:'修复登录提示并修改相关文件。',targets:['cli'],workflow:'review',strategy:'auto'}
+    };
+    const strategyNames={auto:'自动',parallel:'并行分析',serial:'顺序接力'};
+    const workflowNames={routine:'常规协作',summary:'分析与汇总',review:'开发与评审',supervisor:'主管拆解',debate:'固定轮次辩论'};
+    const $=id=>document.getElementById(id);
+    const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const byId=id=>members.find(m=>m.id===id);
+    const names=ids=>ids.map(id=>byId(id)?.name||id).join('、');
+    let state, counter=1, toastTimer;
+    function notify(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500)}
+    function loadScene(key){const scene=scenes[key];state={scene:key,room:key!=='create',team:['planner','coder','chicken','reviewer',...(key==='restricted'?['cli']:[])],targets:[...scene.targets],strategy:scene.strategy,workflow:scene.workflow,goal:scene.goal,reviewer:'reviewer',aggregator:'planner',supervisor:'planner',rounds:'2',tasks:[],preview:null,roomName:'项目协作'};counter=1;
+      if(key==='busy')state.tasks.push({id:'demo-A',goal:'检查登录流程（已在执行）',strategy:'auto',workflow:'routine',targets:['chicken'],owner:'chicken',phase:'running',step:1,scene:'routine',baseline:true});
+      $('scenarios').innerHTML=Object.entries(scenes).map(([id,s])=>`<button data-scene="${id}" aria-current="${id===key}">${esc(s.label)}</button>`).join('');
+      $('scenarioTitle').textContent=scene.title;$('scenarioHint').textContent=scene.hint;$('goal').value=state.goal;$('strategy').value=state.strategy;$('workflow').value=state.workflow;$('roomName').value=state.roomName;
+      renderRoom();renderMembers();renderTargets();renderRoles();renderPreview();renderTasks();
+    }
+    function renderRoom(){$('roomTitle').textContent=state.room?state.roomName:'新建聊天室';$('roomMeta').textContent=state.room?'agent-gand 工作区 · 模拟账户已配置 · 默认策略：自动':'只配置团队与工作区，不自动启动任务';$('composerTitle').textContent=state.room?'发送新任务':'聊天室设置';$('scopeLabel').textContent=state.room?'仅本轮':'建房';$('roomFields').hidden=state.room;$('turnFields').hidden=!state.room;$('previewButton').hidden=!state.room;$('sendButton').hidden=!state.room;$('createButton').hidden=state.room;renderDraftInfo()}
+    function renderDraftInfo(){$('draftInfo').textContent=state.room?'仅本轮安排；发送后恢复默认。角色与账户均为模拟数据。':'建房只保存候选团队、工作区与默认偏好。';$('sendButton').disabled=!state.goal.trim()||!state.team.length;$('createButton').disabled=!state.team.length||!$('roomName').value.trim();}
+    function renderMembers(){$('members').innerHTML=members.map(m=>`<button class="member" data-member="${m.id}" aria-pressed="${state.team.includes(m.id)}" aria-label="${esc(m.name)} 加入候选团队"><span class="avatar" aria-hidden="true">${m.avatar}</span><span><span class="member-title">${esc(m.name)}</span><span class="member-sub">${esc(m.detail)}</span></span><span class="check" aria-hidden="true">${state.team.includes(m.id)?'✓':'+'}</span></button>`).join('')}
+    function renderTargets(){$('targets').innerHTML=state.team.map(id=>`<button class="target" data-target="${id}" aria-pressed="${state.targets.includes(id)}">${byId(id).avatar} ${esc(byId(id).name)}</button>`).join('');$('targetsHelp').textContent=state.targets.length?`明确目标：${names(state.targets)}。正文里的有效 @ 同样参与预览，冲突时先提示。`:'未指定目标：自动从候选团队选择合适执行成员。';$('order').hidden=state.strategy!=='serial'||state.targets.length<2;$('order').innerHTML=state.targets.map((id,i)=>`<span class="pill">${i+1}. ${esc(byId(id).name)}</span>${i>0?`<button data-order="${i}" aria-label="${esc(byId(id).name)} 前移">↑ 前移</button>`:''}`).join('');}
+    function memberOptions(predicate,value){return state.team.filter(id=>predicate(byId(id))).map(id=>`<option value="${id}"${id===value?' selected':''}>${esc(byId(id).name)}</option>`).join('')}
+    function renderRoles(){const w=state.workflow;$('roleFields').hidden=w==='routine';if(w==='routine'){$('roleFields').innerHTML='';return;}
+      if(w==='review'){$('roleFields').innerHTML=`<label for="reviewer">独立评审者 · 从具有评审能力的团队成员中选择</label><select id="reviewer"><option value="">请选择</option>${memberOptions(m=>m.review,state.reviewer)}</select><p class="help">评审者必须与实现者不同；绑定本次制品快照，返工后重新评审。</p>`;}
+      if(w==='summary'){$('roleFields').innerHTML=`<label for="aggregator">汇总者</label><select id="aggregator"><option value="">请选择</option>${memberOptions(m=>m.execute&&!m.readonly,state.aggregator)}</select><p class="help">必要分析分支全部结束后，明确调用汇总者。</p>`;}
+      if(w==='supervisor'){$('roleFields').innerHTML=`<label for="supervisor">主管 · 首批需要模型 API 协调能力</label><select id="supervisor"><option value="">请选择</option>${memberOptions(m=>m.coordinate,state.supervisor)}</select><p class="help">实际实现需生成有依赖的任务图。此原型只演示确认交互。</p>`;}
+      if(w==='debate'){$('roleFields').innerHTML=`<label for="rounds">固定轮次</label><select id="rounds"><option value="2"${state.rounds==='2'?' selected':''}>2 轮</option><option value="3"${state.rounds==='3'?' selected':''}>3 轮</option></select><p class="help">明确轮次与结束条件；原型只演示有限步骤。</p>`;}
+    }
+    function invalidate(){state.preview=null;renderPreview();renderDraftInfo()}
+    function resolve(){const errors=[];let targets=[...state.targets];const mentions=members.filter(m=>state.goal.includes('@'+m.name)).map(m=>m.id);
+      if(mentions.some(id=>!state.team.includes(id)))errors.push('正文 @ 的成员不在候选团队，请先明确加入团队。');
+      if(mentions.length&&targets.length&&JSON.stringify([...mentions].sort())!==JSON.stringify([...targets].sort()))errors.push('正文 @ 与本轮成员选择不一致，请调整其中一处再发送。');
+      if(mentions.length&&!targets.length)targets=mentions.filter(id=>state.team.includes(id));
+      if(!targets.length){const fallback=state.team.find(id=>byId(id).execute&&!byId(id).readonly);if(fallback)targets=[fallback];}
+      if(!state.goal.trim())errors.push('请填写任务内容。');if(!targets.length)errors.push('候选团队中没有可执行成员，请调整团队。');
+      const w=state.workflow,s=state.strategy;const writeIntent=/修改|修复|写入|实现/.test(state.goal)&&!/不修改|不写入|只读/.test(state.goal);
+      if(targets.some(id=>byId(id).readonly)&&(w!=='routine'||s==='parallel'||writeIntent))errors.push('只读 CLI 当前仅支持明确的简单只读任务，不能承担开发实现或此工作流。');
+      if(w==='review'){
+        if(targets.length!==1)errors.push('开发与评审首批需要明确一位实现者，请调整本轮目标。');
+        if(!state.team.includes(state.reviewer)||!byId(state.reviewer)?.review)errors.push('请选择团队内具备评审能力的成员。');
+        if(targets.includes(state.reviewer))errors.push('实现者与独立评审者不能为同一成员。');
+        if(s==='parallel')errors.push('开发与评审有先实现后评审的依赖，请将策略调整为自动或顺序接力。');
+      }
+      if(w==='summary'){if(targets.length<2)errors.push('分析与汇总需要至少两位分析成员。');if(!state.team.includes(state.aggregator)||byId(state.aggregator)?.readonly)errors.push('请选择可执行汇总的团队成员。');}
+      if(w==='supervisor'&&(!state.team.includes(state.supervisor)||!byId(state.supervisor)?.coordinate))errors.push('主管拆解需要模型 API 的协调成员，本期不支持外部 Agent 担任主管。');
+      if(w==='debate'&&targets.length<2)errors.push('固定轮次辩论需要至少两位参与者。');
+      if(s==='parallel'&&writeIntent)errors.push('并行分析默认只读，请明确不修改文件，或改用顺序接力/开发与评审。');
+      const effective=s==='auto'?(targets.length>1&&!writeIntent?'parallel':targets.length>1?'serial':'single'):s;
+      let steps=targets.map(id=>byId(id).name);
+      if(w==='review')steps=[`${names(targets)} 实现`,'制品快照',`${byId(state.reviewer)?.name||'评审者'} 评审`,'必要时返工与复审'];
+      if(w==='summary')steps=[`${names(targets)} 并行分析`,`${byId(state.aggregator)?.name||'汇总者'} 汇总`];
+      if(w==='supervisor')steps=[`${byId(state.supervisor)?.name||'主管'} 拆解`,'确认依赖图',`${names(targets)} 执行`,'验证结果'];
+      if(w==='debate')steps=[`${names(targets)} 第 1 轮`,...Array.from({length:Number(state.rounds)-1},(_,i)=>`第 ${i+2} 轮`),'达到轮次后结束'];
+      const actual=effective==='single'?'单人处理':strategyNames[effective];
+      const reason=mentions.length?'你在正文明确 @ 了成员':state.targets.length?'你明确选择了本轮参与者':'从候选团队选择具备执行能力的成员';
+      return {errors,targets,effective,actual,reason,steps,requiresConfirm:w!=='routine',workflow:w,writeIntent};
+    }
+    function renderPreview(){if(!state.preview){$('preview').innerHTML='';return;}const d=state.preview;const blocked=d.errors.length>0;
+      $('preview').innerHTML=`<div class="preview${blocked?' blocked':''}"><div class="decision-title">${blocked?'安排需要调整':'本轮安排 · '+esc(d.actual)}</div><ul>${blocked?d.errors.map(e=>`<li>${esc(e)}</li>`).join(''):`<li>参与者：${esc(names(d.targets))} · ${esc(d.reason)}</li><li>工作流：${esc(workflowNames[d.workflow])} · ${d.writeIntent?'需受控写入工作区':'只读或按任务权限执行'}</li><li>步骤：${esc(d.steps.join(' → '))}</li><li>${d.workflow==='routine'&&d.effective==='parallel'?'独立输出，不额外调用汇总者。':'审批、失败和等待都保留在同一任务内。'}</li>`}</ul>${!blocked&&d.requiresConfirm?'<div class="actions"><button id="confirmAndSend" class="primary">确认安排并发送模拟任务</button></div>':''}<p class="help">修改成员、内容或工作流后，需要重新查看安排。预览不调用模型。</p></div>`;
+    }
+    function makeTask(decision){return {id:'demo-'+counter++,goal:state.goal,strategy:state.strategy,workflow:state.workflow,targets:[...decision.targets],owner:decision.targets[0],reviewer:state.reviewer,aggregator:state.aggregator,supervisor:state.supervisor,rounds:state.rounds,scene:state.scene,phase:'queued',step:0,effective:decision.effective,steps:decision.steps,waitKind:'question'};}
+    function submit(confirmed=false){const d=resolve();if(d.errors.length){state.preview=d;renderPreview();notify('请先调整安排；未发起模拟任务。');return;}if(d.requiresConfirm&&!confirmed){state.preview=d;renderPreview();notify('请核对步骤并确认后发送。');return;}const task=makeTask(d);state.tasks.push(task);state.preview=null;state.goal='';$('goal').value='';state.strategy='auto';state.workflow='routine';$('strategy').value='auto';$('workflow').value='routine';renderRoles();renderTargets();renderPreview();renderDraftInfo();renderTasks();notify(`已创建模拟任务 ${task.id}；发送后恢复默认策略。`)}
+    function activeMemberIds(task){if(['queued','completed','stopped','paused'].includes(task.phase))return [];if(task.effective==='parallel'&&task.phase==='running')return task.targets;return [task.owner];}
+    function occupied(task){return state.tasks.find(t=>t.id!==task.id&&activeMemberIds(t).some(id=>task.targets.includes(id)));}
+    function stepsFor(task){if(task.workflow==='review')return ['实现','制品快照','独立评审','返工','复审','完成'];if(task.workflow==='summary')return ['排队','并行分析','汇总','完成'];if(task.workflow==='supervisor')return ['排队','确认图后执行','验证','完成'];if(task.workflow==='debate')return ['排队',...Array.from({length:Number(task.rounds)},(_,i)=>`第 ${i+1} 轮`),'结束'];if(task.scene==='waiting')return ['排队','处理中','等待输入','已恢复','完成'];if(task.effective==='parallel')return ['排队','并行分析','部分结果','完成'];if(task.effective==='serial'&&task.targets.length>1)return ['排队',...task.targets.map(id=>byId(id).name+' 处理'),'完成'];return ['排队','处理中','完成'];}
+    function advance(task){if(task.phase==='queued'&&occupied(task)){notify('目标成员仍被前一个任务占用。先推进或停止前一个任务。');return;}
+      if(task.phase==='paused'){notify('任务已暂停，请先恢复。');return;}if(task.phase==='waiting'){notify('请在任务卡内回答或处理审批，再继续原任务。');return;}
+      task.step++;
+      if(task.workflow==='review'){const phases=['queued','running','reviewing','rework','rereview','completed'];task.phase=phases[Math.min(task.step,5)];task.owner=['reviewing','rereview'].includes(task.phase)?task.reviewer:task.targets[0];}
+      else if(task.workflow==='summary'){task.phase=['queued','running','summarizing','completed'][Math.min(task.step,3)];task.owner=task.phase==='summarizing'?task.aggregator:task.targets[0];}
+      else if(task.workflow==='debate'){task.phase=task.step>=Number(task.rounds)+1?'completed':'running';}
+      else if(task.workflow==='supervisor'){task.phase=['queued','running','running','completed'][Math.min(task.step,3)];}
+      else if(task.scene==='waiting'){task.phase=['queued','running','waiting','resumed','completed'][Math.min(task.step,4)];}
+      else if(task.effective==='parallel'){task.phase=['queued','running','running','completed'][Math.min(task.step,3)];}
+      else if(task.effective==='serial'&&task.targets.length>1){task.phase=task.step>task.targets.length?'completed':'running';task.owner=task.targets[Math.min(Math.max(task.step-1,0),task.targets.length-1)];}
+      else task.phase=task.step>=2?'completed':'running';
+      renderTasks();
+    }
+    function taskHTML(task){const terminal=['completed','stopped'].includes(task.phase);const waiting=task.phase==='waiting';const blocked=task.phase==='queued'?occupied(task):null;const statuses={queued:blocked?'排队等待成员':'待执行',running:'正在处理',reviewing:'正在评审',rework:'评审 FAIL · 返工中',rereview:'新快照复审中',summarizing:'正在汇总',waiting:task.waitKind==='approval'?'等待工具审批':'等待你的回答',resumed:'已恢复原任务',paused:'已暂停',completed:'已完成',stopped:'已停止'};const steps=stepsFor(task);const activeIndex=task.workflow==='review'?({queued:0,running:0,reviewing:2,rework:3,rereview:4,completed:5}[task.phase]??0):task.step;
+      let result='';
+      if(task.workflow==='review'&&task.step>=3&&task.phase!=='completed')result='<div class="result fail"><strong>评审 FAIL · 模拟结果</strong>登录错误分支遗漏提示验证，交回实现者返工。<br>返工会生成 snapshot-v2，snapshot-v1 的结论不能覆盖新内容。</div>';
+      if(task.effective==='parallel'&&task.step>=2&&task.workflow==='routine')result=`<div class="result"><strong>${task.phase==='completed'?'两份独立结果已到齐':'第一份分析结果已到齐'} · 模拟结果</strong>${esc(names(task.targets))} 分别分析兼容性与错误恢复；本轮没有额外汇总调用。</div>`;
+      if(task.phase==='completed')result+=`<div class="result"><strong>${task.workflow==='review'?'复审 PASS · 必要证据齐备':'任务结果已记录'} · 模拟结果</strong>${task.workflow==='review'?'snapshot-v2 已通过独立评审与模拟测试。未执行真实文件修改、提交或推送。':'结果持久展示的预期交互；此处内容仅为模拟演示。'}</div>`;
+      let wait='';if(waiting&&task.waitKind==='question')wait=`<div class="wait-card"><strong>需要你确认错误提示行为</strong><p class="small muted">回答将恢复 ${esc(task.id)}，不会新建任务。</p><label for="answer-${task.id}">希望提示“请重试”，还是直接展示具体错误原因？</label><input id="answer-${task.id}" placeholder="例如：展示具体原因，并提供重试按钮"><div class="actions"><button class="primary" data-action="answer" data-task="${task.id}">回答并继续原任务</button><button data-action="showApproval" data-task="${task.id}">改为演示工具审批</button></div></div>`;
+      if(waiting&&task.waitKind==='approval')wait=`<div class="wait-card"><strong>工具审批 · 模拟读取项目文件</strong><p class="small">工作区：agent-gand · 范围：登录模块 · 仅本次模拟操作</p><div class="actions"><button class="primary" data-action="approve" data-task="${task.id}">批准本次模拟操作</button><button class="danger" data-action="reject" data-task="${task.id}">拒绝并停止此任务</button></div></div>`;
+      return `<article class="task" data-task-id="${task.id}"><div class="task-head"><div><span class="pill">${esc(strategyNames[task.strategy]||'自动')}</span> <span class="pill">${esc(workflowNames[task.workflow])}</span></div><span class="task-id">${esc(task.id)} · 模拟任务</span></div><p class="task-goal">${esc(task.goal)}</p><div class="status-row"><span class="pill ${task.phase==='completed'?'good':['waiting','rework','queued','paused'].includes(task.phase)?'warn':''}">${esc(statuses[task.phase])}</span><span>当前负责人：${esc(byId(task.owner)?.name||names(task.targets))}</span></div>${blocked?`<p class="help">${esc(names(task.targets))} 正在处理 ${esc(blocked.id)}，此任务不会抢占它。</p>`:''}<div class="progress">${steps.map((s,i)=>`<span class="step ${terminal&&task.phase==='completed'||i<activeIndex?'done':i===activeIndex?'active':''}">${esc(s)}</span>`).join('')}</div>${result}${wait}<details><summary>查看安排与验证记录</summary><ul><li>参与者：${esc(names(task.targets))}</li><li>后端：${esc(task.targets.map(id=>byId(id).detail).join('；'))}</li><li>工作区：已注册 Git 工作区；只读共享，写入互斥（目标行为）</li><li>等待、返工与恢复绑定同一任务；代次和权限由 Runtime 校验（目标行为）</li>${task.workflow==='review'?'<li>制品：snapshot-v1 → snapshot-v2；模拟检查：提示分支验证 PASS</li>':''}</ul></details><div class="task-actions">${!terminal&&!waiting&&task.phase!=='paused'?`<button data-action="advance" data-task="${task.id}">演示下一步${blocked?'（需先释放成员）':''}</button>`:''}${task.phase==='paused'?`<button data-action="resume" data-task="${task.id}">恢复此任务</button>`:!terminal?`<button data-action="pause" data-task="${task.id}">暂停此任务</button>`:''}${!terminal?`<button class="quiet danger" data-action="stop" data-task="${task.id}">停止此任务</button>`:''}</div></article>`;
+    }
+    function renderTasks(){$('taskCount').textContent=state.tasks.length?`· ${state.tasks.length} 个`:'';$('tasks').innerHTML=state.tasks.length?state.tasks.map(taskHTML).join(''):'<div class="empty">暂无任务。发送后，这里会显示负责人、阶段和结果。<br><span class="small">创建空聊天室不会调用模型。</span></div>';
+      $('memberStatus').innerHTML=state.team.filter(id=>id!=='cli').map(id=>{const task=state.tasks.find(t=>activeMemberIds(t).includes(id));const queued=state.tasks.filter(t=>t.targets.includes(id)&&t.phase==='queued').length;return `<span class="member-state${task?' busy':''}">${byId(id).avatar} ${esc(byId(id).name)} · ${task?'忙碌':'空闲'}${queued?' / 排队 '+queued:''}</span>`;}).join('');}
+    $('scenarios').addEventListener('click',event=>{const button=event.target.closest('[data-scene]');if(button)loadScene(button.dataset.scene)});
+    $('reset').addEventListener('click',()=>loadScene(state.scene));
+    $('members').addEventListener('click',event=>{const button=event.target.closest('[data-member]');if(!button)return;const id=button.dataset.member;if(state.team.includes(id)){state.team=state.team.filter(m=>m!==id);state.targets=state.targets.filter(m=>m!==id);}else state.team.push(id);renderMembers();renderTargets();renderRoles();renderTasks();invalidate()});
+    $('targets').addEventListener('click',event=>{const button=event.target.closest('[data-target]');if(!button)return;const id=button.dataset.target;state.targets=state.targets.includes(id)?state.targets.filter(m=>m!==id):[...state.targets,id];renderTargets();invalidate()});
+    $('order').addEventListener('click',event=>{const button=event.target.closest('[data-order]');if(!button)return;const i=Number(button.dataset.order);[state.targets[i-1],state.targets[i]]=[state.targets[i],state.targets[i-1]];renderTargets();invalidate()});
+    $('strategy').addEventListener('change',event=>{state.strategy=event.target.value;renderTargets();invalidate()});
+    $('workflow').addEventListener('change',event=>{state.workflow=event.target.value;renderRoles();invalidate()});
+    $('roleFields').addEventListener('change',event=>{if(['reviewer','aggregator','supervisor','rounds'].includes(event.target.id)){state[event.target.id]=event.target.value;invalidate()}});
+    $('goal').addEventListener('input',event=>{state.goal=event.target.value;invalidate()});
+    $('roomName').addEventListener('input',()=>renderDraftInfo());
+    $('previewButton').addEventListener('click',()=>{state.preview=resolve();renderPreview()});
+    $('sendButton').addEventListener('click',()=>submit());
+    $('preview').addEventListener('click',event=>{if(event.target.closest('#confirmAndSend'))submit(true)});
+    $('createButton').addEventListener('click',()=>{state.room=true;state.roomName=$('roomName').value.trim();renderRoom();renderTasks();notify('模拟聊天室已创建，当前没有任务，也没有模型调用。')});
+    $('tasks').addEventListener('click',event=>{const button=event.target.closest('[data-action]');if(!button)return;const task=state.tasks.find(t=>t.id===button.dataset.task);if(!task)return;
+      const action=button.dataset.action;if(action==='advance')advance(task);if(action==='pause'){task.previousPhase=task.phase;task.phase='paused';renderTasks();notify('已暂停此模拟任务，其他任务保持原状态。');}
+      if(action==='resume'){task.phase=task.previousPhase||'running';renderTasks();notify('模拟恢复前校验冻结配置与工作区；任务编号不变。');}
+      if(action==='stop'||action==='reject'){task.phase='stopped';renderTasks();notify('只停止当前模拟任务；其他任务继续。');}
+      if(action==='showApproval'){task.waitKind='approval';renderTasks();}
+      if(action==='answer'||action==='approve'){if(action==='answer'&&!$('answer-'+task.id).value.trim()){notify('请先填写回答。');return;}task.step=3;task.phase='resumed';renderTasks();notify(`继续原任务 ${task.id}，没有创建新任务。`);}
+    });
+    loadScene('routine');
+  </script>
+</body>
+</html>

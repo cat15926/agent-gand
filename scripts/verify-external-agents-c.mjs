@@ -13,7 +13,7 @@ execFileSync('git', ['init', '-q', workspace]); execFileSync('git', ['-C', works
 execFileSync('git', ['-C', workspace, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'fixture']);
 const cli = path.join(root, 'native'); await copyFile(new URL('./fixtures/external-agent-c.mjs', import.meta.url), cli); await chmod(cli, 0o755);
 const log = path.join(root, 'native.jsonl'); await writeFile(log, '');
-Object.assign(process.env, { DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'agents'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '',
+Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'agents'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '',
   EXTERNAL_CODEX_COMMAND: cli, EXTERNAL_CLAUDE_SDK_WORKER_COMMAND: cli, EXTERNAL_CODEX_HOME: path.join(root, 'codex'), EXTERNAL_AGENT_TIMEOUT_MS: '15000',
   ANTHROPIC_API_KEY: 'fixture-never-used', FAKE_C_LOG: log, FAKE_C_SERVER_ROOT: fileURLToPath(new URL('../apps/server', import.meta.url)) });
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');
@@ -112,7 +112,9 @@ try {
   await agent('codex-wait', 'codex-app-server', 'fixture-wait');
   const stopping = await room(['codex-wait']);
   await waitFor(async () => (await logs()).find((item) => item.kind === 'start' && item.model === 'fixture-wait'), 'waiting native');
-  assert.equal((await api('/api/collaboration/agents/codex-wait/stop', 'POST', { conversationId: stopping.conversation.id })).status, 200);
+  assert.equal((await api('/api/collaboration/agents/codex-wait/stop', 'POST', { conversationId: stopping.conversation.id })).status, 409);
+  assert.equal(getRun(stopping.run.id).status, 'running', '缺少 Run 的停止请求不能撤销当前执行');
+  assert.equal((await api('/api/collaboration/agents/codex-wait/stop', 'POST', { conversationId: stopping.conversation.id, runId: stopping.run.id })).status, 200);
   assert.ok(listExecutions(stopping.run.id).every((item) => item.status !== 'running'));
 
   // Direct authenticated callback contract with real Runtime custody, isolated from scheduling.

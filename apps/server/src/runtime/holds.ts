@@ -509,6 +509,7 @@ export function claimReadyDurableHolds(input: {
       WHERE (h.status='open' OR (h.status='claimed' AND h.claim_expires_at<=?))
         AND (h.next_retry_at IS NULL OR h.next_retry_at<=?)
         AND r.status IN ('pending','running','awaiting_approval','waiting_for_user')
+        AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=h.run_id AND c.recovery_attention=1)
         ${input.runId ? 'AND h.run_id=?' : ''}
       ORDER BY CASE WHEN COALESCE(h.wake_at,h.timeout_at,h.deadline_at) IS NULL THEN 1 ELSE 0 END,
         COALESCE(h.wake_at,h.timeout_at,h.deadline_at),h.created_at,h.rowid`,

@@ -1,6 +1,7 @@
 import type { AgentCapability, AgentDefinition, AgentExecutionConfig, AgentInput } from '@agent-gand/shared';
 import { listToolNames } from '../tools/builtin/index.ts';
 import { bidirectional, SDK_TOOLS } from '../execution/policy.ts';
+import { assertAccountCompatibility } from '../accounts/resolver.ts';
 
 const ID_RE = /^[a-z][a-z0-9-]{1,47}$/;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -52,7 +53,7 @@ export function normalizeAgent(def: Partial<AgentDefinition> & Pick<AgentDefinit
   return { ...def, avatar: def.avatar ?? '', description: def.description ?? '', capabilities: def.capabilities?.length ? def.capabilities : inferCapabilities(def.id), enabled: def.enabled ?? true, version: def.version ?? 1, syncError: def.syncError ?? null };
 }
 
-export function validateAgentInput(value: unknown): AgentInput {
+export function validateAgentInput(value: unknown, options: { allowUnavailableAccount?: boolean } = {}): AgentInput {
   const input = (value && typeof value === 'object' && !Array.isArray(value) ? value : {}) as Record<string, unknown>;
   const execution = parseExecution(input.execution);
   const text = (key: string) => typeof input[key] === 'string' ? (input[key] as string).trim() : '';
@@ -60,10 +61,14 @@ export function validateAgentInput(value: unknown): AgentInput {
   const id = text('id'); const name = text('name'); const description = text('description');
   const systemPrompt = typeof input.systemPrompt === 'string' ? input.systemPrompt.trim() : '';
   const model = text('model'); const tools = strings('tools'); const disallowedTools = strings('disallowedTools');
+  const accountRef = input.accountRef === undefined || input.accountRef === '' ? undefined : text('accountRef');
   const capabilities = strings('capabilities') as AgentCapability[];
   const permissionMode = text('permissionMode') as AgentInput['permissionMode']; const color = text('color'); const avatar = text('avatar');
   const localAvatar = /^\/api\/agent-avatars\/[0-9a-f-]+\.(?:png|jpg|webp|gif)$/i.test(avatar);
   const errors: Record<string, string> = {};
+  if (input.enabled !== undefined && typeof input.enabled !== 'boolean') errors.enabled = '启用状态必须为布尔值';
+  if (input.requiresAccount !== undefined && typeof input.requiresAccount !== 'boolean') errors.accountRef = '账户绑定要求必须为布尔值';
+  if (input.accountRef !== undefined && input.accountRef !== '' && (!accountRef || accountRef.length > 100 || !/^[A-Za-z0-9-]+$/.test(accountRef))) errors.accountRef = '账户引用格式无效';
   if (!ID_RE.test(id)) errors.id = '需以小写字母开头，只能包含小写字母、数字和连字符，共 2–48 位'; else if (RESERVED.has(id)) errors.id = '该 ID 为系统保留字';
   if (!name || name.length > 40) errors.name = '名称必填且不超过 40 个字符';
   if (!description || description.length > 300) errors.description = '描述必填且不超过 300 个字符';
@@ -83,7 +88,8 @@ export function validateAgentInput(value: unknown): AgentInput {
   if ([...tools, ...disallowedTools].some((item) => !knownTools.has(item))) errors.tools = '包含未知工具';
   if (tools.some((item) => disallowedTools.includes(item))) errors.disallowedTools = '允许与禁用工具不能重复';
   if (Object.keys(errors).length) throw new AgentValidationError(400, '角色配置校验失败', errors);
-  const result = { id, name, description, capabilities, systemPrompt, model, execution, tools, disallowedTools, permissionMode, color, avatar };
+  const result = { id, name, description, capabilities, systemPrompt, model, execution, ...(accountRef ? { accountRef } : {}), ...(input.requiresAccount === true ? { requiresAccount: true } : {}), tools, disallowedTools, permissionMode, color, avatar };
   assertExternalPolicy(result);
+  if (!options.allowUnavailableAccount) assertAccountCompatibility(result);
   return result;
 }

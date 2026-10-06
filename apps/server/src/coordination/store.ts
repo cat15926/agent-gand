@@ -10,6 +10,7 @@ import type {
   CoordinationStepAttempt,
   CoordinationStepState,
   RuntimeControlAction,
+  ExecutionBinding,
 } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
@@ -25,6 +26,7 @@ import {
   createCoordinationResumeHold,
 } from '../runtime/coordinationAdapter.ts';
 import { commitCompleteActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
+import { captureExecutionBinding } from '../execution/authority.ts';
 
 interface PayloadRow { payload: string }
 interface EventRow {
@@ -180,7 +182,7 @@ export function prepareCoordinationReadySteps(plan: CoordinationPlan): Coordinat
   return listCoordinationStepStates(plan.id).filter((state) => state.status === 'ready');
 }
 
-export function claimCoordinationStep(plan: CoordinationPlan, step: CoordinationPlanStep, input: string): { state: CoordinationStepState; attempt: CoordinationStepAttempt } | null {
+export function claimCoordinationStep(plan: CoordinationPlan, step: CoordinationPlanStep, input: string): { state: CoordinationStepState; attempt: CoordinationStepAttempt; executionBinding?: ExecutionBinding } | null {
   const result = tx(() => {
     const state = get<StepStateRow>("SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=? AND status='ready'", plan.id, plan.revision, step.id);
     if (!state || !plan.runId) return null;
@@ -201,12 +203,15 @@ export function claimCoordinationStep(plan: CoordinationPlan, step: Coordination
     }
     run("UPDATE coordination_step_states SET status='running',attempt_no=?,error=NULL,started_at=COALESCE(started_at,?),updated_at=? WHERE plan_id=? AND revision=? AND step_id=?", attemptNo, now, now, plan.id, plan.revision, step.id);
     observeCoordinationClaim(plan, step, attempt.id);
-    return { state: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!, attempt };
+    const executionBinding = step.agentId && coordinationKernelMode(plan.runId) === 'execute'
+      && get("SELECT 1 FROM coordination_plans WHERE id=? AND status IN ('active','pause_requested')", plan.id)
+      ? captureExecutionBinding(plan.runId, step.agentId, attempt.id) : undefined;
+    return { state: get<StepStateRow>('SELECT * FROM coordination_step_states WHERE plan_id=? AND revision=? AND step_id=?', plan.id, plan.revision, step.id)!, attempt, executionBinding };
   });
   if (!result) return null;
   const state = emitStep(result.state);
   recordCoordinationEvent({ kind: 'step_started', draftId: plan.draftId, planId: plan.id, runId: plan.runId, payload: { stepId: step.id, attemptNo: result.attempt.attempt_no } });
-  return { state, attempt: mapStepAttempt(result.attempt) };
+  return { state, attempt: mapStepAttempt(result.attempt), executionBinding: result.executionBinding };
 }
 
 export function setCoordinationAttemptSpan(attemptId: string, spanId: string): void {
@@ -327,14 +332,27 @@ export function recoverInterruptedCoordinationSteps(): string[] {
     const activePlans = all<{ id: string; run_id: string; status: CoordinationPlan['status']; payload: string }>("SELECT id,run_id,status,payload FROM coordination_plans WHERE status IN ('active','pause_requested') AND run_id IS NOT NULL");
     const now = new Date().toISOString();
     for (const plan of activePlans) {
+      const current = JSON.parse(plan.payload) as CoordinationPlan;
+      const runningAttempts = all<StepAttemptRow>("SELECT * FROM coordination_step_attempts WHERE plan_id=? AND status='running'", plan.id);
+      for (const attempt of runningAttempts) {
+        const step = current.steps.find(item => item.id === attempt.step_id);
+        if (step) observeCoordinationPause(current, step, attempt.id);
+      }
+      const uncertainNative = get(`SELECT 1 FROM external_agent_executions WHERE run_id=? AND
+        (status IN ('running','interrupted') OR json_extract(record,'$.executionBinding.attemptId') IN
+          (SELECT id FROM coordination_step_attempts WHERE plan_id=? AND status='running'))`, plan.run_id, plan.id);
+      const uncertainCall = get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1', plan.run_id);
       run("UPDATE coordination_step_attempts SET status='interrupted',error='process_restarted',ended_at=? WHERE plan_id=? AND status='running'", now, plan.id);
       run("UPDATE coordination_step_states SET status='ready',error='process_restarted',updated_at=? WHERE plan_id=? AND status='running'", now, plan.id);
       run("UPDATE run_events SET status='error',output=COALESCE(output,'process_restarted'),ended_at=? WHERE run_id=? AND status='running'", now, plan.run_id);
-      if (plan.status === 'pause_requested') {
+      if (plan.status === 'pause_requested' || uncertainNative || uncertainCall) {
         const payload = JSON.parse(plan.payload) as CoordinationPlan;
         const paused = { ...payload, status: 'paused' as const, updatedAt: now };
         run("UPDATE coordination_plans SET status='paused',payload=?,updated_at=? WHERE id=?", JSON.stringify(paused), now, plan.id);
-        run("UPDATE runs SET status='waiting_for_user',updated_at=? WHERE id=?", now, plan.run_id);
+        run("UPDATE runs SET status='waiting_for_user' WHERE id=?", plan.run_id);
+        recordCoordinationEvent({ kind: 'plan_paused', draftId: current.draftId, planId: plan.id, runId: plan.run_id,
+          payload: { reason: uncertainNative ? 'native_execution_uncertain' : uncertainCall ? 'execution_result_uncertain' : 'restart_pause_requested', revision: current.revision } });
+        plan.status = 'paused';
       }
     }
     return activePlans.filter((plan) => plan.status === 'active').map((plan) => plan.run_id);

@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { getSessionInfo, query } from '@anthropic-ai/claude-agent-sdk';
 import { sdkOptions, type SdkWorkerInput } from './sdkOptions.ts';
 import { diagnostic } from './errors.ts';
+import { rememberSecret } from '../accounts/secrets.ts';
 
 const send = (message: unknown) => process.stdout.write(JSON.stringify(message) + '\n');
 const decisions = new Map<string, (value: boolean) => void>();
@@ -24,6 +25,7 @@ rl.on('line', (line) => {
 rl.on('close', () => { controller.abort(); for (const resolve of decisions.values()) resolve(false); });
 
 async function run(input: SdkWorkerInput): Promise<void> {
+  rememberSecret(process.env.ANTHROPIC_API_KEY);
   try {
     if (input.session?.resume && input.session.id) {
       let info;

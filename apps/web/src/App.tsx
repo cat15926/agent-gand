@@ -7,25 +7,31 @@ import { SideNav } from './components/SideNav';
 import { RightPanel } from './components/RightPanel';
 import { RunView } from './components/views/RunView';
 import { FleetView } from './components/views/FleetView';
+import { useStore } from './store';
+import { addRoleToRoomDraft } from './services/roomDraft';
+const AccountsView = lazy(() => import('./components/views/AccountsView').then((module) => ({ default: module.AccountsView })));
 const ObserveView = lazy(() => import('./components/views/ObserveView').then((module) => ({ default: module.ObserveView })));
 const CanvasView = lazy(() => import('./components/views/CanvasView').then((module) => ({ default: module.CanvasView })));
 
-export type ViewKey = 'run' | 'canvas' | 'fleet' | 'observe';
+export type ViewKey = 'run' | 'canvas' | 'fleet' | 'observe' | 'accounts';
 
 export function App() {
+  const { state, setActiveConversation } = useStore();
   const [view, setView] = useState<ViewKey>('run');
+  const [fleetTab, setFleetTab] = useState<'status' | 'roles'>('status');
   return (
     <div className="flex h-full flex-col">
       <TopBar />
       <div className="flex min-h-0 flex-1">
         <SideNav view={view} onChange={setView} />
         <main className="min-w-0 flex-1 overflow-hidden">
-          {view === 'run' && <RunView />}
+          {view === 'run' && <RunView onManageRoles={() => { setFleetTab('roles'); setView('fleet'); }} />}
           {view === 'canvas' && <Suspense fallback={<ViewLoading />}><CanvasView /></Suspense>}
-          {view === 'fleet' && <FleetView />}
+          {view === 'fleet' && <FleetView initialTab={fleetTab} onManageAccounts={() => setView('accounts')} onUseRole={(id) => { addRoleToRoomDraft(id); setActiveConversation(null); setView('run'); }} />}
+          {view === 'accounts' && <Suspense fallback={<ViewLoading />}><AccountsView onRoles={() => { setFleetTab('roles'); setView('fleet'); }} /></Suspense>}
           {view === 'observe' && <Suspense fallback={<ViewLoading />}><ObserveView /></Suspense>}
         </main>
-        {view === 'run' && <RightPanel />}
+        {view === 'run' && state.activeConversationId && <RightPanel />}
       </div>
     </div>
   );

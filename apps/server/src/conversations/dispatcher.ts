@@ -2,7 +2,10 @@ import type { AgentDefinition, Conversation, Run } from '@agent-gand/shared';
 import { conversationHistory, getConversation, listConversations, touchConversation } from './service.ts';
 import { listByConversation, post, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { pipelineOrchestrator } from '../orchestration/pipeline.ts';
-import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
+import { SESSION_BOUNDARY_DIRECTIVE } from '../orchestration/agentStep.ts';
+import { runAdmittedTurn, prepareAdapterTurns, adapterSafeBoundary, adapterRecoveryReady, RunPausedError } from '../orchestration/admittedTurn.ts';
+import { finishAdapterRun } from '../runtime/taskAdapter.ts';
+import { ownOrchestration } from '../orchestration/ownership.ts';
 import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
 import { endSpan, finishRun, getRun, listPendingRunsByConversation, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
@@ -28,6 +31,8 @@ export function enqueueConversationRun(runId: string, input?: RuntimeMessageInpu
 // 无定向时按确定性判定分"简单（最近回复者快速路径）"与"结构化（协调房间重新规划 / 房间模式编排）"。
 
 interface RuntimeMessageInput {
+  /** O1 persists initial messages before dispatch; presence alone must not turn them into followups. */
+  initialSubmission?: boolean;
   recipientIds?: string[];
   replyTo?: string | null;
   taskId?: string | null;
@@ -39,6 +44,7 @@ function persistedMessageInput(conversationId: string, runId: string): RuntimeMe
   const message = listByConversation(conversationId).find((item) => item.runId === runId && item.kind === 'user');
   if (!message) return undefined;
   return {
+    initialSubmission: ['room_create', 'direct_run'].includes(String(message.meta?.orchestrationSource)) && message.to === 'all',
     recipientIds: message.to === 'all' ? [] : message.to.split(',').filter(Boolean),
     replyTo: message.replyTo, taskId: message.taskId, clientMessageId: message.clientMessageId ?? undefined,
     ...(message.meta?.followupRouting === 'room_mode' ? { followupRouting: 'room_mode' as const } : {}),
@@ -73,12 +79,15 @@ function lastSuccessfulResponder(conversationId: string, members: AgentDefinitio
 /** 快速路径：目标 Agent 并行回应；等所有分支结束后按成功分支数收敛 Run。 */
 async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal: string, messageInput: RuntimeMessageInput | undefined, reason: 'directed' | 'simple'): Promise<void> {
   if (activeFastPath.has(run.id)) return;
+  const release = ownOrchestration(run.id); if (!release) return;
   activeFastPath.add(run.id);
   const root = startSpan(run.id, {
     spanKind: 'orchestration', name: `fastpath:${reason}`, input: run.goal,
     attributes: { 'orchestration.phase': `fastpath.${reason}`, 'fastpath.agents': targets.map((agent) => agent.id).join(',') },
   });
   try {
+    adapterSafeBoundary(run.id);
+    prepareAdapterTurns(run, targets.map((agent,index) => ({ scope: `fastpath:${run.id}:${index}:${agent.id}`, agentId: agent.id })));
     setRunStatus(run.id, 'running');
     // 恢复锚点：重启后 wakeRun 按 checkpoint 原样重建（同 targets → 同 executionScope → 审批/工具幂等键一致）
     saveCheckpoint({ runId: run.id, kind: 'fastpath', phase: 'running', state: {
@@ -97,7 +106,7 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
         attributes: { 'agent.id': agent.id, 'agent.role': 'collaborator', 'orchestration.phase': 'fastpath.step' },
       });
       try {
-        const turn = await runAgentTurn({
+        const turn = await runAdmittedTurn({
           run, agent, parentSpanId: agentSpan.id,
           messages: [
             { role: 'system', content: agent.systemPrompt },
@@ -119,6 +128,7 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
         endSpan(agentSpan, { output: turn.content, status: turn.emptyResponse ? 'error' : 'ok' });
         return { agent, index, failed: false, answered: turn.content.trim().length > 0 };
       } catch (error) {
+        if (error instanceof RunPausedError) throw error;
         const message = error instanceof Error ? error.message : String(error);
         endSpan(agentSpan, { output: message, status: 'error' });
         return { agent, index, failed: true, answered: false };
@@ -134,19 +144,19 @@ async function runFastPathTurn(run: Run, targets: AgentDefinition[], contextGoal
         clientMessageId: `fastpath:${run.id}:${outcome.index}:${outcome.agent.id}:error`,
       });
     }
-    // 全部空回复时与 pipeline 契约对齐：run 仍 completed（agentStep 已发 system 空正文说明、
-    // agent span 记 error），不把"模型空回复"升级为运行失败
-    const allFailed = failed.length === targets.length;
-    finishRun(run.id, allFailed ? 'failed' : 'completed');
-    updateRunUserMessageStatus(run.id, allFailed ? 'failed' : 'responded');
+    adapterSafeBoundary(run.id);
+    const allFailed = failed.length > 0;
+    finishAdapterRun(run.id, allFailed ? 'failed' : 'completed');
     endSpan(root, { output: `fastpath 完成（${succeeded}/${targets.length} 回复，${failed.length} 失败）`, status: allFailed || succeeded === 0 ? 'error' : 'ok' });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    finishRun(run.id, 'failed');
+    if (error instanceof RunPausedError) { endSpan(root, { output: error.message, status: 'error' }); return; }
+    finishAdapterRun(run.id, 'failed');
     try { updateRunUserMessageStatus(run.id, 'failed'); } catch { /* 用户消息可能不存在 */ }
     endSpan(root, { output: message, status: 'error' });
   } finally {
     activeFastPath.delete(run.id);
+    release();
     touchConversation(run.conversationId);
   }
 }
@@ -156,7 +166,8 @@ const activeFastPath = new Set<string>();
 /** 重启恢复：按 fastpath checkpoint 原样重建（同 targets → 同 executionScope → 审批与工具账本幂等） */
 export async function resumeFastPathRun(runId: string): Promise<void> {
   const run = getRun(runId);
-  if (!run || run.status === 'completed' || run.status === 'failed') return;
+  if (!run || ['completed','failed','cancelled'].includes(run.status)) return;
+  if (!adapterRecoveryReady(runId)) return;
   const checkpoint = latestCheckpoint(runId, 'fastpath');
   const agentIds = Array.isArray(checkpoint?.state.agentIds) ? checkpoint.state.agentIds : [];
   const contextGoal = typeof checkpoint?.state.contextGoal === 'string' ? checkpoint.state.contextGoal : run.goal;
@@ -164,7 +175,7 @@ export async function resumeFastPathRun(runId: string): Promise<void> {
   const targets = agentIds
     .map((id) => (typeof id === 'string' ? snapshots.find((agent) => agent.id === id) : undefined))
     .filter((agent): agent is AgentDefinition => Boolean(agent));
-  if (targets.length === 0) return;
+  if (targets.length === 0 || targets.length !== agentIds.length) { finishRun(run.id, 'failed'); return; }
   const messageInput: RuntimeMessageInput = {
     replyTo: typeof checkpoint?.state.replyTo === 'string' ? checkpoint.state.replyTo : null,
     taskId: typeof checkpoint?.state.taskId === 'string' ? checkpoint.state.taskId : null,
@@ -174,15 +185,10 @@ export async function resumeFastPathRun(runId: string): Promise<void> {
 }
 
 
-async function drain(conversationId: string): Promise<void> {
-  if (active.has(conversationId)) return;
-  active.add(conversationId);
-  try {
-    for (;;) {
-      const current = listPendingRunsByConversation(conversationId)[0];
-      if (!current) break;
+async function dispatchRun(current: Run): Promise<void> {
+  const conversationId = current.conversationId;
       const conversation = getConversation(conversationId);
-      if (!conversation) break;
+      if (!conversation) return;
       const snapshots = listRunAgentSnapshots(current.id);
       const members = current.agentIds.map((id) => snapshots.find((agent) => agent.id === id))
         .filter((agent): agent is AgentDefinition => agent !== undefined);
@@ -190,7 +196,7 @@ async function drain(conversationId: string): Promise<void> {
         finishRun(current.id, 'failed');
         try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* 旧 Run 可能没有用户消息 */ }
         touchConversation(conversationId);
-        continue;
+        return;
       }
       const messageInput = inputs.get(current.id) ?? persistedMessageInput(conversationId, current.id);
       const coordinationPlan = getRunCoordinationPlan(current.id);
@@ -210,7 +216,7 @@ async function drain(conversationId: string): Promise<void> {
           inputs.delete(current.id);
           touchConversation(conversationId);
         }
-        continue;
+        return;
       }
       if (current.mode === 'collaboration') {
         try {
@@ -222,13 +228,13 @@ async function drain(conversationId: string): Promise<void> {
           inputs.delete(current.id);
           touchConversation(conversationId);
         }
-        continue;
+        return;
       }
       // ---- Follow-up Router（仅作用于追问：turn>1 或带消息输入；collaboration 语义已是本方案子集）----
       // 决策顺序：结构化 > 定向 > 简单。"@A @B 分别调研，最后由 @C 汇总"是定向 + 结构化的复合诉求，
       // 必须走编排（汇总步骤等待全部分支），@提及转为 recipientHint 供角色参考——
       // 真机会话 31ec5657 seq30 实证：定向短路吞掉了编排诉求，reviewer 从未被调度。
-      const isFollowup = messageInput !== undefined || current.turnNo > 1;
+      const isFollowup = current.turnNo > 1 || (messageInput !== undefined && !messageInput.initialSubmission);
       const structured = isFollowup && isStructuredFollowupGoal(current.goal);
       const directed = isFollowup && !structured ? directedAgentIds(conversation, messageInput, members) : [];
       const history = conversationHistory(conversationId, current.turnNo);
@@ -238,7 +244,7 @@ async function drain(conversationId: string): Promise<void> {
         const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
         await runFastPathTurn(current, directed, contextGoal, messageInput, 'directed');
         inputs.delete(current.id);
-        continue;
+        return;
       }
       if (isFollowup && !structured) {
         // 简单追问：最近成功回复者快速回应（默认偏轻，误判可 @ 升级补救）
@@ -250,7 +256,7 @@ async function drain(conversationId: string): Promise<void> {
           const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
           await runFastPathTurn(current, [target], contextGoal, messageInput, 'simple');
           inputs.delete(current.id);
-          continue;
+          return;
         }
       }
       if (structured && messageInput?.followupRouting !== 'room_mode' && conversationHasCoordinationPlan(conversationId)) {
@@ -259,11 +265,11 @@ async function drain(conversationId: string): Promise<void> {
           const previewResult = await previewCoordination({
             goal: current.goal, agentIds: current.agentIds,
             ...(current.defaultReviewerId && current.agentIds.includes(current.defaultReviewerId) ? { defaultReviewerId: current.defaultReviewerId } : {}),
-          });
+          }, current.id);
           const draft = previewResult.draft;
           if (draft.validationErrors.length === 0 && draft.runtimeMode && draft.decision === 'auto_start') {
             compileCoordinationPlan(draft.id, current.id, current.goal, members);
-            continue; // 已绑定新 Plan：回到循环顶部走 coordination 分支执行
+            await dispatchRun(current); return; // 已绑定新 Plan，执行同一 Run
           }
         } catch {
           // 规划失败也走下方轻量快速路径，不重跑旧房间的完整编排。
@@ -278,7 +284,7 @@ async function drain(conversationId: string): Promise<void> {
           const contextGoal = history ? `聊天室「${conversation.title}」历史上下文：\n${history}\n\n${hint}\n\n本轮用户消息：\n${current.goal}` : `${hint}\n\n本轮用户消息：\n${current.goal}`;
           await runFastPathTurn(current, targets, contextGoal, messageInput, fallbackTargets.length > 0 ? 'directed' : 'simple');
           inputs.delete(current.id);
-          continue;
+          return;
         }
       }
       // @ 只记录公开接收者，不改变房间成员或既定 Reviewer；编排层仍拿到完整团队。
@@ -301,17 +307,22 @@ async function drain(conversationId: string): Promise<void> {
       const orchestrator = current.mode === 'supervisor' ? supervisorOrchestrator : pipelineOrchestrator;
       try {
         await orchestrator.start(current, agents, contextGoal, current.goal, messageInput);
-        updateRunUserMessageStatus(current.id, getRun(current.id)?.status === 'cancelled' ? 'failed' : 'responded');
+        if (['completed','failed','cancelled'].includes(getRun(current.id)?.status ?? '')) updateRunUserMessageStatus(current.id, getRun(current.id)?.status === 'completed' ? 'responded' : 'failed');
       } catch {
         try { updateRunUserMessageStatus(current.id, 'failed'); } catch { /* 用户消息可能在启动前失败 */ }
       } finally {
         inputs.delete(current.id);
         touchConversation(conversationId);
       }
-    }
-  } finally {
-    active.delete(conversationId);
-    if (listPendingRunsByConversation(conversationId).length > 0) void drain(conversationId);
+}
+
+async function drain(conversationId: string): Promise<void> {
+  for (const current of listPendingRunsByConversation(conversationId)) {
+    if (active.has(current.id)) continue;
+    active.add(current.id);
+    void dispatchRun(current).catch(() => {
+      if (!['completed','failed','cancelled','waiting_for_user'].includes(getRun(current.id)?.status ?? 'cancelled')) finishAdapterRun(current.id, 'failed', 'dispatcher_failure');
+    }).finally(() => { active.delete(current.id); inputs.delete(current.id); touchConversation(conversationId); });
   }
 }
 

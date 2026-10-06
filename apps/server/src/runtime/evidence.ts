@@ -80,7 +80,8 @@ export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef): Resolve
   if (ref.kind === 'attempt_output') {
     const row = get<{ run_id: string; status: string; output: string | null }>('SELECT run_id,status,output FROM collaboration_attempts WHERE id=?', ref.id);
     const coordination = row ?? get<{ run_id: string; status: string; output: string | null }>(
-      'SELECT run_id,status,output FROM coordination_step_attempts WHERE id=?', ref.id);
+      'SELECT run_id,status,output FROM coordination_step_attempts WHERE id=?', ref.id)
+      ?? get<{ run_id: string; status: string; output: string | null }>('SELECT run_id,status,output FROM task_attempts WHERE id=?', ref.id);
     if (!coordination || coordination.run_id !== runId || coordination.status !== 'completed' || coordination.output === null) return rejected(ref, 'Attempt 输出未完成或不属于当前 Run');
     return accepted(ref, `attempt_output:${ref.id}`, coordination.output);
   }
@@ -122,7 +123,8 @@ function resolveForBundle(runId: string, ref: RuntimeEvidenceRef, contentOverrid
     const override = contentOverrides[`attempt_output:${ref.id}`];
     if (override !== undefined) {
       const collaboration = get<{ run_id: string; status: string }>('SELECT run_id,status FROM collaboration_attempts WHERE id=?', ref.id);
-      const coordination = collaboration ?? get<{ run_id: string; status: string }>('SELECT run_id,status FROM coordination_step_attempts WHERE id=?', ref.id);
+      const coordination = collaboration ?? get<{ run_id: string; status: string }>('SELECT run_id,status FROM coordination_step_attempts WHERE id=?', ref.id)
+        ?? get<{ run_id: string; status: string }>('SELECT run_id,status FROM task_attempts WHERE id=?', ref.id);
       if (!coordination || coordination.run_id !== runId || !['running', 'completed'].includes(coordination.status)) {
         return rejected(ref, 'Attempt override 不属于当前 Run 或已失去提交权');
       }

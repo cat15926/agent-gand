@@ -35,6 +35,8 @@ export interface RuntimeRunContract {
   /** 冻结 Run 接管语义，避免进程重启或开关变化影响历史 Run。 */
   runtimeRevision?: number;
   features?: {
+    /** Legacy entry adapter uses existing TaskAttempts and the public completion authority. */
+    orchestrationAdapter?: 1;
     completionEngine?: boolean;
     coordinationKernel?: 'shadow' | 'execute';
     /** 1 表示历史 Collaboration 动作，2 表示规范 RuntimeControlAction。 */

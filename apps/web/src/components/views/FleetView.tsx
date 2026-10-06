@@ -21,9 +21,9 @@ function agentStatus(agentId: string, ctx: ReturnType<typeof useStore>['state'])
   return 'idle';
 }
 
-export function FleetView() {
+export function FleetView({ initialTab = 'status', onManageAccounts, onUseRole }: { initialTab?: 'status' | 'roles'; onManageAccounts?: () => void; onUseRole?: (id: string) => void }) {
   const { state } = useStore();
-  const [tab, setTab] = useState<'status' | 'roles'>('status');
+  const [tab, setTab] = useState<'status' | 'roles'>(initialTab);
 
   const rows = state.agents.map((agent) => {
     const status = agentStatus(agent.id, state);
@@ -39,7 +39,7 @@ export function FleetView() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 gap-1 border-b border-zinc-800 px-4 pt-3"><button onClick={() => setTab('status')} className={`px-3 py-2 text-sm ${tab === 'status' ? 'border-b-2 border-violet-400 text-zinc-100' : 'text-zinc-500'}`}>执行状态</button><button onClick={() => setTab('roles')} className={`px-3 py-2 text-sm ${tab === 'roles' ? 'border-b-2 border-violet-400 text-zinc-100' : 'text-zinc-500'}`}>角色管理</button></div>
-      {tab === 'roles' ? <AgentManager /> : <div className="h-full overflow-y-auto p-4">
+      {tab === 'roles' ? <AgentManager onManageAccounts={onManageAccounts} onUseRole={onUseRole} /> : <div className="h-full overflow-y-auto p-4">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-800 text-left text-xs text-zinc-500">

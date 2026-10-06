@@ -8,7 +8,10 @@ import { post } from '../messaging/inbox.ts';
 import { endSpan, finishRun, setRunStatus, startSpan } from '../runs/trace.ts';
 import { getRun, listRunAgentSnapshots } from '../runs/trace.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
-import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
+import { SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
+import { runAdmittedTurn, prepareAdapterTurns, adapterSafeBoundary, adapterRecoveryReady, RunPausedError } from './admittedTurn.ts';
+import { finishAdapterRun } from '../runtime/taskAdapter.ts';
+import { ownOrchestration } from './ownership.ts';
 import type { Orchestrator } from './types.ts';
 
 /** 累积的对话转写：后续 agent 的 user 轮包含前面所有 agent 的产出 */
@@ -23,9 +26,12 @@ const activePipelines = new Set<string>();
 
 async function executePipeline(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage?: Parameters<Orchestrator['start']>[4]): Promise<void> {
   if (activePipelines.has(run.id)) return;
+  const release = ownOrchestration(run.id); if (!release) return;
   activePipelines.add(run.id);
     try {
       if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
+      adapterSafeBoundary(run.id);
+      prepareAdapterTurns(run, agents.map((agent,index) => ({ scope: `pipeline:${index}:${agent.id}`, agentId: agent.id })));
       setRunStatus(run.id, 'running');
       const checkpoint = latestCheckpoint(run.id, 'pipeline');
       const recovered = checkpoint?.state as Partial<PipelineState> | undefined;
@@ -41,6 +47,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
       }
       for (let index = state.nextAgentIndex; index < agents.length; index += 1) {
         if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
+        adapterSafeBoundary(run.id);
         const agent = agents[index]!;
         saveCheckpoint({ runId: run.id, kind: 'pipeline', phase: 'agent_running', state: { ...state, nextAgentIndex: index, agentId: agent.id } });
         const agentSpan = startSpan(run.id, {
@@ -62,7 +69,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
         }
         messages.push({ role: 'user', content: buildUserTurn(goal, state.transcript) });
         let turn;
-        try { turn = await runAgentTurn({
+        try { turn = await runAdmittedTurn({
           run,
           agent,
           parentSpanId: agentSpan.id,
@@ -93,21 +100,26 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
         state.nextAgentIndex = index + 1;
         saveCheckpoint({ runId: run.id, kind: 'pipeline', phase: 'agent_completed', state: { ...state } });
       }
+      adapterSafeBoundary(run.id);
+      finishAdapterRun(run.id, 'completed');
       saveCheckpoint({ runId: run.id, kind: 'pipeline', phase: 'completed', status: 'completed', state: { ...state } });
-      finishRun(run.id, 'completed');
     } catch (err) {
-      finishRun(run.id, 'failed');
+      if (err instanceof RunPausedError) return;
+      finishAdapterRun(run.id, 'failed');
       throw err;
     } finally {
       activePipelines.delete(run.id);
+      release();
     }
 }
 
 export async function resumePipelineRun(runId: string): Promise<void> {
   const run = getRun(runId);
   if (!run || run.mode !== 'pipeline' || ['completed', 'failed', 'cancelled'].includes(run.status)) return;
+  if (!adapterRecoveryReady(runId)) return;
   const snapshots = listRunAgentSnapshots(run.id);
   const agents = run.agentIds.map((id) => snapshots.find((agent) => agent.id === id)).filter((agent): agent is AgentDefinition => Boolean(agent));
+  if (agents.length !== run.agentIds.length) { finishRun(run.id, 'failed'); return; }
   await executePipeline(run, agents, run.goal, (latestCheckpoint(run.id, 'pipeline')?.state.displayGoal as string | undefined) ?? run.goal);
 }
 

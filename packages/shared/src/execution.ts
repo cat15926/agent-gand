@@ -1,5 +1,18 @@
 export type ExternalDriverId = 'claude-cli' | 'codex-exec' | 'claude-sdk' | 'codex-app-server';
 
+/** References an existing scheduler attempt; never creates another execution queue. */
+export type ExecutionBinding = {
+  schemaVersion: 1; id: string; runId: string; agentId: string; attemptId: string;
+  workspaceSnapshot?: { commit: string; path: string };
+} & (
+  | { origin: 'collaboration_attempt'; subjectId: string; generation: number; contractRevision: number | null }
+  | { origin: 'coordination_step_attempt'; subjectId: string; generation: number; contractRevision: number | null;
+      planId: string; planRevision: number; stepId: string; startedAt: string; leaseExpiresAt: string;
+      reviewTargets?: Array<{ attemptId: string; subjectId: string; generation: number }> }
+  | { origin: 'task_attempt'; taskId: string; generation: number; startedAt: string; leaseOwner: string;
+      responsibility?: { subjectId: string; generation: number; contractRevision: number | null } }
+);
+
 /** Omission preserves the provider/tool loop; nativeTools is an SDK-only exemption list. */
 export type AgentExecutionConfig =
   | { kind: 'builtin-llm' }
@@ -51,6 +64,7 @@ export interface ExternalAgentExecution {
   attemptId?: string | null;
   permissionMode?: 'readonly' | 'confirm' | 'auto';
   runtimeBinding?: { subjectId: string; generation: number; contractRevision: number | null };
+  executionBinding?: ExecutionBinding;
   controlAction?: import('./collaboration.ts').CollaborationStoredControlAction | null;
   exitCorrectionAttempts?: number;
   sessionBindingId?: string | null;

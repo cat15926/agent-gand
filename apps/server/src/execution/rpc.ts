@@ -1,5 +1,6 @@
 import { ExecutionError, exitError } from './errors.ts';
 import { spawnOwnedProcess, type OwnedProcessInput } from './ownedProcess.ts';
+import { cleanEnvironment } from '../accounts/environment.ts';
 
 type Wire = Record<string, any>;
 export interface RpcPeer {
@@ -13,7 +14,7 @@ export interface RpcPeer {
 export async function withRpcProcess<T>(input: { command: string; args: string[]; cwd: string; signal: AbortSignal; timeoutMs: number; env?: NodeJS.ProcessEnv } & Pick<OwnedProcessInput, 'onProcess' | 'onProcessStopped'>, action: (peer: RpcPeer) => Promise<T>): Promise<T> {
   if (process.platform === 'win32') throw new ExecutionError('unsupported_cli', '原生进程树管理仅支持 macOS/Linux');
   if (input.signal.aborted) throw new ExecutionError('cancelled', '执行已停止');
-  const env = { ...process.env, ...input.env }; delete env.CLAUDECODE;
+  const env = cleanEnvironment(input.env);
   const owned = await spawnOwnedProcess({ ...input, env }); const child = owned.child;
   let sequence = 0; let pending = ''; let stderr = ''; let bytes = 0; let closing = false; let failed = false;
   let handler: (message: Wire) => void | Promise<void> = () => {};

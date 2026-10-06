@@ -6,6 +6,7 @@ import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
 import { loadAgentsFromDir } from './loader.ts';
 import { AgentValidationError, normalizeAgent, validateAgentInput } from './validation.ts';
+import { currentBinding } from '../accounts/resolver.ts';
 
 interface AgentRow {
   id: string; name: string; definition: string; source: 'file' | 'db'; enabled: number;
@@ -62,12 +63,13 @@ export function getAnyAgent(id: string): AgentDefinition | undefined {
   const row = get<AgentRow>('SELECT * FROM agents WHERE id=?', id); return row ? rowToDefinition(row) : undefined;
 }
 export function createAgent(value: unknown): AgentDefinition {
-  const input = validateAgentInput(value);
+  const enabled = (value as { enabled?: boolean })?.enabled ?? true;
+  const input = validateAgentInput(value, { allowUnavailableAccount: enabled === false });
   if (getAnyAgent(input.id)) throw new AgentValidationError(409, `角色 ID 已存在: ${input.id}`, { id: '角色 ID 已存在' });
   const now = new Date().toISOString();
-  const def: AgentDefinition = { ...input, source: 'db', enabled: true, version: 1, syncError: null };
-  tx(() => { run(`INSERT INTO agents (id,name,definition,source,enabled,version,definition_hash,source_path,sync_error,created_at,updated_at)
-    VALUES (?,?,?,'db',1,1,?,NULL,NULL,?,?)`, def.id, def.name, JSON.stringify(def), digest(JSON.stringify(input)), now, now); saveVersion(def, now); });
+  const def: AgentDefinition = { ...input, source: 'db', enabled, version: 1, syncError: null };
+  tx(() => { if (enabled && (input.accountRef || input.requiresAccount)) currentBinding(input); run(`INSERT INTO agents (id,name,definition,source,enabled,version,definition_hash,source_path,sync_error,created_at,updated_at)
+    VALUES (?,?,?,'db',?,1,?,NULL,NULL,?,?)`, def.id, def.name, JSON.stringify(def), enabled ? 1 : 0, digest(JSON.stringify(input)), now, now); saveVersion(def, now); });
   emit({ type: 'agent.updated', agent: def }); return def;
 }
 export function updateAgent(id: string, value: unknown, expectedVersion: number): AgentDefinition {
@@ -75,16 +77,18 @@ export function updateAgent(id: string, value: unknown, expectedVersion: number)
   if (!current) throw new AgentValidationError(404, `角色不存在: ${id}`);
   if (current.source === 'file') throw new AgentValidationError(403, '文件角色为只读，请复制后编辑');
   if (current.version !== expectedVersion) throw new AgentValidationError(409, '角色已被其他操作修改，请刷新后重试');
-  const input = validateAgentInput({ ...(value as object), id }); const now = new Date().toISOString();
-  const def: AgentDefinition = { ...input, source: 'db', enabled: current.enabled, version: current.version + 1, syncError: null };
-  tx(() => { run('UPDATE agents SET name=?,definition=?,version=?,definition_hash=?,sync_error=NULL,updated_at=? WHERE id=? AND version=?', def.name, JSON.stringify(def), def.version, digest(JSON.stringify(input)), now, id, expectedVersion); saveVersion(def, now); });
+  const enabled = (value as { enabled?: boolean })?.enabled ?? current.enabled;
+  const input = validateAgentInput({ ...(value as object), id }, { allowUnavailableAccount: enabled === false }); const now = new Date().toISOString();
+  const def: AgentDefinition = { ...input, source: 'db', enabled, version: current.version + 1, syncError: null };
+  tx(() => { if (enabled && (input.accountRef || input.requiresAccount)) currentBinding(input); run('UPDATE agents SET name=?,definition=?,enabled=?,version=?,definition_hash=?,sync_error=NULL,updated_at=? WHERE id=? AND version=?', def.name, JSON.stringify(def), enabled ? 1 : 0, def.version, digest(JSON.stringify(input)), now, id, expectedVersion); saveVersion(def, now); });
   emit({ type: 'agent.updated', agent: def }); return def;
 }
 export function setEnabled(id: string, enabled: boolean, expectedVersion?: number): AgentDefinition {
   const current = getAnyAgent(id); if (!current) throw new AgentValidationError(404, `角色不存在: ${id}`);
   if (expectedVersion !== undefined && current.version !== expectedVersion) throw new AgentValidationError(409, '角色已被其他操作修改，请刷新后重试');
+  if (enabled) validateAgentInput(current);
   const def: AgentDefinition = { ...current, enabled, version: current.version + 1 }; const now = new Date().toISOString();
-  tx(() => { run('UPDATE agents SET enabled=?,version=?,definition=?,updated_at=? WHERE id=?', enabled ? 1 : 0, def.version, JSON.stringify(def), now, id); saveVersion(def, now); });
+  tx(() => { if (enabled && (current.accountRef || current.requiresAccount)) currentBinding(current); run('UPDATE agents SET enabled=?,version=?,definition=?,updated_at=? WHERE id=?', enabled ? 1 : 0, def.version, JSON.stringify(def), now, id); saveVersion(def, now); });
   emit({ type: 'agent.updated', agent: def }); return def;
 }
 export function count(): number { return get<{ n: number }>('SELECT COUNT(*) n FROM agents WHERE enabled=1')?.n ?? 0; }

@@ -70,6 +70,7 @@ export interface CoordinationProtocolDefinition {
 }
 
 export interface CoordinationAgentCapability {
+  execution?: import('./execution.ts').AgentExecutionConfig;
   id: string;
   name: string;
   version: number;
@@ -77,6 +78,8 @@ export interface CoordinationAgentCapability {
   tools: string[];
   permissionMode: PermissionMode;
   model: string;
+  accountRef?: string;
+  requiresAccount?: boolean;
   enabled: boolean;
 }
 

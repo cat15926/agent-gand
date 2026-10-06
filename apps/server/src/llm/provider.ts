@@ -13,6 +13,8 @@
  */
 import { fetch as undiciFetch, ProxyAgent, type Response as UndiciResponse } from 'undici';
 import { config } from '../config.ts';
+import type { AccountConnection } from '@agent-gand/shared';
+import { anthropicAuthHeaders } from '../accounts/headers.ts';
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';
@@ -44,6 +46,9 @@ export interface LlmRequest {
   tools?: LlmToolSchema[];
   /** 单次调用覆盖 max_tokens（截断重试升预算用）；缺省用 config.llm.maxTokens */
   maxTokens?: number;
+  signal?: AbortSignal;
+  /** Minimal account probe; does not change normal model requests. */
+  connectionTest?: boolean;
 }
 
 export interface LlmResponse {
@@ -84,13 +89,14 @@ interface LlmFetchInit {
   body: string;
 }
 
-function llmFetch(url: string, init: LlmFetchInit): Promise<UndiciResponse> {
+function llmFetch(url: string, init: LlmFetchInit, timeoutMs = config.llm.timeoutMs ?? REQUEST_TIMEOUT_MS, signal?: AbortSignal): Promise<UndiciResponse> {
   const dispatcher = getDispatcher();
   return undiciFetch(url, {
     ...init,
     // thinking 模型长生成：超时可经 LLM_TIMEOUT_MS 调整（默认 180s，见 config.ts）。
     // AbortSignal 覆盖整个流式读取过程：中途超时已广播的 llm.delta 不回收，span 由调用方记 error（§8.1 R5）
-    signal: AbortSignal.timeout(config.llm.timeoutMs ?? REQUEST_TIMEOUT_MS),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
+    redirect: 'error',
     ...(dispatcher !== null ? { dispatcher } : {}), // LLM_PROXY 设置时走代理
   });
 }
@@ -486,7 +492,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   private readonly apiKey: string | null;
   private readonly baseUrl: string;
 
-  constructor(apiKey: string | null, baseUrl: string) {
+  constructor(apiKey: string | null, baseUrl: string, private readonly timeoutMs = config.llm.timeoutMs) {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/+$/, ''); // 去尾部斜杠，拼接路径用
   }
@@ -514,11 +520,11 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     // usage 取流末块需 stream_options（R2）：兼容端点可能不支持该参数而 400 → 去参重试一次（usage 记 0 可接受）
     body.stream_options = { include_usage: true };
-    let res = await llmFetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    let res = await llmFetch(url, { method: 'POST', headers, body: JSON.stringify(body) }, this.timeoutMs, req.signal);
     if (res.status === 400) {
       void res.body?.cancel().catch(() => {});
       delete body.stream_options;
-      res = await llmFetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      res = await llmFetch(url, { method: 'POST', headers, body: JSON.stringify(body) }, this.timeoutMs, req.signal);
     }
     await assertOk(res, `openai-compatible(${this.baseUrl})`);
 
@@ -642,7 +648,7 @@ export class AnthropicProvider implements LLMProvider {
   private readonly apiKey: string | null;
   private readonly baseUrl: string;
 
-  constructor(apiKey: string | null, baseUrl: string) {
+  constructor(apiKey: string | null, baseUrl: string, private readonly timeoutMs = config.llm.timeoutMs, private readonly authHeader: AccountConnection['authHeader'] = 'x-api-key') {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
@@ -662,6 +668,7 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: req.maxTokens ?? config.llm.maxTokens,
       messages: turns,
       stream: true, // §8.1：一律流式请求
+      ...(req.connectionTest ? { thinking: { type: 'disabled' } } : {}),
     };
     if (systemParts.length > 0) body.system = systemParts.join('\n\n');
     if (req.tools && req.tools.length > 0) {
@@ -671,15 +678,15 @@ export class AnthropicProvider implements LLMProvider {
         input_schema: t.parameters,
       }));
     }
-    const res = await llmFetch(`${this.baseUrl}/v1/messages`, {
+    const res = await llmFetch(`${this.baseUrl}${this.baseUrl.endsWith('/v1') ? '' : '/v1'}/messages`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': this.apiKey,
+        ...anthropicAuthHeaders(this.apiKey, { authHeader: this.authHeader }),
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(body),
-    });
+    }, this.timeoutMs, req.signal);
     await assertOk(res, `anthropic(${this.baseUrl})`);
 
     const contentType = res.headers.get('content-type') ?? '';

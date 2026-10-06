@@ -65,7 +65,12 @@ function subjectByInput(input: {
     c.pending_holder_agent_id,c.generation,c.version FROM coordination_step_attempts a
     JOIN runtime_coordination_subjects m ON m.plan_id=a.plan_id AND m.revision=a.revision AND m.step_id=a.step_id
     JOIN runtime_subjects s ON s.id=m.subject_id JOIN runtime_custody c ON c.subject_id=s.id
-    WHERE a.id=? AND a.run_id=?`, input.attemptId, input.runId);
+    WHERE a.id=? AND a.run_id=?`, input.attemptId, input.runId)
+    ?? get<SubjectRow>(`SELECT s.id,s.run_id,s.subject_key,s.status,c.state,c.holder_agent_id,
+      c.pending_holder_agent_id,c.generation,c.version FROM task_attempts a
+      JOIN runtime_task_subjects m ON m.task_id=a.task_id AND m.kind=a.kind
+      JOIN runtime_subjects s ON s.id=m.subject_id JOIN runtime_custody c ON c.subject_id=s.id
+      WHERE a.id=? AND a.run_id=?`, input.attemptId, input.runId);
 }
 
 function coordinationActor(planPayload: string, stepId: string): string | null {
@@ -112,7 +117,18 @@ function attemptForSubject(runId: string, subjectId: string, attemptId?: string)
     LEFT JOIN coordination_plans p ON p.id=a.plan_id
     WHERE a.run_id=? AND m.subject_id=? ${attemptId ? 'AND a.id=?' : ''}
     ORDER BY a.created_at DESC,a.rowid DESC LIMIT 1`, runId, subjectId, ...(attemptId ? [attemptId] : []));
-  if (!coordination) return null;
+  if (!coordination) {
+    const task = get<{ id: string; agent_id: string; status: AttemptStatus; lease_expires_at: string | null; generation: number }>(`
+      SELECT a.id,a.agent_id,a.status,a.lease_expires_at,
+        (SELECT ce.generation FROM runtime_custody_events ce WHERE ce.subject_id=m.subject_id
+          AND ce.source_event_id='task:claim:' || a.id) generation
+      FROM task_attempts a JOIN runtime_task_subjects m ON m.task_id=a.task_id AND m.kind=a.kind
+      WHERE a.run_id=? AND m.subject_id=? ${attemptId ? 'AND a.id=?' : ''}
+      ORDER BY a.created_at DESC,a.rowid DESC LIMIT 1`, runId, subjectId, ...(attemptId ? [attemptId] : []));
+    return task ? { id: task.id, actorId: task.agent_id, generation: task.generation ?? -1, status: task.status,
+      leaseValid: task.status === 'completed' || (task.status === 'running' && !!task.lease_expires_at
+        && new Date(task.lease_expires_at).getTime() > Date.now()) } : null;
+  }
   return {
     id: coordination.id,
     actorId: coordination.claim_actor_id

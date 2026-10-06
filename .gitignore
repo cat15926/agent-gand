@@ -9,5 +9,7 @@ dist/
 *.sqlite-shm
 .env
 apps/server/data/
+# Credential master-key files must stay private even with a custom DB_PATH.
+account-master-key.json
 *.log
 .DS_Store

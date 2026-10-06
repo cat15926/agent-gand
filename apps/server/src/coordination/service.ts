@@ -24,6 +24,8 @@ import { validateCoordinationPlan } from './validator.ts';
 import { getCoordinationCalibration, recordPlannerFeedback } from './calibration.ts';
 import { saveCheckpoint } from '../runs/checkpoints.ts';
 import { getAgent } from '../agents/registry.ts';
+import { listRunAgentSnapshots } from '../runs/trace.ts';
+import { externalCoordinationIssues } from './externalAdmission.ts';
 
 export class CoordinationError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -33,17 +35,18 @@ function errorIssues(issues: CoordinationValidationIssue[]): CoordinationValidat
   return issues.filter((item) => item.severity === 'error');
 }
 
-export async function prepareCoordination(input: CoordinationPreviewInput): Promise<CoordinationPreview> {
+export async function prepareCoordination(input: CoordinationPreviewInput, runId?: string): Promise<CoordinationPreview> {
   if (!input.goal.trim()) throw new CoordinationError(400, 'goal 必填');
   if (input.agentIds.length === 0) throw new CoordinationError(400, 'agentIds 必须是非空数组');
   if (new Set(input.agentIds).size !== input.agentIds.length) throw new CoordinationError(400, 'agentIds 不能包含重复成员');
-  if (input.agentIds.some((id) => getAgent(id)?.execution?.kind === 'external')) throw new CoordinationError(400, '阶段 A 外部 Agent 请使用手动顺序流水线，尚未接入 Coordination 控制桥');
-  const snapshot = createCapabilitySnapshot(input.agentIds);
+  const frozenAgents = runId ? listRunAgentSnapshots(runId) : undefined;
+  const selectedAgents = input.agentIds.flatMap(id => { const agent = frozenAgents ? frozenAgents.find(item => item.id === id) : getAgent(id); return agent ? [agent] : []; });
+  const snapshot = createCapabilitySnapshot(input.agentIds, frozenAgents);
   if (snapshot.agents.length !== input.agentIds.length) throw new CoordinationError(400, 'agentIds 包含未知或已停用成员');
   if (input.defaultReviewerId && !input.agentIds.includes(input.defaultReviewerId)) throw new CoordinationError(400, 'defaultReviewerId 必须属于当前团队');
   const modelResult = input.requestedProtocol || input.deterministicOnly
     ? { proposal: null, model: null, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: null }
-    : await planCoordinationWithModel(normalizeTask(input, snapshot), snapshot);
+    : await planCoordinationWithModel(normalizeTask(input, snapshot), snapshot, runId);
   const planning: CoordinationDraft['planning'] = {
     source: modelResult.proposal ? (modelResult.attempts > 1 ? 'model_repaired' : 'model')
       : modelResult.fallbackReason ? 'deterministic_fallback' : 'deterministic',
@@ -56,6 +59,7 @@ export async function prepareCoordination(input: CoordinationPreviewInput): Prom
   };
   const draft = createCoordinationDraft(input, snapshot, modelResult.proposal, planning, getCoordinationCalibration().threshold);
   const plan = buildCoordinationPlan(draft, snapshot);
+  plan.validationIssues.push(...externalCoordinationIssues(plan, selectedAgents));
   const planErrors = errorIssues(plan.validationIssues);
   if (planErrors.length > 0) {
     const existing = new Set(draft.validationIssues.map((item) => `${item.code}:${item.path ?? ''}`));
@@ -70,8 +74,8 @@ export async function prepareCoordination(input: CoordinationPreviewInput): Prom
   return notices.length > 0 ? { snapshot, draft, plan, notices } : { snapshot, draft, plan };
 }
 
-export async function previewCoordination(input: CoordinationPreviewInput): Promise<CoordinationPreview> {
-  const result = await prepareCoordination(input);
+export async function previewCoordination(input: CoordinationPreviewInput, runId?: string): Promise<CoordinationPreview> {
+  const result = await prepareCoordination(input, runId);
   savePlanningResult(result.snapshot, result.draft, result.plan);
   if (input.replacesDraftId) {
     const original = getCoordinationDraft(input.replacesDraftId);
@@ -91,7 +95,6 @@ export async function previewCoordination(input: CoordinationPreviewInput): Prom
 }
 
 export function compileCoordinationPlan(draftId: string, runId: string, goal: string, agents: AgentDefinition[]): CoordinationPlan {
-  if (agents.some((agent) => agent.execution?.kind === 'external')) throw new CoordinationError(400, '阶段 A 外部 Agent 尚未接入 Coordination 控制桥');
   const draft = getCoordinationDraft(draftId);
   if (!draft) throw new CoordinationError(404, `Coordination Draft 不存在: ${draftId}`);
   const snapshot = getCapabilitySnapshot(draft.capabilitySnapshotId);
@@ -110,7 +113,7 @@ export function compileCoordinationPlan(draftId: string, runId: string, goal: st
     const captured = snapshot.agents.find((item) => item.id === agent.id);
     if (!captured || captured.version !== agent.version || !agent.enabled) throw new CoordinationError(409, `成员 ${agent.id} 的能力版本已变化，请重新生成建议`);
   }
-  const freshIssues = validateCoordinationPlan(plan, draft, snapshot);
+  const freshIssues = [...validateCoordinationPlan(plan, draft, snapshot), ...externalCoordinationIssues(plan, agents)];
   if (errorIssues(freshIssues).length > 0) throw new CoordinationError(409, `计划重新校验失败: ${errorIssues(freshIssues).map((item) => item.code).join(', ')}`);
   const activated = activateCoordinationPlan(plan.id, runId);
   if (!activated) throw new CoordinationError(409, '该 Coordination Plan 已启动或状态已变化');
@@ -132,7 +135,7 @@ export async function reviseCoordinationPlan(runId: string, input: CoordinationR
     agentIds: originalSnapshot.agents.map((agent) => agent.id),
     ...(originalDraft.taskBrief.reviewerId ? { defaultReviewerId: originalDraft.taskBrief.reviewerId } : {}),
     ...(input.requestedProtocol ? { requestedProtocol: input.requestedProtocol } : {}),
-  });
+  }, runId);
   const errors = [...prepared.draft.validationErrors, ...prepared.plan.validationIssues.filter((item) => item.severity === 'error').map((item) => item.code)];
   if (errors.length > 0 || !prepared.plan.runtimeMode) throw new CoordinationError(409, `调整后的计划不可执行: ${[...new Set(errors)].join(', ') || 'RUNTIME_UNAVAILABLE'}`);
   let revised: CoordinationPlan;

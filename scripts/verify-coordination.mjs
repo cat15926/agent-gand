@@ -357,7 +357,7 @@ try {
   assert.equal((await api(`/api/runs/${riskyFollowup.data.run.id}/coordination-plan`)).status, 404);
   assert.ok(riskyDetail.events.some((event) => event.name === 'fastpath:simple'));
 
-  // 一个目标无可用模型时，另一个目标的答复仍使本轮完成；全部失败则本轮失败。
+  // O3：全部明确目标都是必需分支；保留成功答复，但不能把部分失败宣布为全量完成。
   const failingRoom = await api('/api/conversations', 'POST', { goal: '建立失败隔离测试房间', mode: 'pipeline', agentIds: ['coder', 'broken'] });
   assert.equal(failingRoom.status, 201, JSON.stringify(failingRoom.data));
   await poll(() => api(`/api/runs/${failingRoom.data.run.id}`), (result) => ['completed', 'failed'].includes(result.data?.run?.status), '失败隔离房间首轮结束');
@@ -366,7 +366,8 @@ try {
     body: '请给我一个简短建议', recipientIds: ['coder', 'broken'], clientMessageId: crypto.randomUUID(),
   });
   assert.equal(partial.status, 202, JSON.stringify(partial.data));
-  const partialDetail = await waitForRun(partial.data.run.id);
+  const partialDetail = (await poll(() => api(`/api/runs/${partial.data.run.id}`), (result) => result.data?.run?.status === 'failed', '必需目标部分失败')).data;
+  assert.equal(partialDetail.messages.find(message => message.kind === 'user').deliveryStatus, 'failed');
   assert.deepEqual(partialDetail.messages.filter(isFinalAgent).map((message) => message.from), ['coder']);
   assert.ok(partialDetail.messages.some((message) => message.kind === 'system' && message.body.includes('Broken 本轮回复失败')));
   assert.ok(partialDetail.events.some((event) => event.name === 'agent:broken' && event.status === 'error'));
@@ -512,22 +513,33 @@ try {
     agentIds: ['planner', 'coder', 'reviewer'], defaultReviewerId: 'reviewer',
   });
   const recoveryStarted = await startDraft(recovery, { defaultReviewerId: 'reviewer' });
-  await poll(
-    () => coordination(recoveryStarted.run.id),
-    (value) => value.steps.some((step) => step.status === 'completed') && value.steps.some((step) => step.status === 'running'),
-    '等待可恢复的运行中步骤',
+  const beforeCrash = await poll(
+    async () => ({ runtime: await coordination(recoveryStarted.run.id), detail: (await api(`/api/runs/${recoveryStarted.run.id}`)).data }),
+    ({ runtime, detail }) => runtime.steps.some((step) => step.status === 'completed')
+      && runtime.steps.some((step) => step.status === 'running')
+      && detail.events.some((span) => span.spanKind === 'llm' && span.status === 'running'),
+    '等待尚未确认结果的模型调用',
   );
   await stopServer('SIGKILL');
   startServer();
   await waitForServer();
-  const recoveredDetail = await waitForRun(recoveryStarted.run.id, 20_000);
+  const recoveredDetail = (await api(`/api/runs/${recoveryStarted.run.id}`)).data;
   const recoveredRuntime = await coordination(recoveryStarted.run.id);
-  assert.ok(recoveredRuntime.steps.every((step) => step.status === 'completed'));
-  assert.equal(recoveredRuntime.attempts.length, recovery.plan.steps.length, '重启后必须复用 interrupted attempt，不得重复增加 attempt');
+  assert.equal(recoveredDetail.run.status, 'waiting_for_user', '已开始但结果未知的调用必须暂停，不能自动重放');
+  assert.equal(recoveredRuntime.plan.status, 'paused');
+  assert.equal(recoveredRuntime.attempts.length, beforeCrash.runtime.attempts.length, '重启不得创建新的调用');
+  assert.ok(recoveredRuntime.attempts.some((attempt) => attempt.status === 'interrupted'));
+  for (const step of beforeCrash.runtime.steps.filter((item) => item.status === 'completed')) {
+    assert.equal(recoveredRuntime.steps.find((item) => item.stepId === step.stepId).status, 'completed');
+  }
   assert.equal(new Set(recoveredRuntime.attempts.map((attempt) => attempt.idempotencyKey)).size, recoveredRuntime.attempts.length);
   const recoveredMessages = recoveredDetail.messages.filter(isFinalAgent);
-  assert.equal(recoveredMessages.length, 21, '十轮辩论恢复后应恰好有二十次发言和一次裁决');
-  assert.equal(new Set(recoveredMessages.map((message) => message.payload.coordinationStepId)).size, 21);
+  assert.equal(new Set(recoveredMessages.map((message) => message.payload.coordinationStepId)).size, recoveredMessages.length);
+  assert.equal((await api(`/api/runs/${recoveryStarted.run.id}/coordination/resume`, 'POST')).status, 409);
+  assert.equal((await api(`/api/runs/${recoveryStarted.run.id}/actions`, 'POST', { action: 'resume' })).status, 409);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  assert.equal((await coordination(recoveryStarted.run.id)).attempts.length, recoveredRuntime.attempts.length, '被拒绝的恢复不得产生调用');
+  assert.equal((await api(`/api/runs/${recoveryStarted.run.id}/actions`, 'POST', { action: 'cancel' })).status, 200);
 
   // ---- AG-COORD-01：承诺冻结但未落盘 → 步骤失败、裁判不得启动、plan 失败 ----
   const noFreeze = await preview({

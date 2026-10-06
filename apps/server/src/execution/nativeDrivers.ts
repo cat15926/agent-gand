@@ -11,11 +11,12 @@ import { ExecutionError, diagnostic, exitError } from './errors.ts';
 import { withRpcProcess } from './rpc.ts';
 import { containedPath, sdkPermission, SDK_TOOLS, READ_TOOLS } from './policy.ts';
 import { BRIDGE_NAME } from './bridge.ts';
+import { protectedEnvironmentNames } from '../accounts/environment.ts';
 import { SessionUnavailableError } from './sessions.ts';
 
 export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new ExecutionError('auth_required', 'Claude SDK 阶段 B 需要服务端 ANTHROPIC_API_KEY');
-  const sdkHome = path.resolve(config.externalAgents.claudeHome);
+  if (!input.environment?.ANTHROPIC_API_KEY) throw new ExecutionError('auth_required', 'Claude SDK 需要所选账户的 API Key');
+  const sdkHome = path.resolve(input.nativeHome ?? config.externalAgents.claudeHome);
   let userHome = path.resolve(process.env.CLAUDE_CONFIG_DIR ?? path.join(homedir(), '.claude'));
   try { userHome = await realpath(userHome); } catch {}
   await mkdir(sdkHome, { recursive: true, mode: 0o700 });
@@ -35,13 +36,13 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
   return withRpcProcess({ command: config.externalAgents.sdkWorkerCommand ?? process.execPath,
     args: config.externalAgents.sdkWorkerCommand ? [] : ['--import', import.meta.resolve('tsx'), fileURLToPath(new URL('./sdkWorker.ts', import.meta.url))],
     cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped,
-    env: { CLAUDE_CONFIG_DIR: physicalHome, CLAUDE_CODE_PROJECT_DIR_NAME: input.session?.projectDir ?? '', CLAUDE_CODE_OAUTH_TOKEN: '' } }, async (peer) => {
+    env: { ...input.environment, AGENT_GAND_ISOLATED_WORKER: '1', AGENT_GAND_PRIVATE_DIR: config.accounts.privateDir, CLAUDE_CONFIG_DIR: physicalHome, CLAUDE_CODE_PROJECT_DIR_NAME: input.session?.projectDir ?? '', CLAUDE_CODE_OAUTH_TOKEN: '' } }, async (peer) => {
     let resolveDone!: () => void; let rejectDone!: (error: Error) => void;
     const done = new Promise<void>((resolve, reject) => { resolveDone = resolve; rejectDone = reject; });
     void done.catch(() => {});
     peer.onInterrupt(() => peer.send({ method: 'sdk/interrupt', params: {} }));
     peer.onMessage(async (message) => {
-      if (input.signal.aborted || input.bridge?.sealed()) return;
+      if (input.signal.aborted || input.authorized?.() === false || input.bridge?.sealed()) return;
       if (message.method === 'sdk/message') parser.accept(message.params?.message);
       else if (message.method === 'sdk/resumeUnavailable' && input.session?.resume && !initialized) rejectDone(new SessionUnavailableError('SDK 会话恢复预检失败'));
       else if (message.method === 'sdk/error') rejectDone(exitError(String(message.params?.message ?? 'SDK failed')));
@@ -57,10 +58,10 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
           accepted = await (input.requestApproval?.(id, params.tool, params.input) ?? Promise.resolve(false));
         }
         if (accepted && !isBridge && sdkPermission({ permissionMode: mode, execution: { kind: 'external', driver: 'claude-sdk', nativeTools: input.nativeTools } }, input.cwd, params.tool, params.input) === 'deny') accepted = false;
-        if (!input.signal.aborted) peer.send({ id: message.id, result: { allow: accepted && !input.bridge?.sealed() } });
+        if (!input.signal.aborted) peer.send({ id: message.id, result: { allow: accepted && input.authorized?.() !== false && !input.bridge?.sealed() } });
       } else throw new ExecutionError('protocol_error', 'SDK worker 返回未准入的消息');
     });
-    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
+    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
     if (ending === 'control') peer.send({ method: 'sdk/interrupt', params: {} }); else parser.finish();
     return parser.content;
@@ -73,7 +74,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
   if (mode === 'auto' || input.nativeTools?.length) throw new ExecutionError('policy_rejected', 'Codex app-server 不支持平台原生工具白名单或 auto 模式');
   // A dedicated persistent login avoids duplicating OAuth refresh tokens. Its
   // configuration must stay empty; invocation policy is owned by this server.
-  const nativeHome = path.resolve(config.externalAgents.codexHome);
+  const nativeHome = path.resolve(input.nativeHome ?? config.externalAgents.codexHome);
   let userHome = path.resolve(process.env.CODEX_HOME ?? path.join(homedir(), '.codex'));
   try { userHome = await realpath(userHome); } catch {}
   if (nativeHome === userHome) throw new ExecutionError('policy_rejected', 'EXTERNAL_CODEX_HOME 必须为独立执行目录，不能使用用户 Codex 配置目录');
@@ -82,12 +83,13 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
   if ((await readdir(nativeHome)).some((name) => ['config.toml', 'rules', 'skills', 'plugins', 'agents'].includes(name) || name.endsWith('.config.toml'))) throw new ExecutionError('policy_rejected', 'Codex 专用执行目录包含自定义配置、规则或插件，拒绝启动');
   await chmod(nativeHome, 0o700);
   const bridgeConfig = input.bridge ? { command: input.bridge.launch.command, args: input.bridge.launch.args,
-    env_vars: Object.keys(input.bridge.launch.env), enabled: true, required: true,
+    env: Object.fromEntries(protectedEnvironmentNames.filter((name) => !(name in input.bridge!.launch.env)).map((name) => [name, ''])), env_vars: Object.keys(input.bridge.launch.env), enabled: true, required: true,
     enabled_tools: input.bridge.launch.toolNames, default_tools_approval_mode: 'approve', tool_timeout_sec: Math.ceil(input.timeoutMs / 1000) + 5 } : null;
   const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd),
-    '-c', 'web_search="disabled"', '-c', 'approval_policy="untrusted"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
-    ...['hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`])];
-  return withRpcProcess({ command: config.externalAgents.codexCommand, args, cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, env: { CODEX_HOME: nativeHome, ...input.bridge?.launch.env }, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped }, async (peer) => {
+    '-c', 'web_search="disabled"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
+    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
+  if (input.account?.managed) args.splice(args.indexOf('sandbox_mode="read-only"') - 1, 2);
+  return withRpcProcess({ command: config.externalAgents.codexCommand, args, cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, env: { ...input.environment, CODEX_HOME: nativeHome, ...input.bridge?.launch.env }, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped }, async (peer) => {
     let threadId = ''; let turnId = ''; let final = ''; let ended = false;
     const items = new Map<string, Record<string, any>>();
     const textItems = new Map<string, string>();
@@ -98,7 +100,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     const valid = (params: Record<string, any>) => params.threadId === threadId && (!turnId || !params.turnId || params.turnId === turnId);
     const requests = new Map<string, { fingerprint: string; response: Promise<boolean> }>();
     peer.onMessage(async (message) => {
-      if (input.signal.aborted || input.bridge?.sealed()) return;
+      if (input.signal.aborted || input.authorized?.() === false || input.bridge?.sealed()) return;
       const params = message.params ?? {};
       if (message.id !== undefined) {
         const file = message.method === 'item/fileChange/requestApproval';
@@ -110,6 +112,9 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
         }
         const item = items.get(params.itemId);
         let eligible = !input.controlOnly && mode === 'confirm' && !!item;
+        // A command approval may escape the private-directory read fence. Managed
+        // connections keep sandboxed commands and contained file-change approvals only.
+        if (command && input.account?.managed) eligible = false;
         const payload = { ...params, item };
         try {
           if (file) {
@@ -131,7 +136,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
         let stillContained = true;
         try { if (file && item?.changes) for (const change of item.changes) { containedPath(input.cwd, change.path, true); if (change.kind?.move_path) containedPath(input.cwd, change.kind.move_path, true); } }
         catch { stillContained = false; }
-        if (!input.signal.aborted && !ended) peer.send({ id: message.id, result: { decision: accepted && stillContained ? 'accept' : 'decline' } });
+        if (!input.signal.aborted && !ended) peer.send({ id: message.id, result: { decision: accepted && stillContained && input.authorized?.() !== false ? 'accept' : 'decline' } });
         return;
       }
       if (params.threadId && threadId && params.threadId !== threadId) throw new ExecutionError('protocol_error', 'Codex 通知属于其他 thread');
@@ -181,13 +186,13 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     }
     let thread;
     try { thread = await peer.request(input.session?.resume ? 'thread/resume' : 'thread/start', { ...(input.session?.resume ? { threadId: input.session.id } : {}), cwd: input.cwd, model: input.model === 'default' ? null : input.model,
-      approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user', sandbox: 'read-only', developerInstructions: input.instructions,
+      approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user', ...(input.account?.managed ? {} : { sandbox: 'read-only' }), developerInstructions: input.instructions,
       ...(bridgeConfig ? { config: { mcp_servers: { [BRIDGE_NAME]: bridgeConfig } } } : {}) }); }
     catch (error) { if (input.session?.resume) throw new SessionUnavailableError('Codex thread 恢复在模型 turn 前失败'); throw error; }
     threadId = thread.thread?.id;
     if (typeof threadId !== 'string' || !threadId || (input.session?.resume && threadId !== input.session.id) || thread.cwd !== input.cwd || thread.sandbox?.type !== 'readOnly' || thread.sandbox.networkAccess !== false || thread.approvalPolicy !== (mode === 'readonly' ? 'never' : 'untrusted') || thread.approvalsReviewer !== 'user') throw new ExecutionError('policy_rejected', 'Codex 实际线程策略与平台编译策略不一致');
     emitEvent({ type: 'session.bound', sessionId: threadId });
-    const turn = await peer.request('turn/start', { threadId, input: [{ type: 'text', text: input.prompt }], sandboxPolicy: { type: 'readOnly', networkAccess: false }, approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user' });
+    const turn = await peer.request('turn/start', { threadId, input: [{ type: 'text', text: input.prompt }], ...(input.account?.managed ? {} : { sandboxPolicy: { type: 'readOnly', networkAccess: false } }), approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user' });
     if (turnId && turnId !== turn.turn?.id) throw new ExecutionError('protocol_error', 'Codex turn 响应绑定冲突');
     turnId = turn.turn?.id;
     if (typeof turnId !== 'string' || !turnId) throw new ExecutionError('protocol_error', 'Codex turn 缺少 ID');

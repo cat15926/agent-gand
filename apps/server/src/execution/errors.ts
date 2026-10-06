@@ -1,4 +1,5 @@
 import type { ExecutionErrorCode } from '@agent-gand/shared';
+import { redactSecrets } from '../accounts/secrets.ts';
 
 export class ExecutionError extends Error {
   constructor(public code: ExecutionErrorCode, message: string) { super(message); }
@@ -6,10 +7,7 @@ export class ExecutionError extends Error {
 
 /** Diagnostics are bounded and never retain auth tokens printed by a CLI. */
 export function diagnostic(value: string, limit = 4_000): string {
-  return value.replace(/\b(?:sk|sess)-[A-Za-z0-9_-]+/g, '[redacted]')
-    .replace(/(Bearer\s+)\S+/gi, '$1[redacted]')
-    .replace(/((?:api[_-]?key|access[_-]?token|refresh[_-]?token|authorization)\s*[=:]\s*)[^\s,}]+/gi, '$1[redacted]')
-    .slice(-limit);
+  return redactSecrets(value).slice(-limit);
 }
 
 export function exitError(message: string): ExecutionError {

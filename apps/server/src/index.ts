@@ -9,6 +9,7 @@ import { config } from './config.ts';
 import { closeDatabase } from './db/database.ts';
 import * as registry from './agents/registry.ts';
 import { registerRoutes } from './api/routes.ts';
+import { registerAccountRoutes } from './api/accountRoutes.ts';
 import { registerWs } from './api/ws.ts';
 import { seed } from './seed.ts';
 import { recoverInterruptedTasks } from './messaging/tasks.ts';
@@ -23,14 +24,19 @@ import { recoverDurableHolds, recoverDurableRuns } from './runs/recovery.ts';
 import { recoverInterruptedCoordinationSteps } from './coordination/store.ts';
 import { shutdownExternalAgents } from './execution/runner.ts';
 import { recoverExternalExecutions } from './execution/recovery.ts';
+import { recoverAccountLogins, shutdownAccountLogins } from './accounts/login.ts';
+import { recoverAccountTests, shutdownAccountTests } from './accounts/actions.ts';
 import { claimRuntimeHost, releaseRuntimeHost } from './execution/host.ts';
+import { recoverMemberAdmissions } from './execution/memberAdmission.ts';
+import { reopenInterruptedTaskResponsibilities } from './runtime/taskAdapter.ts';
 
 claimRuntimeHost();
 
-const app = Fastify({ logger: { level: config.logLevel } });
-await app.register(cors, { origin: true });
+const app = Fastify({ logger: { level: config.logLevel, redact: ['req.headers.authorization', 'req.headers.cookie'] } });
+await app.register(cors, { origin: config.accounts.trustedOrigins, credentials: true });
 await app.register(websocketPlugin);
 await app.register((instance) => registerRoutes(instance));
+await registerAccountRoutes(app);
 await app.register((instance) => registerWs(instance));
 
 const mcp = await refreshMcpTools();
@@ -41,8 +47,12 @@ seed();
 backfillConversations();
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
+await recoverAccountLogins();
+await recoverAccountTests();
 await recoverExternalExecutions();
+recoverMemberAdmissions();
 interruptRunningAttempts();
+reopenInterruptedTaskResponsibilities();
 interruptExpiredAttempts({ onlyExpired: true });
 recoverInterruptedTasks();
 recoverInterruptedCoordinationSteps();
@@ -51,7 +61,7 @@ recoverDurableHolds();
 recoverCollaborationRuns();
 recoverDurableRuns();
 
-await app.listen({ port: config.port, host: '0.0.0.0' });
+await app.listen({ port: config.port, host: config.host });
 app.log.info(`agent-gand server 就绪: http://localhost:${config.port}（agents=${agents.length}）`);
 const collaborationLeaseTimer = setInterval(sweepCollaborationLeases, Math.max(1_000, Math.floor(config.collaboration.attemptLeaseMs / 3)));
 collaborationLeaseTimer.unref();
@@ -63,7 +73,7 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(collaborationLeaseTimer);
   clearInterval(durableHoldTimer);
   app.log.info(`收到 ${signal}，正在关闭…`);
-  await shutdownExternalAgents();
+  await Promise.all([shutdownAccountTests(), shutdownAccountLogins(), shutdownExternalAgents()]);
   await app.close();
   await closeMcp();
   releaseRuntimeHost();

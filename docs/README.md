@@ -11,6 +11,7 @@
 | [`plans/`](./plans/) | 接下来如何实施 | 实施计划、迁移方案、路线图、验收标准 | 已发生问题的证据报告、当前架构真相 |
 | [`research/`](./research/) | 外部项目或技术提供了什么参考 | 竞品调研、源码研究、方案比较、引用来源 | agent-gand 的最终设计决策 |
 | [`reports/`](./reports/) | 某次检查或测试发现了什么 | 测试报告、差距分析、架构评估、问题证据 | 规范性架构契约、没有证据的设想 |
+| [`prototypes/`](./prototypes/) | 计划中的交互如何操作 | 无真实副作用的评审原型、模拟用户旅程 | 已实现功能宣告、真实账户与业务调用 |
 
 ## 当前索引
 
@@ -28,6 +29,13 @@
 - [外部 Code Agent 阶段 B：双向执行、审批与使用](./architecture/external-code-agent-phase-b.md)
 - [外部 Code Agent 阶段 C：Runtime 协作控制与 MCP](./architecture/external-code-agent-phase-c.md)
 - [外部 Code Agent 阶段 D：持久恢复、编码隔离与会话](./architecture/external-code-agent-phase-d.md)
+- [账户与密钥阶段 E1：架构与使用](./architecture/accounts-and-keys-phase-e1.md)
+- [账户与密钥阶段 E2：逐账户调用与原生登录](./architecture/accounts-and-keys-phase-e2.md)
+- [阶段 E3：选择账户的三步角色向导](./architecture/accounts-and-agent-creation-phase-e3.md)
+- [阶段 E4：账户迁移、运行恢复与回滚](./architecture/accounts-migration-phase-e4.md)
+- [编排入口 O1：共同请求契约与比较预览](./architecture/orchestration-entry-phase-o1.md)
+- [编排入口 O2：执行绑定与外部成员步骤准入](./architecture/orchestration-entry-phase-o2.md)
+- [编排入口 O3 执行准入、队列与任务动作](./architecture/orchestration-entry-phase-o3.md)
 
 ### 实施计划
 
@@ -35,9 +43,11 @@
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
 - [通用协作规划器与 Coordination Plan 设计](./plans/coordination-planner-design.md)
 - [聊天室追问路由与任务级编排方案](./plans/followup-routing-plan.md)
+- [编排入口收敛实施计划（O1、O2 本地完成，O3–O7 待实施）](./plans/orchestration-entry-convergence-implementation-plan.md)
 - [Collaboration 模式实施计划](./plans/collaboration-mode-implementation-plan.md)
 - [Agent 通信与调度方案](./plans/agent-communication-scheduling-plan.md)
 - [Agent 角色管理实施指导](./plans/agent-role-management-implementation-guide.md)
+- [账户与密钥、Agent 创建体验实施指导（E1–E4 本地完成，真实供应商待验收）](./plans/accounts-and-agent-creation-implementation-guide.md)
 - [外部 Code Agent 接入方案（本地 A–D 已完成）](./plans/external-code-agent-integration-plan.md)
 - [聊天体验优化方案](./plans/agent-chatroom-experience-plan.md)
 - [聊天气泡方向优化方案](./plans/chat-bubble-direction-optimization-plan.md)
@@ -46,6 +56,7 @@
 ### 外部调研
 
 - [Clowder AI Agent 交互模式调研](./research/clowder-agent-interaction-research.md)
+- [Clowder AI 协作模式管理与调度源码核对](./research/clowder-collaboration-dispatch-research.md)
 - [Clowder AI 外部 Code Agent 接入源码调研](./research/clowder-external-code-agent-integration-research.md)
 - [DeepSeek Harness 轨迹模块调研](./research/deepseek-harness-trajectory-research.md)
 
@@ -55,6 +66,14 @@
 - [外部 Code Agent 阶段 B 验收记录](./reports/external-code-agent-phase-b-acceptance.md)
 - [外部 Code Agent 阶段 C 验收记录](./reports/external-code-agent-phase-c-acceptance.md)
 - [外部 Code Agent 阶段 D 验收记录](./reports/external-code-agent-phase-d-acceptance.md)
+- [账户与密钥阶段 E1 验收记录](./reports/accounts-and-keys-phase-e1-acceptance.md)
+- [账户与密钥阶段 E2 验收记录](./reports/accounts-and-keys-phase-e2-acceptance.md)
+- [角色创建体验阶段 E3 验收记录](./reports/accounts-and-agent-creation-phase-e3-acceptance.md)
+- [账户迁移与验收阶段 E4 记录](./reports/accounts-phase-e4-acceptance.md)
+- [GLM 连接测试认证与超时修复记录](./reports/accounts-glm-connection-fix.md)
+- [编排入口 O1 验收报告](./reports/orchestration-entry-phase-o1-acceptance.md)
+- [编排入口 O2 验收记录](./reports/orchestration-entry-phase-o2-acceptance.md)
+- [编排入口 O3 验收记录](./reports/orchestration-entry-phase-o3-acceptance.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

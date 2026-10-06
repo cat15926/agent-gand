@@ -15,6 +15,8 @@ import { endSpan, getRun, startSpan } from '../runs/trace.ts';
 import { completeAttempt, createAttempt, failAttempt } from '../tasks/attempts.ts';
 import { createReview } from '../tasks/reviews.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE } from './agentStep.ts';
+import { isAdapterTurnTask, admitTaskSubject } from '../runtime/taskAdapter.ts';
+import { adapterSafeBoundary } from './admittedTurn.ts';
 import { buildWorkContext } from './contextBuilder.ts';
 import { reviewTask } from './reviewStep.ts';
 
@@ -115,7 +117,7 @@ async function executeTask(
     });
     output = turn.content.trim();
     if (stopped(run.id)) throw new Error('运行已终止，丢弃迟到任务结果');
-    if (turn.emptyResponse || output === '') throw new Error('Agent 未返回可用结果');
+    if (turn.emptyResponse || turn.truncated || turn.approvalStarved || output === '') throw new Error('Agent 未返回可用结果');
     attempt = completeAttempt(attempt.id, output);
     endSpan(agentSpan, { output, status: 'ok' });
   } catch (err) {
@@ -225,7 +227,8 @@ export async function runTaskSchedule(input: {
 }): Promise<ScheduleResult> {
   const agentMap = new Map(input.agents.map((agent) => [agent.id, agent]));
   for (;;) {
-    let tasks = listTasks(input.run.id);
+    adapterSafeBoundary(input.run.id);
+    let tasks = listTasks(input.run.id).filter(task => !isAdapterTurnTask(task.id));
     if (stopped(input.run.id)) return { tasks, failed: true };
 
     // 依赖失败后，该任务不再可能 ready，明确失败并保留原因。
@@ -236,11 +239,12 @@ export async function runTaskSchedule(input: {
         .find((blocker) => blocker?.status === 'failed' || blocker?.status === 'cancelled');
       if (failedBlocker) failTask(task.id, `前置任务未完成：${failedBlocker.title}`);
     }
-    tasks = listTasks(input.run.id);
+    tasks = listTasks(input.run.id).filter(task => !isAdapterTurnTask(task.id));
     if (tasks.every((task) => TERMINAL.has(task.status))) {
       return { tasks, failed: tasks.some((task) => task.status !== 'completed') };
     }
 
+    for (const task of tasks) { admitTaskSubject(task.id, 'work'); if (task.reviewerId) admitTaskSubject(task.id, 'review'); }
     const byId = new Map(tasks.map((task) => [task.id, task]));
     const ready = tasks.filter(
       (task) =>
@@ -260,7 +264,7 @@ export async function runTaskSchedule(input: {
       queued: Math.max(0, ready.length - config.orchestratorConcurrency),
     });
     // Phase B shares one registered repository across work/review attempts.
-    const concurrency = input.agents.some((agent) => agent.execution?.kind === 'external') ? 1 : config.orchestratorConcurrency;
+    const concurrency = config.orchestratorConcurrency;
     await mapWithLimit(ready, concurrency, (task) =>
       executeTask(input.run, task, agentMap, input.parentSpanId),
     );

@@ -52,6 +52,8 @@ export function parseAgentMarkdown(fileName: string, raw: string): AgentDefiniti
     capabilities: (strArray(fields.capabilities) as AgentCapability[]).length ? strArray(fields.capabilities) as AgentCapability[] : inferCapabilities(id),
     systemPrompt: body,
     model,
+    ...(str(fields.accountRef) ? { accountRef: str(fields.accountRef) } : {}),
+    ...(fields.requiresAccount === true ? { requiresAccount: true } : {}),
     execution: parseExecution(fields.execution),
     tools: strArray(fields.tools),
     disallowedTools: strArray(fields.disallowedTools),

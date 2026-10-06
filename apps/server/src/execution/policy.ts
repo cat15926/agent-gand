@@ -2,6 +2,7 @@ import path from 'node:path';
 import { lstatSync, realpathSync } from 'node:fs';
 import type { AgentDefinition, RunMode } from '@agent-gand/shared';
 import { ExecutionError } from './errors.ts';
+import { isAccountPrivatePath } from '../accounts/privatePaths.ts';
 
 export const SDK_TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'];
 export const READ_TOOLS = ['Read', 'Grep', 'Glob'];
@@ -27,6 +28,7 @@ export function containedPath(cwd: string, value: string, writing = false): stri
     ancestor = parent;
   }
   const resolved = path.resolve(realpathSync(ancestor), path.relative(ancestor, absolute));
+  if (isAccountPrivatePath(resolved)) throw new ExecutionError('policy_rejected', '原生文件工具不能访问账户私有文件');
   const relative = path.relative(cwd, resolved);
   if (relative.startsWith('..' + path.sep) || relative === '..' || path.isAbsolute(relative)) throw new ExecutionError('policy_rejected', '原生文件工具路径超出工作区');
   if (writing && relative.split(path.sep).some((part) => ['.git', '.claude', '.codex', '.agents'].includes(part.toLowerCase()))) throw new ExecutionError('policy_rejected', '原生写入不能修改仓库元数据或执行配置');

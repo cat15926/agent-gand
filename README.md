@@ -15,12 +15,15 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 1. 首次启动自动 seed（3 个 agent、1 条演示 run、1 条待审批）；
 2. 在“运行”视图创建聊天室；新聊天室默认进入“智能匹配”，由规划器推荐执行协议；也可显式选择自由协作（最多 3 位初始 Agent）、主管委派或顺序流水线；
 3. 右侧面板处理**审批卡**（批准 / 拒绝 / 编辑后继续）；
-4. 在“舰队 → 角色管理”从模板创建、复制、编辑或停用 Agent；点击头像可选择或拖入本地图片，也可使用预设 Emoji、短文字或 HTTPS 图片 URL；保存后无需重启即可用于新聊天室；
+4. 在“舰队 → 角色管理”通过“职责 → 接入与模型 → 权限与确认”三步创建、复制、编辑 Agent；支持就地新增账户、头像、停用草稿，保存后可加入建房草稿；
 5. “舰队 → 执行状态”查看各 Agent 状态（待输入置顶），“观测”查看运行历史与事件时间线。
+6. 在“账户”管理 API Key、独立登录身份、模型测试与撤销；创建角色时选择相容账户及模型，也可直接新增。见[角色向导说明](./docs/architecture/accounts-and-agent-creation-phase-e3.md)、[接入与登录说明](./docs/architecture/accounts-and-keys-phase-e2.md)及[加密备份说明](./docs/architecture/accounts-and-keys-phase-e1.md)。
 
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm verify:collaboration-reliability`（验证事务回滚、规范化去重、Agent 竞态与恢复安全）、`pnpm verify:collaboration-ui`（验证 Batch、Attempt 和 Run Stop 视图模型）、`pnpm verify:coordination-stage-e`（验证只读能力 MCP、协议组合、计划修订和阈值校准）、`pnpm verify:followup-stage3`（验证模型追问、显式优先与全队处理）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
 自建角色保存在 SQLite，文件角色继续由 `agents/*.agent.md` 提供且在界面中只读，可复制为自建角色。角色通过“执行 / 审查 / 协调”能力参与调度，主管和默认评审者不再依赖固定 ID。每个 Run 创建时会保存成员配置快照，因此之后编辑或停用角色不会改变已经排队、执行中或历史 Run 的行为。
+
+账户升级前可运行 `pnpm accounts:audit` 只读检查；正常停服后使用 `pnpm accounts:backup --output <新的备份目录>` 保存匹配的数据库、主密钥与原生认证目录，再用 `pnpm accounts:verify-backup --input <备份目录>` 检查。迁移不改写原 Run 快照；新 Run 同时冻结成员和独立规划器的托管账户版本。详见 [E4 迁移与回滚说明](./docs/architecture/accounts-migration-phase-e4.md)。
 
 主管委派模式会把任务、每轮执行和结构化审查结果落库。Reviewer 返回 FAIL 时，调度器会把 issues 发送给原执行者并自动返工，默认最多执行 3 次；无依赖任务最多并行 2 个。可通过 `TASK_MAX_ATTEMPTS`、`ORCHESTRATOR_CONCURRENCY` 和 `TASK_LEASE_MS` 调整。
 
@@ -30,7 +33,9 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 
 ### 接入真实 LLM（可选）
 
-默认 `mock:*` 模型走 MockProvider，无 key 即可演示。要接真实模型：把 agent 定义（`agents/*.agent.md`）的
+默认 `mock:*` 模型走 MockProvider，无 key 即可演示。界面中可在“账户”保存连接，并在角色向导选择“模型 API”“Claude Code”或“Codex”、账户和模型；“演示”无需账户。普通保存和权限预检不调用模型，“测试连接”发送显式测试请求。
+
+文件角色及旧环境配置仍受支持：把 agent 定义（`agents/*.agent.md`）的
 `model` 改为 `openai:<model>` 或 `anthropic:<model>`，并在 `apps/server/` 下复制 `.env.example` 为 `.env` 配置：
 
 ```bash
@@ -100,7 +105,7 @@ agents/           agent 定义（Markdown + YAML frontmatter，正文=system pro
 
 ### UI 布局（报告 §7.3 "1+3"）
 
-顶栏（状态/用量/连接）+ 左侧导航（**运行** · 编排(P1) · **舰队** · **观测**）+ 主视图 + 右侧面板（**审批卡 / Trace / 用量**）。
+顶栏（状态/用量/连接）+ 左侧导航（**运行** · 编排(P1) · **舰队** · **账户** · **观测**）+ 主视图 + 右侧面板（**审批卡 / Trace / 用量**）。
 对应调研报告 §5.1 六模式中的：模式 2（聊天+工作区）、模式 4（Trace 观测）、模式 5（审批卡）、模式 6（舰队看板）；画布（模式 1）为 P1。
 
 ## 约定

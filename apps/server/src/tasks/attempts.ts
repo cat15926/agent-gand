@@ -2,6 +2,8 @@ import type { TaskAttempt, TaskAttemptKind, TaskAttemptStatus } from '@agent-gan
 import { randomUUID } from 'node:crypto';
 import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import { claimTaskResponsibility, finishTaskResponsibility, taskAdapterEnabled } from '../runtime/taskAdapter.ts';
+import { commitCompleteActionCommand } from '../runtime/actionCommands.ts';
 
 interface AttemptRow {
   id: string;
@@ -80,7 +82,7 @@ export function createAttempt(input: {
     startedAt: now.toISOString(),
     endedAt: null,
   };
-  run(
+  tx(() => { run(
     `INSERT INTO task_attempts (
        id, task_id, run_id, agent_id, kind, attempt_no, status, input_context,
        output, error, lease_owner, lease_expires_at, created_at, started_at, ended_at
@@ -97,13 +99,16 @@ export function createAttempt(input: {
     attempt.leaseExpiresAt,
     attempt.createdAt,
     attempt.startedAt,
-  );
+  ); claimTaskResponsibility(attempt); });
   emit({ type: 'task.attempt.updated', attempt });
   return attempt;
 }
 
 function finishAttempt(id: string, status: 'completed' | 'failed', output: string | null, error: string | null): TaskAttempt {
   return tx(() => {
+    const existing = getAttempt(id);
+    if (!existing || existing.status !== 'running') throw new Error(`attempt 不存在或已结束: ${id}`);
+    finishTaskResponsibility(existing, output, status === 'failed');
     const now = new Date().toISOString();
     const changes = run(
       `UPDATE task_attempts
@@ -124,6 +129,13 @@ function finishAttempt(id: string, status: 'completed' | 'failed', output: strin
 }
 
 export function completeAttempt(id: string, output: string): TaskAttempt {
+  const existing = getAttempt(id);
+  if (existing && taskAdapterEnabled(existing.runId)) {
+    if (existing.status === 'completed' && existing.output !== output) throw new Error('已完成 Attempt 的结果不能覆盖');
+    return commitCompleteActionCommand({ runId: existing.runId, attemptId: id,
+      commandKey: `task-action:complete:${id}`,
+      execute: () => finishAttempt(id, 'completed', output, null) }).result;
+  }
   return finishAttempt(id, 'completed', output, null);
 }
 

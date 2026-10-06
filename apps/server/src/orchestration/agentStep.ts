@@ -15,15 +15,15 @@
  *
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
-import type { AgentDefinition, CollaborationStoredControlAction, Run } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
-import { resolveProvider } from '../llm/router.ts';
+import { providerForAgent } from '../llm/router.ts';
 import { lookupPricing, type DeltaHandler, type LlmMessage, type LlmToolCall, type LlmResponse, type LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit, subscribe } from '../messaging/bus.ts';
 import { endSpan, getRun, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
-import { getTool, isExternalRun, toolsForAgent } from '../tools/builtin/index.ts';
+import { getTool, isExternalRun, toolsForAgent, workspaceRootDir } from '../tools/builtin/index.ts';
 import { externalId, getExternalByIdOrThrow } from '../workspaces/external.ts';
 import { checkPermission, type Tool } from '../tools/types.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
@@ -33,6 +33,15 @@ import { runExternalAgentTurn } from '../execution/runner.ts';
 import { captureWorkspaceSnapshot, ensureIsolatedWorkspace, getIsolatedWorkspace, reviewSnapshotPath } from '../workspaces/isolated.ts';
 import { waitForDurableLease } from '../execution/leases.ts';
 import { randomUUID } from 'node:crypto';
+import { assertBindingAuthorized, bindingAuthorized, captureExecutionBinding, saveBindingSnapshot } from '../execution/authority.ts';
+import { enterMember } from '../execution/memberAdmission.ts';
+import { get } from '../db/database.ts';
+import { findExecution } from '../execution/store.ts';
+import { mkdirSync, realpathSync } from 'node:fs';
+import path from 'node:path';
+import { assembleRuntimeContext } from '../runtime/context.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
+import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
@@ -115,6 +124,12 @@ export interface AgentTurnOptions {
   workspaceScope?: string | null;
   reviewSourceExecutionId?: string;
   workspaceRoot?: string;
+  /** Native coding cwd is separate from the platform artifact namespace. */
+  nativeWorkspaceRoot?: string;
+  executionBinding?: ExecutionBinding;
+  /** Server-controlled narrowing for planning/summary calls. */
+  disableTools?: boolean;
+  executionSignal?: AbortSignal;
 }
 
 export interface AgentTurnResult {
@@ -131,6 +146,7 @@ export interface AgentTurnResult {
   controlAction: CollaborationStoredControlAction | null;
   /** ExitGuard 已实际发起的同一轮纠偏次数。 */
   exitCorrectionAttempts?: number;
+  workspaceSnapshot?: { commit: string; path: string };
 }
 
 export type AgentTurnExitReview =
@@ -149,7 +165,7 @@ export async function chatOnce(
   displayKind: 'message' | 'review_protocol' = 'message',
 ): Promise<string> {
   if (agent.execution?.kind === 'external') throw new Error('阶段 A 外部 Agent 不支持主管规划；请选择内置 LLM 角色');
-  const provider = resolveProvider(agent.model);
+  const provider = providerForAgent(agent, runId);
   const messages: LlmMessage[] = [
     { role: 'system', content: agent.systemPrompt },
     { role: 'user', content: userContent },
@@ -192,39 +208,95 @@ export async function chatOnce(
 }
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  if (opts.attemptId && !opts.executionBinding) opts = { ...opts, executionBinding: captureExecutionBinding(opts.run.id, opts.agent.id, opts.attemptId) };
+  if (opts.executionBinding && (opts.executionBinding.runId !== opts.run.id || opts.executionBinding.agentId !== opts.agent.id || opts.executionBinding.attemptId !== opts.attemptId)) throw new Error('执行绑定与本回合不一致');
+  assertBindingAuthorized(opts.executionBinding);
+  if (opts.executionBinding?.origin === 'task_attempt' && opts.executionBinding.responsibility) {
+    const snapshot = loadResponsibilitySnapshot({ runId: opts.run.id, attemptId: opts.attemptId });
+    const authorityContext = assembleRuntimeContext({ runId: opts.run.id, workItemId: opts.executionBinding.taskId,
+      attemptId: opts.executionBinding.attemptId, contributors: [
+        { source: 'identity', text: '你负责当前任务执行单元；普通正文是待验收结果。请提供实际交付内容，不能仅确认收到。', priority: 100,
+          maxChars: 600, sensitivePolicy: 'redact', protected: true, provenance: [`task_attempt:${opts.attemptId}`] },
+        { source: 'custody', text: JSON.stringify(snapshot?.custody), priority: 99, maxChars: 1000,
+          sensitivePolicy: 'redact', protected: true, provenance: [`runtime_custody:${snapshot?.subjectId}`] },
+        { source: 'contract', text: JSON.stringify(loadRuntimeContract(opts.run.id)), priority: 90, maxChars: 6000,
+          sensitivePolicy: 'redact', provenance: [`runtime_contract:${opts.run.id}`] },
+      ] });
+    opts = { ...opts, messages: [{ role: 'system', content: authorityContext }, ...opts.messages] };
+  }
+  if (opts.agent.execution?.kind === 'external') {
+    const completed = findExecution(opts.run.id, opts.agent.id, opts.executionScopeId ?? `agent:${opts.agent.id}`);
+    if (completed?.status === 'completed' && (!opts.executionBinding || completed.executionBinding?.id === opts.executionBinding.id)) return runExternalAgentTurn(opts);
+  }
+  // A completed persisted API turn may close its scheduler attempt after a crash without another model call.
+  if (opts.agent.execution?.kind !== 'external') {
+    const cached = get<{ state: string }>(`SELECT state FROM run_checkpoints WHERE run_id=? AND kind='agent_turn'
+      AND phase='completed' AND json_extract(state,'$.executionScopeId')=? ORDER BY seq DESC LIMIT 1`,
+      opts.run.id, opts.executionScopeId ?? `agent:${opts.agent.id}`);
+    if (cached) return (JSON.parse(cached.state) as { result: AgentTurnResult }).result;
+  }
   const controller = new AbortController();
+  opts = { ...opts, executionSignal: controller.signal };
   const timer = setTimeout(() => controller.abort(), config.externalAgents.timeoutMs);
   timer.unref();
   const unsubscribe = subscribe((event) => {
     if (event.type === 'run.updated' && event.run.id === opts.run.id && ['completed', 'failed', 'cancelled'].includes(event.run.status)) controller.abort();
     if (event.type === 'collaboration.attempt.updated' && event.attempt.id === opts.attemptId && event.attempt.status !== 'running') controller.abort();
+    if (event.type === 'task.attempt.updated' && event.attempt.id === opts.attemptId && event.attempt.status !== 'running') controller.abort();
   });
+  const authorityTimer = setInterval(() => { if (opts.executionBinding && !bindingAuthorized(opts.executionBinding)) controller.abort(); }, 100);
+  authorityTimer.unref();
+  let releaseMember: ((status?: 'done' | 'waiting') => void) | undefined;
+  let approvalPaused = false;
   try {
+    releaseMember = await enterMember({ runId: opts.run.id, agentId: opts.agent.id, attemptId: opts.attemptId,
+      scope: opts.executionScopeId ?? `agent:${opts.agent.id}`, signal: controller.signal,
+      authorized: () => !['completed','failed','cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')
+        && (!opts.executionBinding || bindingAuthorized(opts.executionBinding)) });
     await ensureIsolatedWorkspace(opts.run, controller.signal);
+    assertBindingAuthorized(opts.executionBinding);
     if (opts.reviewSourceExecutionId) {
       const snapshot = reviewSnapshotPath(opts.reviewSourceExecutionId);
       if (!snapshot) throw new Error('待审原生执行缺少固定工作区快照');
       opts = { ...opts, workspaceRoot: snapshot, agent: { ...opts.agent, permissionMode: 'readonly' } };
     }
-    if (opts.agent.execution?.kind === 'external') return runExternalAgentTurn(opts);
+    if (opts.agent.execution?.kind === 'external') {
+      const result = await runExternalAgentTurn(opts);
+      assertBindingAuthorized(opts.executionBinding);
+      if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
+      return result;
+    }
     const managed = getIsolatedWorkspace(opts.run.id);
-    if (!managed) return runBuiltinAgentTurn(opts);
-    const root = opts.workspaceRoot ?? managed.cwd;
-    const release = await waitForDurableLease('workspace:' + root, 'builtin:' + randomUUID(), opts.agent.permissionMode === 'readonly', controller.signal);
+    const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot });
+    mkdirSync(root, { recursive: true });
+    const canonical = !managed && isExternalRun(opts.run) && !opts.workspaceRoot
+      ? realpathSync(getExternalByIdOrThrow(externalId(opts.run.workspace)!).absPath) : realpathSync(root);
+    const holder = 'builtin:' + randomUUID();
+    const readonly = opts.agent.permissionMode === 'readonly';
+    const release = await waitForDurableLease('workspace:' + canonical, holder, readonly, controller.signal);
+    let releaseShared: (() => void) | undefined;
     try {
+      if (!isExternalRun(opts.run)) {
+        const shared = path.join(config.sandboxDir, 'shared'); mkdirSync(shared, { recursive: true });
+        releaseShared = await waitForDurableLease('workspace:' + realpathSync(shared), holder, readonly, controller.signal);
+      }
       if (controller.signal.aborted || ['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) throw new Error('运行已停止');
       const result = await runBuiltinAgentTurn(opts);
-      if (!opts.workspaceRoot && !controller.signal.aborted && !['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) await captureWorkspaceSnapshot(opts.run.id, randomUUID(), root);
+      // A known approval pause retains the reservation and durable tool-call checkpoint.
+      approvalPaused = result.approvalStarved === true;
+      assertBindingAuthorized(opts.executionBinding);
+      if (managed && !opts.workspaceRoot && !controller.signal.aborted && !['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) result.workspaceSnapshot = await captureWorkspaceSnapshot(opts.run.id, randomUUID(), root);
+      if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
-    } finally { release(); }
-  } finally { clearTimeout(timer); unsubscribe(); }
+    } finally { releaseShared?.(); release(); }
+  } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(timer); clearInterval(authorityTimer); unsubscribe(); }
 }
 
 async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   const { run, agent, parentSpanId } = opts;
-  const provider = resolveProvider(agent.model);
+  const provider = providerForAgent(agent, run.id);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
-  const ordinaryTools = toolsForAgent(agent);
+  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent);
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set([
     ...(opts.controlTools ?? []).map((tool) => tool.name),
@@ -267,6 +339,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   let exitCorrectionActive = durableState?.executionScopeId === scope && durableState.exitCorrectionActive === true;
 
   const finishCandidate = (candidate: AgentTurnResult, round: number): AgentTurnResult | null => {
+    assertBindingAuthorized(opts.executionBinding);
     const result = { ...candidate, exitCorrectionAttempts };
     const review = opts.reviewExit?.(result, exitCorrectionAttempts) ?? { status: 'allow' as const };
     if (review.status === 'continue_same_turn') {
@@ -284,6 +357,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   };
 
   for (let round = startRound; ; round += 1) {
+    assertBindingAuthorized(opts.executionBinding);
     const roundTools = exitCorrectionActive ? (opts.controlTools ?? []) : tools;
     const roundToolNames = roundTools.map((tool) => tool.name);
     const roundMaxTokens = exitCorrectionActive && opts.exitCorrectionMaxTokens
@@ -307,10 +381,12 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         res = replayResponse;
         replayResponse = null;
       } else {
-        res = await provider.chat({ model: agent.model, messages, tools: roundTools, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, deltaForwarder(run.id, llmSpan.id, {
+        const forward = deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
-        }));
+        });
+        res = await provider.chat({ model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
       }
+      assertBindingAuthorized(opts.executionBinding);
     } catch (err) {
       // 流式中途超时/网络异常（R5）：增量已广播不回收，span 记 error 后向上抛（run 走 failed）
       const message = err instanceof Error ? err.message : String(err);
@@ -404,7 +480,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     if (round >= maxRounds) {
       await postSystem(run.id, agent.id, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
       // 无 tools 的收尾调用：基于已获工具结果给最终结论（保证结论完整性，比调大上限省 token）
-      const closing = await closingCall(run, agent, parentSpanId, messages);
+      const closing = await closingCall(run, agent, parentSpanId, messages, opts);
       const result = finishCandidate({ content: closing.trim().length > 0 ? closing : res.content,
         toolRounds, emptyResponse: false, controlAction: null }, round);
       if (result) return result;
@@ -474,8 +550,9 @@ async function closingCall(
   agent: AgentDefinition,
   parentSpanId: string,
   messages: LlmMessage[],
+  opts: AgentTurnOptions,
 ): Promise<string> {
-  const provider = resolveProvider(agent.model);
+  const provider = providerForAgent(agent, run.id);
   const final: LlmMessage[] = [
     ...messages,
     { role: 'user', content: '工具调用预算已用完，请基于已获得的工具结果直接给出最终结论，不要再请求工具调用。' },
@@ -490,7 +567,10 @@ async function closingCall(
   let res: LlmResponse;
   try {
     // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
-    res = await provider.chat({ model: agent.model, messages: final }, deltaForwarder(run.id, llmSpan.id));
+    assertBindingAuthorized(opts.executionBinding);
+    const forward = deltaForwarder(run.id, llmSpan.id);
+    res = await provider.chat({ model: agent.model, messages: final, signal: opts.executionSignal }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
+    assertBindingAuthorized(opts.executionBinding);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     endSpan(llmSpan, { output: message, status: 'error' });
@@ -661,14 +741,16 @@ async function runTool(
     attributes: { 'agent.id': agent.id, 'tool.name': tool.name },
   });
   try {
+    assertBindingAuthorized(opts.executionBinding);
     const parsed: unknown = JSON.parse(inputRaw);
     // workspace 透传（§10.2）：命名工作区时无前缀路径落 workspaces/<name>/
     const replayPolicy = tool.replayPolicy ?? (READONLY_TOOLS.has(tool.name) ? 'safe' : tool.name === 'fs.write' ? 'idempotent' : 'manual');
     const executed = await executeToolOnce({ runId: run.id, agentId: agent.id, taskId: opts.taskId,
       attemptId: opts.attemptId, toolName: tool.name, input: inputRaw, idempotencyKey: executionKey,
-      replayPolicy, spanId: toolSpan.id, execute: () => tool.run(parsed, {
+      replayPolicy, spanId: toolSpan.id, execute: () => { assertBindingAuthorized(opts.executionBinding); return tool.run(parsed, {
         runId: run.id, agentId: agent.id, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null, workspaceRoot: opts.workspaceRoot,
-      }) });
+      }); } });
+    assertBindingAuthorized(opts.executionBinding);
     const output = executed.output;
     endSpan(toolSpan, { output, status: 'ok' });
     // AG-COORD-05：长输出（fs.read 文件正文等）只发一行摘要进聊天流，完整内容在 Trace/Trajectory 可查；

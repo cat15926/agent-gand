@@ -30,6 +30,10 @@ import { listTasks } from '../messaging/tasks.ts';
 import { listAttempts } from '../tasks/attempts.ts';
 import { listReviews } from '../tasks/reviews.ts';
 import { cancelDurableHolds } from '../runtime/holds.ts';
+import { freezeRunAccounts, listRunAccountBindings } from '../accounts/resolver.ts';
+import type { RunAccountBinding } from '@agent-gand/shared';
+import { normalizeAgent } from '../agents/validation.ts';
+import { finishAdapterRun, taskAdapterEnabled } from '../runtime/taskAdapter.ts';
 
 interface RunRow {
   id: string;
@@ -161,6 +165,7 @@ export function createRun(
       return agent;
     });
     assertExternalAdmission(agents, mode, supervisorId);
+    freezeRunAccounts(record.id, agents);
     run(
       `INSERT INTO runs (id,conversation_id,turn_no,goal,mode,status,agent_ids,supervisor_id,default_reviewer_id,workspace,title,created_at,finished_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
@@ -181,16 +186,23 @@ export function listRunAgentSnapshots(runId: string): AgentDefinition[] {
     .map((row) => JSON.parse(row.definition) as AgentDefinition);
 }
 
-/** 升级旧库时以迁移时的角色版本补齐历史 Run；之后所有新 Run 都在创建事务内写快照。 */
+/** Recover only missing snapshots, using the latest role revision that already existed when the Run was created. */
 export function backfillRunAgentSnapshots(): void {
   const rows = all<{ id: string; agent_ids: string; created_at: string }>(
     `SELECT r.id,r.agent_ids,r.created_at FROM runs r
-     WHERE NOT EXISTS (SELECT 1 FROM run_agent_snapshots s WHERE s.run_id=r.id)`,
+     WHERE EXISTS (SELECT 1 FROM json_each(r.agent_ids) m
+       WHERE NOT EXISTS (SELECT 1 FROM run_agent_snapshots s WHERE s.run_id=r.id AND s.agent_id=m.value))`,
   );
   tx(() => {
     for (const item of rows) {
       for (const id of JSON.parse(item.agent_ids) as string[]) {
-        const agent = getAnyAgent(id); if (!agent) continue;
+        if (get('SELECT agent_id FROM run_agent_snapshots WHERE run_id=? AND agent_id=?', item.id, id)) continue;
+        const historical = get<{ definition: string; version: number }>('SELECT definition,version FROM agent_versions WHERE agent_id=? AND created_at<=? ORDER BY created_at DESC,version DESC LIMIT 1', id, item.created_at);
+        const agent = historical ? normalizeAgent({ ...JSON.parse(historical.definition), version: historical.version }) : getAnyAgent(id);
+        if (!agent) continue;
+        const binding = get<{ account_id: string }>('SELECT account_id FROM run_account_bindings WHERE run_id=? AND agent_id=?', item.id, id);
+        // Do not invent a managed binding or attach a recently selected account to a pre-migration Run.
+        if (binding ? agent.accountRef !== binding.account_id : (agent.requiresAccount && !agent.accountRef) || (agent.accountRef && !agent.accountRef.startsWith('legacy-'))) continue;
         run('INSERT OR IGNORE INTO run_agent_snapshots (run_id,agent_id,version,definition,created_at) VALUES (?,?,?,?,?)', item.id, id, agent.version, JSON.stringify(agent), item.created_at);
       }
     }
@@ -251,6 +263,8 @@ export function countRuns(): number {
 
 /** 状态流转（含 awaiting_approval ↔ running 往返），每次广播 run.updated */
 export function setRunStatus(runId: string, status: RunStatus): void {
+  const existing = getRun(runId);
+  if (existing && ['completed','failed','cancelled'].includes(existing.status) && existing.status !== status) return;
   if (status === 'running') run('UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?', status, runId);
   else run('UPDATE runs SET status = ? WHERE id = ?', status, runId);
   const runRow = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
@@ -384,6 +398,7 @@ export function markSpanFirstToken(spanId: string): RunEvent | undefined {
 }
 
 export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): boolean {
+  if (taskAdapterEnabled(runId)) return finishAdapterRun(runId, status, 'compatibility:finishRun').committed;
   return tx(() => {
     const disposition = status === 'completed' ? 'accepted' : status;
     const changed = run(`UPDATE runs SET status=?,terminal_disposition=?,finished_at=?
@@ -460,6 +475,7 @@ export function usageSummary(): UsageSummary[] {
 export interface RunDetail {
   run: Run;
   agents: AgentDefinition[];
+  accountBindings: RunAccountBinding[];
   events: RunEvent[];
   tasks: Task[];
   messages: Message[];
@@ -476,6 +492,7 @@ export function runDetail(id: string): RunDetail | null {
   return {
     run,
     agents: listRunAgentSnapshots(id),
+    accountBindings: listRunAccountBindings(id),
     events: listEvents(id),
     tasks,
     messages: listByRun(id),

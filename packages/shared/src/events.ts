@@ -29,6 +29,9 @@ import type {
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
   | { type: 'agent.updated'; agent: AgentDefinition }
+  | { type: 'account.updated'; accountId: string; version: number; deleted: boolean }
+  | { type: 'account.revoked'; accountId: string }
+  | { type: 'account.login.updated'; accountId: string }
   | { type: 'message'; message: Message }
   | { type: 'conversation.updated'; conversation: Conversation }
   | { type: 'task.updated'; task: Task }

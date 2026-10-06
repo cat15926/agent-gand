@@ -10,6 +10,10 @@ import type { PermissionMode } from '@agent-gand/shared';
 import type { ExecutionBridge } from './bridge.ts';
 import type { ProcessRegistration } from './ownedProcess.ts';
 import type { NativeSessionInput } from './sessions.ts';
+import type { ResolvedAccount } from '../accounts/resolver.ts';
+import { prepareAccountLaunch } from '../accounts/launch.ts';
+import { cleanEnvironment } from '../accounts/environment.ts';
+import { redactSecrets } from '../accounts/secrets.ts';
 
 export interface DriverInput {
   cwd: string;
@@ -19,15 +23,21 @@ export interface DriverInput {
   signal: AbortSignal;
   timeoutMs: number;
   onEvent: (event: NativeAgentEvent, content: string) => void;
+  authorized?: () => boolean;
   permissionMode?: PermissionMode;
   nativeTools?: string[];
   requestApproval?: (requestId: string, tool: string, input: unknown, reason?: string) => Promise<boolean>;
   bridge?: ExecutionBridge;
   controlOnly?: boolean;
+  connectionTest?: boolean;
   correctionMaxTokens?: number;
   onProcess?: (owner: ProcessRegistration) => void | Promise<void>;
   onProcessStopped?: (token: string) => void;
   session?: NativeSessionInput;
+  account?: ResolvedAccount | null;
+  environment?: NodeJS.ProcessEnv;
+  nativeHome?: string;
+  credentialArgs?: string[];
 }
 export interface AgentDriver {
   id: ExternalDriverId;
@@ -37,9 +47,9 @@ export interface AgentDriver {
 
 const commands: Record<ExternalDriverId, string> = { 'claude-cli': config.externalAgents.claudeCommand, 'codex-exec': config.externalAgents.codexCommand, 'claude-sdk': process.execPath, 'codex-app-server': config.externalAgents.codexCommand };
 const probes = new Map<ExternalDriverId, { expires: number; result: Promise<ExecutionDriverInfo> }>();
-function probe(command: string, args: string[], options: { cwd?: string; signal?: AbortSignal } = {}): Promise<string> {
+function probe(command: string, args: string[], options: { cwd?: string; signal?: AbortSignal; env?: NodeJS.ProcessEnv } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { ...options, timeout: 5_000, maxBuffer: 256 * 1024, encoding: 'utf8' }, (error, stdout) => {
+    execFile(command, args, { env: cleanEnvironment(), ...options, timeout: 5_000, maxBuffer: 256 * 1024, encoding: 'utf8' }, (error, stdout) => {
       if (options.signal?.aborted) reject(new ExecutionError('cancelled', '执行已停止'));
       else if (error) reject(new ExecutionError((error as NodeJS.ErrnoException).code === 'ENOENT' ? 'missing_binary' : 'unsupported_cli', (error as NodeJS.ErrnoException).code === 'ENOENT' ? `未找到 CLI：${command}` : `CLI 检测失败：${command}`));
       else resolve(stdout.trim());
@@ -72,11 +82,11 @@ export function detectDriver(id: ExternalDriverId, refresh = false): Promise<Exe
 }
 
 /** These are server-owned arguments; role files/API callers cannot override policy. */
-export function readonlyArgs(id: ExternalDriverId, input: Pick<DriverInput, 'model' | 'instructions' | 'cwd'>): string[] {
+export function readonlyArgs(id: ExternalDriverId, input: Pick<DriverInput, 'model' | 'instructions' | 'cwd' | 'controlOnly'>): string[] {
   if (id === 'claude-cli') return [
     '-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
-    '--safe-mode', '--setting-sources', '', '--settings', '{"disableAllHooks":true}',
-    '--tools', 'Read,Grep,Glob', '--allowedTools', 'Read,Grep,Glob',
+    '--safe-mode', '--setting-sources', '', '--settings', JSON.stringify({ disableAllHooks: true, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] }, sandbox: { filesystem: { denyRead: [config.accounts.privateDir] } } }),
+    '--tools', input.controlOnly ? '' : 'Read,Grep,Glob', '--allowedTools', input.controlOnly ? '' : 'Read,Grep,Glob',
     '--disallowedTools', 'mcp__*', '--permission-mode', 'dontAsk',
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--disable-slash-commands', '--no-chrome',
     '--append-system-prompt', input.instructions,
@@ -86,7 +96,7 @@ export function readonlyArgs(id: ExternalDriverId, input: Pick<DriverInput, 'mod
     'exec', '--json', '--sandbox', 'read-only', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check',
     '-c', 'approval_policy="never"', '-c', 'web_search="disabled"',
     ...codexProjectPolicy(input.cwd),
-    ...['hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start'].flatMap((name) => ['-c', `features.${name}=false`]),
+    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]),
     '-c', `developer_instructions=${JSON.stringify(input.instructions)}`,
     ...(input.model === 'default' ? [] : ['--model', input.model]), '--', '-',
   ];
@@ -102,10 +112,10 @@ export function codexProjectPolicy(cwd: string): string[] {
   return ['-c', `projects={${roots.join(',')}}`];
 }
 
-export async function codexMcpPolicy(input: Pick<DriverInput, 'cwd' | 'signal'>): Promise<string[]> {
+export async function codexMcpPolicy(input: Pick<DriverInput, 'cwd' | 'signal' | 'environment'>): Promise<string[]> {
   const base = ['mcp', 'list', '--json', ...codexProjectPolicy(input.cwd), '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.hooks=false'];
   const roster = async (overrides: string[]) => {
-    const raw = await probe(commands['codex-exec'], [...base, ...overrides], { cwd: input.cwd, signal: input.signal });
+    const raw = await probe(commands['codex-exec'], [...base, ...overrides], { cwd: input.cwd, signal: input.signal, env: input.environment });
     let parsed: unknown;
     try { parsed = JSON.parse(raw); } catch { throw new ExecutionError('policy_rejected', '无法解析 Codex MCP 配置，拒绝启动只读执行'); }
     if (!Array.isArray(parsed) || parsed.some((item) => !item || typeof item !== 'object' || typeof item.name !== 'string' || typeof item.enabled !== 'boolean')) throw new ExecutionError('policy_rejected', 'Codex MCP 配置格式不受支持');
@@ -123,20 +133,28 @@ export async function codexMcpPolicy(input: Pick<DriverInput, 'cwd' | 'signal'>)
 export function getDriver(id: ExternalDriverId): AgentDriver {
   if (!(id in commands)) throw new ExecutionError('unsupported_cli', '未知外部 Driver');
   return { id, detect: () => detectDriver(id), invoke: async (input) => {
-    if (id === 'claude-sdk') return invokeClaudeSdk(input);
-    if (id === 'codex-app-server') return invokeCodexAppServer(input);
+    const launch = await prepareAccountLaunch(id, input.account, input.signal, !!input.controlOnly && !input.bridge, !!input.connectionTest);
+    input = { ...input, signal: launch.signal, environment: launch.env, nativeHome: launch.home, credentialArgs: launch.args };
+    try {
+    if (id === 'claude-sdk') return await invokeClaudeSdk(input);
+    if (id === 'codex-app-server') return await invokeCodexAppServer(input);
     const parser = new NativeEventParser(id, (event) => input.onEvent(event, parser.content));
     const args = readonlyArgs(id, input);
-    if (id === 'codex-exec') args.splice(args.length - 2, 0, ...await codexMcpPolicy(input));
+    if (id === 'codex-exec') {
+      if (input.account?.managed) args.splice(args.indexOf('--sandbox'), 2);
+      args.splice(args.length - 2, 0, ...launch.args, ...await codexMcpPolicy(input));
+    }
     try {
       await runJsonProcess({ command: commands[id], args, cwd: input.cwd,
-        stdin: input.prompt, signal: input.signal, timeoutMs: input.timeoutMs, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped, onRecord: (record) => parser.accept(record) });
+        stdin: input.prompt, signal: input.signal, timeoutMs: input.timeoutMs, env: input.environment, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped, onRecord: (record) => parser.accept(record) });
     } catch (error) {
       if (error instanceof ExecutionError && error.code === 'nonzero_exit' && parser.error) throw parser.error;
       throw error;
     }
     parser.finish();
-    return parser.content;
+    return redactSecrets(parser.content);
+    } catch (error) { throw launch.authenticationError() ?? error; }
+    finally { await launch.close(); }
   } };
 }
 

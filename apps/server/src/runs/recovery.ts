@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { get } from '../db/database.ts';
 import { recoverCollaborationRuns } from '../collaboration/scheduler.ts';
 import { createDispatch } from '../collaboration/store.ts';
 import { resumePipelineRun } from '../orchestration/pipeline.ts';
@@ -26,10 +27,11 @@ const durableWakeOwner = `wake:${process.pid}:${randomUUID()}`;
 export function wakeRun(runId: string): void {
   const run = getRun(runId);
   if (!run || !['running', 'awaiting_approval'].includes(run.status)) return;
+  if (get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1', runId)) return;
   if (getRunCoordinationPlan(runId)) void resumeCoordinationRun(runId).catch(() => { /* execute 已持久化失败；避免恢复任务变成未处理拒绝 */ });
-  else if (latestCheckpoint(runId, 'fastpath')) void resumeFastPathRun(runId);
-  else if (run.mode === 'pipeline') void resumePipelineRun(runId);
-  else if (run.mode === 'supervisor') void resumeSupervisorRun(runId);
+  else if (latestCheckpoint(runId, 'fastpath')) void resumeFastPathRun(runId).catch(() => {});
+  else if (run.mode === 'pipeline') void resumePipelineRun(runId).catch(() => {});
+  else if (run.mode === 'supervisor') void resumeSupervisorRun(runId).catch(() => {});
   else recoverCollaborationRuns();
 }
 

@@ -15,7 +15,7 @@ const cli = path.join(root, 'fake native'); await copyFile(new URL('./fixtures/e
 const log = path.join(root, 'native.jsonl'); await writeFile(log, '');
 const sourceHome = path.join(root, 'codex-home'); await mkdir(sourceHome); await writeFile(path.join(sourceHome, 'config.toml'), 'untrusted fixture user configuration');
 const executionHome = path.join(root, 'dedicated-home'); await mkdir(executionHome, { mode: 0o700 }); await writeFile(path.join(executionHome, 'auth.json'), '{"fixture":"not-a-credential"}', { mode: 0o600 });
-Object.assign(process.env, { DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'roles'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '', EXTERNAL_CODEX_COMMAND: cli, EXTERNAL_CLAUDE_SDK_WORKER_COMMAND: cli, EXTERNAL_CODEX_HOME: executionHome, EXTERNAL_AGENT_TIMEOUT_MS: '4000', ANTHROPIC_API_KEY: 'fixture-not-used', FAKE_B_LOG: log, CODEX_HOME: sourceHome });
+Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'roles'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '', EXTERNAL_CODEX_COMMAND: cli, EXTERNAL_CLAUDE_SDK_WORKER_COMMAND: cli, EXTERNAL_CODEX_HOME: executionHome, EXTERNAL_AGENT_TIMEOUT_MS: '4000', ANTHROPIC_API_KEY: 'fixture-not-used', FAKE_B_LOG: log, CODEX_HOME: sourceHome });
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');
 const { registerRoutes } = await import('../apps/server/src/api/routes.ts');
 const { db, closeDatabase } = await import('../apps/server/src/db/database.ts');

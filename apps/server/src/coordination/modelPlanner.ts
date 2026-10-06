@@ -6,8 +6,10 @@ import type {
   TaskBrief,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
-import { resolveProvider } from '../llm/router.ts';
+import { providerForAgent } from '../llm/router.ts';
 import { validateProtocolComposition } from './protocols.ts';
+import { get } from '../db/database.ts';
+import { configuredPlanner, type PlannerConnection } from '../accounts/planner.ts';
 
 export interface CoordinationModelProposal {
   taskType: string;
@@ -30,9 +32,14 @@ export interface CoordinationModelPlanningResult {
   fallbackReason: string | null;
 }
 
-function plannerModel(snapshot: CapabilitySnapshot): string | null {
-  if (config.coordinationPlanner.model) return config.coordinationPlanner.model;
-  return snapshot.agents.find((agent) => agent.enabled && agent.capabilities.includes('coordinate') && !agent.model.startsWith('mock:'))?.model ?? null;
+function plannerAgent(snapshot: CapabilitySnapshot, runId?: string) {
+  if (runId) {
+    const captured = get<{ definition: string | null }>('SELECT definition FROM run_planner_snapshots WHERE run_id=?', runId);
+    if (captured?.definition) return JSON.parse(captured.definition) as PlannerConnection;
+    // Old Runs have no configured-planner provenance; never introduce a newly managed planner account.
+    if (!captured) { const legacy = configuredPlanner(); if (legacy && (!legacy.accountRef || legacy.accountRef.startsWith('legacy-'))) return legacy; }
+  } else { const current = configuredPlanner(); if (current) return current; }
+  return snapshot.agents.find((agent) => agent.enabled && agent.capabilities.includes('coordinate') && !agent.model.startsWith('mock:')) ?? null;
 }
 
 function jsonObject(text: string): Record<string, unknown> {
@@ -160,12 +167,12 @@ const SYSTEM_PROMPT = `你是受约束的协作规划器。只能从能力快照
 {"taskType":"string","protocols":[{"protocol":"registered_id","version":1}],"reasonCodes":["STABLE_CODE"],"evidence":[{"source":"user_constraint|task_semantics|capability","field":"field_name"}],"missingInformation":["field_name"],"alternatives":[{"protocols":[{"protocol":"registered_id","version":1}],"displayName":"用户可理解名称","suitableWhen":"条件"}],"confidence":0.0,"clarificationQuestion":null}
 协议组合最多四项，替代方案最多两项。显式用户约束优先；缺少会改变协议或交付物的信息时只提出一个决定性业务问题。不要输出思维过程。`;
 
-export async function planCoordinationWithModel(taskBrief: TaskBrief, snapshot: CapabilitySnapshot): Promise<CoordinationModelPlanningResult> {
-  const model = plannerModel(snapshot);
-  if (!model) return { proposal: null, model: null, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: null };
+export async function planCoordinationWithModel(taskBrief: TaskBrief, snapshot: CapabilitySnapshot, runId?: string): Promise<CoordinationModelPlanningResult> {
+  const agent = plannerAgent(snapshot, runId); const model = agent?.model ?? null;
+  if (!agent || !model) return { proposal: null, model: null, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: null };
   let provider;
   try {
-    provider = resolveProvider(model);
+    provider = providerForAgent(agent, runId);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return { proposal: null, model, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: reason.slice(0, 240) };

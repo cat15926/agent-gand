@@ -20,6 +20,10 @@ export interface AgentDefinition {
   systemPrompt: string;
   /** 内置后端为 provider:model 路由；外部后端为原生模型名或 default。 */
   model: string;
+  /** Logical connection; omission retains the legacy environment/native source. */
+  accountRef?: string;
+  /** New explicit-connection drafts must not fall back to legacy authentication. */
+  requiresAccount?: boolean;
   execution?: AgentExecutionConfig;
   /** 工具白名单 */
   tools: string[];
@@ -43,12 +47,31 @@ export interface AgentInput {
   capabilities: AgentCapability[];
   systemPrompt: string;
   model: string;
+  accountRef?: string;
+  requiresAccount?: boolean;
   execution?: AgentExecutionConfig;
   tools: string[];
   disallowedTools: string[];
   permissionMode: PermissionMode;
   color: string;
   avatar: string;
+}
+
+/** Explicit activation is validated by the server; disabled drafts still obey tool policy. */
+export type AgentSaveInput = AgentInput & { enabled?: boolean };
+export interface AgentPreflight {
+  ok: boolean;
+  issues: Record<string, string>;
+  testedModel: false;
+  permissions: {
+    summary: string;
+    nativeTools: string[];
+    platformTools: string[];
+    allowedTools: string[];
+    deniedTools: string[];
+    session: string;
+    limits: string[];
+  };
 }
 
 export interface AgentTemplate {

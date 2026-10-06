@@ -26,6 +26,7 @@ export function nativeApprovalGate(execution: ExternalAgentExecution, signal: Ab
       const approval = createApproval({ runId: execution.runId, agentId: execution.agentId, toolName: `native:${execution.driver}:${tool}`,
         input: diagnostic(payload, 128 * 1024), reason: diagnostic(reason ?? '外部 Agent 请求执行原生操作；批准仅适用于本次操作'),
         idempotencyKey: `native:${execution.id}:${requestId}`,
+        attemptId: execution.attemptId ?? undefined,
         native: { executionId: execution.id, driver: execution.driver, requestId, attemptId: execution.attemptId ?? null, editable: false } });
       const decision = await waitForDecision(approval.id);
       return valid() && decision.status === 'approved';

@@ -8,6 +8,7 @@ import { all, get, run } from '../db/database.ts';
 import { getExternalByIdOrThrow } from './external.ts';
 import { waitForDurableLease } from '../execution/leases.ts';
 import { ExecutionError } from '../execution/errors.ts';
+import { isAccountPrivatePath } from '../accounts/privatePaths.ts';
 
 const preparing = new Map<string, Promise<ExternalWorkspaceBinding | null>>();
 const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
@@ -39,8 +40,9 @@ async function sourceState(root: string) {
   const top = (await git(root, ['rev-parse', '--show-toplevel'])).toString().trim();
   if (await realpath(top) !== root) throw new ExecutionError('policy_rejected', '隔离编码须注册有 HEAD 的 Git 仓库根目录');
   if ((await git(root, ['ls-files', '--stage'])).toString().split('\n').some((line) => line.startsWith('160000 '))) throw new ExecutionError('policy_rejected', '当前隔离工作区暂不支持 Git submodule');
+  if ((await git(root, ['ls-files', '-z'])).toString().split('\0').filter(Boolean).some((file) => isAccountPrivatePath(path.join(root, file)))) throw new ExecutionError('policy_rejected', '注册仓库跟踪了账户私有文件，拒绝创建或导出快照');
   const patch = await git(root, ['diff', '--binary', '--no-ext-diff', '--no-textconv', 'HEAD', '--', '.']);
-  const files = (await git(root, ['ls-files', '--others', '--exclude-standard', '-z'])).toString().split('\0').filter(Boolean).map(safeRelative);
+  const files = (await git(root, ['ls-files', '--others', '--exclude-standard', '-z'])).toString().split('\0').filter(Boolean).map(safeRelative).filter((file) => !isAccountPrivatePath(path.join(root, file)));
   if (files.length > 2000) throw new ExecutionError('policy_rejected', '待复制未跟踪文件过多，请先整理工作区');
   const hash = createHash('sha256').update(head).update(patch); let bytes = patch.byteLength;
   for (const file of files) {

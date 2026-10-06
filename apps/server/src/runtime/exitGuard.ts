@@ -43,6 +43,9 @@ function blockers(input: RuntimeExitGuardInput): RuntimeCompletionBlocker[] {
 function blockerFeedback(items: RuntimeCompletionBlocker[]): string {
   return items.map((item) => `${item.code}${item.refId ? `(${item.refId})` : ''}`).join('、');
 }
+export function isAcknowledgementOutput(output: string): boolean {
+  return /^(?:ack|ok|okay|收到|好的|明白|已收到|了解|开始处理|正在处理|我会处理|马上处理)[。.!！\s]*$/iu.test(output.trim());
+}
 
 function correction(input: RuntimeExitGuardInput, reasons: string[], feedback: string,
   exhausted: 'fail_attempt' | 'needs_attention' = 'needs_attention'): RuntimeExitGuardEvaluation {
@@ -72,6 +75,8 @@ export function evaluateExitGuard(input: RuntimeExitGuardInput): RuntimeExitGuar
     return { status: 'allow_candidate', reasons: ['VALID_CONTROL_TRANSITION'] };
   }
   const hasOutput = input.output.trim().length > 0;
+  if (hasOutput && isAcknowledgementOutput(input.output)) return correction(input, ['ACK_ONLY_OUTPUT'],
+    '确认收到不等于完成，请提交实际结果。', 'fail_attempt');
   if (input.action.type === 'complete') {
     const completionBlockers = blockers(input);
     if (completionBlockers.length > 0) {

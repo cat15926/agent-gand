@@ -1,3 +1,4 @@
+import { reserveMember } from '../execution/memberAdmission.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type {
   CollaborationAttempt,
@@ -145,6 +146,7 @@ export function createDispatchDetailed(input: CreateDispatchInput): CreateDispat
     id, input.runId, input.conversationId, input.sourceMessageId, input.parentDispatchId ?? null,
     input.batchId ?? null, input.kind, input.from, input.targetAgentId, input.reason ?? null,
     input.priority ?? 'normal', input.depth, input.idempotencyKey, contentHash, now);
+  reserveMember(input.runId, input.targetAgentId, `collaboration:${id}`);
   const value = toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', id)!);
   afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: value }));
   return { dispatch: value, created: true, deduplicatedTo: null };
@@ -180,7 +182,15 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
     const row = get<DispatchRow>(`SELECT d.* FROM collaboration_dispatches d
       JOIN runs r ON r.id=d.run_id
       WHERE d.conversation_id=? AND d.status='queued' AND r.status='running'
-        AND NOT EXISTS (SELECT 1 FROM collaboration_attempts a WHERE a.conversation_id=d.conversation_id AND a.agent_id=d.target_agent_id AND a.status='running')
+        AND NOT EXISTS (SELECT 1 FROM collaboration_attempts a WHERE a.agent_id=d.target_agent_id AND a.status='running')
+        AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=d.run_id AND (c.pause_requested=1 OR c.recovery_attention=1))
+        AND NOT EXISTS (SELECT 1 FROM execution_member_tickets older JOIN runs prior_run ON prior_run.id=older.run_id
+          WHERE older.agent_id=d.target_agent_id AND older.status IN ('waiting','active')
+          AND prior_run.status IN ('pending','running','awaiting_approval')
+          AND NOT EXISTS (SELECT 1 FROM collaboration_dispatches old_dispatch WHERE
+            older.ticket_key=old_dispatch.run_id || ':' || old_dispatch.target_agent_id || ':collaboration:' || old_dispatch.id
+            AND old_dispatch.status NOT IN ('queued','running'))
+          AND older.seq < (SELECT seq FROM execution_member_tickets mine WHERE mine.ticket_key=d.run_id || ':' || d.target_agent_id || ':collaboration:' || d.id))
         AND (SELECT COUNT(*) FROM collaboration_attempts prior WHERE prior.dispatch_id=d.id) < ?
       ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId, config.collaboration.maxAttempts);
     if (!row) return null;
@@ -228,6 +238,9 @@ export function finishAttempt(input: { attemptId: string; dispatchId: string; st
       started_at=CASE WHEN ?='queued' THEN NULL ELSE started_at END,
       finished_at=CASE WHEN ?='queued' THEN NULL ELSE ? END WHERE id=? AND status='running'`,
     dispatchStatus, input.outputMessageId ?? null, input.error ?? null, dispatchStatus, dispatchStatus, now, input.dispatchId);
+    if (dispatchStatus !== 'queued') run(`UPDATE execution_member_tickets SET status=?,finished_at=?
+      WHERE ticket_key=(SELECT run_id || ':' || target_agent_id || ':collaboration:' || id FROM collaboration_dispatches WHERE id=?)
+      AND status='waiting'`, input.status === 'completed' ? 'done' : 'cancelled', now, input.dispatchId);
   });
   const attempt = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', input.attemptId);
   const dispatch = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', input.dispatchId);
@@ -515,13 +528,13 @@ export function cancelCollaborationRun(runId: string): void {
   for (const row of batchRows) emit({ type: 'collaboration.batch.updated', batch: toBatch({ ...row,
     status: 'cancelled', settled_at: row.settled_at ?? now, completed_at: now }) });
 }
-export function cancelAgentWork(conversationId: string, agentId: string): number {
+export function cancelAgentWork(conversationId: string, agentId: string, runId?: string): number {
   const now = new Date().toISOString();
-  const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running')", conversationId, agentId);
-  const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE conversation_id=? AND agent_id=? AND status='running'", conversationId, agentId);
+  const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running') AND (? IS NULL OR run_id=?)", conversationId, agentId, runId ?? null, runId ?? null);
+  const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE conversation_id=? AND agent_id=? AND status='running' AND (? IS NULL OR run_id=?)", conversationId, agentId, runId ?? null, runId ?? null);
   tx(() => {
-    run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止 Agent',finished_at=? WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running')", now, conversationId, agentId);
-    run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running'", now, conversationId, agentId);
+    run("UPDATE collaboration_dispatches SET status='cancelled',error='用户停止 Agent',finished_at=? WHERE conversation_id=? AND target_agent_id=? AND status IN ('queued','running') AND (? IS NULL OR run_id=?)", now, conversationId, agentId, runId ?? null, runId ?? null);
+    run("UPDATE collaboration_attempts SET status='cancelled',error='用户停止 Agent',ended_at=?,lease_expires_at=NULL WHERE conversation_id=? AND agent_id=? AND status='running' AND (? IS NULL OR run_id=?)", now, conversationId, agentId, runId ?? null, runId ?? null);
     for (const row of dispatchRows) {
       const observe = () => observeCancellation(row.id, `agent:${conversationId}:${agentId}:${now}`);
       observeRuntimeState(row.run_id, observe);

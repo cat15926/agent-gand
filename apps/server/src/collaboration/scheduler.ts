@@ -10,7 +10,8 @@ import type {
   RuntimeSuccessorObligation,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
-import { afterCommit, get, tx } from '../db/database.ts';
+import { settleRequestedPause } from '../runtime/runControls.ts';
+import { afterCommit, all, get, tx } from '../db/database.ts';
 import { listByConversation, listByRun, post, postSystem, updateRunUserMessageStatus } from '../messaging/inbox.ts';
 import { endSpan, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE, type AgentTurnResult } from '../orchestration/agentStep.ts';
@@ -70,7 +71,8 @@ import {
   renewCollaborationLeases,
   selectAnyBatchWinner,
 } from './store.ts';
-import { emit } from '../messaging/bus.ts';
+import { emit, subscribe } from '../messaging/bus.ts';
+import { onMemberAvailable } from '../execution/memberAdmission.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { persistRouteGuardEvent, recordEvidenceAwareRoute, runtimeEvidenceLoopGuardVersion } from '../runtime/loopGuard.ts';
 import {
@@ -840,6 +842,7 @@ export function reconcileCollaborationBatches(runId?: string): void {
 export function finalizeCollaborationRun(runId: string, options: {
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated'; publishResult?: boolean;
 } = {}): void {
+  if (settleRequestedPause(runId)) return;
   const run = getRun(runId); if (!run || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
   const runtimePolicy = resolveRunPolicy(runId);
   // 历史 profile 仅保留只读解释；退役后不再走 legacy finalization。
@@ -911,7 +914,17 @@ export function sweepCollaborationLeases(): void {
     for (const runId of new Set(listConversationDispatches(conversationId).map((item) => item.runId))) finalizeRun(runId);
     kickCollaboration(conversationId);
   }
+  for (const conversationId of listRecoverableConversationIds()) kickCollaboration(conversationId);
 }
+
+function wakeMemberQueue(agentId: string): void {
+  for (const row of all<{ conversation_id: string }>(`SELECT DISTINCT d.conversation_id FROM collaboration_dispatches d
+    JOIN runs r ON r.id=d.run_id WHERE d.target_agent_id=? AND d.status='queued' AND r.status='running'`, agentId)) kickCollaboration(row.conversation_id);
+}
+onMemberAvailable(wakeMemberQueue);
+subscribe(event => {
+  if (event.type === 'collaboration.attempt.updated' && event.attempt.status !== 'running') wakeMemberQueue(event.attempt.agentId);
+});
 
 export function resumeCollaborationConversation(conversationId: string): void { kickCollaboration(conversationId); }
 export function settleCollaborationRun(runId: string): void {

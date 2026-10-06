@@ -33,7 +33,7 @@ function loadDotEnv(file: string): void {
     if (process.env[key] === undefined) process.env[key] = value;
   }
 }
-loadDotEnv(path.join(serverRoot, '.env'));
+if (process.env.AGENT_GAND_ISOLATED_WORKER !== '1') loadDotEnv(path.join(serverRoot, '.env'));
 
 /** LLM_* 环境变量全量透传（真实 Provider 的 key/base_url/proxy 见下方结构化字段） */
 function collectLlmEnv(): Record<string, string> {
@@ -85,14 +85,30 @@ function parsePricing(raw: string | undefined): Record<string, ModelPrice> {
 }
 
 const dbPath = process.env.DB_PATH ?? path.join(serverRoot, 'data', 'agent-gand.sqlite');
+const serverPort = firstInt(process.env.PORT, 3010);
+const trustedOrigins = (process.env.ACCOUNT_TRUSTED_ORIGINS ?? [
+  `http://127.0.0.1:${serverPort}`, `http://localhost:${serverPort}`, `http://[::1]:${serverPort}`,
+  'http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173',
+].join(',')).split(',').map((item) => item.trim()).filter(Boolean);
+for (const origin of trustedOrigins) {
+  const url = new URL(origin);
+  if (!['http:', 'https:'].includes(url.protocol) || url.origin !== origin || url.username || url.password) throw new Error('ACCOUNT_TRUSTED_ORIGINS 必须为逗号分隔的完整 HTTP(S) Origin');
+}
 export const config = {
-  port: firstInt(process.env.PORT, 3010),
+  port: serverPort,
+  host: process.env.HOST ?? '127.0.0.1',
   logLevel: process.env.LOG_LEVEL ?? 'info',
   dataDir: path.join(serverRoot, 'data'),
   dbPath,
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),
+  accounts: {
+    privateDir: process.env.AGENT_GAND_ISOLATED_WORKER === '1' && process.env.AGENT_GAND_PRIVATE_DIR ? process.env.AGENT_GAND_PRIVATE_DIR : path.join(path.dirname(dbPath), 'private'),
+    masterKey: process.env.ACCOUNT_MASTER_KEY ?? null,
+    adminToken: process.env.ACCOUNT_ADMIN_TOKEN ?? null,
+    trustedOrigins,
+  },
   externalAgents: {
     claudeCommand: process.env.EXTERNAL_CLAUDE_COMMAND ?? 'claude',
     codexCommand: process.env.EXTERNAL_CODEX_COMMAND ?? 'codex',
@@ -156,6 +172,7 @@ export const config = {
   coordinationPlanner: {
     /** 显式规划模型；未设置时优先复用所选团队内非 mock 的 coordinate Agent。 */
     model: process.env.COORDINATION_PLANNER_MODEL?.trim() || null,
+    accountRef: process.env.COORDINATION_PLANNER_ACCOUNT_REF?.trim() || null,
     maxAttempts: Math.min(3, Math.max(1, firstInt(process.env.COORDINATION_PLANNER_MAX_ATTEMPTS, 2))),
     maxTokens: Math.max(512, firstInt(process.env.COORDINATION_PLANNER_MAX_TOKENS, 2_048)),
     autoStartThreshold: Math.min(0.99, Math.max(0.5, Number(process.env.COORDINATION_AUTO_START_THRESHOLD ?? 0.82) || 0.82)),

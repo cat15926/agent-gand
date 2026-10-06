@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { all, get, run } from '../db/database.ts';
+import { isAccountPrivatePath } from '../accounts/privatePaths.ts';
 
 export interface ExternalWorkspace {
   id: string;
@@ -84,6 +85,7 @@ export function registerExternal(input: { path: string; label?: string; trusted?
     throw new ExternalWorkspaceError(`路径不可访问: ${real}`, 400);
   }
   if (!st.isDirectory()) throw new ExternalWorkspaceError(`不是目录（仅支持目录注册）: ${input.path}`, 400);
+  if (isAccountPrivatePath(real)) throw new ExternalWorkspaceError('账户私有目录不能注册为工作区', 403);
   const existing = get<ExternalRow>('SELECT * FROM external_workspaces WHERE abs_path = ?', real);
   if (existing) {
     throw new ExternalWorkspaceError(`该目录已注册（id=${existing.id}）: ${existing.abs_path}`, 409);

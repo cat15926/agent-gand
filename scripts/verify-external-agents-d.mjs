@@ -13,7 +13,7 @@ await writeFile(path.join(source, 'README.md'), 'user dirty change\n'); await wr
 const cli = path.join(root, 'native'); await copyFile(new URL('./fixtures/external-agent-d.mjs', import.meta.url), cli); await chmod(cli, 0o755);
 const logPath = path.join(root, 'native.jsonl'); await writeFile(logPath, '');
 const nativeHome = path.join(root, 'codex'); await mkdir(nativeHome); await writeFile(path.join(nativeHome, 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', tokens: { account_id: 'fixture-account' } }));
-Object.assign(process.env, { DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'agents'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '',
+Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'agents'), LOG_LEVEL: 'silent', MCP_SERVER_CMD: '',
   EXTERNAL_CLAUDE_SDK_WORKER_COMMAND: cli, EXTERNAL_CODEX_COMMAND: cli, EXTERNAL_CODEX_HOME: nativeHome, EXTERNAL_CLAUDE_HOME: path.join(root, 'claude'),
   EXTERNAL_WORKSPACE_MODE: 'isolated', EXTERNAL_AGENT_TIMEOUT_MS: '12000', ANTHROPIC_API_KEY: 'fixture-no-inference', FAKE_D_LOG: logPath });
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');

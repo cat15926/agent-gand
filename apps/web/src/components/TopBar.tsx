@@ -31,29 +31,29 @@ export function TopBar() {
   const pendingApprovals = state.approvals.filter((a) => a.status === 'pending').length;
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-zinc-800 bg-zinc-900/60 px-4">
-      <span className="text-sm font-semibold tracking-wide text-zinc-100">
-        agent-gand <span className="text-zinc-500">· 多 Agent 协作平台</span>
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/60 px-3 sm:gap-4 sm:px-4">
+      <span className="shrink-0 whitespace-nowrap text-sm font-semibold tracking-wide text-zinc-100">
+        agent-gand <span className="hidden text-zinc-500 lg:inline">· 多 Agent 协作平台</span>
       </span>
 
       {pendingApprovals > 0 && (
-        <span className="flex animate-pulse items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-500/40">
+        <span className="flex shrink-0 animate-pulse items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-500/40">
           ⚠ 待审批 {pendingApprovals}
         </span>
       )}
 
       {activeRun && (
-        <span className="flex items-center gap-2 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
+        <span className="hidden min-w-0 items-center gap-2 whitespace-nowrap rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300 sm:flex">
           <span className={`h-2 w-2 rounded-full ${STATUS_COLOR[activeRun.status] ?? 'bg-zinc-500'}`} />
           {STATUS_LABEL[activeRun.status] ?? activeRun.status}
           <span className="max-w-48 truncate text-zinc-500">{activeRun.goal}</span>
         </span>
       )}
 
-      <span className="ml-auto text-xs text-zinc-400">
+      <span className="ml-auto hidden whitespace-nowrap text-xs text-zinc-400 md:inline">
         用量 <span className="font-mono text-zinc-200">{tokens.toLocaleString()}</span> tokens{state.usage.some((item) => item.hasUnknownTokens) ? ' + 未知用量' : ''}
       </span>
-      <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+      <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500 md:ml-0">
         <span
           className={`h-2 w-2 rounded-full ${state.wsConnected ? 'bg-emerald-400' : 'bg-red-500'}`}
         />

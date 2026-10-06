@@ -8,6 +8,8 @@ import { config } from '../config.ts';
 import { all, run } from '../db/database.ts';
 import { waitForDurableLease } from './leases.ts';
 import { ExecutionError } from './errors.ts';
+import { assertBindingAuthorized } from './authority.ts';
+import type { ResolvedAccount } from '../accounts/resolver.ts';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,15 +47,20 @@ async function accountBinding(execution: ExternalAgentExecution): Promise<string
     return identity ? hash(JSON.stringify([path.resolve(config.externalAgents.codexHome), auth.auth_mode, identity])) : null;
   } catch { return null; }
 }
-export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false): Promise<SessionHandle | undefined> {
+export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false, connection?: ResolvedAccount | null): Promise<SessionHandle | undefined> {
+  assertBindingAuthorized(opts.executionBinding);
   const policy = opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn';
   if (policy === 'turn') return undefined;
-  const account = await accountBinding(execution);
+  const account = connection?.managed ? connection.cacheKey : await accountBinding(execution);
   const scope = policy === 'conversation' ? opts.run.conversationId : opts.run.id;
   const bindingKey = hash(JSON.stringify({ scope, policy, agent: opts.agent.id, version: opts.agent.version,
     driver: execution.driver, driverVersion: execution.driverVersion, cwd: execution.cwd, source: execution.sourceCwd,
     permission: execution.permissionMode, model: opts.agent.model, config: opts.agent.execution, systemPrompt: opts.agent.systemPrompt,
-    control: opts.controlTools, display: opts.displayKind ?? 'message', account, host: hostname() }));
+    control: opts.controlTools, display: opts.displayKind ?? 'message', account, host: hostname(),
+    coordination: opts.executionBinding?.origin === 'coordination_step_attempt' ? {
+      planId: opts.executionBinding.planId, revision: opts.executionBinding.planRevision, stepId: opts.executionBinding.stepId,
+      reviewTargets: opts.executionBinding.reviewTargets,
+    } : undefined }));
   const release = await waitForDurableLease('session:' + bindingKey, execution.id, false, signal);
   try {
     let previous = all<{ record: string }>("SELECT record FROM external_agent_sessions WHERE binding_key=? AND status='ready' ORDER BY rowid DESC", bindingKey).map((row) => JSON.parse(row.record) as SessionRecord)[0];
@@ -65,7 +72,7 @@ export async function prepareNativeSession(opts: AgentTurnOptions, execution: Ex
       catch { run("UPDATE external_agent_sessions SET status='invalid' WHERE id=?", previous.id); previous = undefined; reason = 'SDK 本地会话文件缺失或路径改变，建立新会话'; }
     }
     const id = previous?.id ?? randomUUID();
-    const requestedDir = path.resolve(execution.driver === 'claude-sdk' ? config.externalAgents.claudeHome : config.externalAgents.codexHome);
+    const requestedDir = path.resolve(connection?.runtimeHome ?? (execution.driver === 'claude-sdk' ? config.externalAgents.claudeHome : config.externalAgents.codexHome));
     await mkdir(requestedDir, { recursive: true, mode: 0o700 });
     const configDir = await realpath(requestedDir);
     const record: SessionRecord = previous ? { ...previous, status: 'inflight', executionId: execution.id, revision: previous.revision + 1, reason, updatedAt: new Date().toISOString() }

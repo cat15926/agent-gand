@@ -13,12 +13,14 @@ import { bidirectional } from './policy.ts';
 import { expireExecutionApprovals, nativeApprovalGate } from './approvals.ts';
 import { acquireWorkspace, waitForWorkspace, assertCodingWorkspace, captureEvidence } from './evidence.ts';
 import { createExecutionBridge } from './bridge.ts';
-import { executionAuthorized } from './authority.ts';
+import { assertBindingAuthorized, executionAuthorized } from './authority.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
 import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { registerNativeProcess, markNativeProcessStopped } from './host.ts';
 import { captureWorkspaceSnapshot, getIsolatedWorkspace } from '../workspaces/isolated.ts';
 import { prepareNativeSession, SessionUnavailableError, type SessionHandle } from './sessions.ts';
+import { resolveAccount, assertNotRevoked, type ResolvedAccount } from '../accounts/resolver.ts';
+import { redactSecrets, redactSnapshot } from '../accounts/secrets.ts';
 
 const active = new Map<string, { runId: string; controller: AbortController; done: Promise<AgentTurnResult> }>();
 const terminal = (runId: string) => { const run = getRun(runId); return !run || ['completed', 'failed', 'cancelled'].includes(run.status); };
@@ -38,6 +40,11 @@ export async function stopExternalRun(runId: string, agentId?: string): Promise<
   for (const entry of entries) entry.controller.abort();
   await Promise.allSettled(entries.map((entry) => entry.done));
 }
+export async function stopExternalAttempt(attemptId: string): Promise<void> {
+  const entries = [...active.entries()].filter(([id]) => getExecution(id)?.attemptId === attemptId).map(([, entry]) => entry);
+  for (const entry of entries) entry.controller.abort();
+  await Promise.allSettled(entries.map(entry => entry.done));
+}
 export async function shutdownExternalAgents(): Promise<void> {
   const entries = [...active.values()];
   for (const entry of entries) entry.controller.abort();
@@ -52,8 +59,11 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   assertExternalPolicy(opts.agent);
   if (opts.agent.execution?.kind !== 'external') throw new ExecutionError('policy_rejected', '缺少外部执行配置');
   const duplex = bidirectional(opts.agent.execution.driver);
-  const collaboration = duplex && opts.run.mode === 'collaboration';
-  if (opts.run.mode !== 'pipeline' && !(duplex && opts.run.mode === 'supervisor' && opts.agent.id !== opts.run.supervisorId) && !collaboration) throw new ExecutionError('policy_rejected', '外部执行支持流水线；双向后端还支持内置主管 worker/reviewer 和自由协作');
+  const coordination = opts.executionBinding?.origin === 'coordination_step_attempt';
+  assertBindingAuthorized(opts.executionBinding);
+  if (coordination && !duplex) throw new ExecutionError('policy_rejected', 'Coordination 步骤仅开放 Claude SDK 和 Codex app-server；只读 CLI 请使用流水线');
+  const collaboration = duplex && !coordination && opts.run.mode === 'collaboration';
+  if (!coordination && opts.run.mode !== 'pipeline' && !(duplex && opts.run.mode === 'supervisor' && opts.agent.id !== opts.run.supervisorId) && !collaboration) throw new ExecutionError('policy_rejected', '外部执行支持流水线；双向后端还支持内置主管 worker/reviewer 和自由协作');
   if ((opts.controlTools?.length || opts.reviewExit) && !collaboration) throw new ExecutionError('policy_rejected', '当前编排模式未开放 Runtime 控制');
   const responsibility = collaboration && opts.attemptId ? loadResponsibilitySnapshot({ runId: opts.run.id, attemptId: opts.attemptId }) : null;
   if (collaboration && (!responsibility || !opts.controlTools?.length || !opts.handleControlCalls)) throw new ExecutionError('policy_rejected', '自由协作缺少冻结的 Runtime 执行上下文');
@@ -64,20 +74,23 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   if (existing) {
     const owned = active.get(existing.id);
     if (owned) return owned.done;
-    if (existing.status === 'completed' && (!collaboration || existing.attemptId === opts.attemptId)) return { ...asResult(existing.content, 0), controlAction: existing.controlAction ?? null, exitCorrectionAttempts: existing.exitCorrectionAttempts ?? 0 };
+    if (existing.status === 'completed' && (!collaboration || existing.attemptId === opts.attemptId)
+      && (!opts.executionBinding || existing.executionBinding?.id === opts.executionBinding.id)) return { ...asResult(existing.content, 0), workspaceSnapshot: existing.snapshot, controlAction: existing.controlAction ?? null, exitCorrectionAttempts: existing.exitCorrectionAttempts ?? 0 };
     throw new ExecutionError(existing.errorCode ?? 'interrupted', existing.error ?? '原生执行未完成，不自动重放；请创建新运行');
   }
-  const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot });
+  const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: coordination ? null : opts.workspaceScope, workspaceRoot: opts.nativeWorkspaceRoot ?? opts.workspaceRoot });
   // Only platform-managed empty workspaces may be created. Registered repo paths must exist.
   if (!opts.run.workspace?.startsWith('ext:')) mkdirSync(root, { recursive: true });
   const cwd = realpathSync(root);
   if (duplex && opts.agent.permissionMode !== 'readonly' && opts.displayKind !== 'review_protocol') {
     if (!opts.run.workspace?.startsWith('ext:')) throw new ExecutionError('policy_rejected', '阶段 B 写入须选择已注册的 Git 仓库工作区');
   }
+  const account = resolveAccount(opts.agent, opts.run.id);
   const execution = createExecution({ runId: opts.run.id, agentId: opts.agent.id, scopeId, driver: opts.agent.execution.driver, agentVersion: opts.agent.version, cwd });
   execution.sourceCwd = getIsolatedWorkspace(opts.run.id)?.sourceRoot;
   updateExecution(execution.id, { sourceCwd: execution.sourceCwd });
-  updateExecution(execution.id, { attemptId: opts.attemptId ?? null, permissionMode: opts.displayKind === 'review_protocol' ? 'readonly' : opts.agent.permissionMode });
+  updateExecution(execution.id, { attemptId: opts.attemptId ?? null, executionBinding: opts.executionBinding, permissionMode: opts.displayKind === 'review_protocol' ? 'readonly' : opts.agent.permissionMode });
+  execution.executionBinding = opts.executionBinding;
   execution.permissionMode = opts.displayKind === 'review_protocol' ? 'readonly' : opts.agent.permissionMode;
   execution.attemptId = opts.attemptId ?? null;
   if (responsibility) {
@@ -85,14 +98,20 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
     updateExecution(execution.id, { runtimeBinding: execution.runtimeBinding });
   }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new ExecutionError('timeout', '外部 Agent 执行超时')), config.externalAgents.timeoutMs);
-  const authorityTimer = setInterval(() => { if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效')); }, 100);
-  const done = invokeTurn(opts, execution, controller.signal);
+  const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
+  const timeoutMs = opts.executionBinding?.origin === 'coordination_step_attempt'
+    ? Math.max(1, Math.min(configuredTimeout, new Date(opts.executionBinding.leaseExpiresAt).getTime() - Date.now())) : configuredTimeout;
+  const timer = setTimeout(() => controller.abort(new ExecutionError('timeout', '外部 Agent 执行超时')), timeoutMs);
+  const authorityTimer = setInterval(() => {
+    if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效'));
+    try { if (account?.managed) assertNotRevoked(account.accountId); } catch { controller.abort(new ExecutionError('cancelled', '账户已立即撤销')); }
+  }, 100);
+  const done = invokeTurn(opts, execution, controller.signal, account);
   active.set(execution.id, { runId: opts.run.id, controller, done });
   try { return await done; } finally { clearTimeout(timer); clearInterval(authorityTimer); active.delete(execution.id); }
 }
 
-async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal): Promise<AgentTurnResult> {
+async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, account: ResolvedAccount | null): Promise<AgentTurnResult> {
   const mode = execution.permissionMode ?? 'readonly';
   const span = startSpan(opts.run.id, { parentId: opts.parentSpanId, spanKind: 'llm', name: `external:${execution.driver}:${opts.agent.model}`,
     input: JSON.stringify({ messages: opts.messages, cwd: execution.cwd, policy: mode, sessionPolicy: opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn' }),
@@ -107,6 +126,10 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
   let forceCold = false; let naturalTerminal = false;
   const usage = new Map<number, { tokensIn: number | null; tokensOut: number | null; costUsd: number | null }>();
   const onEvent = (event: NativeAgentEvent, content: string) => {
+    content = redactSnapshot(content);
+    if (event.type === 'text.delta') event = { ...event, text: '' }; // Use the redacted accumulated snapshot below, never raw split tokens.
+    if (event.type === 'text.snapshot') event = { ...event, text: redactSnapshot(event.text) };
+    if ((event.type === 'tool.started' || event.type === 'tool.completed') && event.output) event = { ...event, output: redactSecrets(event.output) };
     if (signal.aborted || !executionAuthorized(execution)) return;
     if (correction && (event.type === 'text.delta' || event.type === 'text.snapshot') && Buffer.byteLength(content) > (opts.exitCorrectionMaxTokens ?? 2048)) throw new ExecutionError('policy_rejected', '纠偏输出超过平台限制');
     if ('itemId' in event) event = { ...event, itemId: `${correction}:${event.itemId}` };
@@ -138,7 +161,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
   };
   try {
     if (bidirectional(execution.driver)) {
-      release = opts.run.mode === 'collaboration' ? await waitForWorkspace(execution.cwd, execution.id, signal, mode === 'readonly') : acquireWorkspace(execution.cwd, execution.id, mode === 'readonly');
+      release = await waitForWorkspace(execution.cwd, execution.id, signal, mode === 'readonly');
       if (mode !== 'readonly') await assertCodingWorkspace(execution.cwd);
     }
     if (bidirectional(execution.driver)) {
@@ -160,7 +183,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     for (;;) {
       if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '执行权已撤销');
       if (!correction && !session && bidirectional(execution.driver)) {
-        session = await prepareNativeSession(opts, { ...execution, driverVersion: info.version }, signal, forceCold);
+        session = await prepareNativeSession(opts, { ...execution, driverVersion: info.version }, signal, forceCold, account);
         if (session) updateExecution(execution.id, { sessionBindingId: session.record.id, sessionMode: session.resume ? 'resume' : 'cold', sessionReason: session.record.reason });
       }
       const bridge = opts.controlTools?.length || (opts.agent.execution?.kind === 'external' && opts.agent.execution.platformTools?.length)
@@ -169,13 +192,14 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       usage.set(correction, { tokensIn: null, tokensOut: null, costUsd: null });
       updateExecution(execution.id, { tokensIn: null, tokensOut: null, costUsd: null });
       try {
-        content = await driver.invoke({ cwd: execution.cwd, model: opts.agent.model, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: config.externalAgents.timeoutMs, onEvent,
+        content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs, onEvent,
+          authorized: () => executionAuthorized(execution),
           permissionMode: correction ? 'readonly' : mode, nativeTools: correction || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
           requestApproval: async (id, tool, args, reason) => !bridge?.sealed() && !correction && await approve(`${correction}:${id}`, tool, args, reason),
           bridge, controlOnly: correction > 0, correctionMaxTokens: opts.exitCorrectionMaxTokens,
           session: session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
-          onProcessStopped: markNativeProcessStopped });
+          onProcessStopped: markNativeProcessStopped }));
       } catch (error) {
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
@@ -203,7 +227,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     session?.finish(naturalTerminal && !result.controlAction && correction === 0);
     endSpan(span, { status: 'ok', output: content, tokensIn: record.tokensIn ?? undefined, tokensOut: record.tokensOut ?? undefined, costUsd: record.costUsd ?? undefined,
       attributes: { 'execution.status': 'completed', 'execution.session_id': record.sessionId, 'execution.usage_known': record.tokensIn !== null && record.tokensOut !== null, 'execution.cost_known': record.costUsd !== null } });
-    return result;
+    return { ...result, workspaceSnapshot: snapshot };
   } catch (error) {
     session?.finish(false);
     const failure = signal.aborted && signal.reason instanceof ExecutionError ? signal.reason : error instanceof ExecutionError ? error : new ExecutionError('protocol_error', diagnostic(error instanceof Error ? error.message : String(error)));

@@ -4,6 +4,8 @@
 import type {
   AgentDefinition,
   AgentInput,
+  AgentSaveInput,
+  AgentPreflight,
   AgentOptions,
   ExternalWorkspaceBinding,
   ApprovalDecision,
@@ -156,7 +158,7 @@ export const getRunCollaboration = (id: string) => request<CollaborationRunDetai
 export const getRunResponsibility = (id: string) => request<{ snapshots: RuntimeResponsibilitySnapshot[] }>(`/api/runs/${encodeURIComponent(id)}/responsibility`);
 export const resolveCollaborationDecision = (id: string, input: ResolveCollaborationDecision) => request<{ decision: CollaborationUserDecision; linkedRun: Run | null }>(`/api/collaboration/decisions/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify(input) });
 export const cancelCollaborationDispatch = (id: string) => request<CollaborationDispatch>(`/api/collaboration/dispatches/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
-export const stopCollaborationAgent = (agentId: string, conversationId: string) => request<{ cancelled: number }>(`/api/collaboration/agents/${encodeURIComponent(agentId)}/stop`, { method: 'POST', body: JSON.stringify({ conversationId }) });
+export const stopCollaborationAgent = (agentId: string, conversationId: string, runId: string) => request<{ cancelled: number }>(`/api/collaboration/agents/${encodeURIComponent(agentId)}/stop`, { method: 'POST', body: JSON.stringify({ conversationId, runId }) });
 export const stopCollaborationRun = (runId: string) => request<Run>(`/api/collaboration/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 export const stopPipelineRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 export const getExternalExecutions = (runId: string) => request<import('@agent-gand/shared').ExternalAgentExecution[]>(`/api/runs/${encodeURIComponent(runId)}/executions`);
@@ -174,8 +176,9 @@ export async function uploadAgentAvatar(file: File): Promise<{ avatar: string }>
 export const getAgentOptions = () => request<AgentOptions>('/api/agent-options');
 export const getMcpStatus = () => request<McpStatus>('/api/tools/mcp/status');
 export const refreshMcpTools = () => request<McpStatus>('/api/tools/mcp/refresh', { method: 'POST' });
-export const createAgent = (input: AgentInput) => request<AgentDefinition>('/api/agents', { method: 'POST', body: JSON.stringify(input) });
-export const updateAgent = (id: string, input: AgentInput, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...input, expectedVersion }) });
+export const preflightAgent = (input: AgentInput) => request<AgentPreflight>('/api/agents/preflight', { method: 'POST', body: JSON.stringify(input) });
+export const createAgent = (input: AgentSaveInput) => request<AgentDefinition>('/api/agents', { method: 'POST', body: JSON.stringify(input) });
+export const updateAgent = (id: string, input: AgentSaveInput, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ ...input, expectedVersion }) });
 export const setAgentEnabled = (id: string, enabled: boolean, expectedVersion: number) => request<AgentDefinition>(`/api/agents/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ enabled, expectedVersion }) });
 /** §13.3 列表过滤（默认排除软删） */
 export const getRuns = (params?: { includeDeleted?: boolean; q?: string; status?: string }) => {
