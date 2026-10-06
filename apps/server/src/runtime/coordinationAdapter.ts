@@ -65,6 +65,7 @@ function subjectKey(plan: CoordinationPlan, stepId: string): string {
 }
 
 function selectedMode(plan: CoordinationPlan): KernelMode | null {
+  if (plan.executionVersion === 'o4-workflows-v1') return 'execute';
   if (config.coordinationRuntime.kernelMode === 'off') return null;
   if (config.coordinationRuntime.kernelMode === 'shadow') return 'shadow';
   const allowed = new Set(config.coordinationRuntime.executeProtocols);

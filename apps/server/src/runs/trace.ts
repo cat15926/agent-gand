@@ -267,6 +267,9 @@ export function setRunStatus(runId: string, status: RunStatus): void {
   if (existing && ['completed','failed','cancelled'].includes(existing.status) && existing.status !== status) return;
   if (status === 'running') run('UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?', status, runId);
   else run('UPDATE runs SET status = ? WHERE id = ?', status, runId);
+  const delegateStatus = ['completed','failed','cancelled'].includes(status) ? status : status === 'waiting_for_user' ? 'paused' : status === 'pending' ? 'validated' : 'active';
+  const projectedAt = new Date().toISOString();
+  run("UPDATE coordination_plans SET status=?,payload=json_set(payload,'$.status',?,'$.updatedAt',?),updated_at=? WHERE run_id=? AND json_extract(payload,'$.executionAdapter')='collaboration'", delegateStatus, delegateStatus, projectedAt, projectedAt, runId);
   const runRow = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
   if (runRow) emit({ type: 'run.updated', run: rowToRun(runRow) });
 }

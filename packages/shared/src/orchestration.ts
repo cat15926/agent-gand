@@ -1,5 +1,5 @@
 import type { AgentCapability, PermissionMode } from './agent.ts';
-import type { CoordinationProtocolId } from './coordination.ts';
+import type { CoordinationProtocolId, CoordinationPreview } from './coordination.ts';
 import type { ExternalDriverId } from './execution.ts';
 import type { RunMode } from './run.ts';
 
@@ -12,13 +12,13 @@ export type OrchestrationSource = 'unified_preview' | 'room_create' | 'conversat
 
 export interface OrchestrationConstraints {
   readonly?: boolean;
-  /** A hard ceiling, never silently changed to an estimate. */
+  /** Hard Run-wide generated output token ceiling; input tokens and billing are separate. */
   maxTokens?: number;
   deadlineMs?: number;
   rounds?: number;
 }
 
-/** Preview is configuration-only in O1. No execution API is implied by this input. */
+/** Rules previews never call models. Detailed planning is an explicit pre-execution request. */
 export interface OrchestrationPreviewInput {
   goal: string;
   conversationId?: string;
@@ -35,6 +35,8 @@ export interface OrchestrationPreviewInput {
   clientRequestId?: string;
   constraints?: OrchestrationConstraints;
   wholeTeam?: boolean;
+  /** Detailed planning is explicit and may consume model quota. */
+  planning?: 'rules' | 'detailed';
 }
 
 export interface OrchestrationRequest {
@@ -111,8 +113,8 @@ export interface OrchestrationIssue {
 
 export interface OrchestrationDecision {
   schemaVersion: 1;
-  resolverVersion: 'o1-rules-v1';
-  templateVersion: 'o1-templates-v1';
+  resolverVersion: 'o1-rules-v1' | 'o4-rules-v1';
+  templateVersion: 'o1-templates-v1' | 'o4-workflows-v1';
   effectiveStrategy: 'single' | 'parallel' | 'serial';
   workflow: OrchestrationWorkflow;
   protocol: CoordinationProtocolId;
@@ -121,8 +123,14 @@ export interface OrchestrationDecision {
   reason: string;
   requiresConfirmation: boolean;
   issues: OrchestrationIssue[];
-  /** O1 decisions are comparisons, never execution authority. */
-  comparisonOnly: true;
+  /** O1 comparisons are historical; O4 decisions may be admitted as execution authority. */
+  comparisonOnly: boolean;
+  execution?: {
+    engine: 'collaboration' | 'coordination' | 'pipeline';
+    participantIds: string[];
+    readonly: boolean;
+    plannerRequired: boolean;
+  };
 }
 
 export interface OrchestrationPreview {
@@ -130,9 +138,12 @@ export interface OrchestrationPreview {
   capabilities: OrchestrationCapabilitySnapshot;
   decision: OrchestrationDecision;
   fingerprint: string;
-  comparisonOnly: true;
+  comparisonOnly: boolean;
   testedModel: false;
   dispatchCreated: false;
+  previewId?: string;
+  plan?: CoordinationPreview | null;
+  planning?: { kind: 'rules' | 'detailed'; model: string | null; tokensIn: number; tokensOut: number; calls: number };
 }
 
 export interface RunOrchestrationSnapshot extends OrchestrationPreview {
@@ -142,8 +153,14 @@ export interface RunOrchestrationSnapshot extends OrchestrationPreview {
   conversationId: string;
   createdAt: string;
   submissionDigest: string;
-  executionAuthority: 'legacy';
-  /** Actual admitted legacy settings; a new room may receive a generated workspace. */
+  executionAuthority: 'legacy' | 'orchestration';
+  execution?: {
+    engine: 'collaboration' | 'coordination' | 'pipeline';
+    planId: string | null;
+    readonly: boolean;
+    deadlineAt: string | null;
+  };
+  /** Compatibility projection of actual admitted settings; a new room may receive a generated workspace. */
   legacyExecution: {
     mode: RunMode;
     agentIds: string[];

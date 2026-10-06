@@ -204,6 +204,10 @@ export interface CoordinationPlanBudget {
 }
 
 export interface CoordinationPlan {
+  /** New templates use the effective execute contract, independently of legacy profile flags. */
+  executionVersion?: 'o4-workflows-v1';
+  /** Delegates a dynamic protocol to the existing Collaboration scheduler. No step attempts. */
+  executionAdapter?: 'collaboration';
   id: string;
   runId: string | null;
   draftId: string;

@@ -98,6 +98,9 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
     updateExecution(execution.id, { runtimeBinding: execution.runtimeBinding });
   }
   const controller = new AbortController();
+  const abortFromTurn = () => controller.abort(opts.executionSignal?.reason instanceof ExecutionError ? opts.executionSignal.reason : new ExecutionError('cancelled', '本轮执行权已撤销'));
+  if (opts.executionSignal?.aborted) abortFromTurn();
+  else opts.executionSignal?.addEventListener('abort', abortFromTurn, { once: true });
   const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
   const timeoutMs = opts.executionBinding?.origin === 'coordination_step_attempt'
     ? Math.max(1, Math.min(configuredTimeout, new Date(opts.executionBinding.leaseExpiresAt).getTime() - Date.now())) : configuredTimeout;
@@ -108,7 +111,7 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   }, 100);
   const done = invokeTurn(opts, execution, controller.signal, account);
   active.set(execution.id, { runId: opts.run.id, controller, done });
-  try { return await done; } finally { clearTimeout(timer); clearInterval(authorityTimer); active.delete(execution.id); }
+  try { return await done; } finally { clearTimeout(timer); clearInterval(authorityTimer); opts.executionSignal?.removeEventListener('abort', abortFromTurn); active.delete(execution.id); }
 }
 
 async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, account: ResolvedAccount | null): Promise<AgentTurnResult> {

@@ -36,6 +36,7 @@
 - [编排入口 O1：共同请求契约与比较预览](./architecture/orchestration-entry-phase-o1.md)
 - [编排入口 O2：执行绑定与外部成员步骤准入](./architecture/orchestration-entry-phase-o2.md)
 - [编排入口 O3 执行准入、队列与任务动作](./architecture/orchestration-entry-phase-o3.md)
+- [编排入口 O4 策略、工作流与图修订](./architecture/orchestration-entry-phase-o4.md)
 
 ### 实施计划
 
@@ -43,7 +44,7 @@
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
 - [通用协作规划器与 Coordination Plan 设计](./plans/coordination-planner-design.md)
 - [聊天室追问路由与任务级编排方案](./plans/followup-routing-plan.md)
-- [编排入口收敛实施计划（O1、O2 本地完成，O3–O7 待实施）](./plans/orchestration-entry-convergence-implementation-plan.md)
+- [编排入口收敛实施计划（O1–O4 本地完成，O5–O7 待实施）](./plans/orchestration-entry-convergence-implementation-plan.md)
 - [Collaboration 模式实施计划](./plans/collaboration-mode-implementation-plan.md)
 - [Agent 通信与调度方案](./plans/agent-communication-scheduling-plan.md)
 - [Agent 角色管理实施指导](./plans/agent-role-management-implementation-guide.md)
@@ -74,6 +75,7 @@
 - [编排入口 O1 验收报告](./reports/orchestration-entry-phase-o1-acceptance.md)
 - [编排入口 O2 验收记录](./reports/orchestration-entry-phase-o2-acceptance.md)
 - [编排入口 O3 验收记录](./reports/orchestration-entry-phase-o3-acceptance.md)
+- [编排入口 O4 验收记录](./reports/orchestration-entry-phase-o4-acceptance.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

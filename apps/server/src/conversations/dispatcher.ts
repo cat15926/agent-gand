@@ -15,6 +15,7 @@ import { runCoordinationPlan } from '../coordination/runtime.ts';
 import { compileCoordinationPlan, previewCoordination } from '../coordination/service.ts';
 import { isStructuredFollowupGoal } from '../coordination/planner.ts';
 import { config } from '../config.ts';
+import { getRunOrchestrationSnapshot } from '../orchestration/store.ts';
 
 const active = new Set<string>();
 const inputs = new Map<string, RuntimeMessageInput>();
@@ -199,6 +200,20 @@ async function dispatchRun(current: Run): Promise<void> {
         return;
       }
       const messageInput = inputs.get(current.id) ?? persistedMessageInput(conversationId, current.id);
+      const orchestration = getRunOrchestrationSnapshot(current.id);
+      if (orchestration?.executionAuthority === 'orchestration') {
+        const history = conversationHistory(conversationId, current.turnNo);
+        const contextGoal = history ? `前序上下文：\n${history}\n\n本轮任务：\n${current.goal}` : current.goal;
+        if (orchestration.execution?.engine === 'coordination') {
+          await runCoordinationPlan(current, contextGoal, current.goal, messageInput);
+        } else if (orchestration.execution?.engine === 'pipeline') {
+          const targets = orchestration.decision.targetIds.map(id => members.find(a => a.id === id)!);
+          await pipelineOrchestrator.start(current, targets, contextGoal, current.goal, messageInput);
+        } else {
+          admitCollaborationRun(current, conversation, { ...messageInput, recipientIds: orchestration.decision.targetIds });
+        }
+        return;
+      }
       const coordinationPlan = getRunCoordinationPlan(current.id);
       if (coordinationPlan) {
         const history = conversationHistory(conversationId, current.turnNo);

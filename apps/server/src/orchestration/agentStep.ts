@@ -16,6 +16,8 @@
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
 import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, Run } from '@agent-gand/shared';
+import { ExecutionError } from '../execution/errors.ts';
+import { budgetedChat, executionPolicy, assertExecutionDeadline } from './executionBudget.ts';
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { providerForAgent } from '../llm/router.ts';
@@ -102,6 +104,8 @@ export interface AgentTurnOptions {
   messages: LlmMessage[];
   /** 工具循环轮数上限，默认 6（思考型模型多轮核验常见；TODO: P1 支持 agent frontmatter 级配置） */
   maxToolRounds?: number;
+  /** Server controlled maximum output per model call. */
+  maxOutputTokens?: number;
   agentId?: string;
   taskId?: string;
   attemptId?: string;
@@ -208,6 +212,9 @@ export async function chatOnce(
 }
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  const policy = executionPolicy(opts.run.id);
+  assertExecutionDeadline(opts.run.id);
+  if (policy?.execution?.readonly) opts = { ...opts, agent: { ...opts.agent, permissionMode: 'readonly' } };
   if (opts.attemptId && !opts.executionBinding) opts = { ...opts, executionBinding: captureExecutionBinding(opts.run.id, opts.agent.id, opts.attemptId) };
   if (opts.executionBinding && (opts.executionBinding.runId !== opts.run.id || opts.executionBinding.agentId !== opts.agent.id || opts.executionBinding.attemptId !== opts.attemptId)) throw new Error('执行绑定与本回合不一致');
   assertBindingAuthorized(opts.executionBinding);
@@ -237,7 +244,8 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   }
   const controller = new AbortController();
   opts = { ...opts, executionSignal: controller.signal };
-  const timer = setTimeout(() => controller.abort(), config.externalAgents.timeoutMs);
+  const remaining = policy?.execution?.deadlineAt ? Date.parse(policy.execution.deadlineAt) - Date.now() : Infinity;
+  const timer = setTimeout(() => controller.abort(new ExecutionError('timeout', '本轮执行超时或超过截止时间')), Math.max(1, Math.min(config.externalAgents.timeoutMs, remaining)));
   timer.unref();
   const unsubscribe = subscribe((event) => {
     if (event.type === 'run.updated' && event.run.id === opts.run.id && ['completed', 'failed', 'cancelled'].includes(event.run.status)) controller.abort();
@@ -360,9 +368,10 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     assertBindingAuthorized(opts.executionBinding);
     const roundTools = exitCorrectionActive ? (opts.controlTools ?? []) : tools;
     const roundToolNames = roundTools.map((tool) => tool.name);
-    const roundMaxTokens = exitCorrectionActive && opts.exitCorrectionMaxTokens
+    const wantedMaxTokens = exitCorrectionActive && opts.exitCorrectionMaxTokens
       ? Math.min(maxTokensOverride ?? opts.exitCorrectionMaxTokens, opts.exitCorrectionMaxTokens)
       : maxTokensOverride;
+    const roundMaxTokens = opts.maxOutputTokens ? Math.min(wantedMaxTokens ?? opts.maxOutputTokens, opts.maxOutputTokens) : wantedMaxTokens;
     const llmSpan = startSpan(run.id, {
       parentId: parentSpanId,
       spanKind: 'llm',
@@ -384,7 +393,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         const forward = deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
         });
-        res = await provider.chat({ model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
+        res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
       }
       assertBindingAuthorized(opts.executionBinding);
     } catch (err) {
@@ -569,7 +578,7 @@ async function closingCall(
     // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
     assertBindingAuthorized(opts.executionBinding);
     const forward = deltaForwarder(run.id, llmSpan.id);
-    res = await provider.chat({ model: agent.model, messages: final, signal: opts.executionSignal }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
+    res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
     assertBindingAuthorized(opts.executionBinding);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -153,7 +153,8 @@ try {
 
   const protocols = await api('/api/coordination/protocols');
   assert.equal(protocols.status, 200);
-  assert.equal(protocols.data.length, 10);
+  assert.equal(protocols.data.length, 7);
+  assert.ok(protocols.data.every(p=>!['consensus','vote','supervisor_dag'].includes(p.id)));
   assert.ok(protocols.data.every((item) => item.version === 1 && item.roleSlots.length > 0 && item.completionCondition));
 
   const single = await preview({ goal: '总结当前内容', agentIds: ['coder'] });

@@ -45,6 +45,13 @@ export function validateCoordinationPlan(plan: CoordinationPlan, draft: Coordina
     const definition = snapshot.protocols.find((item) => item.id === selected.protocol && item.version === selected.version);
     if (!definition) issues.push(issue('PROTOCOL_VERSION_NOT_IN_SNAPSHOT', `能力快照中不存在 ${selected.protocol}@${selected.version}`, 'protocols'));
   }
+  if (plan.executionAdapter === 'collaboration') {
+    if (composition.length !== 1 || composition[0]?.protocol !== 'dynamic_collaboration' || plan.runtimeMode !== 'collaboration' || plan.steps.length !== 0) issues.push(issue('COLLABORATION_ADAPTER_INVALID', '动态协作必须交由现有调度器执行，不能混入模板步骤'));
+    if (!snapshot.agents.some(a => a.enabled && a.capabilities.includes('execute'))) issues.push(issue('EXECUTOR_REQUIRED', '动态协作缺少执行成员'));
+    for (const key of Object.keys(draft.taskBrief.hardConstraints)) if (key !== 'participantIds') issues.push(issue('DYNAMIC_HARD_CONSTRAINT_UNSUPPORTED', `动态协议无法落实 ${key}；请使用统一入口的明确工作流和约束`));
+    if (draft.taskBrief.participantIds.some(id=>!snapshot.agents.some(a=>a.id===id && a.enabled))) issues.push(issue('ACTOR_NOT_IN_SNAPSHOT', '动态团队包含快照外成员'));
+    return issues;
+  }
   if (plan.steps.length === 0) issues.push(issue('PLAN_STEPS_REQUIRED', '计划至少需要一个步骤', 'steps'));
   if ((plan.templateExpansions?.length ?? 0) !== composition.length) {
     issues.push(issue('TEMPLATE_EXPANSION_MISSING', '每个协议都必须保存模板展开映射', 'templateExpansions'));

@@ -105,6 +105,7 @@ export function commitRunTerminal(input: CommitRunTerminalInput): CommitRunTermi
     input.status, input.disposition, now, input.runId);
     if (changed === 0) return existingResult(input.runId)!;
 
+    run("UPDATE coordination_plans SET status=?,payload=json_set(payload,'$.status',?,'$.updatedAt',?),updated_at=? WHERE run_id=? AND json_extract(payload,'$.executionAdapter')='collaboration'", input.status, input.status, now, now, input.runId);
     input.closeExecution?.();
     const prepared = input.prepare?.() ?? {};
     if (input.status === 'completed') {

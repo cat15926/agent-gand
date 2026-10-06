@@ -61,14 +61,14 @@ try {
 
   const before = counts();
   const preview = await api('/api/orchestration/preview',{goal:'@鸡腿 检查接口',agentIds:['coder','chicken','codex']});
-  assert.equal(preview.status,200);assert.equal(preview.data.comparisonOnly,true);assert.equal(preview.data.testedModel,false);assert.equal(preview.data.dispatchCreated,false);
+  assert.equal(preview.status,200);assert.equal(preview.data.comparisonOnly,false);assert.equal(preview.data.testedModel,false);assert.equal(preview.data.dispatchCreated,false);
   assert.deepEqual(preview.data.decision.targetIds,['chicken']);assert.equal(preview.data.decision.targetSource,'mention');
   assert.deepEqual(counts(),before);assert.equal(networkCalls,0);
   const serialized = JSON.stringify(preview.data);
   for(const forbidden of [secret,'ciphertext','fixture-only-system-prompt',root])assert.ok(!serialized.includes(forbidden),forbidden);
   const keyPath=path.join(root,'private','account-master-key.json');await rename(keyPath,keyPath+'.held');
   try {const withoutKey=await api('/api/orchestration/preview',{goal:'@鸡腿 检查接口',agentIds:['chicken']});assert.equal(withoutKey.status,200);assert.equal(withoutKey.data.capabilities.agents[0].account.configuration,'configured');} finally {await rename(keyPath+'.held',keyPath);}
-  checks.push('预览无落库/派发/模型调用，能力读取不解密凭证、不泄漏密钥或私有路径');
+  checks.push('规则预览不创建执行对象/派发/模型调用，能力读取不解密凭证、不泄漏密钥或私有路径');
 
   const sdk=preview.data.capabilities.agents.find(agent=>agent.id==='chicken');assert.equal(sdk.supports.control,true);assert.equal(sdk.supports.resume,true);assert.equal(sdk.supports.coordinationSteps,true);
   const codex=preview.data.capabilities.agents.find(agent=>agent.id==='codex');assert.equal(codex.driver,'codex-app-server');assert.equal(codex.supports.control,true);
@@ -156,7 +156,7 @@ try {
   const first=await api('/api/conversations',{goal:'first turn pipeline semantics',mode:'pipeline',agentIds:['coder','planner']});assert.equal(first.status,201);await waitTerminal(first.data.run.id);
   const agentSpans=db.all("SELECT name FROM run_events WHERE run_id=? AND span_kind='agent'",first.data.run.id);assert.equal(agentSpans.length,2,'persisting first message must not turn initial pipeline into a single-agent followup');
   assert.equal(db.get("SELECT COUNT(*) count FROM messages WHERE run_id=? AND kind='user'",first.data.run.id).count,1);
-  const previewOnly=await api('/api/runs',{goal:'new workflow must not silently execute',agentIds:['coder'],strategy:'parallel'});assert.equal(previewOnly.status,400);assert.equal(previewOnly.data.code,'COMPARISON_ONLY');
+  const previewOnly=await api('/api/runs',{goal:'new execution entry requires an idempotency key',agentIds:['coder'],strategy:'parallel'});assert.equal(previewOnly.status,400);assert.equal(previewOnly.data.code,'INVALID_IDEMPOTENCY_KEY');
   checks.push('旧预览/Run/消息 HTTP 响应兼容，执行仍走原编排，比较快照可查询');
   assert.equal(networkCalls,0);
   console.log(JSON.stringify({status:'passed',checks,providerRequests:networkCalls},null,2));

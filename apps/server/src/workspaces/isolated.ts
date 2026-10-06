@@ -4,6 +4,7 @@ import { cp, lstat, mkdir, readFile, readlink, realpath } from 'node:fs/promises
 import path from 'node:path';
 import type { ExternalWorkspaceBinding, Run } from '@agent-gand/shared';
 import { config } from '../config.ts';
+import { getRunOrchestrationSnapshot } from '../orchestration/store.ts';
 import { all, get, run } from '../db/database.ts';
 import { getExternalByIdOrThrow } from './external.ts';
 import { waitForDurableLease } from '../execution/leases.ts';
@@ -65,7 +66,10 @@ function save(binding: ExternalWorkspaceBinding): void {
 export async function ensureIsolatedWorkspace(current: Run, signal: AbortSignal = new AbortController().signal): Promise<ExternalWorkspaceBinding | null> {
   if (config.externalAgents.workspaceMode !== 'isolated' || !current.workspace?.startsWith('ext:')) return null;
   const members = all<{ definition: string }>('SELECT definition FROM run_agent_snapshots WHERE run_id=?', current.id).map((row) => JSON.parse(row.definition));
-  if (!members.some((member) => member.execution?.kind === 'external' && ['claude-sdk', 'codex-app-server'].includes(member.execution.driver))) return null;
+  const orchestration = getRunOrchestrationSnapshot(current.id);
+  const fixedReview = orchestration?.executionAuthority === 'orchestration' && !orchestration.execution?.readonly
+    && ['development_review','supervisor_decomposition'].includes(orchestration.request.workflow);
+  if (!fixedReview && !members.some((member) => member.execution?.kind === 'external' && ['claude-sdk', 'codex-app-server'].includes(member.execution.driver))) return null;
   const existing = preparing.get(current.id); if (existing) return existing;
   const promise = prepare(current, members, signal); preparing.set(current.id, promise);
   try { return await promise; } finally { preparing.delete(current.id); }

@@ -507,3 +507,11 @@ CREATE TABLE IF NOT EXISTS execution_bindings (
   UNIQUE(origin, attempt_id, generation)
 );
 CREATE INDEX IF NOT EXISTS idx_execution_bindings_run ON execution_bindings(run_id, completed_at);
+CREATE TABLE IF NOT EXISTS orchestration_previews (
+  id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS orchestration_token_reservations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, reserved INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_orchestration_token_run ON orchestration_token_reservations(run_id,status);

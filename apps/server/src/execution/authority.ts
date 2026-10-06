@@ -1,6 +1,7 @@
 import type { ExecutionBinding, ExternalAgentExecution } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
+import { executionPolicy } from '../orchestration/executionBudget.ts';
 import { ExecutionError } from './errors.ts';
 
 const stopped = (status: string) => ['completed', 'failed', 'cancelled'].includes(status);
@@ -35,6 +36,8 @@ export function bindingCanFailAttempt(binding: ExecutionBinding): boolean {
   try { return checkBinding(binding, true); } catch { return false; }
 }
 function checkBinding(binding: ExecutionBinding, closeExpired = false): boolean {
+  const deadline = executionPolicy(binding.runId)?.execution?.deadlineAt;
+  if (!closeExpired && deadline && Date.now() >= Date.parse(deadline)) return false;
   if (binding.schemaVersion !== 1) return false;
   const owner = get<{ status: string }>('SELECT status FROM runs WHERE id=?', binding.runId);
   if (!owner || stopped(owner.status)) return false;

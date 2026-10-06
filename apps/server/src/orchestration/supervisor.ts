@@ -18,7 +18,7 @@ import { isAdapterTurnTask } from '../runtime/taskAdapter.ts';
 import { listTasks } from '../messaging/tasks.ts';
 import { listByRun } from '../messaging/inbox.ts';
 
-interface DecomposedTask {
+export interface DecomposedTask {
   title: string;
   body: string | null;
   acceptanceCriteria: string[];

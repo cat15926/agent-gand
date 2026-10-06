@@ -160,24 +160,6 @@ function compileSequential(state: BuildState, snapshot: CapabilitySnapshot): voi
   }
 }
 
-function compileSupervisor(state: BuildState, snapshot: CapabilitySnapshot): void {
-  const supervisor = snapshot.agents.find((agent) => agent.capabilities.includes('coordinate'));
-  const worker = snapshot.agents.find((agent) => agent.capabilities.includes('execute'));
-  const planId = 'supervisor-plan';
-  state.steps.push(makeStep(snapshot, 'supervisor_dag', planId, 'agent_turn', 'supervisor', 'coordinate', bind(state, 'supervisor', supervisor?.id), [...state.tail], '任务 DAG 已拆解'));
-  const workId = 'supervisor-execute';
-  state.steps.push(makeStep(snapshot, 'supervisor_dag', workId, 'agent_turn', 'worker', 'execute', bind(state, 'worker', worker?.id), [planId], '执行产物已提交'));
-  state.tail = [workId];
-}
-
-function compileFallback(state: BuildState, snapshot: CapabilitySnapshot, protocol: CoordinationProtocolId): void {
-  const agent = snapshot.agents.find((item) => item.capabilities.includes('execute')) ?? snapshot.agents[0];
-  const id = `${protocol}-response`;
-  const capability = agent?.capabilities.includes('execute') ? 'execute' : agent?.capabilities[0] ?? 'execute';
-  state.steps.push(makeStep(snapshot, protocol, id, 'agent_turn', 'participant', capability, bind(state, 'participant', agent?.id), [...state.tail], '协议结果已提交'));
-  state.tail = [id];
-}
-
 export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: CapabilitySnapshot): CoordinationPlan {
   const state: BuildState = {
     steps: [],
@@ -195,12 +177,12 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
       case 'review_revision': compileReview(state, snapshot, state.tail.length === 0); break;
       case 'debate': compileDebate(state, draft, snapshot); break;
       case 'sequential_pipeline': compileSequential(state, snapshot); break;
-      case 'supervisor_dag': compileSupervisor(state, snapshot); break;
+      case 'supervisor_dag': break;
       case 'supervisor_aggregation':
         if (state.tail.length === 0) compileParallel(state, snapshot, false);
         compileAggregation(state, snapshot, 'supervisor_aggregation');
         break;
-      default: compileFallback(state, snapshot, selected.protocol); break;
+      default: break;
     }
     templateExpansions.push({
       protocolIndex, protocol: selected.protocol, inputStepIds,
@@ -210,7 +192,7 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
   }
   const completionId = 'complete';
   const completionProtocol = draft.protocols.at(-1)?.protocol ?? 'dynamic_collaboration';
-  state.steps.push(makeStep(snapshot, completionProtocol, completionId, 'completion_gate', 'completion', 'coordinate', null, [...state.tail], '所有必需步骤和终局条件满足'));
+  if (completionProtocol !== 'dynamic_collaboration') state.steps.push(makeStep(snapshot, completionProtocol, completionId, 'completion_gate', 'completion', 'coordinate', null, [...state.tail], '所有必需步骤和终局条件满足'));
   const hardConstraintBindings = Object.entries(draft.taskBrief.hardConstraints).map(([constraint, value]) => {
     const planPaths = constraint === 'rounds' ? state.steps.filter((step) => step.protocol === 'debate' && step.type === 'agent_turn').map((step) => `steps.${step.id}`)
       : constraint === 'reviewAfterCompletion' ? state.steps.filter((step) => step.type === 'review').map((step) => `steps.${step.id}`)
@@ -223,6 +205,7 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
   const plan: CoordinationPlan = {
     id: randomUUID(), runId: null, draftId: draft.id, capabilitySnapshotId: snapshot.id, revision: 1, status: 'draft',
     protocols: draft.protocols, protocolComposition: draft.protocols, templateExpansions,
+    ...(completionProtocol === 'dynamic_collaboration' && draft.protocols.length === 1 ? { executionAdapter: 'collaboration' as const } : {}),
     runtimeMode: draft.runtimeMode, actorBindings: state.actorBindings, hardConstraintBindings,
     steps: state.steps, completion: { requiredSteps: state.steps.map((step) => step.id), terminalSteps: [completionId] },
     budget: {
@@ -233,5 +216,6 @@ export function buildCoordinationPlan(draft: CoordinationDraft, snapshot: Capabi
     validationIssues: [], createdAt: now, updatedAt: now,
   };
   plan.validationIssues = validateCoordinationPlan(plan, draft, snapshot);
+  if (draft.protocols.some(p => p.protocol === 'supervisor_dag')) plan.validationIssues.push({ code: 'EXPLICIT_DAG_PLANNING_REQUIRED', severity: 'error', path: 'protocols', message: '主管 DAG 必须在统一入口显式生成详细计划并确认，旧两步模板已停止准入' });
   return plan;
 }

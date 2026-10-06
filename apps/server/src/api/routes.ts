@@ -11,9 +11,10 @@ import type { AgentSaveInput, AgentMessageType, CoordinationPreviewInput, Follow
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
 import { preflightAgent } from '../agents/preflight.ts';
-import { prepareOrchestration, previewOrchestration, submitLegacyOrchestration, validateLegacyTeam as validateTeam } from '../orchestration/service.ts';
+import { prepareOrchestration, submitLegacyOrchestration, validateLegacyTeam as validateTeam } from '../orchestration/service.ts';
 import { OrchestrationError } from '../orchestration/normalize.ts';
 import { getRunOrchestrationSnapshot } from '../orchestration/store.ts';
+import { previewExecutionOrchestration, submitExecutionOrchestration, reviseExecutionOrchestration, usesExecutionEntry } from '../orchestration/entry.ts';
 import { listTools } from '../tools/builtin/index.ts';
 import { getMcpStatus, refreshMcpTools } from '../tools/mcp/client.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
@@ -227,11 +228,24 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 通用协作规划器：能力目录、任务预览与已编译计划 ----
 
-  app.get('/api/coordination/protocols', async () => listProtocols());
-  app.post<{ Body: unknown }>('/api/orchestration/preview', async (req) => previewOrchestration(req.body));
+  app.get('/api/coordination/protocols', async () => listProtocols().filter(p => !['consensus','vote','supervisor_dag'].includes(p.id)));
+  app.post<{ Body: unknown }>('/api/orchestration/preview', async (req) => previewExecutionOrchestration(req.body));
+  app.get('/api/orchestration/options', async () => ({ version: 'o4-workflows-v1', templateVersion: 'o4-workflows-v1', resolverVersion: 'o4-rules-v1',
+    strategies: ['auto','parallel','serial'], workflows: ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'],
+    detailedPlanning: { explicitOnly: true, consumesQuota: true, maximumTasks: 5 }, maximumDebateRounds: 10 }));
+  app.post<{ Params: { id: string }; Body: unknown }>('/api/conversations/:id/requests', async (req, reply) => {
+    const result = submitExecutionOrchestration(req.body, req.params.id);
+    if (!result.deduplicated) enqueueConversationRun(result.run.id);
+    reply.code(result.deduplicated ? 200 : 202);
+    return { ...result, snapshot: getRunOrchestrationSnapshot(result.run.id) };
+  });
+  app.post<{ Params: { runId: string }; Body: unknown }>('/api/runs/:runId/orchestration/revisions', async (req, reply) => {
+    const result = reviseExecutionOrchestration(req.params.runId,req.body); reply.code(201); return result;
+  });
   app.get<{ Params: { runId: string } }>('/api/runs/:runId/orchestration', async (req) => {
     if (!getRun(req.params.runId)) throw httpError(404, 'Run 不存在');
-    return { snapshot: getRunOrchestrationSnapshot(req.params.runId), comparisonOnly: true };
+    const snapshot = getRunOrchestrationSnapshot(req.params.runId);
+    return { snapshot, comparisonOnly: snapshot?.comparisonOnly ?? true };
   });
   app.post<{ Body: Partial<CoordinationPreviewInput> }>('/api/coordination/preview', async (req, reply) => {
     const { goal, agentIds, defaultReviewerId, requestedProtocol, replacesDraftId } = req.body ?? {};
@@ -365,7 +379,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/conversations', async () => listConversations());
   app.post<{ Body: Record<string, unknown> }>('/api/conversations', async (req, reply) => {
-    const result = submitLegacyOrchestration('room_create', req.body);
+    const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body) : submitLegacyOrchestration('room_create', req.body);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 201);
     return { run: result.run, conversation: result.conversation, plan: result.plan };
@@ -454,7 +468,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return { kind, roomMode: conversation.mode, preview: prepared };
   });
   app.post<{ Params: { id: string }; Body: Record<string, unknown> }>('/api/conversations/:id/messages', async (req, reply) => {
-    const result = submitLegacyOrchestration('conversation_message', req.body, req.params.id);
+    const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body, req.params.id) : submitLegacyOrchestration('conversation_message', req.body, req.params.id);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 202);
     return { run: result.run, message: result.message };
@@ -587,7 +601,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 运行（异步执行，立即返回）----
 
   app.post<{ Body: Record<string, unknown> }>('/api/runs', async (req, reply) => {
-    const result = submitLegacyOrchestration('direct_run', req.body);
+    const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body, undefined, 'direct_run') : submitLegacyOrchestration('direct_run', req.body);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 201);
     return { run: result.run, conversation: result.conversation };

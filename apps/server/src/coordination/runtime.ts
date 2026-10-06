@@ -1,4 +1,9 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
+import { getConversation } from '../conversations/service.ts';
+import { admitCollaborationRun, recoverCollaborationRuns, settleCollaborationRun } from '../collaboration/scheduler.ts';
+import { cancelCollaborationRun } from '../collaboration/store.ts';
+import { requestAdapterPause } from '../runtime/runControls.ts';
+import { run as writeDb } from '../db/database.ts';
 import { config } from '../config.ts';
 import { afterCommit, get, tx } from '../db/database.ts';
 import { expirePendingApprovalsForRun } from '../hitl/approvals.ts';
@@ -92,6 +97,7 @@ function stepPrompt(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep
     `前序冻结产物：\n${dependencyTranscript(plan, step, states)}`,
   ];
   if (current?.error) base.push(`上一次反馈（必须处理）：\n${current.error}`);
+  if (typeof step.metadata.objective === 'string') base.push(`当前任务：${step.metadata.title}\n${step.metadata.objective}\n验收标准：${JSON.stringify(step.metadata.acceptanceCriteria)}`);
   // AG-COORD-01：产物路径由计划结构化声明，prompt 明确指令，不再依赖模型自选文件名
   if (step.expectedArtifacts && step.expectedArtifacts.length > 0) {
     base.push(`本步骤产物必须使用 fs.write 完整冻结到 ${step.expectedArtifacts.map((artifactPath) => `\`${artifactPath}\``).join('、')}；完成后在回复中确认已写入，未写入即视为未完成。`);
@@ -202,7 +208,7 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     if (step.type === 'review' && getIsolatedWorkspace(run.id) && !reviewSnapshot) throw new Error('独立评审缺少前序步骤的固定工作区快照');
     // Frozen step policy narrows the role; reviewers always run readonly.
     const stepAgent: AgentDefinition = { ...agent, tools: agent.tools.filter(name => step.toolPolicy.allowedTools.includes(name)),
-      ...(step.type === 'review' ? { permissionMode: 'readonly' as const } : {}),
+      ...(step.type === 'review' || step.metadata.readonly === true ? { permissionMode: 'readonly' as const } : {}),
       ...(agent.execution?.kind === 'external' ? { execution: { ...agent.execution,
         platformTools: agent.execution.platformTools?.filter(name => step.toolPolicy.allowedTools.includes(name)) } } : {}) };
     const turn = await runAgentTurn({
@@ -219,6 +225,7 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       displayKind: step.type === 'review' ? 'review_protocol' : 'message',
       executionScopeId: claimed.attempt.idempotencyKey,
       executionBinding: claimed.executionBinding,
+      ...(plan.executionVersion === 'o4-workflows-v1' ? { maxOutputTokens: step.tokenBudget } : {}),
       ...(reviewSnapshot ? { workspaceRoot: reviewSnapshot.path,
         ...(agent.execution?.kind === 'external' ? { nativeWorkspaceRoot: reviewSnapshot.path } : {}) } : {}),
       // AG-COORD-03：外部工作区按 plan 隔离；内部/命名工作区忽略 scope（本就按 run/房间隔离）
@@ -419,6 +426,13 @@ export async function runCoordinationPlan(run: Run, contextGoal: string, display
   assertCoordinationRecoveryReady(run.id);
   const plan = getRunCoordinationPlan(run.id);
   if (!plan) throw new Error(`Run ${run.id} 没有关联 Coordination Plan`);
+  if (plan.executionAdapter === 'collaboration') {
+    const room = run.conversationId && getConversation(run.conversationId);
+    if (!room) throw new Error('动态协作需要聊天室');
+    if (!get('SELECT 1 FROM collaboration_dispatches WHERE run_id=? LIMIT 1', run.id)) admitCollaborationRun(run, room, userMessage);
+    else recoverCollaborationRuns();
+    return;
+  }
   await execute(run, plan, contextGoal, displayGoal, userMessage);
 }
 
@@ -427,6 +441,11 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan || plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run ?? null;
   assertCoordinationRecoveryReady(runId);
+  if (plan.executionAdapter === 'collaboration') {
+    if (!get('SELECT 1 FROM collaboration_dispatches WHERE run_id=? LIMIT 1', runId)) await runCoordinationPlan(run, run.goal);
+    else recoverCollaborationRuns();
+    return run;
+  }
   const checkpoint = latestCheckpoint(runId, 'coordination');
   const contextGoal = typeof checkpoint?.state.contextGoal === 'string' ? checkpoint.state.contextGoal : run.goal;
   if (plan.status === 'paused') {
@@ -438,6 +457,12 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
 
 export function requestCoordinationResume(runId: string): boolean {
   assertCoordinationRecoveryReady(runId);
+  if (getRunCoordinationPlan(runId)?.executionAdapter === 'collaboration') {
+    writeDb('UPDATE orchestration_run_controls SET pause_requested=0 WHERE run_id=?', runId);
+    setRunStatus(runId, 'running');
+    if (!get('SELECT 1 FROM collaboration_dispatches WHERE run_id=? LIMIT 1', runId)) return false;
+    settleCollaborationRun(runId); return true;
+  }
   return signalCoordinationKernelResume(runId);
 }
 
@@ -458,6 +483,7 @@ export function requestCoordinationPause(runId: string): Run | null {
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan) return run ?? null;
+  if (plan.executionAdapter === 'collaboration') { requestAdapterPause(runId); settleCollaborationRun(runId); return getRun(runId) ?? run; }
   if (plan.status === 'paused') return run;
   if (!['validated', 'active'].includes(plan.status) || !['pending', 'running', 'awaiting_approval'].includes(run.status)) return run;
   setCoordinationPlanStatus(plan.id, 'pause_requested');
@@ -471,6 +497,10 @@ export function cancelCoordinationRun(runId: string): Run | null {
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan) return run ?? null;
   if (plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run;
+  if (plan.executionAdapter === 'collaboration') {
+    commitRunTerminal({ runId, status: 'cancelled', disposition: 'cancelled', source: 'dynamic_collaboration_cancel', userMessageStatus: 'failed', closeExecution: () => { cancelCollaborationRun(runId); expirePendingApprovalsForRun(runId, 'system:cancelled'); } });
+    return getRun(runId) ?? run;
+  }
   const cancelledStates = listCoordinationStepStates(plan.id);
   if (coordinationKernelMode(runId) === 'execute') {
     commitRunTerminal({ runId, status: 'cancelled', disposition: 'cancelled', source: 'coordination_user_cancel',

@@ -13,7 +13,7 @@ export function externalCoordinationIssues(plan: CoordinationPlan, agents: Agent
     const execution = agent.execution!;
     if (execution.kind !== 'external') continue;
     if (!bidirectional(execution.driver)) error('READONLY_CLI_COORDINATION_UNSUPPORTED', `${agent.name} 使用只读 CLI，当前仅支持手动流水线；步骤执行请选择 Claude SDK 或 Codex app-server`, `agents.${agent.id}`);
-    for (const selected of plan.protocols) if (!EXTERNAL_STEP_PROTOCOLS.has(selected.protocol) || config.coordinationRuntime.kernelMode !== 'execute' || !config.coordinationRuntime.executeProtocols.includes(selected.protocol)) {
+    for (const selected of plan.protocols) if (plan.executionAdapter !== 'collaboration' && plan.executionVersion !== 'o4-workflows-v1' && (!EXTERNAL_STEP_PROTOCOLS.has(selected.protocol) || config.coordinationRuntime.kernelMode !== 'execute' || !config.coordinationRuntime.executeProtocols.includes(selected.protocol))) {
       error('EXTERNAL_PROTOCOL_NOT_VERIFIED', `${agent.name} 尚未开放 ${selected.protocol} 的步骤执行；需要已验证的 execute Runtime 协议`, 'protocols');
     }
     for (const step of plan.steps.filter(item => item.agentId === agent.id)) {
@@ -21,7 +21,7 @@ export function externalCoordinationIssues(plan: CoordinationPlan, agents: Agent
       if ((step.expectedArtifacts?.length ?? 0) > 0 && (!execution.platformTools?.includes('fs.write') || !agent.tools.includes('fs.write') || agent.permissionMode === 'readonly' || agent.disallowedTools.includes('fs.write'))) {
         error('EXTERNAL_ARTIFACT_TOOL_REQUIRED', `${agent.name} 的步骤需要冻结产物，请开放平台 fs.write 并配置写入权限`, `steps.${step.id}`);
       }
-      if (step.type !== 'review' && agent.permissionMode !== 'readonly' && config.externalAgents.workspaceMode !== 'isolated') error('EXTERNAL_ISOLATED_WORKSPACE_REQUIRED', `${agent.name} 的编码步骤需要隔离 Git 工作区`, `steps.${step.id}`);
+      if (step.type !== 'review' && step.metadata.readonly !== true && agent.permissionMode !== 'readonly' && config.externalAgents.workspaceMode !== 'isolated') error('EXTERNAL_ISOLATED_WORKSPACE_REQUIRED', `${agent.name} 的编码步骤需要隔离 Git 工作区`, `steps.${step.id}`);
     }
   }
   return issues;

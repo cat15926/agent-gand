@@ -125,6 +125,7 @@ export async function reviseCoordinationPlan(runId: string, input: CoordinationR
   if (!instruction) throw new CoordinationError(400, 'instruction 必填');
   const current = getRunCoordinationPlan(runId);
   if (!current) throw new CoordinationError(404, '该 Run 没有关联 Coordination Plan');
+  if (current.executionVersion === 'o4-workflows-v1') throw new CoordinationError(409, 'O4 冻结工作流不能由旧协议调整器覆盖；请重新生成并确认统一入口计划后创建新任务');
   if (current.status !== 'paused') throw new CoordinationError(409, '只有已暂停的 Coordination Plan 可以调整');
   const originalDraft = getCoordinationDraft(current.draftId);
   const originalSnapshot = getCapabilitySnapshot(current.capabilitySnapshotId);
