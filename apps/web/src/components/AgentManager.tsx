@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AccountView, AgentCapability, AgentDefinition, AgentInput, AgentOptions, McpStatus } from '@agent-gand/shared';
 import * as api from '../services/api';
+import { ApiError } from '../services/api';
 import * as accountApi from '../services/accounts';
 import { onServerEvent } from '../services/ws';
 import { roleConnection } from '../services/agentConnection';
@@ -48,7 +49,7 @@ export function AgentManager({ onManageAccounts, onUseRole }: { onManageAccounts
   async function toggle(agent: AgentDefinition) {
     setBusy(true); setError('');
     try { await api.setAgentEnabled(agent.id, !agent.enabled, agent.version); await refresh(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : '状态修改失败'); }
+    catch (reason) { setError(reason instanceof ApiError ? [...new Set([reason.message, ...Object.values(reason.fieldErrors)])].join('；') : reason instanceof Error ? reason.message : '状态修改失败'); }
     finally { setBusy(false); }
   }
   async function refreshMcp() {

@@ -37,6 +37,7 @@ import { hasRuntimeContextAssembly } from '../runtime/context.ts';
 import { commitRunTerminal } from '../runtime/terminal.ts';
 import { assertBindingAuthorized, bindingCanFailAttempt, coordinationReviewSnapshot } from '../execution/authority.ts';
 import { getIsolatedWorkspace } from '../workspaces/isolated.ts';
+import { asReadonlyAgent } from '../execution/policy.ts';
 
 interface RuntimeMessageInput {
   recipientIds?: string[];
@@ -208,12 +209,11 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     if (step.type === 'review' && getIsolatedWorkspace(run.id) && !reviewSnapshot) throw new Error('独立评审缺少前序步骤的固定工作区快照');
     // Frozen step policy narrows the role; reviewers always run readonly.
     const stepAgent: AgentDefinition = { ...agent, tools: agent.tools.filter(name => step.toolPolicy.allowedTools.includes(name)),
-      ...(step.type === 'review' || step.metadata.readonly === true ? { permissionMode: 'readonly' as const } : {}),
       ...(agent.execution?.kind === 'external' ? { execution: { ...agent.execution,
         platformTools: agent.execution.platformTools?.filter(name => step.toolPolicy.allowedTools.includes(name)) } } : {}) };
     const turn = await runAgentTurn({
       run,
-      agent: stepAgent,
+      agent: step.type === 'review' || step.metadata.readonly === true ? asReadonlyAgent(stepAgent) : stepAgent,
       parentSpanId: span.id,
       messages: [
         { role: 'system', content: agent.systemPrompt },

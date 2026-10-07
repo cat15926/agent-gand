@@ -31,6 +31,7 @@ export function AgentWizard({ open, initial, editing, options, resume = true, on
   const [action, setAction] = useState<{ account: AccountView; mode: 'login' | 'test'; autoStart?: boolean } | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [fields, setFields] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<AgentPreflight | null>(null); const [checking, setChecking] = useState(false);
+  const [checkRevision, setCheckRevision] = useState(0);
   const [notice, setNotice] = useState(savedDraft ? `已恢复未保存的角色草稿。${savedDraft.pendingAvatarName ? '刷新前未上传的头像需重新选择。' : ''}` : '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null); const [avatarPreview, setAvatarPreview] = useState('');
   const avatarInput = useRef<HTMLInputElement>(null); const panel = useRef<HTMLDivElement>(null); const titleId = useId();
@@ -84,7 +85,7 @@ export function AgentWizard({ open, initial, editing, options, resume = true, on
     let live = true; setChecking(true);
     const timer = setTimeout(() => { void api.preflightAgent(compiled).then((result) => { if (live) setPreview(result); }).catch((reason) => { if (live) { setPreview(null); setFields(reason instanceof ApiError ? reason.fieldErrors : {}); setError(reason instanceof Error ? reason.message : '配置检查失败'); if (reason instanceof ApiError && ['id', 'name', 'description', 'systemPrompt', 'avatar'].some((key) => reason.fieldErrors[key])) setStep(0); } }).finally(() => { if (live) setChecking(false); }); }, 250);
     return () => { live = false; clearTimeout(timer); };
-  }, [compiled, accounts, step, open]);
+  }, [compiled, accounts, step, open, checkRevision]);
 
   function changeConnection(next: AgentConnection, base = compiled) {
     const normalized = compileConnection(base, next);
@@ -127,8 +128,6 @@ export function AgentWizard({ open, initial, editing, options, resume = true, on
     try {
       if (enabled) {
         if (blocking || (connection.product !== 'demo' && !connection.accountId)) throw new Error('请修复账户与接入方式，或保存为停用草稿。');
-        const result = await api.preflightAgent(compiled); setPreview(result);
-        if (!result.ok) { setFields(result.issues); throw new Error('连接尚不可用，可先保存为停用草稿。'); }
       }
       const input = { ...compiled, enabled, ...(avatarFile ? await api.uploadAgentAvatar(avatarFile) : {}) };
       const agent = editing ? await api.updateAgent(editing.id, input, editing.version) : await api.createAgent(input);
@@ -199,7 +198,9 @@ export function AgentWizard({ open, initial, editing, options, resume = true, on
             </div></details>
             <dl className="grid gap-2 rounded-xl border border-zinc-800 p-4 text-sm sm:grid-cols-[80px_1fr]">{[['角色', form.name], ['职责', form.description], ['接入方式', productNames[connection.product]], ['账户', selected?.displayName ?? (connection.product === 'demo' ? '无需账户' : connection.accountId || '未选择')], ['模型', connection.model || '未填写'], ['权限', permissions[compiled.permissionMode]]].map(([label, value]) => <div key={label} className="contents"><dt className="text-zinc-500">{label}</dt><dd className="min-w-0 break-words text-zinc-200">{value}</dd></div>)}</dl>
             {selected && connection.product !== 'demo' && <p className="text-xs text-zinc-500">{scopedTest(selected, connection.backend, connection.model)}。认证已设置但未测试也可保存；模型权限以实际调用为准。</p>}
+            {checking && <p role="status" className="text-xs text-zinc-400">正在检查账户身份和客户端，完成后可保存。</p>}
             {preview && !preview.ok && <div role="alert" className="rounded-xl bg-amber-500/10 p-3 text-xs leading-6 text-amber-200">{Object.values(preview.issues).map((issue) => <p key={issue}>{issue}</p>)}<p>可以先保存为停用草稿，修复后再启用。</p></div>}
+            {!checking && !preview?.ok && <button className={button} disabled={busy} onClick={() => { setError(''); setFields({}); setCheckRevision((revision) => revision + 1); }}>重新检查</button>}
           </div>}
           {error && <p role="alert" className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
           {Object.entries(fields).filter(([key]) => !['name', 'description', 'id', 'avatar', 'systemPrompt', 'model', 'accountRef', 'permissionMode'].includes(key)).map(([key, value]) => <p role="alert" className="mt-2 text-xs text-red-300" key={key}>{value}</p>)}

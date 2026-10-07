@@ -1,6 +1,6 @@
 /**
  * 全局状态：初始 hydrate（REST）+ 增量更新（WS 事件）
- * 只保留 activeRun 的 messages/events 明细，避免长任务内存膨胀
+ * 房间消息独立于详情面板的任务选择；异步回填不得清空其他轮次。
  */
 import {
   createContext,
@@ -9,12 +9,14 @@ import {
   useEffect,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from 'react';
 import type {
   AgentDefinition,
   ApprovalRequest,
   Message,
+  ConversationHistoryPage,
   Run,
   RunEvent,
   ServerEvent,
@@ -44,7 +46,10 @@ import type {
   CoordinationStepState,
 } from '@agent-gand/shared';
 import * as api from './services/api';
+import { browserReadPositions } from './chatScroll';
+import { mergeHistory, historyRunScope, HISTORY_WINDOW_LIMIT, type HistoryMetadata, type HistoryDirection } from './services/historyWindow';
 import { armPermissionRequest, notifyApproval } from './services/notify';
+import { readChatLocation, writeChatLocation } from './services/chatLocation';
 import { onServerEvent, onWsStatus } from './services/ws';
 
 export interface State {
@@ -56,6 +61,9 @@ export interface State {
   activeConversationId: string | null;
   activeRunId: string | null;
   messages: Message[];
+  history: HistoryMetadata | null;
+  messageRevision: number;
+  historyRevision: number;
   events: RunEvent[];
   tasks: Task[];
   attempts: TaskAttempt[];
@@ -88,6 +96,7 @@ export interface State {
 }
 
 type Action =
+  | { type: 'history'; conversationId: string; page: ConversationHistoryPage; direction: HistoryDirection }
   | { type: 'ws'; connected: boolean }
   | { type: 'hydrate'; runs: Run[]; conversations: Conversation[]; agents: AgentDefinition[]; tasks: Task[]; approvals: ApprovalRequest[]; usage: UsageSummary[] }
   | { type: 'agents'; agents: AgentDefinition[] }
@@ -100,7 +109,7 @@ type Action =
   | { type: 'responsibilityDetail'; runId: string; snapshots: RuntimeResponsibilitySnapshot[] }
   | { type: 'serverEvent'; event: ServerEvent };
 
-const initialState: State = {
+export const initialState: State = {
   executions: [],
   wsConnected: false,
   agents: [],
@@ -108,7 +117,7 @@ const initialState: State = {
   conversations: [],
   activeConversationId: null,
   activeRunId: null,
-  messages: [],
+  messages: [], history: null, messageRevision: 0, historyRevision: 0,
   events: [],
   tasks: [],
   attempts: [],
@@ -129,8 +138,11 @@ function upsertBy<T extends { id: string }>(list: T[], item: T): T[] {
   return next;
 }
 
-function reducer(state: State, action: Action): State {
+export function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'history':
+      if (action.conversationId !== state.activeConversationId) return state;
+      return { ...state, ...mergeHistory(state.messages,state.history,action.page,action.direction), historyRevision: state.historyRevision+1 };
     case 'ws':
       return { ...state, wsConnected: action.connected };
     case 'hydrate':
@@ -143,31 +155,22 @@ function reducer(state: State, action: Action): State {
         tasks: action.tasks,
         approvals: action.approvals,
         usage: action.usage,
+        streams: Object.fromEntries(Object.entries(state.streams).filter(([id]) => { const runId = state.events.find(event => event.id === id)?.runId; return !action.runs.some(run => run.id === runId && ['completed','failed','cancelled'].includes(run.status)); })),
       };
     case 'agents':
       return { ...state, agents: action.agents };
     case 'setActiveRun':
-      return { ...state, activeRunId: action.runId, executions: [], messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+      return { ...state, activeRunId: action.runId, scheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'setActiveConversation':
-      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, executions: [], messages: [], events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
+      return { ...state, activeConversationId: action.conversationId, activeRunId: action.runId, executions: [], messages: [], history: null, messageRevision: 0, historyRevision: 0, events: [], attempts: [], reviews: [], streams: {}, scheduler: null,
         collaborationDispatches: [], collaborationAttempts: [], collaborationBatches: [], collaborationDecisions: [], completionCandidates: [], successorObligations: [], evidenceBundles: [], routeGuardEvents: [], durableHolds: [], wakeEvents: [], holdRecoveryAudits: [], responsibilitySnapshots: [], actionCommands: [], shadowComparisons: [], collaborationBudgets: {}, collaborationScheduler: null,
         coordinationPlan: null, coordinationSteps: [], coordinationAttempts: [], coordinationEvents: [] };
     case 'conversationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
-      return { ...state, activeRunId: action.runs.at(-1)?.id ?? null, executions: action.executions, runs: action.runs.reduce(upsertBy, state.runs), messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
-        coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
-        coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
-        completionCandidates: action.coordination?.completionCandidates ?? state.completionCandidates,
-        successorObligations: action.coordination?.successorObligations ?? state.successorObligations,
-        evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
-        routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents,
-        durableHolds: action.coordination?.durableHolds ?? state.durableHolds,
-        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents,
-        holdRecoveryAudits: action.coordination?.holdRecoveryAudits ?? state.holdRecoveryAudits,
-        responsibilitySnapshots: action.coordination?.responsibilitySnapshots ?? state.responsibilitySnapshots,
-        actionCommands: action.coordination?.actionCommands ?? state.actionCommands,
-        shadowComparisons: action.coordination?.shadowComparisons ?? state.shadowComparisons };
+      return { ...state, activeRunId: action.runs.some(run => run.id === state.activeRunId) ? state.activeRunId : action.runs.at(-1)?.id ?? null,
+        executions: action.executions.reduce(upsertBy, state.executions), runs: action.runs.reduce(upsertBy, state.runs),
+        messages: action.messages.reduce(upsertBy, state.messages).sort((a,b) => a.seq - b.seq), events: action.events.reduce(upsertBy, state.events) };
     case 'collaborationDetail':
       if (action.conversationId !== state.activeConversationId) return state;
       return { ...state,
@@ -188,33 +191,33 @@ function reducer(state: State, action: Action): State {
         collaborationBudgets: Object.fromEntries(action.details.flatMap((item) => item.run ? [[item.run.id, item.budget] as const] : [])),
       };
     case 'runDetail':
-      // hydrate 回补后重置流式段落（span 终态以 runDetail 为准；增量丢失可容忍，§8.1）
+      // 查看任务只合并其明细；其他轮次的消息、流式内容和审计记录继续保留。
       if (action.runId !== state.activeRunId) return state;
-      return { ...state, executions: action.executions, messages: action.messages, events: action.events, attempts: action.attempts, reviews: action.reviews, streams: {},
+      return { ...state, executions: action.executions.reduce(upsertBy, state.executions), messages: action.messages.reduce(upsertBy, state.messages).sort((a,b) => a.seq - b.seq), events: action.events.reduce(upsertBy, state.events), streams: Object.fromEntries(Object.entries(state.streams).filter(([id]) => !action.events.some(event => event.id === id && event.endedAt !== null))), attempts: action.attempts, reviews: action.reviews,
         coordinationPlan: action.coordination?.plan ?? null, coordinationSteps: action.coordination?.steps ?? [],
         coordinationAttempts: action.coordination?.attempts ?? [], coordinationEvents: action.coordination?.events ?? [],
-        completionCandidates: action.coordination?.completionCandidates ?? state.completionCandidates,
-        successorObligations: action.coordination?.successorObligations ?? state.successorObligations,
-        evidenceBundles: action.coordination?.evidenceBundles ?? state.evidenceBundles,
-        routeGuardEvents: action.coordination?.routeGuardEvents ?? state.routeGuardEvents,
-        durableHolds: action.coordination?.durableHolds ?? state.durableHolds,
-        wakeEvents: action.coordination?.wakeEvents ?? state.wakeEvents,
-        holdRecoveryAudits: action.coordination?.holdRecoveryAudits ?? state.holdRecoveryAudits,
-        responsibilitySnapshots: action.coordination?.responsibilitySnapshots ?? state.responsibilitySnapshots,
-        actionCommands: action.coordination?.actionCommands ?? state.actionCommands,
-        shadowComparisons: action.coordination?.shadowComparisons ?? state.shadowComparisons };
+        completionCandidates: mergeRunItems(state.completionCandidates, action.coordination?.completionCandidates ?? [], state.activeRunId),
+        successorObligations: mergeRunItems(state.successorObligations, action.coordination?.successorObligations ?? [], state.activeRunId),
+        evidenceBundles: mergeRunItems(state.evidenceBundles, action.coordination?.evidenceBundles ?? [], state.activeRunId),
+        routeGuardEvents: mergeRunItems(state.routeGuardEvents, action.coordination?.routeGuardEvents ?? [], state.activeRunId),
+        durableHolds: mergeRunItems(state.durableHolds, action.coordination?.durableHolds ?? [], state.activeRunId),
+        wakeEvents: mergeRunItems(state.wakeEvents, action.coordination?.wakeEvents ?? [], state.activeRunId),
+        holdRecoveryAudits: mergeRunItems(state.holdRecoveryAudits, action.coordination?.holdRecoveryAudits ?? [], state.activeRunId),
+        responsibilitySnapshots: mergeRunItems(state.responsibilitySnapshots, action.coordination?.responsibilitySnapshots ?? [], state.activeRunId),
+        actionCommands: mergeRunItems(state.actionCommands, action.coordination?.actionCommands ?? [], state.activeRunId),
+        shadowComparisons: mergeRunItems(state.shadowComparisons, action.coordination?.shadowComparisons ?? [], state.activeRunId) };
     case 'coordinationDetail':
       if (action.runId !== state.activeRunId) return state;
       return { ...state, coordinationPlan: action.detail?.plan ?? null, coordinationSteps: action.detail?.steps ?? [],
         coordinationAttempts: action.detail?.attempts ?? [], coordinationEvents: action.detail?.events ?? [],
-        completionCandidates: action.detail?.completionCandidates ?? [],
-        successorObligations: action.detail?.successorObligations ?? [],
-        evidenceBundles: action.detail?.evidenceBundles ?? [], routeGuardEvents: action.detail?.routeGuardEvents ?? [],
-        durableHolds: action.detail?.durableHolds ?? [], wakeEvents: action.detail?.wakeEvents ?? [],
-        holdRecoveryAudits: action.detail?.holdRecoveryAudits ?? [],
-        responsibilitySnapshots: action.detail?.responsibilitySnapshots ?? [],
-        actionCommands: action.detail?.actionCommands ?? [],
-        shadowComparisons: action.detail?.shadowComparisons ?? [] };
+        completionCandidates: mergeRunItems(state.completionCandidates, action.detail?.completionCandidates ?? [], action.runId),
+        successorObligations: mergeRunItems(state.successorObligations, action.detail?.successorObligations ?? [], action.runId),
+        evidenceBundles: mergeRunItems(state.evidenceBundles, action.detail?.evidenceBundles ?? [], action.runId), routeGuardEvents: mergeRunItems(state.routeGuardEvents, action.detail?.routeGuardEvents ?? [], action.runId),
+        durableHolds: mergeRunItems(state.durableHolds, action.detail?.durableHolds ?? [], action.runId), wakeEvents: mergeRunItems(state.wakeEvents, action.detail?.wakeEvents ?? [], action.runId),
+        holdRecoveryAudits: mergeRunItems(state.holdRecoveryAudits, action.detail?.holdRecoveryAudits ?? [], action.runId),
+        responsibilitySnapshots: mergeRunItems(state.responsibilitySnapshots, action.detail?.responsibilitySnapshots ?? [], action.runId),
+        actionCommands: mergeRunItems(state.actionCommands, action.detail?.actionCommands ?? [], action.runId),
+        shadowComparisons: mergeRunItems(state.shadowComparisons, action.detail?.shadowComparisons ?? [], action.runId) };
     case 'responsibilityDetail':
       if (action.runId !== state.activeRunId) return state;
       return { ...state, responsibilitySnapshots: [
@@ -223,33 +226,43 @@ function reducer(state: State, action: Action): State {
       ] };
     case 'serverEvent': {
       const e = action.event;
+      const inRoom = (runId: string) => runId === state.activeRunId || state.runs.some(run => run.id === runId && run.conversationId === state.activeConversationId);
       switch (e.type) {
         case 'execution.updated':
-          return e.execution.runId === state.activeRunId ? { ...state, executions: upsertBy(state.executions, e.execution) } : state;
+          return inRoom(e.execution.runId) ? { ...state, executions: upsertBy(state.executions, e.execution) } : state;
         case 'agent.updated':
           return { ...state, agents: e.agent.enabled ? upsertBy(state.agents, e.agent) : state.agents.filter((agent) => agent.id !== e.agent.id) };
-        case 'message':
-          return e.message.conversationId === state.activeConversationId
-            ? { ...state, messages: upsertBy(state.messages, e.message).sort((a, b) => a.seq - b.seq) }
-            : state;
+        case 'message': {
+          if (e.message.conversationId !== state.activeConversationId) return state;
+          if (!state.history) return { ...state, messages: upsertBy(state.messages,e.message).sort((a,b) => a.seq-b.seq) };
+          const existing = state.messages.some(message => message.id === e.message.id);
+          const arrived = e.message.seq > state.history.headSeq;
+          const merged = existing || (arrived && !state.history.hasNewer) ? upsertBy(state.messages,e.message).sort((a,b) => a.seq-b.seq) : state.messages;
+          const messages = arrived && !existing && merged.length > HISTORY_WINDOW_LIMIT ? state.messages : merged;
+          return { ...state, messages, messageRevision: state.messageRevision + (arrived ? 1 : 0), history: { ...state.history,
+            headSeq: Math.max(state.history.headSeq,e.message.seq), total: state.history.total + (arrived ? 1 : 0),
+            oldestSeq: messages[0]?.seq ?? null, newestSeq: messages.at(-1)?.seq ?? null,
+            hasOlder: state.history.hasOlder || merged.length > messages.length,
+            hasNewer: state.history.hasNewer || (arrived && messages === state.messages) } };
+        }
         case 'conversation.updated':
           return { ...state, conversations: (e.conversation.archivedAt
             ? state.conversations.filter((item) => item.id !== e.conversation.id)
             : upsertBy(state.conversations, e.conversation)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) };
         case 'llm.snapshot':
           if (e.displayKind === 'review_protocol') return state;
-          return e.runId === state.activeRunId ? { ...state, streams: { ...state.streams, [e.spanId]: e.text } } : state;
+          return inRoom(e.runId) ? { ...state, streams: { ...state.streams, [e.spanId]: e.text } } : state;
         case 'llm.delta':
           if (e.displayKind === 'review_protocol') return state;
-          // 流式增量只累积当前活动 run（其他 run 的 span 明细本就不维护）
-          return e.runId === state.activeRunId
+          // 房间中其他任务仍可运行；查看历史任务不影响流式消息。
+          return inRoom(e.runId)
             ? {
                 ...state,
                 streams: { ...state.streams, [e.spanId]: (state.streams[e.spanId] ?? '') + e.text },
               }
             : state;
         case 'run.event': {
-          if (e.event.runId !== state.activeRunId) return state;
+          if (!inRoom(e.event.runId)) return state;
           // span 结束（endedAt 非空）→ 流式段落折叠（正式消息/终态 output 随后到达）
           const streams =
             e.event.endedAt !== null && state.streams[e.event.id] !== undefined
@@ -321,9 +334,7 @@ function reducer(state: State, action: Action): State {
             ...state,
             conversations: rooms,
             runs: upsertBy(state.runs, e.run),
-            activeRunId: e.run.conversationId === state.activeConversationId &&
-              e.run.turnNo >= (state.runs.find((run) => run.id === state.activeRunId)?.turnNo ?? 0)
-              ? e.run.id : state.activeRunId,
+            activeRunId: state.activeRunId ?? (e.run.conversationId === state.activeConversationId ? e.run.id : null),
           };
           }
         case 'approval.updated':
@@ -341,6 +352,10 @@ function reducer(state: State, action: Action): State {
       }
     }
   }
+}
+
+function mergeRunItems<T extends { runId: string }>(list: T[], incoming: T[], runId: string | null): T[] {
+  return [...list.filter(item => item.runId !== runId), ...incoming];
 }
 
 function upsertByStepId(list: CoordinationStepState[], item: CoordinationStepState): CoordinationStepState[] {
@@ -361,7 +376,7 @@ async function loadCoordinationDetail(runId: string): Promise<api.CoordinationRu
 }
 
 async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Promise<void> {
-  const [detail, coordination, executions] = await Promise.all([api.getRun(runId), loadCoordinationDetail(runId), api.getExternalExecutions(runId)]);
+  const [detail, coordination, executions] = await Promise.all([api.getRun(runId, false), loadCoordinationDetail(runId), api.getExternalExecutions(runId)]);
   dispatch({
     type: 'runDetail',
     runId,
@@ -374,27 +389,41 @@ async function loadRunDetail(runId: string, dispatch: (a: Action) => void): Prom
   });
 }
 
-async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void): Promise<void> {
-  const [room, collaboration] = await Promise.all([api.getConversation(conversationId), api.getConversationCollaboration(conversationId)]);
+async function loadConversationDetail(conversationId: string, dispatch: (a: Action) => void, selectedRunId?: string | null): Promise<void> {
+  const saved = browserReadPositions.get(conversationId);
+  const anchor = !saved?.following ? saved?.anchor?.replace(/^message-/, '') : undefined;
+  const [room, page] = await Promise.all([api.getConversation(conversationId,false), api.getConversationHistory(conversationId,anchor ? {around:anchor} : {}).catch(reason => {
+    if (anchor && reason instanceof api.ApiError && reason.status === 404) return api.getConversationHistory(conversationId);
+    throw reason;
+  })]);
   dispatch({ type: 'serverEvent', event: { type: 'conversation.updated', conversation: room.conversation } });
-  const latest = room.runs.at(-1);
+  const latest = room.runs.find(run => run.id === selectedRunId) ?? room.runs.at(-1);
   const [detail, coordination, executions] = latest
-    ? await Promise.all([api.getRun(latest.id), loadCoordinationDetail(latest.id), api.getExternalExecutions(latest.id)])
+    ? await Promise.all([api.getRun(latest.id,false), loadCoordinationDetail(latest.id), api.getExternalExecutions(latest.id)])
     : [null, null, []];
-  dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: room.messages,
+  dispatch({ type: 'conversationDetail', conversationId, runs: room.runs, messages: [],
     events: detail?.events ?? [], attempts: detail?.attempts ?? [], reviews: detail?.reviews ?? [], coordination, executions });
-  dispatch({ type: 'collaborationDetail', conversationId, details: collaboration.runs });
+  dispatch({ type: 'history', conversationId, page, direction: 'replace' });
+  if (latest && detail) dispatch({ type: 'runDetail', runId: latest.id, messages: [], events: detail.events, attempts: detail.attempts, reviews: detail.reviews, coordination, executions });
 }
 
-const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void> }>({
-  state: initialState,
+const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void>; loadHistory: (direction: HistoryDirection, around?: string) => Promise<boolean>; detailsOpen: boolean; setDetailsOpen: (open: boolean) => void; loading: boolean; loadError: string; retryLoad: () => void }>({
+  state: initialState, detailsOpen: false, setDetailsOpen: () => {}, loading: true, loadError: '', retryLoad: () => {},
   setActiveRun: () => {},
   setActiveConversation: () => {},
-  refreshConversation: async () => {},
+  refreshConversation: async () => {}, loadHistory: async () => false,
 });
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const stateRef = useRef(state); stateRef.current = state;
+  const historyVersion = useRef(0);
+  const selection = useRef(readChatLocation());
+  const initialized = useRef(false);
+  const requestVersion = useRef(0);
   const activeRunRef = useRef(state.activeRunId);
   const activeConversationRef = useRef(state.activeConversationId);
   activeRunRef.current = state.activeRunId;
@@ -402,6 +431,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /** 全量刷新列表；断线重连后也调用，回补断连期间丢失的增量（inspector P2） */
   const hydrateAll = useCallback(async () => {
+    const version = ++requestVersion.current;
+    if (!initialized.current) setLoading(true);
+    setLoadError('');
+    try {
     const [agents, runs, conversations, tasks, approvals, usage] = await Promise.all([
       api.getAgents(),
       api.getRuns(),
@@ -410,18 +443,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       api.getApprovals(),
       api.getUsage(),
     ]);
+    if (version !== requestVersion.current) return;
     dispatch({ type: 'hydrate', runs, conversations, agents, tasks, approvals, usage });
 
-    const currentConversation = activeConversationRef.current;
-    if (currentConversation) {
-      await loadConversationDetail(currentConversation, dispatch);
-    } else {
-      const latest = conversations[0];
-      if (latest) {
-        dispatch({ type: 'setActiveConversation', conversationId: latest.id, runId: latest.latestRunId });
-        await loadConversationDetail(latest.id, dispatch);
-      }
-    }
+    const requested = initialized.current ? activeConversationRef.current : selection.current?.roomId;
+    const room = requested ? conversations.find(item => item.id === requested) : undefined;
+    const current = room ?? (!initialized.current && !selection.current ? conversations[0] : undefined);
+    const runId = initialized.current ? activeRunRef.current : selection.current?.runId;
+    if (current) {
+      if (!initialized.current) dispatch({ type: 'setActiveConversation', conversationId: current.id, runId: runId ?? current.latestRunId });
+      await loadConversationDetail(current.id, action => { if (version === requestVersion.current) dispatch(action); }, runId);
+    } else if (!initialized.current) dispatch({ type: 'setActiveConversation', conversationId: null, runId: null });
+    initialized.current = true;
+    } catch (reason) { if (version === requestVersion.current) setLoadError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { if (version === requestVersion.current) setLoading(false); }
+
   }, []);
 
   useEffect(() => {
@@ -474,24 +510,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setActiveRun = useCallback(
     (id: string | null) => {
+      activeRunRef.current = id;
+      writeChatLocation(activeConversationRef.current, id);
+      setDetailsOpen(Boolean(id));
       dispatch({ type: 'setActiveRun', runId: id });
-      if (id) void loadRunDetail(id, dispatch);
+      if (id) void loadRunDetail(id, dispatch).catch(reason => setLoadError(reason instanceof Error ? reason.message : String(reason)));
     },
     [],
   );
 
-  const setActiveConversation = useCallback((id: string | null) => {
+  const setActiveConversation = useCallback((id: string | null, options?: { runId?: string | null; push?: boolean }) => {
     const conversation = state.conversations.find((item) => item.id === id);
-    dispatch({ type: 'setActiveConversation', conversationId: id, runId: conversation?.latestRunId ?? null });
-    if (id) void loadConversationDetail(id, dispatch);
+    const version = ++requestVersion.current;
+    initialized.current = true; activeConversationRef.current = id; activeRunRef.current = options?.runId ?? conversation?.latestRunId ?? null;
+    setDetailsOpen(false); setLoadError(''); setLoading(Boolean(id));
+    writeChatLocation(id, activeRunRef.current, options?.push !== false);
+    dispatch({ type: 'setActiveConversation', conversationId: id, runId: activeRunRef.current });
+    if (id) void loadConversationDetail(id, action => { if (version === requestVersion.current) dispatch(action); }, activeRunRef.current).catch(reason => { if (version === requestVersion.current) setLoadError(reason instanceof Error ? reason.message : String(reason)); }).finally(() => { if (version === requestVersion.current) setLoading(false); });
   }, [state.conversations]);
 
   const refreshConversation = useCallback(async () => {
     const id = activeConversationRef.current;
-    if (id) await loadConversationDetail(id, dispatch);
+    const version = requestVersion.current;
+    if (id) await loadConversationDetail(id, action => { if (version === requestVersion.current) dispatch(action); }, activeRunRef.current);
   }, []);
 
-  return <StoreContext.Provider value={{ state, setActiveRun, setActiveConversation, refreshConversation }}>{children}</StoreContext.Provider>;
+
+  const loadHistory = useCallback(async (direction: HistoryDirection, around?: string) => {
+    const current = stateRef.current, id = current.activeConversationId;
+    if (!id) return false;
+    const version = ++historyVersion.current, roomVersion = requestVersion.current;
+    const cursor = around ? {around} : direction === 'older' && current.history?.oldestSeq ? {before:current.history.oldestSeq} : direction === 'newer' && current.history?.newestSeq ? {after:current.history.newestSeq} : {};
+    const page = await api.getConversationHistory(id,cursor);
+    if (version !== historyVersion.current || roomVersion !== requestVersion.current || id !== activeConversationRef.current) return false;
+    dispatch({ type: 'history', conversationId:id, page, direction });
+    return true;
+  }, []);
+  const scopeKey = historyRunScope(state.runs,state.messages,state.activeConversationId,state.activeRunId).sort().join(',');
+  useEffect(() => {
+    const id = state.activeConversationId; if (!id) return;
+    let live = true;
+    void api.getConversationCollaboration(id,scopeKey ? scopeKey.split(',') : []).then(detail => { if (live) dispatch({ type:'collaborationDetail',conversationId:id,details:detail.runs }); }).catch(reason => { if (live) setLoadError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { live = false; };
+  }, [state.activeConversationId,scopeKey]);
+  useEffect(() => {
+    const restore = () => { const location = readChatLocation(); setActiveConversation(location?.roomId ?? null, { runId: location?.runId, push: false }); };
+    window.addEventListener('popstate', restore); return () => window.removeEventListener('popstate', restore);
+  }, [setActiveConversation, setActiveRun]);
+  useEffect(() => { if (!loading && initialized.current) writeChatLocation(state.activeConversationId, state.activeRunId, false); }, [loading, state.activeConversationId, state.activeRunId]);
+
+  return <StoreContext.Provider value={{ state, setActiveRun, setActiveConversation, refreshConversation, loadHistory, detailsOpen, setDetailsOpen, loading, loadError, retryLoad: () => void hydrateAll() }}>{children}</StoreContext.Provider>;
 }
 
 export function useStore() {

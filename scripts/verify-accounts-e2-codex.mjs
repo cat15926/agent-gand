@@ -26,7 +26,7 @@ const { createAccount } = await import('../apps/server/src/accounts/store.ts'); 
 try {
   const account = createAccount({ displayName: 'Actual Codex fixture', provider: 'custom', apiKey: key, baseUrl: `http://127.0.0.1:${upstream.address().port}/v1`, protocols: ['openai-responses'], models: ['gpt-5.4'], defaultModel: 'gpt-5.4', timeoutMs: 30000 });
   const agent = { id: 'codex-fixture', model: 'gpt-5.4', accountRef: account.id, execution: { kind: 'external', driver: 'codex-app-server' } }; const cwd = path.join(root, 'repo'); await mkdir(cwd);
-  for (const driver of ['codex-app-server', 'codex-exec']) {
+  for (const driver of ['codex-app-server', 'codex-exec', 'codex-app-server']) {
     const selected = { ...agent, execution: { kind: 'external', driver } };
     const content = await getDriver(driver).invoke({ account: resolveAccount(selected), cwd, model: agent.model, prompt: 'Reply only OK.', instructions: 'No tools. This is a connection test.', permissionMode: 'readonly', controlOnly: true, signal: new AbortController().signal, timeoutMs: 30000, onEvent: () => {} });
     assert.equal(content, 'OK');

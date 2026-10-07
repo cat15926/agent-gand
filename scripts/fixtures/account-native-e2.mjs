@@ -44,7 +44,11 @@ rl.on('line', async (line) => {
   const message = JSON.parse(line); const { method, params, id } = message;
   if (!method && id !== undefined) { approvalWaiters.get(id)?.(message.result); approvalWaiters.delete(id); return; }
   if (method === 'initialize') send({ id, result: { userAgent: 'fixture' } });
-  else if (method === 'account/read') { const auth = readAuth(); send({ id, result: { account: auth ? { type: 'chatgpt', email: (auth.tokens.account_id === 'identity-one' ? 'one' : 'two') + '@example.invalid', planType: 'fixture' } : null, requiresOpenaiAuth: true } }); }
+  else if (method === 'account/read') {
+    if (process.env.FAKE_E2_LOG) log({ kind: 'account-read', refreshToken: params.refreshToken });
+    if (params.refreshToken && process.env.FAKE_E2_REFRESH_FAILURE_FILE && existsSync(process.env.FAKE_E2_REFRESH_FAILURE_FILE)) { send({ id, error: { code: -32000, message: 'Fixture OAuth refresh unavailable' } }); return; }
+    const auth = readAuth(); send({ id, result: { account: auth ? { type: 'chatgpt', email: (auth.tokens.account_id === 'identity-one' ? 'one' : 'two') + '@example.invalid', planType: 'fixture' } : null, requiresOpenaiAuth: true } });
+  }
   else if (method === 'account/login/start') {
     log({ kind: 'login' }); send({ id, result: { type: 'chatgptDeviceCode', loginId: 'login-1', verificationUrl: 'https://auth.openai.com/codex/device', userCode: 'ABCD-1234' } });
     setTimeout(() => { if (!cancelled) { writeAuth(); notify('account/login/completed', { loginId: 'login-1', success: true, error: null }); } }, 700);

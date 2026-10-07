@@ -8,6 +8,12 @@ export const SDK_TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'];
 export const READ_TOOLS = ['Read', 'Grep', 'Glob'];
 export function bidirectional(driver: string): boolean { return driver === 'claude-sdk' || driver === 'codex-app-server'; }
 
+/** Narrow this turn without retaining write-tool grants or changing the stored role. */
+export function asReadonlyAgent(agent: AgentDefinition): AgentDefinition {
+  return { ...agent, permissionMode: 'readonly',
+    ...(agent.execution?.kind === 'external' ? { execution: { ...agent.execution, nativeTools: [] } } : {}) };
+}
+
 export function assertExternalAdmission(agents: AgentDefinition[], mode: RunMode, supervisorId?: string | null): void {
   for (const agent of agents) {
     if (agent.execution?.kind !== 'external') continue;

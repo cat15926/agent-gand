@@ -34,4 +34,15 @@ controller.sync(null, null);
 surface.scrollTop = 0;
 controller.sync('room-a', surface);
 assert.equal(surface.scrollTop, 5_000, '离开聊天视图后重进也应定位到最新消息');
+
+// A refresh waits for history to arrive before restoring a saved read position.
+const positions = new Map([['saved', { top: 700, following:false }]]);
+const restored = new ChatScrollController({ get:id => positions.get(id) ?? null, set:(id,value) => positions.set(id,value) });
+const restoredSurface = {scrollTop:0,scrollHeight:100,clientHeight:100};
+restored.sync('saved',restoredSurface,false); assert.equal(restoredSurface.scrollTop,0);
+restored.onScroll(restoredSurface); assert.equal(positions.get('saved').top,700,'empty loading surface cannot erase reading position');
+restoredSurface.scrollHeight=4000; restored.sync('saved',restoredSurface,true); assert.equal(restoredSurface.scrollTop,700);
+restoredSurface.scrollHeight=4500; restored.sync('saved',restoredSurface); assert.equal(restoredSurface.scrollTop,700);
+restored.jumpToLatest(restoredSurface); assert.equal(restored.following,true); assert.equal(positions.get('saved').following,true);
+
 console.log('chat scroll verification passed');

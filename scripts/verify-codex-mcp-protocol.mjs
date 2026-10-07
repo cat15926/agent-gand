@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { withRpcProcess } from '../apps/server/src/execution/rpc.ts';
+import { CODEX_SKILL_POLICY } from '../apps/server/src/execution/codexHome.ts';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-mcp-protocol-'));
 const nativeHome = path.join(root, 'home'); await mkdir(nativeHome, { mode: 0o700 });
@@ -21,7 +22,7 @@ const env = { CODEX_HOME: nativeHome, AGENT_GAND_BRIDGE_URL: `http://127.0.0.1:$
 const bridge = { command: process.execPath, args: ['--import', fileURLToPath(new URL('../apps/server/node_modules/tsx/dist/loader.mjs', import.meta.url)), fileURLToPath(new URL('../apps/server/src/execution/bridgeWorker.ts', import.meta.url))],
   env_vars: ['AGENT_GAND_BRIDGE_URL', 'AGENT_GAND_BRIDGE_TOKEN'], enabled: true, required: true, enabled_tools: ['agent_complete'], default_tools_approval_mode: 'approve' };
 try {
-  await withRpcProcess({ command: process.env.EXTERNAL_CODEX_COMMAND ?? 'codex', args: ['app-server', '--listen', 'stdio://', '-c', 'features.hooks=false', '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.shell_tool=false'], cwd: root, env, signal: new AbortController().signal, timeoutMs: 20000 }, async (peer) => {
+  await withRpcProcess({ command: process.env.EXTERNAL_CODEX_COMMAND ?? 'codex', args: ['app-server', '--listen', 'stdio://', ...CODEX_SKILL_POLICY, '-c', 'features.hooks=false', '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.shell_tool=false'], cwd: root, env, signal: new AbortController().signal, timeoutMs: 20000 }, async (peer) => {
     await peer.request('initialize', { clientInfo: { name: 'agent_gand', title: 'Agent Gand', version: '0.1.0' }, capabilities: { experimentalApi: false } });
     peer.send({ method: 'initialized', params: {} });
     const response = await peer.request('thread/start', { cwd: root, approvalPolicy: 'never', approvalsReviewer: 'user', sandbox: 'read-only', config: { mcp_servers: { agent_gand: bridge } } });

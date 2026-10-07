@@ -76,6 +76,8 @@ API Key 在服务端解密。外部调用使用每次执行独立的 loopback �
 
 原生进程使用独立 HOME/config 和环境白名单；SDK worker 禁止再次加载服务端 `.env`。SDK Bash 的 sandbox credential policy 清除认证变量，MCP 环境显式屏蔽供应商变量；Codex Shell 使用 `inherit=none` 和固定基础变量。测试 fixture 环境变量仅在 `NODE_ENV=test` 传递。
 
+Codex 登录和首次启动可能生成 `skills/.system` 内置技能缓存。专用目录校验允许空技能目录或带正常 marker 的该缓存，其他技能、配置、规则、插件以及缓存根/marker 的符号链接仍拒绝。登录检查、app-server、只读 CLI 和 MCP 检查统一禁用 bundled skills，缓存内容不参与执行，文件及登录身份保留；marker 不作为内容可信证明。实际 0.159.2 协议、连续调用与用户账户模型测试证据见[缓存误报修复记录](../reports/accounts-codex-system-cache-fix.md)。
+
 Codex 使用服务端生成的命名只读权限 profile，显式禁止读取账户私有目录，关闭工具网络和登录 Shell。线程/回合不再传入会覆盖此 profile 的旧 sandbox 参数，仍核对实际只读、无网络及审批策略。托管账户拒绝可能逃出沙箱的原生命令审批，保留沙箱内只读命令和经过路径检查的文件修改审批。该限制会使需要沙箱外命令的编码/测试失败；不能用审批绕过凭据目录保护。
 
 连接测试关闭原生普通工具、会话复用和 Runtime 桥接；API Key 转发层还删除上游请求中的工具声明。Codex 原生 Goal 功能关闭，平台 Runtime 保持任务权威。未实现的用户输入/权限请求失败关闭。

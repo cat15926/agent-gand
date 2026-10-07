@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import { initialState, reducer } from '../apps/web/src/store.tsx';
+import { mentionedRecipients } from '../apps/web/src/services/recipientSelection.ts';
+const runs = [{ id:'first', conversationId:'room',turnNo:1 },{ id:'second',conversationId:'room',turnNo:2 }];
+const messages = [{id:'m1',runId:'first',seq:1},{id:'m2',runId:'second',seq:2}];
+let state = { ...initialState, runs, messages, activeConversationId:'room', activeRunId:'second', streams:{live:'in progress'}, events:[{id:'live',runId:'second'}], successorObligations:[{id:'old',runId:'second'}] };
+state = reducer(state,{type:'setActiveRun',runId:'first'});
+assert.deepEqual(state.messages,messages); assert.equal(state.streams.live,'in progress');
+state = reducer(state,{type:'runDetail',runId:'first',messages:[messages[0]],events:[{id:'historical',runId:'first'}],attempts:[],reviews:[],executions:[],coordination:{successorObligations:[{id:'new',runId:'first'}]}});
+assert.deepEqual(state.messages,messages); assert.equal(state.events.length,2); assert.equal(state.successorObligations.length,2);
+state = reducer(state,{type:'serverEvent',event:{type:'run.updated',run:{...runs[1],status:'running'}}});
+assert.equal(state.activeRunId,'first','latest run update must not steal the selected task');
+state = reducer(state,{type:'serverEvent',event:{type:'llm.delta',runId:'second',spanId:'live',text:' appended'}});
+assert.equal(state.streams.live,'in progress appended','other running task streams remain active while inspecting history');
+state = reducer(state,{type:'serverEvent',event:{type:'run.event',event:{id:'live',runId:'second',endedAt:'now'}}});assert.equal(state.streams.live,undefined);
+const stale = reducer(state,{type:'runDetail',runId:'second',messages:[],events:[],attempts:[],reviews:[],executions:[],coordination:null});assert.equal(stale,state);
+state = reducer(state,{type:'setActiveConversation',conversationId:'other',runId:null});assert.equal(state.messages.length,0);
+assert.equal(reducer(state,{type:'conversationDetail',conversationId:'room',runs,messages,events:[],attempts:[],reviews:[],executions:[],coordination:null}),state);
+const agents = [{id:'a',name:'分析员 A'},{id:'aa',name:'分析员 AA'},{id:'b',name:'同名'},{id:'c',name:'同名'}];
+assert.deepEqual(mentionedRecipients('@分析员 AA 分析，@a 验证 @a',agents),['aa','a']);
+assert.deepEqual(mentionedRecipients('@abc @同名',agents),[]); assert.deepEqual(mentionedRecipients('@c 独立评审',agents),['c']);
+const disconnected = {...initialState,runs,events:[{id:'missed-end',runId:'second'}],streams:{'missed-end':'stale text'}};
+const recovered = reducer(disconnected,{type:'hydrate',runs:[{...runs[1],status:'completed'}],conversations:[],agents:[],tasks:[],approvals:[],usage:[]});
+assert.deepEqual(recovered.streams,{},'reconnect clears completed streams whose end event was missed');
+
+console.log('chat state and recipient verification passed');

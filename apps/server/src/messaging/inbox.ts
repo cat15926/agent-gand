@@ -211,3 +211,6 @@ export const sendAgentMessage = post;
 export function postSystem(runId: string, to: string, body: string): Message {
   return post({ runId, from: 'system', to, kind: 'system', body });
 }
+
+/** 阅读分页复用原有消息序列化，保持 payload 与引用契约。 */
+export function historyRowsToMessages(rows: MessageRow[]): Message[] { return rows.map(rowToMessage); }

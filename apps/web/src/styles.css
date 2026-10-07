@@ -31,3 +31,24 @@ body {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* 统一焦点与浮层，手机不为隐藏的面板预留宽度。 */
+button, summary, select, input, textarea, a { touch-action: manipulation; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #a78bfa; outline-offset: 3px; }
+.chat-drawer { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(480px, 100vw); top: var(--visible-top, 0px); bottom: auto; height: var(--visible-height, 100dvh); max-height: var(--visible-height, 100dvh); max-width: 100vw; padding: 0; border: 1px solid #3f3f46; background: #18181b; color: #e4e4e7; }
+.chat-drawer-left { left: 0; right: auto; width: min(320px, 100vw); }
+.chat-drawer::backdrop { background: #0009; }
+@media (pointer: coarse) { .chat-touch-action { min-height: 44px; min-width: 44px; opacity: 1; } }
+.message-highlight { animation: message-highlight 2s ease-out; }
+@keyframes message-highlight { from { background: #8b5cf640; } to { background: transparent; } }
+
+@media (max-width: 639px) { .chat-touch-action { min-height: 44px; min-width: 44px; opacity: 1; } }
+.prose pre code { padding: 0; background: transparent; }
+
+.chat-app { position: fixed; inset: var(--visible-top, 0px) 0 auto; height: var(--visible-height, 100dvh); }
+[data-testid="task-composer"] { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+.chat-keyboard [data-testid="task-composer"] { padding: .5rem; }
+.chat-keyboard .chat-composer-title { display: none; }
+.chat-keyboard .chat-composer-footer { max-height: 65%; }
+
+@media (max-width: 639px) { [data-testid="task-composer"] button { min-height: 44px; } }

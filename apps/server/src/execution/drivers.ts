@@ -14,6 +14,7 @@ import type { ResolvedAccount } from '../accounts/resolver.ts';
 import { prepareAccountLaunch } from '../accounts/launch.ts';
 import { cleanEnvironment } from '../accounts/environment.ts';
 import { redactSecrets } from '../accounts/secrets.ts';
+import { CODEX_SKILL_POLICY } from './codexHome.ts';
 
 export interface DriverInput {
   cwd: string;
@@ -95,7 +96,7 @@ export function readonlyArgs(id: ExternalDriverId, input: Pick<DriverInput, 'mod
   return [
     'exec', '--json', '--sandbox', 'read-only', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check',
     '-c', 'approval_policy="never"', '-c', 'web_search="disabled"',
-    ...codexProjectPolicy(input.cwd),
+    ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY,
     ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]),
     '-c', `developer_instructions=${JSON.stringify(input.instructions)}`,
     ...(input.model === 'default' ? [] : ['--model', input.model]), '--', '-',
@@ -113,7 +114,7 @@ export function codexProjectPolicy(cwd: string): string[] {
 }
 
 export async function codexMcpPolicy(input: Pick<DriverInput, 'cwd' | 'signal' | 'environment'>): Promise<string[]> {
-  const base = ['mcp', 'list', '--json', ...codexProjectPolicy(input.cwd), '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.hooks=false'];
+  const base = ['mcp', 'list', '--json', ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY, '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.hooks=false'];
   const roster = async (overrides: string[]) => {
     const raw = await probe(commands['codex-exec'], [...base, ...overrides], { cwd: input.cwd, signal: input.signal, env: input.environment });
     let parsed: unknown;

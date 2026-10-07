@@ -1,0 +1,104 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createDemoEnvironment } from './helpers/orchestration-demo-environment.mjs';
+import { httpClient, submitConfirmedTask, waitUntil } from './helpers/orchestration-acceptance.mjs';
+const output = path.resolve('apps/server/data/chat-ui-optimization-qa'); await mkdir(output, { recursive: true });
+let environment, web, browser, page; const errors = [], checks = [], layouts = [];
+try {
+  environment = await createDemoEnvironment(); await environment.app.listen({ host: '127.0.0.1', port: 0 });
+  const base = `http://127.0.0.1:${environment.app.server.address().port}`; const request = httpClient(base);
+  const { createServer } = await import('../apps/web/node_modules/vite/dist/node/index.js');
+  web = await createServer({ root: path.resolve('apps/web'), configFile: path.resolve('apps/web/vite.config.ts'), cacheDir: path.join(environment.root,'vite-cache'), logLevel: 'error', server: { host: '127.0.0.1', port: 0, proxy: { '/api': base, '/ws': { target: base.replace('http:', 'ws:'), ws: true } } } }); await web.listen();
+  const ui = `http://127.0.0.1:${web.httpServer.address().port}`;
+  const prefs = { strategy: 'auto', workflow: 'routine', constraints: { readonly: true } };
+  const room = (await request('/api/conversations/empty', { title: 'UI 回归多轮房间', agentIds: ['aa','bb','sdk'], preferences: prefs })).conversation;
+  const runs = [];
+  for (let i = 0; i < 3; i++) {
+    const submitted = await submitConfirmedTask(request, { conversationId: room.id, goal: `第 ${i+1} 轮：只读分析接口并给出完整结论`, recipientIds: [i === 1 ? 'bb' : 'aa'], ...prefs }); runs.push(submitted.run);
+    await waitUntil(async () => (await request(`/api/runs/${submitted.run.id}`)).run.status === 'completed', 'COMPLETED');
+  }
+  const { post } = await import('../apps/server/src/messaging/inbox.ts');
+  const long = '# 验证报告\n\n' + ['方案','证据','验收'].map((h,i) => `## ${h}\n\n${'完整的分析结论与验证依据。'.repeat(80)}\n\n\`\`\`js\nconst result = ${i};\nconsole.log(result);\n\`\`\`\n\n`).join('');
+  const report = post({ runId: runs[0].id, from: 'aa', to: 'user', kind: 'agent', body: long, messageType: 'result' });
+  for (let i=0;i<6;i++) post({ runId: runs[2].id, from: i%2 ? 'bb' : 'aa', to: 'user', kind: 'agent', body: `阅读锚点 ${i}\n\n${'保留完整历史消息。'.repeat(40)}`, messageType: 'result' });
+  const newer = (await request('/api/conversations/empty', { title: '更新的房间', agentIds: ['aa'], preferences: prefs })).conversation;
+  const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(path.resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
+  browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}) });
+  page = await browser.newPage({ viewport: { width: 1440, height: 960 } }); page.on('pageerror', e => errors.push(e.message)); await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:ui});
+  await page.route('**/api/conversations', route => route.request().method() === 'GET' ? route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'fixture load failure'})}) : route.continue());
+  await page.goto(`${ui}/?room=${room.id}`); await page.getByRole('alert').filter({hasText:'加载失败'}).waitFor(); assert.equal(await page.getByRole('heading',{name:'创建聊天室',exact:true}).count(),0); await page.unroute('**/api/conversations'); await page.getByRole('button',{name:'重试加载',exact:true}).click(); await page.getByRole('heading', { name: room.title, exact: true }).waitFor();
+  const history = page.getByTestId('chat-history'); const count = await page.locator('article[id^="message-"]').count(); assert.ok(count >= 12);
+  await page.getByRole('button', { name: '查看第 1 轮执行轨迹', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: '任务详情', exact: true }); await detail.waitFor(); await detail.getByText('第 1 轮 · 当前查看的任务').waitFor();
+  assert.equal(await page.locator('article[id^="message-"]').count(), count); assert.ok((await detail.innerText()).includes('分析员 A')); assert.ok(!(await detail.innerText()).includes('分析员 B →'));
+  await page.keyboard.press('Escape'); await page.reload(); await page.getByRole('heading', { name: room.title, exact: true }).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('task'),runs[0].id);
+  await page.getByRole('button', { name: '任务详情', exact: true }).click(); await detail.getByText('第 1 轮 · 当前查看的任务').waitFor(); await page.keyboard.press('Escape');
+  await page.locator('aside button').filter({hasText:newer.title}).first().click(); await page.getByRole('heading',{name:newer.title,exact:true}).waitFor(); await page.goBack(); await page.getByRole('heading',{name:room.title,exact:true}).waitFor(); assert.equal(new URL(page.url()).searchParams.get('task'),runs[0].id);
+  checks.push('加载错误可重试且不会闪现新房间；浏览器返回恢复房间及所选任务');
+  checks.push('查看旧轮次保留完整消息；刷新恢复旧房间与所选任务；详情只显示该任务调度');
+  await history.evaluate(el => { el.scrollTop = 900; el.dispatchEvent(new Event('scroll')); });
+  const before = await history.evaluate(el => ({ top: el.scrollTop, anchor: [...el.querySelectorAll('[data-read-anchor]')].find(a => a.getBoundingClientRect().bottom > el.getBoundingClientRect().top)?.id }));
+  await page.reload(); await history.waitFor(); await waitUntil(async () => Math.abs(await history.evaluate(el => el.scrollTop) - before.top) < 12, 'READ_RESTORE');
+  const top = await history.evaluate(el => el.scrollTop);
+  post({ runId: runs[2].id, from: 'aa', to: 'user', kind: 'agent', body: '异步新消息：不得抢走阅读位置', messageType: 'result' });
+  await page.getByRole('button', { name: /1 条新消息.*跳到最新/ }).waitFor(); assert.ok(Math.abs(await history.evaluate(el => el.scrollTop) - top) < 12);
+  await page.getByRole('button', { name: /跳到最新/ }).click(); await waitUntil(async () => await history.evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight < 5), 'LATEST');
+  checks.push('阅读位置刷新恢复；新消息不抢滚动；未读数量和跳到最新可用');
+  const article = page.locator(`#message-${report.id}`); await article.getByRole('button', { name: '展开完整报告', exact: true }).click(); await article.getByText('报告目录 · 4 节').waitFor(); await article.getByRole('button', { name: '复制代码', exact: true }).first().click(); await article.getByRole('button', { name: '已复制', exact: true }).first().waitFor(); assert.equal(await page.evaluate(() => navigator.clipboard.readText()),'const result = 0;\nconsole.log(result);');
+  await page.getByRole('button', { name: '搜索房间消息', exact: true }).click(); await page.getByLabel('搜索当前房间消息', { exact: true }).fill('阅读锚点 3'); await page.getByRole('button', { name: '下一条', exact: true }).click(); await page.locator('.message-highlight').waitFor(); await page.getByRole('button', { name: '搜索房间消息', exact: true }).click();
+  checks.push('长报告展开、目录、代码复制与房间消息搜索可操作');
+  await page.getByRole('button', { name: '执行设置', exact: true }).click(); const settings = page.getByRole('dialog', { name: '执行设置', exact: true }); await settings.waitFor();
+  await settings.getByLabel('发送快捷键', { exact: true }).selectOption('ctrl-enter'); await page.keyboard.press('Escape');
+  await page.getByLabel('任务目标', { exact: true }).fill('第一行'); await page.getByLabel('任务目标', { exact: true }).press('Enter'); assert.equal(await page.getByLabel('任务目标', { exact: true }).inputValue(),'第一行\n');
+  await page.getByLabel('任务目标', { exact: true }).fill('@分析'); await page.getByRole('button', { name: '@分析员 A', exact: true }).click(); assert.equal(await page.getByLabel('任务目标', { exact: true }).inputValue(), '@分析员 A ');
+  await page.getByLabel('任务目标', { exact: true }).fill('只读验证');
+  await page.getByRole('group', { name: '本轮对象', exact: true }).getByRole('button', { name: '@Claude SDK（模拟）', exact: true }).click();
+  await page.getByRole('button', { name: '执行设置', exact: true }).click(); assert.equal(await settings.getByLabel('本轮策略', { exact: true }).inputValue(), 'auto'); await settings.getByLabel('本轮策略', { exact: true }).focus(); await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), '本轮工作流'); await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '选择接收人', exact: true }).click();
+  checks.push('执行设置、焦点回归、快捷键、@补全与 SDK 接收人选择；选择成员不切换策略');
+  await page.getByRole('button', { name: '聊天室菜单', exact: true }).click(); assert.equal(await page.getByRole('button', { name: '归档聊天室…', exact: true }).isVisible(),true); await page.getByRole('button', { name: '重命名聊天室', exact: true }).click();
+  const rename = page.getByRole('dialog', { name: '重命名聊天室', exact: true }); await rename.getByRole('textbox').fill('UI 已重命名'); await rename.getByRole('button', { name: '保存名称', exact: true }).click(); await rename.waitFor({ state: 'hidden' }); await page.getByRole('heading', { name: 'UI 已重命名', exact: true }).waitFor();
+  checks.push('••• 打开菜单；显式重命名可保存，归档仍需确认');
+  for (const width of [1440,1280,1279,1024,768,390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 960 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const measure = await history.evaluate(el => ({ width: innerWidth, height: innerHeight, chatWidth: el.getBoundingClientRect().width, chatHeight: el.getBoundingClientRect().height, overflow: document.documentElement.scrollWidth > innerWidth })); layouts.push(measure); assert.equal(measure.overflow,false); assert.ok(measure.chatHeight / measure.height >= (width === 390 ? .5 : .55), JSON.stringify(measure));
+    await page.getByRole('button', { name: '任务详情', exact: true }).click(); await detail.waitFor(); assert.equal(await detail.getByText('第 1 轮 · 当前查看的任务').isVisible(),true); await page.keyboard.press('Escape');
+    await page.screenshot({ path: path.join(output, `chat-${width}.png`), fullPage: true });
+    if (width === 390) { const chatWidth = measure.chatWidth; await page.getByRole('button', { name: '展开聊天室', exact: true }).click(); const drawer = page.getByRole('dialog', { name: '聊天室列表', exact: true }); await drawer.waitFor(); assert.equal(await history.evaluate(el => el.getBoundingClientRect().width),chatWidth); await page.keyboard.press('Escape'); assert.equal(await drawer.isVisible(),false); const reply = page.getByRole('button', { name: '回复', exact: true }).first(); const box = await reply.boundingBox(); assert.ok(box.height >= 44); }
+  }
+  assert.ok(Math.abs(layouts[1].chatWidth-layouts[2].chatWidth)<=2);
+  checks.push('六种宽度无横向溢出；聊天区占比达到目标；1279/1280 无面板跳变；手机列表不挤压正文；详情始终可达');
+  // Failure recovery creates only a draft, preserving accepted outputs.
+  const failed = await submitConfirmedTask(request, { conversationId: room.id, goal: 'O7:failure 只读分析', recipientIds: ['aa','bb'], strategy: 'parallel', workflow: 'analysis_summary', aggregatorId: 'aa', constraints: { readonly:true } });
+  await waitUntil(async () => (await request(`/api/runs/${failed.run.id}`)).run.status === 'failed','FAILURE');
+  await page.setViewportSize({width:1440,height:960}); await page.reload(); const beforeRetry = (await request(`/api/conversations/${room.id}`)).runs.length;
+  await page.getByRole('button', { name: '准备新任务草稿', exact: true }).click(); assert.equal(await page.getByLabel('任务目标', {exact:true}).inputValue(),'O7:failure 只读分析'); assert.equal((await request(`/api/conversations/${room.id}`)).runs.length,beforeRetry);
+  checks.push('失败恢复保留目标和设置，仅准备草稿，不自动重试或新增运行');
+  const { createRun, setRunStatus } = await import('../apps/server/src/runs/trace.ts');
+  const approvalRun = createRun('UI 审批与提问可达性夹具','collaboration',['aa'],null,null,room.id,beforeRetry+1);
+  setRunStatus(approvalRun.id,'awaiting_approval');
+  const { createApproval } = await import('../apps/server/src/hitl/approvals.ts');
+  createApproval({runId:approvalRun.id,agentId:'aa',toolName:'fixture.review',input:'{"fixture":true}',reason:'验证手机内联审批可达，不执行工具'});
+  const prompt = post({runId:approvalRun.id,from:'aa',to:'user',kind:'agent',body:'请选择下一步处理方式',messageType:'collaboration_wait_user'});
+  const { createDecision } = await import('../apps/server/src/collaboration/store.ts');
+  createDecision({runId:approvalRun.id,conversationId:room.id,idempotencyKey:'ui-question',kind:'agent_question',promptMessageId:prompt.id,payload:{}});
+  await page.setViewportSize({width:390,height:844}); await page.reload();
+  const attention = page.getByRole('region',{name:`第 ${beforeRetry+1} 轮任务`,exact:true}); await attention.getByRole('button',{name:'批准',exact:true}).waitFor(); assert.equal(await attention.getByRole('button',{name:'拒绝',exact:true}).count(),1); await page.getByRole('button',{name:'回复并继续',exact:true}).waitFor();
+  checks.push('手机内联审批、拒绝与原任务问题入口保持可达');
+  await page.setViewportSize({width:1440,height:960}); await page.getByRole('button',{name:'＋ 新聊天室',exact:true}).click(); await page.getByRole('heading',{name:'创建聊天室',exact:true}).waitFor();
+  const members = page.getByRole('group',{name:'房间成员',exact:true}); assert.equal(await members.getByRole('button',{name:'分析员 A',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button',{name:'选择接收人',exact:true}).click(); await page.getByRole('group',{name:'本轮对象',exact:true}).getByRole('button',{name:'@分析员 A',exact:true}).click();
+  await page.getByLabel('房间名称',{exact:true}).fill('UI 新建发送验收'); await page.getByLabel('任务目标',{exact:true}).fill('只读分析并说明结论'); await page.getByRole('button',{name:'创建并发送',exact:true}).click(); await page.getByRole('heading',{name:'UI 新建发送验收',exact:true}).waitFor();
+  const newRoom = (await request('/api/conversations')).find(r=>r.title==='UI 新建发送验收'); assert.ok(newRoom); await waitUntil(async () => (await request(`/api/conversations/${newRoom.id}`)).runs[0]?.status==='completed','UI_NEW_TASK');
+  checks.push('新建房间、明确接收人、规则预览与创建发送完成，未破坏统一编排入口');
+  process.env.O7_DEMO_URL = ui; await import('./verify-orchestration-o7-demo-ui.mjs');
+  checks.push('已有 O7 浏览器回归通过：创建执行、WebSocket、SDK 成员选择和刷新');
+  assert.deepEqual(errors, []); assert.equal(environment.externalRequests,0);
+  const result = { ok:true, scope:'isolated_fixture', supplierRequests:0, checks, layouts, browserErrors:errors };
+  await writeFile(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n'); console.log(JSON.stringify(result,null,2));
+} catch (error) { console.error(JSON.stringify({completedChecks:checks,layouts})); await page?.screenshot({ path:path.join(output,'failure.png'), fullPage:true }); throw error; }
+finally { await browser?.close(); await web?.close(); await environment?.close(); }

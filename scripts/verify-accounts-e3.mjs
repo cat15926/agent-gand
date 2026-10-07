@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 const root = await mkdtemp(path.join(tmpdir(), 'gand-accounts-e3-'));
 await mkdir(path.join(root, 'roles'));
-Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'roles'), LOG_LEVEL: 'silent', HOST: '127.0.0.1', PORT: '3010', ACCOUNT_TRUSTED_ORIGINS: 'http://127.0.0.1:3010', MCP_SERVER_CMD: '', ACCOUNT_MASTER_KEY: '', ACCOUNT_ADMIN_TOKEN: '', LLM_OPENAI_API_KEY: 'fixture-old-global-M123', LLM_ANTHROPIC_API_KEY: '', EXTERNAL_CLAUDE_COMMAND: path.join(root, 'missing-cli'), EXTERNAL_CODEX_COMMAND: path.join(root, 'missing-codex') });
+const codex = path.join(root, 'codex-fixture'); await copyFile(new URL('./fixtures/account-native-e2.mjs', import.meta.url), codex); await chmod(codex, 0o755);
+const nativeLog = path.join(root, 'native.jsonl'); await writeFile(nativeLog, ''); const refreshFailure = path.join(root, 'refresh-unavailable');
+Object.assign(process.env, { NODE_ENV: 'test', DB_PATH: path.join(root, 'test.sqlite'), AGENTS_DIR: path.join(root, 'roles'), LOG_LEVEL: 'silent', HOST: '127.0.0.1', PORT: '3010', ACCOUNT_TRUSTED_ORIGINS: 'http://127.0.0.1:3010', MCP_SERVER_CMD: '', ACCOUNT_MASTER_KEY: '', ACCOUNT_ADMIN_TOKEN: '', LLM_OPENAI_API_KEY: 'fixture-old-global-M123', LLM_ANTHROPIC_API_KEY: '', EXTERNAL_CLAUDE_COMMAND: path.join(root, 'missing-cli'), EXTERNAL_CODEX_COMMAND: codex, FAKE_E2_LOG: nativeLog, FAKE_E2_REFRESH_FAILURE_FILE: refreshFailure });
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');
 const { registerRoutes } = await import('../apps/server/src/api/routes.ts');
 const { registerAccountRoutes } = await import('../apps/server/src/api/accountRoutes.ts');
@@ -13,6 +15,11 @@ const registry = await import('../apps/server/src/agents/registry.ts');
 const resolver = await import('../apps/server/src/accounts/resolver.ts');
 const { createRun, finishRun } = await import('../apps/server/src/runs/trace.ts');
 const connection = await import('../apps/web/src/services/agentConnection.ts');
+const { getAccount } = await import('../apps/server/src/accounts/store.ts');
+const { identity } = await import('../apps/server/src/accounts/native.ts');
+const { prepareAccountLaunch } = await import('../apps/server/src/accounts/launch.ts');
+const { shutdownAccountLogins } = await import('../apps/server/src/accounts/login.ts');
+const { claimRuntimeHost, releaseRuntimeHost } = await import('../apps/server/src/execution/host.ts'); claimRuntimeHost();
 const app = Fastify(); await app.register(registerRoutes); await registerAccountRoutes(app);
 let cookie = '', csrf = '';
 async function api(url, method = 'GET', payload) { const response = await app.inject({ url, method, headers: { host: '127.0.0.1:3010', cookie, 'x-gand-csrf': csrf }, ...(payload === undefined ? {} : { payload }) }); return { status: response.statusCode, data: response.json(), headers: response.headers }; }
@@ -44,6 +51,24 @@ try {
   const pendingPreview = (await api('/api/agents/preflight', 'POST', pending)).data; assert.equal(pendingPreview.ok, false); assert.ok(pendingPreview.issues.accountRef); assert.ok(pendingPreview.issues.execution);
   const pendingDraft = await api('/api/agents', 'POST', { ...pending, enabled: false }); assert.equal(pendingDraft.status, 201); assert.equal(pendingDraft.data.enabled, false);
   assert.equal((await api('/api/agents', 'POST', { ...pending, id: 'e3-invalid-policy', enabled: false, permissionMode: 'auto', tools: ['shell.run'] })).status, 400, 'disabled draft must not bypass external tool policy');
+  const codexAccount = (await api('/api/accounts', 'POST', { displayName: 'Native Codex', authType: 'native_login', nativeClient: 'codex' })).data;
+  const codexRole = role({ id: 'e3-native-codex', accountRef: codexAccount.id, model: 'default', execution: { kind: 'external', driver: 'codex-app-server' } });
+  assert.equal((await api('/api/agents/preflight', 'POST', codexRole)).data.ok, false, 'pending login must still block saving');
+  assert.equal((await api(`/api/accounts/${codexAccount.id}/login`, 'POST', { expectedVersion: 1 })).status, 200);
+  const deadline = Date.now() + 5000; while (getAccount(codexAccount.id).authentication !== 'authenticated' && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(getAccount(codexAccount.id).authentication, 'authenticated');
+  await writeFile(refreshFailure, 'offline'); await writeFile(nativeLog, '');
+  assert.equal((await api('/api/agents/preflight', 'POST', codexRole)).data.ok, true, 'OAuth refresh outage must not block local role configuration');
+  const savedCodex = await api('/api/agents', 'POST', { ...codexRole, enabled: true }); assert.equal(savedCodex.status, 201, JSON.stringify(savedCodex.data));
+  const stoppedCodex = (await api(`/api/agents/${codexRole.id}/status`, 'PATCH', { enabled: false, expectedVersion: savedCodex.data.version })).data;
+  const enabledCodex = await api(`/api/agents/${codexRole.id}/status`, 'PATCH', { enabled: true, expectedVersion: stoppedCodex.version }); assert.equal(enabledCodex.status, 200); assert.equal(enabledCodex.data.enabled, true);
+  const localChecks = (await readFile(nativeLog, 'utf8')).trim().split('\n').map(JSON.parse); assert.equal(localChecks.length, 3); assert.ok(localChecks.every((row) => row.kind === 'account-read' && row.refreshToken === false));
+  await assert.rejects(prepareAccountLaunch('codex-app-server', resolver.resolveAccount(enabledCodex.data), new AbortController().signal), /OAuth refresh unavailable/, 'task execution must still verify fresh authentication');
+  assert.equal(getAccount(codexAccount.id).authentication, 'authenticated', 'temporary refresh failure must not expire the identity');
+  const loginIdentity = identity(codexAccount.id, getAccount(codexAccount.id).identityGeneration);
+  await writeFile(path.join(loginIdentity.directory, 'config', 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt', tokens: { account_id: 'changed-identity', access_token: 'native-fixture-changed-token' } }));
+  const changedIdentity = (await api('/api/agents/preflight', 'POST', codexRole)).data; assert.equal(changedIdentity.ok, false); assert.match(changedIdentity.issues.accountRef, /身份已失效或改变/);
+  assert.equal(getAccount(codexAccount.id).authentication, 'expired');
   const revoked = await api(`/api/accounts/${anthropic.id}/revoke`, 'POST', { expectedVersion: anthropic.version }); assert.equal(revoked.status, 200);
   assert.equal((await api('/api/agents/preflight', 'POST', good)).data.ok, false);
   const down = await api(`/api/agents/${draft.id}`, 'PATCH', { ...good, enabled: false, expectedVersion: 2 }); assert.equal(down.status, 200); assert.equal(down.data.enabled, false);
@@ -53,5 +78,5 @@ try {
   assert.equal(connection.compileConnection(role(), nativeConnection).permissionMode, 'readonly'); assert.equal(connection.compatibleAccount(responses, 'api'), false);
   const testAccount = { ...anthropic, testStatus: 'passed', lastTest: { backend: 'claude-sdk', model: 'fixture-model' } }; assert.equal(connection.scopedTest(testAccount, 'builtin-anthropic', 'fixture-model'), '该方式与模型未测试');
   const missingCopy = connection.initialConnection({ ...role(), requiresAccount: true }); assert.equal(missingCopy.accountId, ''); assert.equal(missingCopy.implicit, false);
-  console.log('E3 服务端验收通过：停用草稿原子保存/缺账户禁止旧认证回退/修复后启用/乐观锁/Run 冻结/不兼容与撤销阻断/缺 CLI 与待登录诊断/权限不能绕过/模型路由与测试范围');
-} finally { await app.close(); db.closeDatabase(); await rm(root, { recursive: true, force: true }); }
+  console.log('E3 服务端验收通过：停用草稿原子保存/缺账户禁止旧认证回退/修复后启用/乐观锁/Run 冻结/不兼容与撤销阻断/缺 CLI 与待登录诊断/权限不能绕过/模型路由与测试范围/Codex 刷新服务不可达仍可保存启用、执行仍校验认证、身份变化阻断');
+} finally { await shutdownAccountLogins(); await app.close(); releaseRuntimeHost(); db.closeDatabase(); await rm(root, { recursive: true, force: true }); }

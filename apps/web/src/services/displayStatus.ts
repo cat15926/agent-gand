@@ -1,0 +1,2 @@
+const labels: Record<string,string> = { pending:'待执行', queued:'排队中', ready:'已就绪', running:'执行中', completed:'已完成', failed:'失败', blocked:'等待处理', cancelled:'已取消', interrupted:'已中断', timeout:'已超时', accepted:'已确认', rejected:'未通过', superseded:'已更新', active:'执行中', fanout:'并行征询', direct:'定向执行', root:'初始任务', handoff:'接力交接', all:'等待全部', any:'首个成功' };
+export const displayStatus = (value: string): string => labels[value] ?? value;

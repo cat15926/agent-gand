@@ -12,6 +12,7 @@ import type {
   ApprovalDecision,
   ApprovalRequest,
   Message,
+  ConversationHistoryPage, ConversationMessageSearch,
   Run,
   RunEvent,
   Task,
@@ -119,7 +120,12 @@ export const createEmptyRoom = (input: { title: string; agentIds: string[]; work
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 export const saveRoomPreferences = (id: string, preferences: RoomPreferences, expectedMembersVersion: number) => request<Conversation>(`/api/conversations/${encodeURIComponent(id)}/preferences`, { method: 'PATCH', body: JSON.stringify({ preferences, expectedMembersVersion }) });
 export const getRunOrchestration = (id: string) => request<{ snapshot: RunOrchestrationSnapshot | null }>(`/api/runs/${encodeURIComponent(id)}/orchestration`);
-export const getTaskStates = (id: string) => request<{ tasks: TaskState[] }>(`/api/conversations/${encodeURIComponent(id)}/task-state`);
+export async function getTaskStates(id: string, runIds?: string[]) {
+  if (!runIds) return request<{ tasks: TaskState[] }>(`/api/conversations/${encodeURIComponent(id)}/task-state`);
+  const pages = await Promise.all(runChunks(runIds).map(ids => request<{tasks:TaskState[]}>(`/api/conversations/${encodeURIComponent(id)}/task-state?runIds=${encodeURIComponent(ids.join(','))}`)));
+  return { tasks: pages.flatMap(page => page.tasks) };
+}
+function runChunks(ids: string[]): string[][] { return Array.from({length:Math.ceil(ids.length/100)},(_,i) => ids.slice(i*100,(i+1)*100)); }
 export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
 export const reviseTaskPlan = (id: string, preview: OrchestrationPreview, instruction: string) => request<{ plan: CoordinationPlan }>(`/api/runs/${encodeURIComponent(id)}/orchestration/revisions`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint, instruction }) });
@@ -137,7 +143,9 @@ export const resumeCoordinationRun = (runId: string) => request<Run>(`/api/runs/
 export const pauseCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/pause`, { method: 'POST' });
 export const reviseCoordinationRun = (runId: string, instruction: string, requestedProtocol?: CoordinationProtocolId) => request<{ plan: CoordinationPlan; draft: CoordinationPreview['draft'] }>(`/api/runs/${encodeURIComponent(runId)}/coordination/revisions`, { method: 'POST', body: JSON.stringify({ instruction, ...(requestedProtocol ? { requestedProtocol } : {}) }) });
 export const cancelCoordinationRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/coordination/cancel`, { method: 'POST' });
-export const getConversation = (id: string) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}`);
+export const getConversation = (id: string, includeMessages = true) => request<ConversationDetail>(`/api/conversations/${encodeURIComponent(id)}?includeMessages=${includeMessages}`);
+export const getConversationHistory = (id: string, cursor: { before?: number; after?: number; around?: string } = {}) => request<ConversationHistoryPage>(`/api/conversations/${encodeURIComponent(id)}/history?${new URLSearchParams(Object.entries(cursor).map(([key,value]) => [key,String(value)]))}`);
+export const searchConversationMessages = (id: string, query: { q?: string; after?: number; scope?: 'results' }, signal?: AbortSignal) => request<ConversationMessageSearch>(`/api/conversations/${encodeURIComponent(id)}/history/search?${new URLSearchParams(Object.entries(query).map(([key,value]) => [key,String(value)]))}`, { signal });
 export const previewFollowup = (id: string, input: { body: string; recipientIds?: string[]; replyTo?: string | null; wholeTeam?: boolean }) => request<FollowupPreview>(`/api/conversations/${encodeURIComponent(id)}/followup-preview`, { method: 'POST', body: JSON.stringify(input) });
 export const renameConversation = (id: string, title: string) =>
   request<Conversation>(`/api/conversations/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) });
@@ -167,7 +175,11 @@ export interface CollaborationRunDetail {
   budget: CollaborationBudgetSnapshot;
   activeAgents?: Array<{ agentId: string; dispatchId: string; startedAt: string }>;
 }
-export const getConversationCollaboration = (id: string) => request<{ runs: CollaborationRunDetail[] }>(`/api/conversations/${encodeURIComponent(id)}/collaboration`);
+export async function getConversationCollaboration(id: string, runIds?: string[]) {
+  if (!runIds) return request<{ runs: CollaborationRunDetail[] }>(`/api/conversations/${encodeURIComponent(id)}/collaboration`);
+  const pages = await Promise.all(runChunks(runIds).map(ids => request<{runs:CollaborationRunDetail[]}>(`/api/conversations/${encodeURIComponent(id)}/collaboration?runIds=${encodeURIComponent(ids.join(','))}`)));
+  return { runs: pages.flatMap(page => page.runs) };
+}
 export const getRunCollaboration = (id: string) => request<CollaborationRunDetail>(`/api/runs/${encodeURIComponent(id)}/collaboration`);
 export const getRunResponsibility = (id: string) => request<{ snapshots: RuntimeResponsibilitySnapshot[] }>(`/api/runs/${encodeURIComponent(id)}/responsibility`);
 export const resolveCollaborationDecision = (id: string, input: ResolveCollaborationDecision) => request<{ decision: CollaborationUserDecision; linkedRun: Run | null }>(`/api/collaboration/decisions/${encodeURIComponent(id)}/resolve`, { method: 'POST', body: JSON.stringify(input) });
@@ -209,7 +221,7 @@ export const renameRun = (id: string, title: string) =>
 /** §13.3 软删（幂等；物理零删除） */
 export const softDeleteRun = (id: string) =>
   request<Run>(`/api/runs/${encodeURIComponent(id)}`, { method: 'DELETE' });
-export const getRun = (id: string) => request<RunDetail>(`/api/runs/${id}`);
+export const getRun = (id: string, includeMessages = true) => request<RunDetail>(`/api/runs/${encodeURIComponent(id)}?includeMessages=${includeMessages}`);
 export const getRunWorkspace = (id: string) => request<ExternalWorkspaceBinding | null>(`/api/runs/${encodeURIComponent(id)}/workspace`);
 export const getRunObservability = (id: string) => request<RunObservability>(`/api/runs/${encodeURIComponent(id)}/observability`);
 export const getRunObservabilitySummary = (id: string) => request<RunObservabilitySummary>(`/api/runs/${encodeURIComponent(id)}/observability?payload=summary`);

@@ -32,6 +32,7 @@ import { READONLY_TOOLS } from '../tools/types.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
 import { executeToolOnce, toolExecutionKey } from '../tools/executions.ts';
 import { runExternalAgentTurn } from '../execution/runner.ts';
+import { asReadonlyAgent } from '../execution/policy.ts';
 import { captureWorkspaceSnapshot, ensureIsolatedWorkspace, getIsolatedWorkspace, reviewSnapshotPath } from '../workspaces/isolated.ts';
 import { waitForDurableLease } from '../execution/leases.ts';
 import { randomUUID } from 'node:crypto';
@@ -214,7 +215,7 @@ export async function chatOnce(
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   const policy = executionPolicy(opts.run.id);
   assertExecutionDeadline(opts.run.id);
-  if (policy?.execution?.readonly) opts = { ...opts, agent: { ...opts.agent, permissionMode: 'readonly' } };
+  if (policy?.execution?.readonly) opts = { ...opts, agent: asReadonlyAgent(opts.agent) };
   if (opts.attemptId && !opts.executionBinding) opts = { ...opts, executionBinding: captureExecutionBinding(opts.run.id, opts.agent.id, opts.attemptId) };
   if (opts.executionBinding && (opts.executionBinding.runId !== opts.run.id || opts.executionBinding.agentId !== opts.agent.id || opts.executionBinding.attemptId !== opts.attemptId)) throw new Error('执行绑定与本回合不一致');
   assertBindingAuthorized(opts.executionBinding);
@@ -266,7 +267,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     if (opts.reviewSourceExecutionId) {
       const snapshot = reviewSnapshotPath(opts.reviewSourceExecutionId);
       if (!snapshot) throw new Error('待审原生执行缺少固定工作区快照');
-      opts = { ...opts, workspaceRoot: snapshot, agent: { ...opts.agent, permissionMode: 'readonly' } };
+      opts = { ...opts, workspaceRoot: snapshot, agent: asReadonlyAgent(opts.agent) };
     }
     if (opts.agent.execution?.kind === 'external') {
       const result = await runExternalAgentTurn(opts);

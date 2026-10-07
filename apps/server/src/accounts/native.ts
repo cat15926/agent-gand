@@ -9,11 +9,13 @@ import { cleanEnvironment } from './environment.ts';
 import { AccountError } from './errors.ts';
 import { emit } from '../messaging/bus.ts';
 import { rememberSecret } from './secrets.ts';
+import { assertCodexHomePolicy, CODEX_SKILL_POLICY } from '../execution/codexHome.ts';
 
 export interface NativeIdentity {
   account_id: string; generation: number; client: 'claude' | 'codex'; directory: string;
   status: 'pending' | 'authenticated' | 'expired'; summary: string | null; identity_hash: string | null;
 }
+interface NativeInspectionOptions { refreshToken?: boolean }
 export function identity(accountId: string, generation: number | null): NativeIdentity | undefined {
   return generation === null ? undefined : get<NativeIdentity>('SELECT * FROM account_native_identities WHERE account_id=? AND generation=?', accountId, generation);
 }
@@ -36,7 +38,7 @@ export function identityDirectory(accountId: string, generation: number): string
 export function nativeEnvironment(client: 'claude' | 'codex', directory: string): NodeJS.ProcessEnv {
   return cleanEnvironment({ HOME: directory, ...(client === 'claude' ? { CLAUDE_CONFIG_DIR: path.join(directory, 'config') } : { CODEX_HOME: path.join(directory, 'config') }) });
 }
-export const loginArgs = ['app-server', '--listen', 'stdio://', '-c', 'cli_auth_credentials_store="file"', '-c', 'features.hooks=false', '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.multi_agent=false'];
+export const loginArgs = ['app-server', '--listen', 'stdio://', ...CODEX_SKILL_POLICY, '-c', 'cli_auth_credentials_store="file"', '-c', 'features.hooks=false', '-c', 'features.plugins=false', '-c', 'features.apps=false', '-c', 'features.multi_agent=false'];
 export async function initializeAccountPeer(peer: import('../execution/rpc.ts').RpcPeer): Promise<void> {
   await peer.request('initialize', { clientInfo: { name: 'agent_gand_accounts', version: '0.1.0' }, capabilities: { experimentalApi: false } });
   peer.send({ method: 'initialized', params: {} });
@@ -53,13 +55,14 @@ async function protectCredentialFiles(directory: string): Promise<void> {
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   }
 }
-export async function inspectNative(client: 'claude' | 'codex', directory: string, signal = new AbortController().signal): Promise<{ authenticated: boolean; summary: string | null; fingerprint: string | null }> {
+export async function inspectNative(client: 'claude' | 'codex', directory: string, signal = new AbortController().signal, options: NativeInspectionOptions = {}): Promise<{ authenticated: boolean; summary: string | null; fingerprint: string | null }> {
   await privateDirectory(directory); await privateDirectory(path.join(directory, 'config')); await privateDirectory(path.join(directory, 'login'));
   await protectCredentialFiles(directory);
   let authenticated = false; let summary: string | null = null; let identifier = '';
   if (client === 'codex') {
+    await assertCodexHomePolicy(path.join(directory, 'config'));
     const account = await withRpcProcess({ command: config.externalAgents.codexCommand, args: loginArgs, cwd: path.join(directory, 'login'), env: nativeEnvironment(client, directory), signal, timeoutMs: 15_000 }, async (peer) => {
-      await initializeAccountPeer(peer); return (await peer.request('account/read', { refreshToken: true })).account;
+      await initializeAccountPeer(peer); return (await peer.request('account/read', { refreshToken: options.refreshToken ?? true })).account;
     });
     authenticated = account?.type === 'chatgpt';
     if (authenticated) {
@@ -81,10 +84,10 @@ export async function inspectNative(client: 'claude' | 'codex', directory: strin
   return { authenticated, summary: authenticated ? summary : null, fingerprint: authenticated ? createHash('sha256').update(client + ':' + identifier).digest('hex') : null };
 }
 /** A frozen generation can refresh tokens, but cannot silently change its identity. */
-export async function verifyIdentity(accountId: string, generation: number, signal?: AbortSignal): Promise<NativeIdentity> {
+export async function verifyIdentity(accountId: string, generation: number, signal?: AbortSignal, options: NativeInspectionOptions = {}): Promise<NativeIdentity> {
   const current = identity(accountId, generation);
   if (!current || current.status !== 'authenticated') throw new AccountError(409, '登录身份未认证或已失效，请重新登录后创建新运行');
-  const detected = await inspectNative(current.client, current.directory, signal);
+  const detected = await inspectNative(current.client, current.directory, signal, options);
   if (!detected.authenticated || detected.fingerprint !== current.identity_hash) {
     run("UPDATE account_native_identities SET status='expired',updated_at=? WHERE account_id=? AND generation=?", new Date().toISOString(), accountId, generation);
     emit({ type: 'account.login.updated', accountId });

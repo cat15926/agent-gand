@@ -488,7 +488,7 @@ export interface RunDetail {
 }
 
 /** GET /api/runs/:id 聚合视图 */
-export function runDetail(id: string): RunDetail | null {
+export function runDetail(id: string, includeMessages = true): RunDetail | null {
   const run = getRun(id);
   if (!run) return null;
   const tasks = listTasks(id);
@@ -498,7 +498,7 @@ export function runDetail(id: string): RunDetail | null {
     accountBindings: listRunAccountBindings(id),
     events: listEvents(id),
     tasks,
-    messages: listByRun(id),
+    messages: includeMessages ? listByRun(id) : [],
     approvals: listApprovals().filter((a) => a.runId === id),
     attempts: tasks.flatMap((task) => listAttempts(task.id)),
     reviews: tasks.flatMap((task) => listReviews(task.id)),

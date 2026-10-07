@@ -96,7 +96,8 @@ try {
   for (const [id, driver] of [['sdk', 'claude-sdk'], ['codex', 'codex-app-server']]) {
     registry.createAgent(role(id, { model: 'fixture-session', execution: { kind: 'external', driver, sessionPolicy: 'run' } }));
     registry.createAgent(role(id + '-write', { model: 'fixture-write', permissionMode: driver === 'claude-sdk' ? 'auto' : 'confirm', execution: { kind: 'external', driver, ...(driver === 'claude-sdk' ? { nativeTools: ['Write'] } : {}) } }));
-    registry.createAgent(role(id + '-review', { model: 'fixture-review', capabilities: ['review'], execution: { kind: 'external', driver, sessionPolicy: 'run' } }));
+    registry.createAgent(role(id + '-review', { model: 'fixture-review', capabilities: ['review'], permissionMode: driver === 'claude-sdk' ? 'auto' : 'readonly',
+      execution: { kind: 'external', driver, sessionPolicy: 'run', ...(driver === 'claude-sdk' ? { nativeTools: ['Write'] } : {}) } }));
     registry.createAgent(role(id + '-artifact', { model: 'fixture-bridge', permissionMode: 'confirm', tools: ['fs.write'], execution: { kind: 'external', driver, platformTools: ['fs.write'] } }));
   }
   registry.createAgent(role('revision-review', { model: 'fixture-review-revision', capabilities: ['review'], execution: { kind: 'external', driver: 'codex-app-server' } }));

@@ -21,7 +21,7 @@ try {
   page.on('websocket', socket => socket.on('framereceived', event => { try { if (JSON.parse(String(event.payload)).type === 'hello') socketHello = true; } catch {} }));
   await page.goto(base);
   await page.getByRole('button', { name: '＋ 新聊天室', exact: true }).click();
-  const fleet = page.getByRole('group', { name: '舰队成员', exact: true });
+  const fleet = page.getByRole('group', { name: '房间成员', exact: true });
   await fleet.getByRole('button', { name: '分析员 A', exact: true }).click();
   for (const width of [390, 768, 1440]) {
     await page.setViewportSize({ width, height: 960 });
@@ -35,10 +35,13 @@ try {
     await fleet.getByRole('button', { name: 'Claude SDK（模拟）', exact: true }).click();
   }
   checks.push('真实 Vite 代理页面三种宽度无溢出；选择模拟 SDK 不切策略、不改输入区宽度');
+  await page.getByRole('button', { name: '执行设置', exact: true }).click();
   await page.getByLabel('本轮策略').focus(); await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'SELECT');
+  await page.keyboard.press('Escape');
   const title = 'O7 浏览器验收 ' + Date.now();
-  await page.getByLabel('房间名称').fill(title);
+  await page.getByLabel('房间名称', { exact: true }).fill(title);
+  await page.getByRole('button', { name: '选择接收人', exact: true }).click();
   await page.getByRole('group', { name: '本轮对象', exact: true }).getByRole('button', { name: '@分析员 A', exact: true }).click();
   await page.getByLabel('任务目标', { exact: true }).fill('只读分析接口并说明验证结果');
   await page.getByRole('button', { name: '创建并发送', exact: true }).click();

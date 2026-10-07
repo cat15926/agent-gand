@@ -7,6 +7,7 @@ import { READ_TOOLS } from '../execution/policy.ts';
 import { redactSecrets } from '../accounts/secrets.ts';
 import { listToolNames } from '../tools/builtin/index.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
+import { ExecutionError } from '../execution/errors.ts';
 
 /** No inference, credential paths or secret material in this public preview. */
 export async function preflightAgent(agent: AgentInput): Promise<AgentPreflight> {
@@ -30,10 +31,12 @@ export async function preflightAgent(agent: AgentInput): Promise<AgentPreflight>
   try {
     assertAccountCompatibility(agent);
     const binding = currentBinding(agent); const account = resolveAccount(agent);
-    if (binding?.identityGeneration) await verifyIdentity(binding.accountId, binding.identityGeneration);
+    // Saving verifies the local identity, not the availability of OAuth servers.
+    // Launch and explicit account checks still refresh tokens before use.
+    if (binding?.identityGeneration) await verifyIdentity(binding.accountId, binding.identityGeneration, undefined, { refreshToken: false });
     if (!agent.model.startsWith('mock:') && ((!external && !account?.apiKey) || (account?.authType === 'api_key' && !account.apiKey))) throw new AccountError(409, '缺少可用的模型密钥', { accountRef: '请配置账户认证' });
   } catch (error) {
-    result.issues = error instanceof AccountError && Object.keys(error.fieldErrors).length ? error.fieldErrors : { accountRef: redactSecrets(error instanceof Error ? error.message : '账户不可用') };
+    result.issues = error instanceof AccountError && Object.keys(error.fieldErrors).length ? error.fieldErrors : { accountRef: error instanceof ExecutionError && error.code === 'timeout' ? '本地登录状态检查超时，请重新检查。已保存的登录身份未被清除。' : redactSecrets(error instanceof Error ? error.message : '账户不可用') };
   }
   if (external) {
     const driver = await detectDriver(external.driver);

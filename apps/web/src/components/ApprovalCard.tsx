@@ -29,22 +29,22 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
       <div className="mb-1 flex items-center justify-between">
         <span className="font-medium text-amber-200">⚠ {approval.toolName}</span>
-        <span className="text-zinc-500">{approval.agentId}</span>
+        <span className="text-zinc-400">{approval.agentId}</span>
       </div>
       {error && <p role="alert" className="mb-2 text-red-300">{error}</p>}
       {approval.reason && <p className="mb-2 text-zinc-400">{approval.reason}</p>}
-      {approval.native && <p className="mb-2 break-all text-zinc-500">当前原生执行 {approval.native.executionId} · 单次批准</p>}
+      {approval.native && <p className="mb-2 break-all text-zinc-400">当前原生执行 {approval.native.executionId} · 单次批准</p>}
 
       {editing ? (
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
-          className="mb-2 w-full rounded-md bg-zinc-900 p-2 font-mono text-[11px] text-zinc-300 outline-none ring-1 ring-zinc-700 focus:ring-violet-500"
+          className="mb-2 w-full rounded-md bg-zinc-900 p-2 font-mono text-xs text-zinc-300 outline-none ring-1 ring-zinc-700 focus:ring-violet-500"
         />
       ) : (
         approval.input && (
-          <pre className="mb-2 max-h-28 overflow-auto rounded-md bg-zinc-900 p-2 font-mono text-[11px] text-zinc-400">
+          <pre className="mb-2 max-h-28 overflow-auto rounded-md bg-zinc-900 p-2 font-mono text-xs text-zinc-400">
             {approval.input}
           </pre>
         )
@@ -56,21 +56,21 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
             <button
               disabled={busy}
               onClick={() => void decide('approve')}
-              className="rounded-md bg-emerald-500/20 px-2.5 py-1 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50"
+              className="rounded-md bg-emerald-500/20 px-3 py-2 chat-touch-action text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50"
             >
               批准
             </button>
             <button
               disabled={busy}
               onClick={() => void decide('reject')}
-              className="rounded-md bg-red-500/20 px-2.5 py-1 text-red-300 hover:bg-red-500/30 disabled:opacity-50"
+              className="rounded-md bg-red-500/20 px-3 py-2 chat-touch-action text-red-300 hover:bg-red-500/30 disabled:opacity-50"
             >
               拒绝
             </button>
             {!approval.native && <button
               disabled={busy}
               onClick={() => setEditing(true)}
-              className="rounded-md bg-zinc-700/60 px-2.5 py-1 text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
+              className="rounded-md bg-zinc-700/60 px-3 py-2 chat-touch-action text-zinc-300 hover:bg-zinc-700 disabled:opacity-50"
             >
               编辑
             </button>}
@@ -80,11 +80,11 @@ export function ApprovalCard({ approval }: { approval: ApprovalRequest }) {
             <button
               disabled={busy}
               onClick={() => void decide('edit')}
-              className="rounded-md bg-violet-500/20 px-2.5 py-1 text-violet-300 hover:bg-violet-500/30 disabled:opacity-50"
+              className="rounded-md bg-violet-500/20 px-3 py-2 chat-touch-action text-violet-300 hover:bg-violet-500/30 disabled:opacity-50"
             >
               以编辑内容继续
             </button>
-            <button onClick={() => setEditing(false)} className="rounded-md px-2.5 py-1 text-zinc-500 hover:text-zinc-300">
+            <button onClick={() => setEditing(false)} className="rounded-md px-3 py-2 chat-touch-action text-zinc-400 hover:text-zinc-300">
               取消
             </button>
           </>

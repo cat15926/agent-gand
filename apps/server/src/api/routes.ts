@@ -30,6 +30,7 @@ import { stopExternalRun } from '../execution/runner.ts';
 import { getIsolatedWorkspace, exportWorkspacePatch } from '../workspaces/isolated.ts';
 import { ApprovalError, decide as decideApproval, listApprovals } from '../hitl/approvals.ts';
 import { post as postMessage, listMessages } from '../messaging/inbox.ts';
+import { conversationHistoryPage, searchConversationMessages, HistoryInputError, historyRunIds } from '../messaging/history.ts';
 import { listByConversation } from '../messaging/inbox.ts';
 import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, retryTask, TaskError } from '../messaging/tasks.ts';
 import { listAttempts } from '../tasks/attempts.ts';
@@ -400,9 +401,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: unknown }>('/api/conversations/empty', async (req,reply) => { reply.code(201); return { conversation: createEmptyRoom(req.body) }; });
   app.get('/api/orchestration/members', async () => ({ reservations: memberQueue() }));
-  app.get<{ Params: { id: string } }>('/api/conversations/:id/task-state', async req => {
+  app.get<{ Params: { id: string }; Querystring: { runIds?: string } }>('/api/conversations/:id/task-state', async req => {
     if (!getConversation(req.params.id)) throw httpError(404,'聊天室不存在');
-    return { tasks: listRunsByConversation(req.params.id).map(item => {
+    const ids = parseHistory(() => historyRunIds(req.query.runIds));
+    return { tasks: listRunsByConversation(req.params.id).filter(item => !ids || ids.has(item.id)).map(item => {
       const plan = getRunCoordinationPlan(item.id);
       const control = get<{ pause_requested: number; recovery_attention: number; reason: string | null }>('SELECT * FROM orchestration_run_controls WHERE run_id=?', item.id);
       const unknown = Boolean(control?.recovery_attention || get("SELECT id FROM external_agent_executions WHERE run_id=? AND status='interrupted' LIMIT 1",item.id));
@@ -430,15 +432,24 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     reply.code(result.deduplicated ? 200 : 201);
     return { run: result.run, conversation: result.conversation, plan: result.plan };
   });
-  app.get<{ Params: { id: string } }>('/api/conversations/:id', async (req) => {
+  app.get<{ Params: { id: string }; Querystring: { includeMessages?: string } }>('/api/conversations/:id', async (req) => {
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
-    return { conversation, runs: listRunsByConversation(conversation.id), messages: listByConversation(conversation.id) };
+    return { conversation, runs: listRunsByConversation(conversation.id), messages: req.query.includeMessages === 'false' ? [] : listByConversation(conversation.id) };
   });
-  app.get<{ Params: { id: string } }>('/api/conversations/:id/collaboration', async (req) => {
+  app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string; after?: string; around?: string } }>('/api/conversations/:id/history', async req => {
+    if (!getConversation(req.params.id)) throw httpError(404,'聊天室不存在');
+    return parseHistory(() => conversationHistoryPage(req.params.id,req.query));
+  });
+  app.get<{ Params: { id: string }; Querystring: { q?: string; after?: string; limit?: string; scope?: string } }>('/api/conversations/:id/history/search', async req => {
+    if (!getConversation(req.params.id)) throw httpError(404,'聊天室不存在');
+    return parseHistory(() => searchConversationMessages(req.params.id,req.query));
+  });
+  app.get<{ Params: { id: string }; Querystring: { runIds?: string } }>('/api/conversations/:id/collaboration', async (req) => {
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
-    const runs = listRunsByConversation(conversation.id).filter((item) => item.mode === 'collaboration');
+    const ids = parseHistory(() => historyRunIds(req.query.runIds));
+    const runs = listRunsByConversation(conversation.id).filter((item) => item.mode === 'collaboration' && (!ids || ids.has(item.id)));
     return { runs: runs.map((item) => ({ run: item, dispatches: listCollaborationDispatches(item.id), attempts: listCollaborationAttempts(item.id), batches: listCollaborationBatches(item.id), decisions: listCollaborationDecisions(item.id),
       completionCandidates: listCompletionCandidates(item.id), successorObligations: listSuccessorObligations(item.id),
       evidenceBundles: listEvidenceBundles(item.id), routeGuardEvents: listRouteGuardEvents(item.id),
@@ -793,8 +804,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.get<{ Params: { id: string } }>('/api/runs/:id', async (req) => {
-    const detail = runDetail(req.params.id);
+  app.get<{ Params: { id: string }; Querystring: { includeMessages?: string } }>('/api/runs/:id', async (req) => {
+    const detail = runDetail(req.params.id,req.query.includeMessages !== 'false');
     if (!detail) throw httpError(404, `run 不存在: ${req.params.id}`);
     return detail;
   });
@@ -860,3 +871,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/usage', async () => usageSummary());
 }
+
+function parseHistory<T>(read: () => T): T { try { return read(); } catch (reason) { if (reason instanceof HistoryInputError) throw httpError(reason.status,reason.message); throw reason; } }

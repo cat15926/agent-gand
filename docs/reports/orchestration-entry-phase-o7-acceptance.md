@@ -1,6 +1,6 @@
 # 编排入口 O7：整体验收与收尾记录
 
-日期：2026-10-06。结论：**O7 本地交付工具与整体验收完成，真实 Claude SDK / Codex app-server 用户账户验收尚未执行，兼容分支尚未删除。不能宣称整个 O7 已通过最终验收。**
+日期：2026-10-06；真实账户补验：2026-10-07。结论：**O7 本地交付工具与整体验收完成，鸡腿绑定的真实 Claude SDK 只读最小任务已通过；Codex app-server 用户账户验收尚未执行，兼容分支尚未删除。整个 O7 最终验收尚未完成。**
 
 实现说明见 [O7 架构与演示](../architecture/orchestration-entry-phase-o7.md)、[API 迁移说明](../architecture/orchestration-api-migration.md)和[兼容清理清单](../plans/orchestration-compatibility-cleanup-checklist.md)。
 
@@ -41,10 +41,30 @@
 
 | 后端 | 状态 | 原因 |
 |---|---|---|
-| Claude SDK | 未执行 | 等待用户确认是否使用现有 Claude-GML-5.3（鸡腿）账户 |
-| Codex app-server | 未执行 | 当前业务库没有已登录 Codex 托管账户，等待用户指定项目账户/认证安排 |
+| Claude SDK | 通过（2026-10-07） | 用户指定现有 Claude-GML-5.3（鸡腿）账户，真实 `glm-5.3` 只读最小任务完成 |
+| Codex app-server | 账户模型测试通过；任务验收未执行 | 2026-10-07 登录代次 2 的 `default` 无工具模型测试通过，待用户选定角色开展 Run/attempt 绑定验收 |
 
-本轮真实供应商推理请求为零；真实服务没有被测，不能写“认证失败”或“真实后端通过”。业务库只读取公开账户/角色摘要和审计，不解密密钥，不启动新的业务推理。
+2026-10-06 的本地验收没有真实供应商推理。2026-10-07 经用户明确指定账户后，在正常业务服务 `http://127.0.0.1:3010` 执行一次成功的真实 SDK 最小任务；服务声明 `fixture=false`、`claudeSdkWorker=bundled`。认证使用已托管账户，不使用聊天中曾出现的密钥或全局登录目录。
+
+首次 Run `2b6a2cdb-a1b2-4aa4-a70c-422b2f32c9ef` 在原生执行创建前失败：只读请求收紧了角色权限，却保留了原生工具白名单，触发 `readonly 原生工具由后端固定提供` 配置校验。该失败不是供应商认证失败。修复统一的只读角色副本：收紧权限时清空本轮原生工具授权，应用于请求、步骤和评审；鸡腿存储的 `confirm` 权限及六项原生工具配置未改动。
+
+修复后证据：
+
+| 项目 | 结果 |
+|---|---|
+| Run / 原生执行 | `b865731a-4739-4490-bae3-e3ddb493400c` / `0154b8b7-3875-49b4-abe8-bbbd0acd8115`，均 `completed` |
+| 角色 / 账户 | `coder-jitui` / `267c2e27-b25f-43cf-acaa-143327f7f714`，配置/凭据版本均为 1 |
+| 后端 / 模型 | `claude-sdk`，安装版本 `claude-agent-sdk 0.3.288`，`glm-5.3` |
+| 权限 / 绑定 | 原生执行 `readonly`；冻结账户、有效 attempt 执行绑定、统一编排契约均已核验 |
+| 最小交付 | 持久化结果包含 `2 + 2 = 4`；调用 `agent_complete` 完成，无退出纠偏 |
+| 普通工具 | 未调用文件、命令或其他普通工具，仅平台完成控制动作 |
+| 本地回归 | O7 HTTP 11 组、O2 14 组、类型检查通过；新增写工具角色的自动/接力只读和原生评审覆盖 |
+
+完成控制动作会停止原生回合，Trace 中对应 MCP 工具 span 因没有收到原生完成回执显示 `error`；原生执行记录和平台完成裁决均为成功。这是当前工具回执的观察局限，不是认证或任务失败。
+
+机器报告保留在 `apps/server/data/orchestration-o7-qa/claude-real-2026-10-07.json`（首次失败）与 `claude-real-2026-10-07-after-readonly-fix.json`（修复后 SDK 通过）。仅保存状态、绑定和引用，不保存密钥或模型正文。修复后报告整体仍为 `incomplete`、命令退出 2，原因是 O7 同时要求 Codex，而本次用户仅选择了 Claude；Claude 后端自身为 `passed`。
+
+随后用户报告 Codex 模型测试的目录拒绝；已修复客户端自动系统技能缓存误报，并用当前登录账户完成真实 app-server/default 连接复测，详见[Codex 缓存修复记录](./accounts-codex-system-cache-fix.md)。账户测试没有创建平台 Run，不能用于补齐 O7 的 Codex 任务绑定证据。
 
 账户确定并在正常服务上配置好角色后，可执行：
 

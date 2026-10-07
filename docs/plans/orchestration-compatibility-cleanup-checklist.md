@@ -36,3 +36,5 @@ pnpm orchestration:cleanup-inventory --output apps/server/data/orchestration-o7-
 当前业务库有 39 个房间、69 个 Run，39 条旧房间映射；版本 1/2 已记录，待迁移为零。没有活跃 Run 或待检查未知执行。有一个主管默认房间需要配置：`2a7401d3-fc5c-4202-b018-cfe51d8fd540`。
 
 入口统计没有记录，表示统计证据尚未建立，**不能推导旧客户端调用为零**。真实账户验收与用户清理确认尚未完成。因此本轮保留全部兼容 API 和恢复分支。
+
+2026-10-07 补验：用户指定鸡腿账户的真实 Claude SDK 只读最小任务已通过，Run 为 `b865731a-4739-4490-bae3-e3ddb493400c`；Codex 账户模型测试通过，但带 Run/attempt 绑定的 Codex 编排任务验收仍待完成。详见 [O7 验收记录](../reports/orchestration-entry-phase-o7-acceptance.md)。完整观察期与清理确认仍待完成；本次测试产生的新入口统计不能代替旧客户端迁移证据。

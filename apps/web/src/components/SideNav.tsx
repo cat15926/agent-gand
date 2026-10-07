@@ -13,17 +13,17 @@ const ITEMS: Array<{ key: ViewKey; label: string; icon: string }> = [
 
 export function SideNav({ view, onChange }: { view: ViewKey; onChange: (v: ViewKey) => void }) {
   return (
-    <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-zinc-800 bg-zinc-900/60 py-3">
+    <nav className="flex shrink-0 items-center justify-center gap-1 border-b md:w-14 md:flex-col md:justify-start md:border-r md:border-b-0 border-zinc-800 bg-zinc-900/60 py-1 md:py-3">
       {ITEMS.map((item) => (
         <button
           key={item.key}
           title={item.label}
           aria-label={item.label}
           onClick={() => onChange(item.key)}
-          className={`flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] ${
+          className={`flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-lg text-xs ${
             view === item.key
               ? 'bg-violet-500/15 text-violet-300'
-              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+              : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
           }`}
         >
           <span className="text-base leading-none">{item.icon}</span>

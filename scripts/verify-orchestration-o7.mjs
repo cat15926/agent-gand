@@ -68,12 +68,23 @@ try {
   checks.push('开发与评审：实现与独立评审按依赖运行，完成门禁通过，注册源仓库保持原样');
 
   const backends = [];
+  const registry = await import('../apps/server/src/agents/registry.ts');
+  const sdkRole = registry.getAgent('sdk');
+  registry.updateAgent('sdk', { ...sdkRole, permissionMode: 'auto', execution: { ...sdkRole.execution, nativeTools: ['Write', 'Bash'] } }, sdkRole.version);
   for (const [agentId, driver] of [['sdk', 'claude-sdk'], ['codex', 'codex-app-server']]) {
     const smoke = await backendSmoke(request, { agentId, driver, timeoutMs: 15_000 });
     assert.equal(smoke.status, 'passed', JSON.stringify(smoke)); assert.ok(smoke.accountId); assert.ok(smoke.hasExecutionBinding);
     backends.push(smoke);
   }
   assert.equal((await environment.nativeCalls()).filter(item => item.kind === 'turn').length, 2);
+  assert.equal(registry.getAgent('sdk').permissionMode, 'auto');
+  assert.deepEqual(registry.getAgent('sdk').execution.nativeTools, ['Write', 'Bash']);
+  const readonlySdk = await run({ goal: 'O7:readonly-sdk 只读验证', agentIds: ['sdk'], recipientIds: ['sdk'], strategy: 'serial', constraints: { readonly: true } });
+  const readonlyExecutions = await request(`/api/runs/${readonlySdk.run.id}/executions`);
+  assert.equal(readonlyExecutions.length, 1); assert.equal(readonlyExecutions[0].permissionMode, 'readonly');
+  assert.equal(registry.getAgent('sdk').permissionMode, 'auto');
+  assert.deepEqual(registry.getAgent('sdk').execution.nativeTools, ['Write', 'Bash']);
+  checks.push('配置原生写工具的 SDK 角色可执行自动/接力只读请求；权限收紧不修改角色白名单');
   checks.push('SDK / app-server 模拟驱动走真实 HTTP、冻结托管账户和有效 attempt 绑定；重复提交未重复启动原生调用');
 
   const failed = await submitConfirmedTask(request, { goal: 'O7:failure 分别分析接口', agentIds: ['aa', 'bb'], recipientIds: ['aa', 'bb'], strategy: 'parallel', constraints: { readonly: true } });

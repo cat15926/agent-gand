@@ -1,22 +1,20 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-async function markdownFiles(dir) {
-  const result = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    if (entry.name === '.git' || entry.name === 'node_modules') continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) result.push(...await markdownFiles(full));
-    else if (entry.name.toLowerCase().endsWith('.md')) result.push(full);
-  }
-  return result;
-}
+// Check project sources, including new documents. Never traverse ignored private
+// account directories or client-generated skill caches as repository docs.
+const { stdout } = await promisify(execFile)('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root });
+const markdownFiles = [...new Set(stdout.split('\0').filter(file => file.toLowerCase().endsWith('.md')))];
 
 const missing = [];
-for (const file of await markdownFiles(root)) {
+for (const relative of markdownFiles) {
+  const file = path.join(root, relative);
+  try { await stat(file); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
   const source = await readFile(file, 'utf8');
   for (const match of source.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
     let target = match[1].trim().replace(/^<|>$/g, '');

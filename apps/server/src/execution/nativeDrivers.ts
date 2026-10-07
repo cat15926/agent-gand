@@ -13,6 +13,7 @@ import { containedPath, sdkPermission, SDK_TOOLS, READ_TOOLS } from './policy.ts
 import { BRIDGE_NAME } from './bridge.ts';
 import { protectedEnvironmentNames } from '../accounts/environment.ts';
 import { SessionUnavailableError } from './sessions.ts';
+import { assertCodexHomePolicy, CODEX_SKILL_POLICY } from './codexHome.ts';
 
 export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
   if (!input.environment?.ANTHROPIC_API_KEY) throw new ExecutionError('auth_required', 'Claude SDK 需要所选账户的 API Key');
@@ -80,12 +81,12 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
   if (nativeHome === userHome) throw new ExecutionError('policy_rejected', 'EXTERNAL_CODEX_HOME 必须为独立执行目录，不能使用用户 Codex 配置目录');
   await mkdir(nativeHome, { recursive: true, mode: 0o700 });
   if (await realpath(nativeHome) === userHome) throw new ExecutionError('policy_rejected', 'EXTERNAL_CODEX_HOME 不能通过符号链接指向用户配置目录');
-  if ((await readdir(nativeHome)).some((name) => ['config.toml', 'rules', 'skills', 'plugins', 'agents'].includes(name) || name.endsWith('.config.toml'))) throw new ExecutionError('policy_rejected', 'Codex 专用执行目录包含自定义配置、规则或插件，拒绝启动');
+  await assertCodexHomePolicy(nativeHome);
   await chmod(nativeHome, 0o700);
   const bridgeConfig = input.bridge ? { command: input.bridge.launch.command, args: input.bridge.launch.args,
     env: Object.fromEntries(protectedEnvironmentNames.filter((name) => !(name in input.bridge!.launch.env)).map((name) => [name, ''])), env_vars: Object.keys(input.bridge.launch.env), enabled: true, required: true,
     enabled_tools: input.bridge.launch.toolNames, default_tools_approval_mode: 'approve', tool_timeout_sec: Math.ceil(input.timeoutMs / 1000) + 5 } : null;
-  const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd),
+  const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY,
     '-c', 'web_search="disabled"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
     ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
   if (input.account?.managed) args.splice(args.indexOf('sandbox_mode="read-only"') - 1, 2);

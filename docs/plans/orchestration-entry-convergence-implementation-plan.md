@@ -1,6 +1,6 @@
 # 编排入口收敛实施计划（实施中）
 
-状态：**实施中。用户已授权实施 O1–O7；七阶段本地实现与验收完成，O7 的真实账户验收待用户指定账户，兼容清理待用户验收确认。**
+状态：**实施中。用户已授权实施 O1–O7；七阶段本地实现与验收完成。2026-10-07 用户指定的鸡腿账户 Claude SDK 最小任务通过，Codex 账户模型测试通过；Codex 编排任务验收待选定角色，兼容清理待用户验收确认。**
 日期：2026-10-06。阶段编号采用 **O1–O7**，避免与已实施的外部 Agent A–D、账户 E1–E4、历史 Collaboration 阶段编号混淆。
 
 ## 1. 评审摘要
@@ -355,7 +355,7 @@ Coordination 的图依赖和步骤领取继续由现有协调器管理，步骤/
 
 ### O7：整体验收与收尾
 
-状态：本地工具与 12 项整体回归完成，详见 [O7 架构及演示](../architecture/orchestration-entry-phase-o7.md)、[验收记录](../reports/orchestration-entry-phase-o7-acceptance.md)、[API 迁移说明](../architecture/orchestration-api-migration.md)和[清理清单](./orchestration-compatibility-cleanup-checklist.md)。真实 SDK/app-server 用户账户均未调用，因此 O7 最终验收尚未完成；没有移除兼容分支。
+状态：本地工具与 12 项整体回归完成，详见 [O7 架构及演示](../architecture/orchestration-entry-phase-o7.md)、[验收记录](../reports/orchestration-entry-phase-o7-acceptance.md)、[API 迁移说明](../architecture/orchestration-api-migration.md)和[清理清单](./orchestration-compatibility-cleanup-checklist.md)。2026-10-07 鸡腿账户的真实 Claude SDK 最小任务通过，并修复配置写工具角色的只读请求收紧冲突；Codex 账户的真实模型测试也已通过，但带 Run/attempt 绑定的 Codex 编排任务尚未验收，O7 最终验收尚未完成；没有移除兼容分支。
 
 **交付**：本地服务、演示脚本与测试报告；用户指定账户的最小真实测试；文档与 API 迁移说明；弃用入口统计及清理清单。
 

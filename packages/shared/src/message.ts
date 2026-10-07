@@ -41,3 +41,21 @@ export interface Message {
   clientMessageId?: string | null;
   createdAt: string; // ISO
 }
+
+/** 阅读接口使用稳定序号游标，不影响执行器读取完整上下文。 */
+export interface MessageReference { id: string; runId: string; seq: number; from: string; body: string; }
+export interface ConversationHistoryPage {
+  messages: Message[];
+  references: MessageReference[];
+  oldestSeq: number | null;
+  newestSeq: number | null;
+  headSeq: number;
+  total: number;
+  hasOlder: boolean;
+  hasNewer: boolean;
+}
+export interface MessageSearchMatch extends MessageReference {
+  messageType: AgentMessageType;
+  createdAt: string;
+}
+export interface ConversationMessageSearch { matches: MessageSearchMatch[]; total: number; nextAfter: number | null; }
