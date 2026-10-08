@@ -41,6 +41,7 @@ async function work() {
     const bridge = sdk ? input.bridge : input.config?.mcp_servers?.agent_gand;
     if (!bridge) throw new Error('Missing execution MCP bridge');
     const controlOnly = sdk ? input.controlOnly === true : argv.includes('features.shell_tool=false');
+    const privateContext = sdk ? input.privateContext === true : controlOnly;
     const env = sdk ? bridge.env : Object.fromEntries(bridge.env_vars.map((name) => [name, process.env[name]]));
     const client = new Client({ name: 'native-fixture', version: '1' });
     const transport = new StdioClientTransport({ command: bridge.command, args: bridge.args, env: { ...process.env, ...env }, stderr: 'pipe' });
@@ -48,14 +49,27 @@ async function work() {
     await client.connect(transport); const { tools } = await client.listTools();
     const current = JSON.parse(prompt.match(/__AGENT_GAND_CURRENT__=(.+)/)?.[1] ?? '{}');
     const mode = input.model ?? 'fixture-complete';
-    log({ kind: 'start', model: mode, controlOnly, tools: tools.map((tool) => tool.name), message: current.message });
-    if (sdk) event({ type: 'system', subtype: 'init', session_id: threadId, tools: [...(controlOnly ? [] : ['Read', 'Grep', 'Glob']), ...tools.map((tool) => 'mcp__agent_gand__' + tool.name)], mcp_servers: [{ name: 'agent_gand', status: 'connected' }] });
+    log({ kind: 'start', model: mode, controlOnly, privateContext, tools: tools.map((tool) => tool.name), message: current.message, context: prompt });
+    if (sdk) event({ type: 'system', subtype: 'init', session_id: threadId, tools: [...(controlOnly || privateContext ? [] : ['Read', 'Grep', 'Glob']), ...tools.map((tool) => 'mcp__agent_gand__' + tool.name)], mcp_servers: [{ name: 'agent_gand', status: 'connected' }] });
     const call = async (name, args) => {
       log({ kind: 'call', name });
+      const id = randomUUID();
+      if (sdk) event({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'mcp__agent_gand__' + name, input: args }] } });
+      else notify('item/started', { threadId, turnId, item: { id, type: 'mcpToolCall', server: 'agent_gand', tool: name } });
       const value = await client.callTool({ name, arguments: args });
+      if (sdk) event({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: JSON.stringify(value), is_error: !!value.isError }] } });
+      else notify('item/completed', { threadId, turnId, item: { id, type: 'mcpToolCall', server: 'agent_gand', tool: name, ...(value.isError ? { error: value } : { result: value }) } });
       log({ kind: 'result', name, isError: !!value.isError }); return value;
     };
     if (mode === 'fixture-wait') { setInterval(() => {}, 1000); return; }
+    if (mode === 'fixture-private-consult' && !current.message?.startsWith('并行征询结果已汇总：')) {
+      await call('agent_consult', { targets: [current.memberIds.find(id => id !== current.agentId)], objective: 'VISIBILITY_SECRET_CARD', reason: '只对指定成员发牌', visibility: 'private' }); return;
+    }
+    if (mode === 'fixture-private-reader') {
+      if (!prompt.includes('VISIBILITY_SECRET_CARD')) throw new Error('Private source not delivered to authorized member');
+      await call('agent_complete', { summary: 'CONFIRMED_VISIBILITY_SECRET_CARD' }); return;
+    }
+    if (mode === 'fixture-private-outsider' && prompt.includes('VISIBILITY_SECRET_CARD')) throw new Error('Private data leaked to outsider');
     if (mode === 'fixture-plain' && !controlOnly || mode === 'fixture-no-correction') { finish('本轮工作已有完整结果。'); return; }
     if (controlOnly) {
       if (!tools.every((tool) => tool.name.startsWith('agent_'))) throw new Error('Correction exposed ordinary bridge tools');

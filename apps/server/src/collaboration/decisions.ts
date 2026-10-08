@@ -5,6 +5,7 @@ import { nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import { endSpan, getRun, listEvents, setRunStatus, createRun, startSpan } from '../runs/trace.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
+import { messageAccess } from '../messaging/access.ts';
 import { cancelQueuedRun, createBudgetRevision, createDispatch, getDecision, resolveDecision } from './store.ts';
 import { finalizeCollaborationRun, kickCollaboration } from './scheduler.ts';
 import { observeAggregateLink } from '../runtime/shadow.ts';
@@ -71,6 +72,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
     const result = tx(() => {
       const current = assertPending(id); if (current.status !== 'pending') return current;
       const userMessage = post({ runId: sourceRun.id, from: 'user', to: agentId, kind: 'user', body: message,
+        ...messageAccess(current.promptMessageId),
         replyTo: current.promptMessageId, messageType: 'informational', deliveryStatus: 'processing' });
       if (!durableHold) {
         const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
@@ -135,6 +137,7 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
     const resolved = tx(() => {
       const current = assertPending(id); if (current.status !== 'pending') return current;
       const userMessage = post({ runId: sourceRun.id, from: 'user', to: agentId, kind: 'user', body: reason,
+        ...messageAccess(current.promptMessageId),
         replyTo: current.promptMessageId, deliveryStatus: 'processing' });
       if (!durableHold) {
         const resume = createDispatch({ runId: sourceRun.id, conversationId: sourceRun.conversationId, sourceMessageId: userMessage.id,
@@ -155,6 +158,9 @@ export function resolveCollaborationDecision(id: string, input: ResolveCollabora
   }
 
   if (initial.kind === 'supervisor_task_proposal' && input.action === 'approve_task') {
+    if (messageAccess(initial.promptMessageId).visibility === 'private') {
+      throw new CollaborationDecisionError('私密提议不能直接进入共享上下文工作流；请新建任务并明确提供可公开的目标与验收标准');
+    }
     validateSupervisorTeam(sourceRun, input);
     const proposal = initial.payload.proposal as { title?: unknown; goal?: unknown; acceptanceCriteria?: unknown } | undefined;
     const baseGoal = typeof proposal?.goal === 'string' && proposal.goal.trim() ? proposal.goal.trim() : sourceRun.goal;

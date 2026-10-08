@@ -30,6 +30,7 @@ export interface DriverInput {
   requestApproval?: (requestId: string, tool: string, input: unknown, reason?: string) => Promise<boolean>;
   bridge?: ExecutionBridge;
   controlOnly?: boolean;
+  privateContext?: boolean;
   connectionTest?: boolean;
   correctionMaxTokens?: number;
   onProcess?: (owner: ProcessRegistration) => void | Promise<void>;

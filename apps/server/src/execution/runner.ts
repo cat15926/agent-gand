@@ -21,6 +21,8 @@ import { captureWorkspaceSnapshot, getIsolatedWorkspace } from '../workspaces/is
 import { prepareNativeSession, SessionUnavailableError, type SessionHandle } from './sessions.ts';
 import { resolveAccount, assertNotRevoked, type ResolvedAccount } from '../accounts/resolver.ts';
 import { redactSecrets, redactSnapshot } from '../accounts/secrets.ts';
+import { effectiveExternalTimeout, externalTimeoutError } from './timeout.ts';
+import { executionPolicy } from '../orchestration/executionBudget.ts';
 
 const active = new Map<string, { runId: string; controller: AbortController; done: Promise<AgentTurnResult> }>();
 const terminal = (runId: string) => { const run = getRun(runId); return !run || ['completed', 'failed', 'cancelled'].includes(run.status); };
@@ -102,9 +104,13 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   if (opts.executionSignal?.aborted) abortFromTurn();
   else opts.executionSignal?.addEventListener('abort', abortFromTurn, { once: true });
   const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
-  const timeoutMs = opts.executionBinding?.origin === 'coordination_step_attempt'
-    ? Math.max(1, Math.min(configuredTimeout, new Date(opts.executionBinding.leaseExpiresAt).getTime() - Date.now())) : configuredTimeout;
-  const timer = setTimeout(() => controller.abort(new ExecutionError('timeout', '外部 Agent 执行超时')), timeoutMs);
+  const timeoutPolicy = effectiveExternalTimeout({ configuredMs: configuredTimeout, managed: account?.managed === true,
+    runDeadlineAt: executionPolicy(opts.run.id)?.execution?.deadlineAt ?? undefined,
+    leaseExpiresAt: opts.executionBinding?.origin === 'coordination_step_attempt' ? opts.executionBinding.leaseExpiresAt : undefined });
+  execution.timeoutPolicy = timeoutPolicy;
+  execution.progress = { ...opts.admissionTiming };
+  updateExecution(execution.id, { timeoutPolicy, progress: execution.progress });
+  const timer = setTimeout(() => controller.abort(externalTimeoutError(timeoutPolicy, execution.progress)), timeoutPolicy.effectiveMs);
   const authorityTimer = setInterval(() => {
     if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效'));
     try { if (account?.managed) assertNotRevoked(account.accountId); } catch { controller.abort(new ExecutionError('cancelled', '账户已立即撤销')); }
@@ -134,6 +140,13 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     if (event.type === 'text.snapshot') event = { ...event, text: redactSnapshot(event.text) };
     if ((event.type === 'tool.started' || event.type === 'tool.completed') && event.output) event = { ...event, output: redactSecrets(event.output) };
     if (signal.aborted || !executionAuthorized(execution)) return;
+    const at = new Date().toISOString();
+    const progress = execution.progress ?? {};
+    execution.progress = { ...progress, lastEventAt: at,
+      ...(event.type === 'session.bound' && !progress.sessionBoundAt ? { sessionBoundAt: at } : {}),
+      ...((event.type === 'text.delta' || event.type === 'text.snapshot') && content && !progress.firstTextAt ? { firstTextAt: at } : {}),
+      ...(event.type === 'tool.started' && !progress.firstToolAt ? { firstToolAt: at } : {}) };
+    if (event.type !== 'text.delta' || !progress.firstTextAt) updateExecution(execution.id, { progress: execution.progress });
     if (correction && (event.type === 'text.delta' || event.type === 'text.snapshot') && Buffer.byteLength(content) > (opts.exitCorrectionMaxTokens ?? 2048)) throw new ExecutionError('policy_rejected', '纠偏输出超过平台限制');
     if ('itemId' in event) event = { ...event, itemId: `${correction}:${event.itemId}` };
     emit({ type: 'execution.native', runId: opts.run.id, executionId: execution.id, event });
@@ -178,6 +191,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     if (signal.aborted || terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已停止');
     const systems = opts.messages.filter((message) => message.role === 'system' && !message.content.startsWith('会话边界提示：')).map((message) => message.content);
     const instructions = [...systems, `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
+      opts.privateContext ? '本轮上下文含私密信息，仅允许文本回应和 Runtime 控制动作；禁止读取、写入共享工作区及普通业务工具。' : '',
       opts.controlTools?.length ? 'Runtime 工具通过 agent_gand MCP 提供。上下文中的 agent.complete/handoff/consult/hold 对应 agent_complete/agent_handoff/agent_consult/agent_hold。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。' : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
     let prompt = opts.messages.filter((message) => message.role !== 'system').map((message) => `[${message.role}]\n${message.content}`).join('\n\n');
     let result: AgentTurnResult;
@@ -190,16 +204,18 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         if (session) updateExecution(execution.id, { sessionBindingId: session.record.id, sessionMode: session.resume ? 'resume' : 'cold', sessionReason: session.record.reason });
       }
       const bridge = opts.controlTools?.length || (opts.agent.execution?.kind === 'external' && opts.agent.execution.platformTools?.length)
-        ? await createExecutionBridge(opts, execution, signal, correction > 0) : undefined;
+        ? await createExecutionBridge(opts, execution, signal, correction > 0 || opts.privateContext === true) : undefined;
       let content = ''; let retryCold = false; naturalTerminal = false;
       usage.set(correction, { tokensIn: null, tokensOut: null, costUsd: null });
       updateExecution(execution.id, { tokensIn: null, tokensOut: null, costUsd: null });
       try {
-        content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs, onEvent,
+        execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
+        updateExecution(execution.id, { progress: execution.progress });
+        content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           authorized: () => executionAuthorized(execution),
-          permissionMode: correction ? 'readonly' : mode, nativeTools: correction || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
+          permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
           requestApproval: async (id, tool, args, reason) => !bridge?.sealed() && !correction && await approve(`${correction}:${id}`, tool, args, reason),
-          bridge, controlOnly: correction > 0, correctionMaxTokens: opts.exitCorrectionMaxTokens,
+          bridge, controlOnly: correction > 0, privateContext: opts.privateContext, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
           session: session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
           onProcessStopped: markNativeProcessStopped }));
@@ -233,17 +249,22 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     return { ...result, workspaceSnapshot: snapshot };
   } catch (error) {
     session?.finish(false);
-    const failure = signal.aborted && signal.reason instanceof ExecutionError ? signal.reason : error instanceof ExecutionError ? error : new ExecutionError('protocol_error', diagnostic(error instanceof Error ? error.message : String(error)));
+    let failure = signal.aborted && signal.reason instanceof ExecutionError ? signal.reason : error instanceof ExecutionError ? error : new ExecutionError('protocol_error', diagnostic(error instanceof Error ? error.message : String(error)));
+    if (failure.code === 'timeout' && !failure.details?.phase) failure = externalTimeoutError(execution.timeoutPolicy!, execution.progress);
+    if (error instanceof ExecutionError && error.details?.stderr) failure.details = { ...failure.details, stderr: diagnostic(error.details.stderr) };
     const after = before ? await captureEvidence(execution.cwd) : null;
     const evidence = before && after ? { head: after.head, beforeDiff: before.diff, afterDiff: after.diff, truncated: before.truncated || after.truncated, commands } : undefined;
-    const record = updateExecution(execution.id, { status: failure.code === 'cancelled' ? 'cancelled' : 'failed', evidence, errorCode: failure.code, error: diagnostic(failure.message), finishedAt: new Date().toISOString() });
+    const record = updateExecution(execution.id, { status: failure.code === 'cancelled' ? 'cancelled' : 'failed', evidence, errorCode: failure.code, error: diagnostic(failure.message),
+      failureDetails: failure.details, progress: execution.progress, finishedAt: new Date().toISOString() });
     endSpan(span, { status: 'error', output: diagnostic(failure.message), tokensIn: record.tokensIn ?? undefined, tokensOut: record.tokensOut ?? undefined, costUsd: record.costUsd ?? undefined,
       attributes: { 'execution.status': failure.code === 'cancelled' ? 'cancelled' : 'failed', 'execution.error_code': failure.code, 'execution.usage_known': record.tokensIn !== null && record.tokensOut !== null, 'execution.cost_known': record.costUsd !== null } });
     throw failure;
   } finally {
     session?.release();
     expireExecutionApprovals(execution.id); release();
-    const status = getExecution(execution.id)?.status;
-    for (const tool of toolSpans.values()) if (!tool.endedAt) endSpan(tool, { status: 'error', output: `原生工具未返回完成事件（execution=${status}）` });
+    const record = getExecution(execution.id);
+    for (const tool of toolSpans.values()) if (!tool.endedAt) endSpan(tool, record?.status === 'completed' && record.controlAction && /(?:mcp__agent_gand__|agent_gand[/:])agent_(?:complete|consult|handoff|hold|propose_supervisor_task)$/u.test(tool.name)
+      ? { status: 'ok', output: '已接收协作控制候选，原生回合按平台协议停止；工具未报告结束事件，最终提交以 Runtime 动作账本为准。', attributes: { 'tool.outcome': 'control_interruption', 'tool.completion_observed': false } }
+      : { status: 'error', output: `原生工具未返回完成事件（execution=${record?.status}）`, attributes: { 'tool.outcome': 'missing_terminal', 'tool.completion_observed': false } });
   }
 }

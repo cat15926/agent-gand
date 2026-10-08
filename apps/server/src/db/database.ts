@@ -61,6 +61,12 @@ ensureColumns('messages', [
   { name: 'payload', sql: 'payload TEXT' },
   { name: 'delivery_status', sql: 'delivery_status TEXT' },
   { name: 'client_message_id', sql: 'client_message_id TEXT' },
+  { name: 'visibility', sql: "visibility TEXT NOT NULL DEFAULT 'public'" },
+  { name: 'audience', sql: "audience TEXT NOT NULL DEFAULT '[]'" },
+]);
+ensureColumns('runtime_context_assemblies', [
+  { name: 'visibility', sql: "visibility TEXT NOT NULL DEFAULT 'public'" },
+  { name: 'audience', sql: "audience TEXT NOT NULL DEFAULT '[]'" },
 ]);
 ensureColumns('runs', [
   { name: 'supervisor_id', sql: 'supervisor_id TEXT' },

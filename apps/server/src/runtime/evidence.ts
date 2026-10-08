@@ -11,6 +11,8 @@ import type {
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
+import { isMessageVisibleTo, type MessageAccess } from '@agent-gand/shared';
+import { attemptAccess, eventAccess, messageAccess, unboundRunAccess } from '../messaging/access.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 import { resolveSandboxPath, workspaceRootDir } from '../tools/builtin/index.ts';
 
@@ -65,7 +67,20 @@ export function createWorkspaceFileEvidence(runId: string, relPath: string, work
     ...(workspaceScope ? { workspaceScope } : {}) };
 }
 
-export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef): ResolvedEvidence {
+export function evidenceAccess(ref: RuntimeEvidenceRef, runId?: string): MessageAccess {
+  if (ref.kind === 'message') return messageAccess(ref.id);
+  if (ref.kind === 'attempt_output') return attemptAccess(ref.id);
+  if (ref.kind === 'run_event') return eventAccess(ref.id);
+  if (ref.kind === 'tool_execution') {
+    const tool = get<{ attempt_id: string | null; run_id: string }>('SELECT attempt_id,run_id FROM tool_executions WHERE id=?', ref.id);
+    return tool?.attempt_id ? attemptAccess(tool.attempt_id) : tool ? unboundRunAccess(tool.run_id) : { visibility: 'public', audience: [] };
+  }
+  // 文件尚无独立 ACL；含私密消息的运行不得把未绑定来源的文件当作公开证据。
+  return runId ? unboundRunAccess(runId) : { visibility: 'public', audience: [] };
+}
+
+export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId = 'user'): ResolvedEvidence {
+  if (!isMessageVisibleTo(evidenceAccess(ref, runId), viewerId)) return rejected(ref, '证据不在当前成员的可见范围内');
   if (ref.kind === 'message') {
     const row = get<{ run_id: string; kind: string; body: string }>('SELECT run_id,kind,body FROM messages WHERE id=?', ref.id);
     if (!row || row.run_id !== runId) return rejected(ref, '消息不属于当前 Run');

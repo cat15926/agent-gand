@@ -100,8 +100,8 @@ export type RuntimeWakeCondition =
 export type RuntimeControlAction =
   | { version: 2; type: 'complete'; summary?: string }
   | { version: 2; type: 'answer_candidate' }
-  | { version: 2; type: 'handoff'; targetAgentId: string; objective: string; reason: string }
-  | { version: 2; type: 'consult'; targetAgentIds: string[]; objective: string; reason: string; join: 'all' | 'any' }
+  | { version: 2; type: 'handoff'; targetAgentId: string; objective: string; reason: string; visibility?: 'public' | 'private' }
+  | { version: 2; type: 'consult'; targetAgentIds: string[]; objective: string; reason: string; join: 'all' | 'any'; visibility?: 'public' | 'private' }
   | { version: 2; type: 'hold'; wake: RuntimeWakeCondition; reason: string }
   | { version: 2; type: 'cancel'; reason: string };
 
@@ -148,6 +148,8 @@ export interface CollaborationBudgetSnapshot {
   dispatches: { used: number; initialLimit: number; currentLimit: number };
   tokens: { used: number; initialLimit: number; currentLimit: number };
   costUsd: { used: number; initialLimit: number; currentLimit: number };
+  /** used 始终为已报告的消耗；未知调用不是零成本。 */
+  usageCoverage?: { unknownTokenCalls: number; unknownCostCalls: number; pendingNativeCalls: number };
   durationMs: { used: number; initialLimit: number; currentLimit: number };
   cumulativeMultiplier: number;
   maxMultiplier: number;

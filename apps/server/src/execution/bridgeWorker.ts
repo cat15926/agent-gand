@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, CallToolResultSchema, ListToolsResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { diagnostic } from './errors.ts';
 
 // This process has no database access and cannot choose a Run, Agent or Attempt.
 const url = process.env.AGENT_GAND_BRIDGE_URL;
@@ -11,7 +12,11 @@ async function callback(path: string, body?: unknown) {
   const response = await fetch(url + path, { method: body === undefined ? 'GET' : 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), redirect: 'error' });
-  if (!response.ok) throw new Error(`执行桥已拒绝请求 (${response.status})`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: unknown } | null;
+    const reason = typeof payload?.error === 'string' ? diagnostic(payload.error, 2000) : '';
+    throw new Error(`执行桥已拒绝请求 (${response.status})${reason ? `：${reason}` : ''}`);
+  }
   return response.json();
 }
 const server = new Server({ name: 'agent-gand-runtime', version: '1.0.0' }, { capabilities: { tools: {} } });

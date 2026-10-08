@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentDefinition, Conversation, Message, OrchestrationPreview, OrchestrationPreviewInput, OrchestrationSource, Run, RunMode, RunOrchestrationSnapshot } from '@agent-gand/shared';
+import { isMessageVisibleTo, type MessageAccess, type AgentDefinition, type Conversation, type Message, type OrchestrationPreview, type OrchestrationPreviewInput, type OrchestrationSource, type Run, type RunMode, type RunOrchestrationSnapshot } from '@agent-gand/shared';
 import { getAnyAgent, getAgent } from '../agents/registry.ts';
 import { getConversation, createConversation, nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { compileCoordinationPlan } from '../coordination/service.ts';
@@ -47,6 +47,18 @@ function verifyReferences(request: OrchestrationPreview['request']): string | nu
     if (!task?.runId || getRun(task.runId)?.conversationId !== request.conversationId) throw new OrchestrationError(400, 'INVALID_TASK', 'taskId 不属于当前聊天室');
   }
   return replied?.kind === 'agent' ? replied.from : null;
+}
+
+/** 私密追问只进入具备逐成员上下文隔离的执行入口。 */
+export function replyMessageAccess(request: OrchestrationPreview['request'], engine: string, targets: string[]): MessageAccess {
+  const reply = request.replyTo && request.conversationId
+    ? listByConversation(request.conversationId).find(message => message.id === request.replyTo) : undefined;
+  if (reply?.visibility !== 'private') return { visibility: 'public', audience: [] };
+  if (engine !== 'collaboration') throw new OrchestrationError(400, 'PRIVATE_REPLY_UNSUPPORTED', '私密追问请使用开放协作入口；当前工作流使用团队共享上下文');
+  if (!targets.length || targets.some(id => !isMessageVisibleTo(reply, id))) {
+    throw new OrchestrationError(400, 'PRIVATE_REPLY_TARGET', '追问成员不在原私密消息的可见范围内，请选择已授权成员');
+  }
+  return { visibility: 'private', audience: (reply.audience ?? []).filter(id => id === 'user' || request.agentIds.includes(id)) };
 }
 
 /** Recomputed under the submission transaction. No planner, driver or dispatch is called. */
@@ -139,6 +151,7 @@ export function submitLegacyOrchestration(source: SubmissionSource, value: unkno
       requestedProtocol: draft?.protocols[0]?.protocol ?? null, followupRouting: body.followupRouting === 'room_mode' ? 'room_mode' : null });
     if (body.orchestrationFingerprint && body.orchestrationFingerprint !== prepared.fingerprint) throw new OrchestrationError(409, 'PREVIEW_STALE', '任务、成员、账户或工作区已变化，请重新预览');
     const request = prepared.request;
+    replyMessageAccess(request, request.legacy.mode, prepared.decision.targetIds);
     if (request.recipientIds.length > config.collaboration.maxTargets || (source === 'room_create' && body.recipientIds !== undefined && !request.recipientIds.length)) throw new OrchestrationError(400, 'INVALID_TARGETS', `recipientIds 必须包含${source === 'room_create' ? ' 1～' : '不超过 '}${config.collaboration.maxTargets} 位聊天室成员`);
     if (request.wholeTeam && (!draft || request.legacy.followupRouting || request.recipientIds.length || request.replyTo)) throw new OrchestrationError(400, 'WHOLE_TEAM_CONFLICT', '全队处理必须绑定计划且不能定向成员');
     if (draft) {
@@ -156,6 +169,7 @@ export function submitLegacyOrchestration(source: SubmissionSource, value: unkno
       supervisorId: team.effectiveSupervisorId, defaultReviewerId: team.effectiveReviewerId, workspace: request.workspace, stableWorkspace: source === 'room_create' });
     const run = createRun(request.goal, request.legacy.mode, request.agentIds, room.workspace, team.effectiveSupervisorId, room.id, nextTurnNo(room.id), team.effectiveReviewerId);
     const message = post({ runId: run.id, from: 'user', to: request.recipientIds.join(',') || 'all', kind: 'user', body: request.goal,
+      ...replyMessageAccess(request, request.legacy.mode, prepared.decision.targetIds),
       replyTo: request.replyTo, taskId: request.taskId, clientMessageId: request.clientRequestId ?? `submission:${run.id}:user`, deliveryStatus: 'queued',
       meta: { orchestrationSource: source, ...(request.legacy.followupRouting ? { followupRouting: request.legacy.followupRouting } : {}), ...(request.wholeTeam ? { wholeTeam: true } : {}) } });
     const plan = draft ? compileCoordinationPlan(draft.id, run.id, request.goal, request.agentIds.map(id => getAnyAgent(id)!)) : null;

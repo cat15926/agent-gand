@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
+import { intersectMessageAccess, isMessageWithinScope } from '@agent-gand/shared';
 import type {
   RuntimeHandoffCapsule,
   RuntimeHandoffCapsuleV1,
   RuntimeHandoffCapsuleV2,
 } from '@agent-gand/shared';
 import { get, run, tx } from '../db/database.ts';
-import { createEvidenceBundle, resolveEvidence, runtimeEvidenceBundleVersion } from './evidence.ts';
+import { assertMessageAccess, attemptAccess, messageAccess } from '../messaging/access.ts';
+import { createEvidenceBundle, evidenceAccess, resolveEvidence, runtimeEvidenceBundleVersion } from './evidence.ts';
 
 interface CapsuleRow { version: number; payload: string; }
 interface ObligationRefRow {
@@ -41,10 +43,12 @@ function parseHandoffCapsule(payload: string): RuntimeHandoffCapsule {
   return parsed as RuntimeHandoffCapsule;
 }
 
-export function latestHandoffCapsule(dispatchId: string, runId: string): RuntimeHandoffCapsule | null {
+export function latestHandoffCapsule(dispatchId: string, runId: string, viewerId = 'user'): RuntimeHandoffCapsule | null {
   const row = get<CapsuleRow>('SELECT version,payload FROM runtime_handoff_capsules WHERE dispatch_id=? AND run_id=? ORDER BY version DESC LIMIT 1', dispatchId, runId);
   if (!row) return null;
   const capsule = parseHandoffCapsule(row.payload);
+  assertMessageAccess(intersectMessageAccess([attemptAccess(capsule.sourceAttemptId),
+    ...capsule.evidenceRefs.map(ref => evidenceAccess(ref, runId))]), viewerId, '交接 Capsule');
   validateSuccessorObligationRefs(capsule);
   return capsule;
 }
@@ -72,16 +76,22 @@ function validateSuccessorObligationRefs(capsule: RuntimeHandoffCapsule): void {
 /** 同一 Dispatch 的修订只能追加版本；重试同版本必须内容相同。 */
 export function saveHandoffCapsule(capsule: RuntimeHandoffCapsule): RuntimeHandoffCapsule {
   return tx(() => {
-    const dispatch = get<{ run_id: string; parent_dispatch_id: string | null; kind: string }>(
-      'SELECT run_id,parent_dispatch_id,kind FROM collaboration_dispatches WHERE id=?', capsule.dispatchId);
+    const dispatch = get<{ run_id: string; parent_dispatch_id: string | null; kind: string; target_agent_id: string; source_message_id: string }>(
+      'SELECT run_id,parent_dispatch_id,kind,target_agent_id,source_message_id FROM collaboration_dispatches WHERE id=?', capsule.dispatchId);
     const source = get<{ run_id: string; dispatch_id: string; status: string }>(
       'SELECT run_id,dispatch_id,status FROM collaboration_attempts WHERE id=?', capsule.sourceAttemptId);
     if (!dispatch || dispatch.run_id !== capsule.runId || dispatch.kind !== 'handoff' || dispatch.parent_dispatch_id !== capsule.sourceDispatchId
       || !source || source.run_id !== capsule.runId || source.dispatch_id !== capsule.sourceDispatchId || source.status !== 'completed') {
       throw new Error('Capsule 来源 Dispatch/Attempt 无效或尚未完成');
     }
-    if (capsule.evidenceRefs.length > 12 || capsule.evidenceRefs.some((ref) => !resolveEvidence(capsule.runId, ref).trusted)) {
+    assertMessageAccess(attemptAccess(capsule.sourceAttemptId), dispatch.target_agent_id, '交接 Capsule');
+    if (capsule.evidenceRefs.length > 12 || capsule.evidenceRefs.some((ref) => !resolveEvidence(capsule.runId, ref, dispatch.target_agent_id).trusted)) {
       throw new Error('Capsule 含无效、跨 Run 或未完成的证据引用');
+    }
+    const capsuleAccess = intersectMessageAccess([attemptAccess(capsule.sourceAttemptId),
+      ...capsule.evidenceRefs.map(ref => evidenceAccess(ref, capsule.runId))]);
+    if (!isMessageWithinScope(capsuleAccess, messageAccess(dispatch.source_message_id))) {
+      throw new Error('Capsule 可见范围与交接任务不匹配；私密来源不能带入公开或更广范围的任务');
     }
     validateSuccessorObligationRefs(capsule);
     const subject = get<{ subject_id: string }>('SELECT subject_id FROM runtime_dispatch_subjects WHERE dispatch_id=?', capsule.dispatchId);

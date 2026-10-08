@@ -31,7 +31,8 @@ export async function enterMember(input: { runId: string; agentId: string; attem
     if (input.signal.aborted || !input.authorized()) {
       run("UPDATE execution_member_tickets SET status='cancelled',finished_at=? WHERE ticket_key=? AND status='waiting'",
         new Date().toISOString(), key);
-      throw new ExecutionError('cancelled', '排队任务已停止或失去执行权限');
+      throw input.signal.aborted && input.signal.reason instanceof ExecutionError ? input.signal.reason
+        : new ExecutionError('cancelled', '排队任务已停止或失去执行权限');
     }
     const acquired = tx(() => {
       // Terminal queued tasks never block the next member request.

@@ -1,8 +1,8 @@
-import type { ExecutionErrorCode } from '@agent-gand/shared';
+import type { ExecutionErrorCode, ExecutionFailureDetails } from '@agent-gand/shared';
 import { redactSecrets } from '../accounts/secrets.ts';
 
 export class ExecutionError extends Error {
-  constructor(public code: ExecutionErrorCode, message: string) { super(message); }
+  constructor(public code: ExecutionErrorCode, message: string, public details?: ExecutionFailureDetails) { super(message); }
 }
 
 /** Diagnostics are bounded and never retain auth tokens printed by a CLI. */

@@ -75,7 +75,7 @@ export async function ensureIsolatedWorkspace(current: Run, signal: AbortSignal 
   try { return await promise; } finally { preparing.delete(current.id); }
 }
 async function prepare(current: Run, members: any[], signal: AbortSignal): Promise<ExternalWorkspaceBinding> {
-  const check = () => { if (signal.aborted) throw new ExecutionError('cancelled', '隔离工作区准备已停止'); };
+  const check = () => { if (signal.aborted) throw signal.reason instanceof ExecutionError ? signal.reason : new ExecutionError('cancelled', '隔离工作区准备已停止'); };
   check();
   const sourceRoot = await realpath(getExternalByIdOrThrow(current.workspace!.slice(4)).absPath);
   const conversationSession = members.some((member) => member.execution?.sessionPolicy === 'conversation');

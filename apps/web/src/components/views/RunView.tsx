@@ -32,6 +32,8 @@ function belongsToSameVisualGroup(previous: Message | undefined, current: Messag
   return previous.from === current.from &&
     previous.runId === current.runId &&
     previous.messageType === current.messageType &&
+    previous.visibility === current.visibility &&
+    JSON.stringify(previous.audience ?? []) === JSON.stringify(current.audience ?? []) &&
     previous.taskId === current.taskId &&
     new Date(current.createdAt).getTime() - new Date(previous.createdAt).getTime() <= 90_000;
 }
@@ -140,7 +142,7 @@ function MessageItem({
     }
   }
   if (message.kind === 'system' || message.kind === 'tool') return <div id={`message-${message.id}`} data-read-anchor className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400" open={Boolean(decision)}>
-    <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'} · {message.body.slice(0, 90)}</summary>
+    <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'}{message.visibility === 'private' ? ' · 私密' : ''} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-xs text-zinc-400">{message.body}</pre>
   </details>{decision && <DecisionCard decision={decision} />}</div>;
 
@@ -148,6 +150,7 @@ function MessageItem({
     <span className="font-medium" style={{ color: mine ? '#c4b5fd' : (author?.color ?? '#d4d4d8') }}>{mine ? '你' : (author?.name ?? message.from)}</span>
     {!mine && <span className="hidden text-zinc-400 sm:inline">Agent</span>}
     <span className="text-zinc-400">→ {agentName(message.to, state.agents)}</span>
+    {message.visibility === 'private' && <span title="仅授权参与成员和你可见" className="rounded-full bg-violet-500/15 px-2 py-0.5 text-violet-300">私密</span>}
     {message.messageType !== 'informational' && <span className={`rounded-full px-2 py-0.5 ${isReview ? 'bg-amber-500/15 text-amber-300' : 'bg-zinc-800 text-zinc-400'}`}>{TYPE_LABEL[message.messageType]}</span>}
     {message.taskId && <span className="hidden rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-300 sm:inline">任务 {message.taskId.slice(0, 6)}</span>}
   </>;

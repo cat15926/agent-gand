@@ -1,4 +1,4 @@
-import type { CollaborationStoredControlAction, RuntimeControlActionVersion } from '@agent-gand/shared';
+import { isMessageVisibleTo, type MessageAccess, type CollaborationStoredControlAction, type RuntimeControlActionVersion } from '@agent-gand/shared';
 import type { LlmToolCall, LlmToolSchema } from '../llm/provider.ts';
 import { config } from '../config.ts';
 
@@ -78,12 +78,15 @@ const CONSULT_TOOL_V2_ANY: LlmToolSchema = {
 };
 
 export function collaborationControlTools(toolApiVersion: 1 | 2,
-  options: { externalWaitVersion?: 1 | null; consultAnyVersion?: 1 | null } = {}): LlmToolSchema[] {
+  options: { externalWaitVersion?: 1 | null; consultAnyVersion?: 1 | null; messageVisibilityVersion?: 1 | null } = {}): LlmToolSchema[] {
   if (toolApiVersion !== 2) throw new Error('Tool API v1 的模型工具暴露已退役');
   return COLLABORATION_CONTROL_TOOLS_V2.map((tool) => {
-    if (tool.name === 'agent.hold' && options.externalWaitVersion === 1) return HOLD_TOOL_V2_EXTERNAL_WAIT;
-    if (tool.name === 'agent.consult' && options.consultAnyVersion === 1) return CONSULT_TOOL_V2_ANY;
-    return tool;
+    const selected = tool.name === 'agent.hold' && options.externalWaitVersion === 1 ? HOLD_TOOL_V2_EXTERNAL_WAIT
+      : tool.name === 'agent.consult' && options.consultAnyVersion === 1 ? CONSULT_TOOL_V2_ANY : tool;
+    if (!options.messageVisibilityVersion || !['agent.consult', 'agent.handoff'].includes(selected.name)) return selected;
+    return { ...selected, description: selected.description + ' 默认公开；含身份、秘密或仅限收件者的信息时必须选择 visibility=private。私密内容仅参与成员与房间所有者可见。',
+      parameters: { ...selected.parameters, properties: { ...(selected.parameters.properties as Record<string, unknown>),
+        visibility: { type: 'string', enum: ['public', 'private'], description: 'public 为公开定向任务；private 为私密投递，回复与汇总继承可见范围。' } } } };
   });
 }
 
@@ -120,10 +123,23 @@ function futureTimestamp(now: string | undefined, delaySeconds: number): string 
 export function parseControlCall(call: LlmToolCall, memberIds: string[], senderId: string,
   version: RuntimeControlActionVersion = 2,
   options: { externalWaitVersion?: 1 | null; consultAnyVersion?: 1 | null; now?: string;
+    messageVisibilityVersion?: 1 | null;
+    messageAccess?: MessageAccess;
     historicalAlias?: boolean } = {}): CollaborationStoredControlAction {
   if (version === 2 && ['agent.send_message', 'agent.ask_many', 'agent.wait_for_user'].includes(call.name)
     && !options.historicalAlias) throw new Error(`旧协作工具别名已退役: ${call.name}`);
   const input = objectInput(call); const members = new Set(memberIds);
+  if (input.visibility !== undefined && (!options.messageVisibilityVersion || !['public', 'private'].includes(String(input.visibility)))) {
+    throw new Error('当前 Run 的消息可见性参数无效或尚未启用');
+  }
+  const visibility = input.visibility === undefined ? {} : { visibility: input.visibility as 'public' | 'private' };
+  const validateRecipientAccess = (targets: string[]) => {
+    if (!options.messageAccess || options.messageAccess.visibility !== 'private') return;
+    if (input.visibility === 'public') throw new Error('私密来源不能改为公开投递，请由所有者提供授权摘要');
+    if (targets.some(target => !isMessageVisibleTo(options.messageAccess!, target))) {
+      throw new Error('私密来源不在目标成员的可见范围内，即使再次声明 private 也不能扩大授权');
+    }
+  };
   if (call.name === 'agent.complete') {
     const summary = text(input.summary, 'summary');
     return version === 1 ? { type: 'finish' } : { version: 2, type: 'complete', summary };
@@ -131,17 +147,19 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
   if (call.name === 'agent.send_message' || call.name === 'agent.handoff') {
     const targetAgentId = member(input.target, members, 'target');
     if (targetAgentId === senderId) throw new Error('不能把工作交给自己');
+    validateRecipientAccess([targetAgentId]);
     const objective = text(call.name === 'agent.handoff' ? input.objective : input.message,
       call.name === 'agent.handoff' ? 'objective' : 'message');
     const reason = text(input.reason, 'reason', 1_000);
     return version === 1
       ? { type: 'handoff', targetAgentId, message: objective, reason }
-      : { version: 2, type: 'handoff', targetAgentId, objective, reason };
+      : { version: 2, type: 'handoff', targetAgentId, objective, reason, ...visibility };
   }
   if (call.name === 'agent.ask_many' || call.name === 'agent.consult') {
     if (!Array.isArray(input.targets)) throw new Error('targets 必须是数组');
     const targetAgentIds = [...new Set(input.targets.map((id) => member(id, members, 'targets')))].filter((id) => id !== senderId);
     if (targetAgentIds.length === 0 || targetAgentIds.length > config.collaboration.maxTargets) throw new Error(`targets 必须包含 1～${config.collaboration.maxTargets} 位其他成员`);
+    validateRecipientAccess(targetAgentIds);
     const objective = text(call.name === 'agent.consult' ? input.objective : input.question,
       call.name === 'agent.consult' ? 'objective' : 'question');
     const reason = text(input.reason, 'reason', 1_000);
@@ -152,7 +170,7 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
     }
     return version === 1
       ? { type: 'ask_many', targetAgentIds, question: objective, reason }
-      : { version: 2, type: 'consult', targetAgentIds, objective, reason, join };
+      : { version: 2, type: 'consult', targetAgentIds, objective, reason, join, ...visibility };
   }
   if (call.name === 'agent.wait_for_user' || call.name === 'agent.hold') {
     const reason = text(input.reason, 'reason', 1_000);

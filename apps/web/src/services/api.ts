@@ -14,6 +14,7 @@ import type {
   Message,
   ConversationHistoryPage, ConversationMessageSearch,
   Run,
+  RunRecoveryAssessment,
   RunEvent,
   Task,
   TaskAttempt,
@@ -114,7 +115,7 @@ export const getConversations = () => request<Conversation[]>('/api/conversation
 export interface OrchestrationAdmission { entryMode: 'execute' | 'preview' | 'closed'; legacyEntryEnabled: boolean; enabledWorkflows: RoomPreferences['workflow'][]; enabledDrivers: string[]; existingRunsContinue: true }
 export const getOrchestrationOptions = () => request<{ admission: OrchestrationAdmission }>('/api/orchestration/options');
 export interface MemberReservation { runId: string; agentId: string; attemptId: string | null; status: string; position: number }
-export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[] }
+export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment }
 export const previewOrchestration = (input: OrchestrationPreviewInput) => request<OrchestrationPreview>('/api/orchestration/preview', { method: 'POST', body: JSON.stringify(input) });
 export const createEmptyRoom = (input: { title: string; agentIds: string[]; workspace: string | null; preferences: RoomPreferences }) => request<{ conversation: Conversation }>('/api/conversations/empty', { method: 'POST', body: JSON.stringify(input) });
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
@@ -128,6 +129,9 @@ export async function getTaskStates(id: string, runIds?: string[]) {
 function runChunks(ids: string[]): string[][] { return Array.from({length:Math.ceil(ids.length/100)},(_,i) => ids.slice(i*100,(i+1)*100)); }
 export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
+export interface ContinuationPreview { assessment: RunRecoveryAssessment; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; excerpt: string; truncated: boolean }> } }
+export const previewRunContinuation = (id: string) => request<ContinuationPreview>(`/api/runs/${encodeURIComponent(id)}/continuation-preview`, { method: 'POST' });
+export const continueRun = (id: string, preview: OrchestrationPreview) => request<{ run: Run; deduplicated: boolean }>(`/api/runs/${encodeURIComponent(id)}/continuations`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint }) });
 export const reviseTaskPlan = (id: string, preview: OrchestrationPreview, instruction: string) => request<{ plan: CoordinationPlan }>(`/api/runs/${encodeURIComponent(id)}/orchestration/revisions`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint, instruction }) });
 export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });

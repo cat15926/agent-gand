@@ -7,7 +7,7 @@ import { cleanEnvironment, protectedEnvironmentNames } from '../accounts/environ
 
 export interface SdkWorkerInput {
   cwd: string; model: string; instructions: string; prompt: string; permissionMode: PermissionMode; nativeTools: string[];
-  bridge?: BridgeLaunch; controlOnly?: boolean; connectionTest?: boolean; correctionMaxTokens?: number;
+  bridge?: BridgeLaunch; controlOnly?: boolean; privateContext?: boolean; connectionTest?: boolean; correctionMaxTokens?: number;
   session?: NativeSessionInput;
 }
 
@@ -21,7 +21,7 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
   return {
     cwd: input.cwd, ...(input.model === 'default' ? {} : { model: input.model }),
     systemPrompt: { type: 'preset', preset: 'claude_code', append: input.instructions },
-    tools: input.controlOnly ? [] : input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'],
+    tools: input.controlOnly || input.privateContext ? [] : input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'],
     allowedTools: input.bridge?.toolNames.map((name) => `mcp__agent_gand__${name}`) ?? [], disallowedTools: input.bridge ? [] : ['mcp__*'], permissionMode: 'default',
     settingSources: [], mcpServers: input.bridge ? { agent_gand: { command: input.bridge.command, args: input.bridge.args, env: { ...cleanEnvironment() as Record<string, string>, ...Object.fromEntries(protectedEnvironmentNames.map((name) => [name, ''])), ...input.bridge.env } } } : {}, strictMcpConfig: true, plugins: [],
     env: { ...process.env, ENABLE_TOOL_SEARCH: 'false', ...(input.controlOnly ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.correctionMaxTokens ?? 2048) } : {}) },

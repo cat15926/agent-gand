@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { intersectMessageAccess } from '@agent-gand/shared';
+import { assertMessageAccess, attemptAccess, messageAccess } from '../messaging/access.ts';
 import type {
   AgentDefinition,
   CollaborationDispatch,
@@ -83,6 +85,7 @@ import {
 } from '../runtime/holds.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
 import { commitRunTerminal } from '../runtime/terminal.ts';
+import { continuationRouteBlock } from '../runtime/recovery.ts';
 import {
   commitCompleteActionCommand,
   commitConsultAnyActionCommand,
@@ -98,6 +101,7 @@ import {
   runtimeOwnsCompletion,
   runtimeStateEnabled,
   assertExecutableCollaborationPolicy,
+  loadRuntimeContract,
 } from '../runtime/runPolicy.ts';
 
 const leaseOwner = `server:${process.pid}:${randomUUID()}`;
@@ -160,6 +164,7 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
   }
   const executionPolicy = executionPolicyForProfile('execute');
   const targets = initialTargets(run, conversation, input, userMessage.id);
+  for (const target of targets) assertMessageAccess(messageAccess(userMessage.id), target, '初始任务');
   if (targets.length === 0) {
     commitRunTerminal({ runId: run.id, status: 'failed', disposition: 'failed',
       source: 'collaboration_admission', userMessageStatus: 'failed', prepare: () => ({
@@ -178,7 +183,7 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
         correctionMaxTokens: config.collaboration.exitGuardCorrectionMaxTokens },
       completionCandidateVersion: 1, successorObligationVersion: 1,
       evidenceBundleVersion: 1, evidenceLoopGuardVersion: 1, contextContributorVersion: 1,
-      durableHoldVersion: 2, externalWaitVersion: 1, consultAnyVersion: 1, progressDigestVersion: 1 });
+      durableHoldVersion: 2, externalWaitVersion: 1, consultAnyVersion: 1, progressDigestVersion: 1, messageVisibilityVersion: 1 });
     freezeRuntimeContract(planned.contract);
     const initialDispatches = targets.map((target) => createDispatch({
       runId: run.id, conversationId: conversation.id, sourceMessageId: userMessage.id,
@@ -364,9 +369,9 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
   const rootSpan = ensureCollaborationSpan(run);
   const dispatchSpan = startSpan(run.id, { parentId: rootSpan.id, spanKind: 'orchestration', name: `dispatch:${dispatch.id}`,
     input: JSON.stringify({ dispatchId: dispatch.id, sourceMessageId: dispatch.sourceMessageId, parentDispatchId: dispatch.parentDispatchId, targetAgentId: agent.id, depth: dispatch.depth, budget: budgetSnapshot(run.id) }),
-    attributes: { 'agent.id': agent.id, 'collaboration.dispatch.id': dispatch.id, ...(dispatch.batchId ? { 'collaboration.batch.id': dispatch.batchId } : {}), 'orchestration.phase': 'collaboration.dispatch' } });
+    attributes: { 'agent.id': agent.id, 'collaboration.dispatch.id': dispatch.id, 'collaboration.attempt.id': attemptId, ...(dispatch.batchId ? { 'collaboration.batch.id': dispatch.batchId } : {}), 'orchestration.phase': 'collaboration.dispatch' } });
   const agentSpan = startSpan(run.id, { parentId: dispatchSpan.id, spanKind: 'agent', name: `agent:${agent.id}`, input: JSON.stringify({ dispatchId: dispatch.id, sourceMessageId: dispatch.sourceMessageId, depth: dispatch.depth, budget: budgetSnapshot(run.id) }),
-    attributes: { 'agent.id': agent.id, 'agent.role': 'collaborator', 'collaboration.dispatch.id': dispatch.id,
+    attributes: { 'agent.id': agent.id, 'agent.role': 'collaborator', 'collaboration.dispatch.id': dispatch.id, 'collaboration.attempt.id': attemptId,
       ...(dispatch.batchId ? { 'collaboration.batch.id': dispatch.batchId } : {}), 'orchestration.phase': 'collaboration.dispatch' } });
   let controlSpan: ReturnType<typeof startSpan> | null = null;
   try {
@@ -374,13 +379,16 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     const guardPolicy = runtimeExitGuardPolicy(run.id);
     const externalWaitVersion = runtimeExternalWaitVersion(run.id);
     const consultAnyVersion = runtimeConsultAnyVersion(run.id);
-    const controlTools = collaborationControlTools(runtimePolicy.toolApiVersion, { externalWaitVersion, consultAnyVersion });
+    const messageVisibilityVersion = loadRuntimeContract(run.id)?.features?.messageVisibilityVersion ?? null;
+    const controlTools = collaborationControlTools(runtimePolicy.toolApiVersion, { externalWaitVersion, consultAnyVersion, messageVisibilityVersion });
+    const privateContext = attemptAccess(attemptId).visibility === 'private';
     const turn = await runAgentTurn({ run, agent, parentSpanId: agentSpan.id, agentId: agent.id, attemptId,
+      privateContext, disableTools: privateContext,
       executionScopeId: `collaboration:${dispatch.id}`,
       messages: [{ role: 'system', content: agent.systemPrompt }, { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE }, { role: 'user', content: inputContext }],
       controlTools,
       handleControlCalls: (calls) => parseControlCall(calls[0]!, run.agentIds, agent.id, actionVersion,
-        { externalWaitVersion, consultAnyVersion }),
+        { externalWaitVersion, consultAnyVersion, messageVisibilityVersion, messageAccess: attemptAccess(attemptId) }),
       ...(guardPolicy ? {
         exitCorrectionMaxTokens: guardPolicy.correctionMaxTokens,
         reviewExit: (candidate: AgentTurnResult, correctionAttempt: number) => {
@@ -493,7 +501,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
           const reason = `SUBJECT_COMPLETION_${localCandidateDecision.evaluation.status.toUpperCase()}: ${localCandidateDecision.evaluation.reasons.join(', ')}`;
           finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: willRetry ? 'queued' : 'blocked',
             output, action: normalized.storedAction, error: reason });
-          postSystem(run.id, agent.id, localCandidateDecision.evaluation.feedback);
+          post({ runId: run.id, from: 'system', to: agent.id, kind: 'system', body: localCandidateDecision.evaluation.feedback, ...attemptAccess(attemptId) });
           if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
           finalizeRun(run.id);
           return { candidateDecision: localCandidateDecision, applied: localApplied };
@@ -516,6 +524,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
         const contribution = post({
           runId: run.id, from: agent.id, to: dispatch.from, kind: 'agent', messageType: 'collaboration_contribution',
           body: output, replyTo: dispatch.sourceMessageId,
+          ...attemptAccess(attemptId),
           meta: { dispatchId: dispatch.id, batchId: dispatch.batchId, attemptId },
           clientMessageId: `collaboration:fanout:${dispatch.id}:contribution`,
         });
@@ -632,12 +641,13 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
       finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: blocked ? 'blocked' : 'failed', error: message });
       if (blocked && err.preservedOutput?.trim()) {
         post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+          ...attemptAccess(attemptId),
           body: err.preservedOutput.trim(), clientMessageId: `collaboration:guard:${attemptId}:preserved-output`,
           meta: { dispatchId: dispatch.id, attemptId, guard: err.code,
             ...(err.routeGuard ? { routeGuardEventId: err.routeGuard.id,
               evidenceFingerprint: err.routeGuard.evidenceFingerprint, repeatedCount: err.routeGuard.repeatedCount } : {}) } });
       }
-      postSystem(run.id, agent.id, `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`);
+      post({ runId: run.id, from: 'system', to: agent.id, kind: 'system', body: `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`, ...attemptAccess(attemptId) });
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
       observeTerminalInterruption(dispatch.id, attemptId, agent.id);
@@ -701,6 +711,13 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     return emptyActionResult();
   }
   if (action.type === 'handoff') {
+    const continuationBlock = continuationRouteBlock(run.id, [action.targetAgentId], action.objective);
+    if (continuationBlock) throw new CollaborationGuardError(continuationBlock, 'action');
+    const inheritedAccess = attemptAccess(attemptId);
+    if (action.visibility === 'public' && inheritedAccess.visibility === 'private') {
+      throw new CollaborationGuardError('私密上下文不能直接扩大为公开交接；请由房间所有者创建公开任务', 'action');
+    }
+    assertMessageAccess(inheritedAccess, action.targetAgentId, '交接来源');
     if (!guardRoute(run, dispatch, [action.targetAgentId], action.objective)) return emptyActionResult();
     const debateRounds = requestedDebateRounds(run, action.objective);
     const pingPongBlock = debateRounds === null ? config.collaboration.pingPongBlock : Math.max(config.collaboration.pingPongBlock, debateRounds * 2 + 3);
@@ -722,6 +739,7 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
       if (streak >= pingPongWarn) postSystem(run.id, action.targetAgentId, '提示：检测到多次连续交接，请确认是否已有足够信息完成当前事项。');
     }
     const message = post({ runId: run.id, from: agent.id, to: action.targetAgentId, kind: 'agent', messageType: 'collaboration_handoff',
+      ...(inheritedAccess.visibility === 'private' ? inheritedAccess : { visibility: action.visibility ?? 'public' }),
       body: action.objective, meta: { dispatchId: dispatch.id, routeFrom: agent.id, routeTo: [action.targetAgentId], reason: action.reason } });
     const created = createDispatchDetailed({ runId: run.id, conversationId: run.conversationId, sourceMessageId: message.id, parentDispatchId: dispatch.id,
       kind: 'handoff', from: agent.id, targetAgentId: action.targetAgentId, reason: action.reason, depth: dispatch.depth + 1,
@@ -729,11 +747,22 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     return { ...emptyActionResult(), outputMessageId: message.id, childDispatchIds: [created.dispatch.id], deduplicatedTo: created.deduplicatedTo };
   }
   if (action.type === 'consult') {
+    const continuationBlock = continuationRouteBlock(run.id, action.targetAgentIds, action.objective);
+    if (continuationBlock) throw new CollaborationGuardError(continuationBlock, 'action');
+    const inheritedAccess = attemptAccess(attemptId);
+    if (action.visibility === 'public' && inheritedAccess.visibility === 'private') {
+      throw new CollaborationGuardError('私密上下文不能直接扩大为公开投递；请由房间所有者发布公开摘要或启动无私密来源的任务', 'action');
+    }
+    for (const target of action.targetAgentIds) assertMessageAccess(inheritedAccess, target, '咨询来源');
+    const consultationAccess = inheritedAccess.visibility === 'private'
+      ? intersectMessageAccess([inheritedAccess, { visibility: 'private', audience: ['user', agent.id, ...action.targetAgentIds] }])
+      : { visibility: action.visibility ?? 'public' as const };
     if (action.join === 'any' && runtimeConsultAnyVersion(run.id) !== 1) {
       throw new CollaborationGuardError('当前 Run 尚未启用 consult join=any', 'action');
     }
     if (!guardRoute(run, dispatch, action.targetAgentIds, action.objective)) return emptyActionResult();
     const message = post({ runId: run.id, from: agent.id, to: action.targetAgentIds.join(','), kind: 'agent', messageType: 'collaboration_question',
+      ...consultationAccess,
       body: action.objective, meta: { dispatchId: dispatch.id, routeFrom: agent.id, routeTo: action.targetAgentIds, reason: action.reason } });
     const batch = createBatch({ runId: run.id, conversationId: run.conversationId, initiatorAgentId: agent.id,
       sourceDispatchId: dispatch.id, question: action.objective, targetAgentIds: action.targetAgentIds,
@@ -747,12 +776,14 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
   }
   if (action.type === 'hold' && action.wake.kind === 'timer') {
     const message = post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+      ...attemptAccess(attemptId),
       body: `当前责任已暂停，将在 ${action.wake.wakeAt} 自动恢复。`,
       meta: { dispatchId: dispatch.id, reason: action.reason, holdKind: 'timer', wakeAt: action.wake.wakeAt } });
     return { ...emptyActionResult(), outputMessageId: message.id };
   }
   if (action.type === 'hold' && action.wake.kind === 'dependency') {
     const message = post({ runId: run.id, from: agent.id, to: 'all', kind: 'agent', messageType: 'informational',
+      ...attemptAccess(attemptId),
       body: `当前责任已暂停，等待 ${action.wake.targetAgentIds.join('、')} 的同 Run 责任按 ${action.wake.policy} 策略完成；最晚等待至 ${action.wake.timeoutAt}。`,
       meta: { dispatchId: dispatch.id, reason: action.reason, holdKind: 'dependency',
         targets: action.wake.targetAgentIds, policy: action.wake.policy, timeoutAt: action.wake.timeoutAt } });
@@ -761,6 +792,7 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
   if (action.type === 'hold' && action.wake.kind === 'user_decision'
     && action.wake.decisionKind === 'agent_question') {
     const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_wait_user',
+      ...attemptAccess(attemptId),
       body: action.wake.prompt, meta: { dispatchId: dispatch.id, reason: action.reason }, payload: { decisionKind: 'agent_question' } });
     const decision = createDecision({ runId: run.id, conversationId: run.conversationId, dispatchId: dispatch.id,
       idempotencyKey: `question:${dispatch.id}`, kind: 'agent_question', promptMessageId: message.id,
@@ -775,6 +807,7 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
   }
   const proposal = action.wake.proposal;
   const message = post({ runId: run.id, from: agent.id, to: 'user', kind: 'agent', messageType: 'collaboration_task_proposal',
+    ...attemptAccess(attemptId),
     body: `${proposal.title}\n\n${proposal.goal}`, meta: { dispatchId: dispatch.id, reason: action.reason },
     payload: { decisionKind: 'supervisor_task_proposal', proposal } });
   const decision = createDecision({ runId: run.id, conversationId: run.conversationId, dispatchId: dispatch.id,
@@ -807,7 +840,15 @@ function maybeCompleteBatch(batchId: string): void {
         resolutionSourceId: `consult-any-exhausted:${batch.id}:g${batch.generation}`,
         resolution: { reason: batch.status === 'timeout' ? 'timeout' : 'all_candidates_failed', generation: batch.generation } });
     }
-    const source = post({ runId: currentRun.id, from: 'system', to: batch.initiatorAgentId, kind: 'system',
+    const aggregateAccess = intersectMessageAccess(resultChildren.flatMap(child => [
+      messageAccess(child.sourceMessageId), ...(child.outputMessageId ? [messageAccess(child.outputMessageId)] : []),
+      ...all<{ id: string }>('SELECT id FROM collaboration_attempts WHERE dispatch_id=? ORDER BY attempt_no DESC LIMIT 1', child.id).map(attempt => attemptAccess(attempt.id)),
+    ]));
+    if (aggregateAccess.visibility === 'private') aggregateAccess.audience = aggregateAccess.audience.filter(id => id === 'user' || id === batch.initiatorAgentId);
+    const aggregateRecipient = aggregateAccess.visibility === 'private' && !aggregateAccess.audience.includes(batch.initiatorAgentId)
+      ? 'user' : batch.initiatorAgentId;
+    const source = post({ runId: currentRun.id, from: 'system', to: aggregateRecipient, kind: 'system',
+      ...aggregateAccess,
       messageType: 'collaboration_routing', body: `并行征询结果已汇总：\n\n${results}`,
       meta: { batchId: batch.id, joinPolicy: batch.joinPolicy, winnerDispatchId: batch.winnerDispatchId },
       clientMessageId: `collaboration:batch:${batch.id}:aggregate-source` });
@@ -880,6 +921,7 @@ export function finalizeCollaborationRun(runId: string, options: {
           ...((options.publishResult ?? true) && evaluation.disposition !== 'delegated' ? { report: {
             from: parts.length === 1 ? parts[0]!.agentId : 'system', to: 'user', kind: 'agent' as const,
             messageType: 'collaboration_result' as const, body: body || '已完成当前协作事项。',
+            ...intersectMessageAccess(listByRun(runId)),
             meta: { completionKind: 'runtime_accepted', disposition: evaluation.disposition },
             clientMessageId: `runtime:completion:${runId}`,
           } } : {}),

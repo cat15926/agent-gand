@@ -47,6 +47,8 @@ function proposal(value: Record<string, unknown>): SupervisorTaskProposal | null
 
 function normalizeV2(value: Record<string, unknown>): RuntimeControlAction | null {
   if (value.version !== 2 || !nonEmpty(value.type)) return null;
+  if (value.visibility !== undefined && value.visibility !== 'public' && value.visibility !== 'private') return null;
+  const visibility = value.visibility === undefined ? {} : { visibility: value.visibility as 'public' | 'private' };
   if (value.type === 'complete') {
     if (value.summary !== undefined && !nonEmpty(value.summary)) return null;
     return { version: 2, type: 'complete', ...(nonEmpty(value.summary) ? { summary: value.summary.trim() } : {}) };
@@ -54,13 +56,13 @@ function normalizeV2(value: Record<string, unknown>): RuntimeControlAction | nul
   if (value.type === 'answer_candidate') return { version: 2, type: 'answer_candidate' };
   if (value.type === 'handoff') {
     if (!nonEmpty(value.targetAgentId) || !nonEmpty(value.objective) || !nonEmpty(value.reason)) return null;
-    return { version: 2, type: 'handoff', targetAgentId: value.targetAgentId.trim(), objective: value.objective.trim(), reason: value.reason.trim() };
+    return { version: 2, type: 'handoff', targetAgentId: value.targetAgentId.trim(), objective: value.objective.trim(), reason: value.reason.trim(), ...visibility };
   }
   if (value.type === 'consult') {
     if (!stringArray(value.targetAgentIds) || !nonEmpty(value.objective) || !nonEmpty(value.reason)
       || (value.join !== 'all' && value.join !== 'any')) return null;
     return { version: 2, type: 'consult', targetAgentIds: [...new Set(value.targetAgentIds.map((item) => item.trim()))],
-      objective: value.objective.trim(), reason: value.reason.trim(), join: value.join };
+      objective: value.objective.trim(), reason: value.reason.trim(), join: value.join, ...visibility };
   }
   if (value.type === 'hold') {
     const wake = object(value.wake);

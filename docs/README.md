@@ -85,6 +85,7 @@
 - [编排入口 O6：迁移与故障恢复验收](./reports/orchestration-entry-phase-o6-acceptance.md)
 - [编排入口 O7：整体验收与收尾记录](./reports/orchestration-entry-phase-o7-acceptance.md)
 - [长链路协作能力差距分析（真实混合后端测试）](./reports/platform-collaboration-gaps-2026-10-08.md)
+- [平台协作修复进度（第一批）](./reports/platform-collaboration-repair-progress-2026-10-08.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

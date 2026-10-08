@@ -32,11 +32,14 @@ export function RunExecutionDetails() {
             <p className="mt-2 break-all">版本：{item.driverVersion ?? '未检测'} · 工作区：{item.cwd}</p>
             <p className="mt-1 break-all">会话：{item.sessionId ?? '尚未绑定'}</p>
             {item.sessionMode && <p className="mt-1">{item.sessionMode === 'resume' ? '已续接完成会话' : '已建立新会话'} · {item.sessionReason}</p>}
+            {item.timeoutPolicy && <p className="mt-1">本次超时上限：{Math.ceil(item.timeoutPolicy.effectiveMs / 1000)} 秒 · 来源：{{ account: '账户配置', server: '服务默认值', coordination_lease: '步骤租约', run_deadline: '运行截止时间' }[item.timeoutPolicy.source]}</p>}
+            {item.progress && <p className="mt-1">排队：{item.progress.queuedAt && item.progress.memberAcquiredAt ? `${Math.max(0, Date.parse(item.progress.memberAcquiredAt) - Date.parse(item.progress.queuedAt))} ms` : '未知'} · 首次正文：{item.progress.firstTextAt ? '已收到' : '未收到'} · 首次工具活动：{item.progress.firstToolAt ? '已收到' : '未收到'}</p>}
             {item.snapshot && <p className="mt-1 break-all">固定审查快照：{item.snapshot.commit}</p>}
             {item.recovery && <p className={`mt-1 ${item.recovery.state === 'attention' ? 'text-amber-300' : 'text-zinc-400'}`}>恢复检查：{item.recovery.reason}</p>}
             {item.controlAction && <p className="mt-1">已提交协作动作：{item.controlAction.type}{item.exitCorrectionAttempts ? ` · 纠偏 ${item.exitCorrectionAttempts} 次` : ''}</p>}
             <p className="mt-1">输入/输出 tokens：{item.tokensIn ?? '未知'} / {item.tokensOut ?? '未知'} · CLI 报告成本：{item.costUsd === null ? '未知' : `$${item.costUsd.toFixed(4)}`}</p>
             {item.error && <p className="mt-1 whitespace-pre-wrap text-red-300">{item.errorCode}：{item.error}</p>}
+            {item.failureDetails?.stderr && <details className="mt-1"><summary className="cursor-pointer">查看原生错误诊断</summary><pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">{item.failureDetails.stderr}</pre></details>}
             {item.evidence && <div className="mt-2 space-y-2">
               <p>权限：{item.permissionMode} · Git HEAD：{item.evidence.head ?? '未知'}{item.evidence.truncated ? ' · 证据已截断' : ''}</p>
               <details>

@@ -1,4 +1,4 @@
-import { ExecutionError, exitError } from './errors.ts';
+import { diagnostic, ExecutionError, exitError } from './errors.ts';
 import { spawnOwnedProcess, type OwnedProcessInput } from './ownedProcess.ts';
 import { cleanEnvironment } from '../accounts/environment.ts';
 
@@ -68,9 +68,11 @@ export async function withRpcProcess<T>(input: { command: string; args: string[]
   child.on('error', (error: NodeJS.ErrnoException) => fail(new ExecutionError(error.code === 'ENOENT' ? 'missing_binary' : 'nonzero_exit', `原生进程启动失败：${error.code}`)));
   let resolveClose!: () => void; const closed = new Promise<void>((resolve) => { resolveClose = resolve; });
   child.on('close', (code, signal) => { const nativeCode = owned.exit.code === undefined ? code : owned.exit.code; if (!closing) fail(nativeCode !== 0 ? exitError(`原生 exit=${nativeCode ?? signal}\n${stderr}`) : new ExecutionError('protocol_error', '原生连接在回合结束前关闭')); kill('SIGKILL'); resolveClose(); });
-  const abort = () => { interrupt(); fail(new ExecutionError('cancelled', '执行已停止')); };
+  const withStderr = (error: ExecutionError) => new ExecutionError(error.code, error.message,
+    { ...error.details, ...(stderr.trim() ? { stderr: diagnostic(stderr) } : {}) });
+  const abort = () => { interrupt(); fail(withStderr(input.signal.reason instanceof ExecutionError ? input.signal.reason : new ExecutionError('cancelled', '执行已停止'))); };
   input.signal.addEventListener('abort', abort, { once: true });
-  const timer = setTimeout(() => { interrupt(); fail(new ExecutionError('timeout', '外部 Agent 执行超时')); }, input.timeoutMs);
+  const timer = setTimeout(() => { interrupt(); fail(withStderr(new ExecutionError('timeout', '外部 Agent 执行超时'))); }, input.timeoutMs);
   if (input.signal.aborted) abort();
   try { return await Promise.race([action(peer), failure]); }
   finally {

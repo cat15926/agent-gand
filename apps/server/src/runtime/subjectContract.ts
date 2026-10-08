@@ -21,6 +21,7 @@ export function planCollaborationAdmission(input: {
   evidenceBundleVersion?: 1;
   evidenceLoopGuardVersion?: 1;
   contextContributorVersion?: 1;
+  messageVisibilityVersion?: 1;
   durableHoldVersion?: 1 | 2;
   externalWaitVersion?: 1;
   consultAnyVersion?: 1;
@@ -55,6 +56,7 @@ export function planCollaborationAdmission(input: {
         ...(input.evidenceBundleVersion ? { evidenceBundleVersion: input.evidenceBundleVersion } : {}),
         ...(input.evidenceLoopGuardVersion ? { evidenceLoopGuardVersion: input.evidenceLoopGuardVersion } : {}),
         ...(input.contextContributorVersion ? { contextContributorVersion: input.contextContributorVersion } : {}),
+        ...(input.messageVisibilityVersion ? { messageVisibilityVersion: input.messageVisibilityVersion } : {}),
         ...(input.durableHoldVersion ? { durableHoldVersion: input.durableHoldVersion } : {}),
         ...(input.externalWaitVersion ? { externalWaitVersion: input.externalWaitVersion } : {}),
         ...(input.consultAnyVersion ? { consultAnyVersion: input.consultAnyVersion } : {}),

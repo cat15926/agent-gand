@@ -32,6 +32,8 @@ const { loadResponsibilitySnapshot } = await import('../apps/server/src/runtime/
 const { recoverDurableHolds } = await import('../apps/server/src/runs/recovery.ts');
 const { listRuntimeActionCommands } = await import('../apps/server/src/runtime/actionCommands.ts');
 const { listToolExecutions } = await import('../apps/server/src/tools/executions.ts');
+const { listByRun, listByConversation } = await import('../apps/server/src/messaging/inbox.ts');
+const { resolveEvidence } = await import('../apps/server/src/runtime/evidence.ts');
 const { subscribe } = await import('../apps/server/src/messaging/bus.ts');
 const app = Fastify(); await registerRoutes(app); const registered = registerExternal({ path: workspace });
 const api = async (url, method = 'GET', body) => { const response = await app.inject({ url, method, ...(body ? { payload: body } : {}) }); return { status: response.statusCode, data: response.json() }; };
@@ -67,6 +69,9 @@ try {
     assert.deepEqual(listRuntimeActionCommands(run.id).map((item) => item.kind), ['handoff', 'complete']);
     assert.ok(handoffFences.some((fence) => fence.runId === run.id && fence.reaped), 'Native process group must exit before handoff commits');
     const records = listExecutions(run.id); assert.equal(records.length, 2); assert.equal(records[1].exitCorrectionAttempts, 1);
+    assert.ok(records.every(record => record.timeoutPolicy && record.progress.nativeInvokedAt && record.progress.sessionBoundAt));
+    const toolEvents = db.prepare("SELECT status,attributes FROM run_events WHERE run_id=? AND name LIKE 'native:%agent_handoff'").all(run.id);
+    assert.ok(toolEvents.length); assert.ok(toolEvents.every(event => event.status === 'ok'));
     assert.ok(records.every((record) => record.attemptId && record.runtimeBinding));
     assert.ok(!(await logs()).some((item) => item.kind === 'late-write'));
     const child = (await logs()).filter((item) => item.kind === 'child').at(-1); assert.ok(!alive(child.pid) && !alive(child.childPid));
@@ -76,6 +81,30 @@ try {
     const { run } = await room(['sdk-consult-' + join, 'codex-worker', 'builtin-worker'], 'C-SCENARIO:consult'); await complete(run.id);
     assert.equal(listRuntimeActionCommands(run.id).filter((item) => item.kind === 'consult_' + join).length, 1);
     assert.ok(listDispatches(run.id).some((item) => item.kind === 'aggregate'));
+  }
+  // Real SDK/app-server MCP carriers must preserve private scopes through contribution, aggregation and follow-up.
+  for (const [driver, peerDriver, suffix] of [['claude-sdk', 'codex-app-server', 'sdk'], ['codex-app-server', 'claude-sdk', 'codex']]) {
+    const host = `private-host-${suffix}`, peer = `private-peer-${suffix}`, outsider = `private-outsider-${suffix}`;
+    await agent(host, driver, 'fixture-private-consult'); await agent(peer, peerDriver, 'fixture-private-reader');
+    await agent(outsider, driver, 'fixture-private-outsider');
+    const privateRoom = await room([host, peer, outsider], 'C-SCENARIO:private'); await complete(privateRoom.run.id);
+    const privateMessages = listByRun(privateRoom.run.id);
+    const question = privateMessages.find(m => m.messageType === 'collaboration_question');
+    const contribution = privateMessages.find(m => m.messageType === 'collaboration_contribution');
+    const aggregate = privateMessages.find(m => m.kind === 'system' && m.body.startsWith('并行征询结果已汇总：'));
+    assert.ok([question, contribution, aggregate].every(m => m?.visibility === 'private'));
+    assert.ok(question.audience.includes(peer) && !aggregate.audience.includes(peer));
+    assert.ok(listByConversation(privateRoom.conversation.id, outsider).every(m => !m.body.includes('VISIBILITY_SECRET_CARD')));
+    assert.equal(resolveEvidence(privateRoom.run.id, { kind: 'message', id: contribution.id }, outsider).trusted, false);
+    const denied = await api(`/api/conversations/${privateRoom.conversation.id}/messages`, 'POST', {
+      entryVersion: 1, strategy: 'auto', workflow: 'routine', body: '继续查看', recipientIds: [outsider], replyTo: contribution.id, clientMessageId: `private-denied-${suffix}` });
+    assert.equal(denied.status, 400); assert.equal(denied.data.code, 'PRIVATE_REPLY_TARGET');
+    const followup = await api(`/api/conversations/${privateRoom.conversation.id}/messages`, 'POST', {
+      entryVersion: 1, strategy: 'auto', workflow: 'routine', body: '独立完成公开检查', recipientIds: [outsider], clientMessageId: `private-followup-${suffix}` });
+    assert.equal(followup.status, 202, JSON.stringify(followup.data)); await complete(followup.data.run.id);
+    const invocation = (await logs()).find(item => item.kind === 'start' && item.model === 'fixture-private-outsider');
+    assert.ok(invocation); assert.doesNotMatch(invocation.context, /VISIBILITY_SECRET_CARD/);
+    assert.ok((await logs()).filter(item => item.kind === 'start' && item.model === 'fixture-private-reader').every(item => item.privateContext && item.tools.every(tool => tool.startsWith('agent_'))));
   }
   await agent('codex-no-correction', 'codex-app-server', 'fixture-no-correction');
   const exhausted = await room(['sdk-handoff', 'codex-no-correction'], 'C-SCENARIO:bounded-correction');
@@ -154,7 +183,7 @@ try {
   cancelCollaborationRun(recoveryRun.id); finishRun(recoveryRun.id, 'cancelled'); updateExecution(uncertain.id, { status: 'interrupted' });
   console.log('Phase C verified: real stdio MCP bridge, mixed handoff/consult, control-only correction, durable user/timer Holds, business approval/ledger, Stop, request deduplication and custody fences');
 } catch (error) {
-  console.error(db.prepare('SELECT record FROM external_agent_executions').all().map(({ record }) => { const r = JSON.parse(record); return { agent: r.agentId, status: r.status, error: r.error, action: r.controlAction }; }));
-  console.error((await logs()).filter((item) => item.kind === 'error').slice(-5));
+  console.error(db.prepare('SELECT record FROM external_agent_executions').all().map(({ record }) => { const r = JSON.parse(record); return { agent: r.agentId, status: r.status, error: r.error, action: r.controlAction, progress: r.progress, timeoutPolicy: r.timeoutPolicy }; }));
+  console.error((await logs()).filter((item) => item.kind !== 'start').slice(-12));
   throw error;
 } finally { unsubscribe(); await shutdownExternalAgents(); await app.close(); closeDatabase(); await rm(root, { recursive: true, force: true }); }

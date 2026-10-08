@@ -10,6 +10,8 @@ import { waitForDurableLease } from './leases.ts';
 import { ExecutionError } from './errors.ts';
 import { assertBindingAuthorized } from './authority.ts';
 import type { ResolvedAccount } from '../accounts/resolver.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
+import { attemptAccess } from '../messaging/access.ts';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,11 +54,14 @@ export async function prepareNativeSession(opts: AgentTurnOptions, execution: Ex
   const policy = opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn';
   if (policy === 'turn') return undefined;
   const account = connection?.managed ? connection.cacheKey : await accountBinding(execution);
+  const access = opts.attemptId ? attemptAccess(opts.attemptId) : { visibility: 'public', audience: [] };
   const scope = policy === 'conversation' ? opts.run.conversationId : opts.run.id;
   const bindingKey = hash(JSON.stringify({ scope, policy, agent: opts.agent.id, version: opts.agent.version,
     driver: execution.driver, driverVersion: execution.driverVersion, cwd: execution.cwd, source: execution.sourceCwd,
     permission: execution.permissionMode, model: opts.agent.model, config: opts.agent.execution, systemPrompt: opts.agent.systemPrompt,
     control: opts.controlTools, display: opts.displayKind ?? 'message', account, host: hostname(),
+    informationBoundary: loadRuntimeContract(opts.run.id)?.features?.messageVisibilityVersion === 1
+      ? { version: 1, runId: opts.run.id, visibility: access.visibility, audience: [...access.audience].sort() } : undefined,
     coordination: opts.executionBinding?.origin === 'coordination_step_attempt' ? {
       planId: opts.executionBinding.planId, revision: opts.executionBinding.planRevision, stepId: opts.executionBinding.stepId,
       reviewTargets: opts.executionBinding.reviewTargets,

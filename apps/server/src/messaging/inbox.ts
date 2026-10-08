@@ -2,7 +2,7 @@
  * 收件箱（规格 §4.2 messaging/inbox.ts）
  * post：消息落库 + 广播 message 事件；listByRun：按运行取消息流
  */
-import type { AgentMessageType, Message, MessageKind } from '@agent-gand/shared';
+import { isMessageVisibleTo, type AgentMessageType, type Message, type MessageKind, type MessageVisibility } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from './bus.ts';
@@ -16,6 +16,8 @@ interface MessageRow {
   to_agent: string;
   kind: string;
   body: string;
+  visibility: MessageVisibility;
+  audience: string;
   meta: string | null;
   task_id: string | null;
   reply_to: string | null;
@@ -36,6 +38,8 @@ function rowToMessage(row: MessageRow): Message {
     to: row.to_agent,
     kind: row.kind as MessageKind,
     body: row.body,
+    visibility: row.visibility ?? 'public',
+    audience: row.audience ? JSON.parse(row.audience) as string[] : [],
     meta: row.meta === null ? null : (JSON.parse(row.meta) as Record<string, unknown>),
     taskId: row.task_id,
     replyTo: row.reply_to,
@@ -53,6 +57,8 @@ export interface PostMessageInput {
   to: string; // agent id | 'user' | 'system' | 'all'
   kind: MessageKind;
   body: string;
+  visibility?: MessageVisibility;
+  audience?: string[];
   meta?: Record<string, unknown> | null;
   taskId?: string | null;
   replyTo?: string | null;
@@ -64,11 +70,25 @@ export interface PostMessageInput {
 
 export function post(input: PostMessageInput): Message {
   return tx(() => {
-  const runInfo = get<{ conversation_id: string }>('SELECT conversation_id FROM runs WHERE id = ?', input.runId);
+  const runInfo = get<{ conversation_id: string; agent_ids: string }>('SELECT conversation_id,agent_ids FROM runs WHERE id = ?', input.runId);
   if (!runInfo?.conversation_id) throw new Error(`run 没有关联聊天室: ${input.runId}`);
+  const visibility = input.visibility ?? 'public';
+  if (visibility !== 'public' && visibility !== 'private') throw new Error('消息可见性必须为 public 或 private');
+  const members = new Set<string>(JSON.parse(runInfo.agent_ids));
+  const audience = visibility === 'private'
+    ? [...new Set(['user', ...(input.audience ?? [...(input.from !== 'system' ? [input.from] : []), ...input.to.split(',')])])].sort()
+    : [];
+  if (audience.some(id => id !== 'user' && !members.has(id))) throw new Error('私密消息 audience 必须为当前 Run 成员或房间所有者');
+  if (visibility === 'private' && input.to.split(',').some(id => !['user', 'system', 'all'].includes(id) && !audience.includes(id))) {
+    throw new Error('私密消息不能投递给可见范围外的接收者');
+  }
   if (input.clientMessageId) {
     const existing = get<MessageRow>('SELECT * FROM messages WHERE conversation_id = ? AND client_message_id = ?', runInfo.conversation_id, input.clientMessageId);
     if (existing) {
+      if ((existing.visibility ?? 'public') !== visibility || existing.visibility === 'private'
+        && JSON.stringify(JSON.parse(existing.audience).sort()) !== JSON.stringify(audience)) {
+        throw new Error('同一消息幂等键的可见范围不能改变');
+      }
       if (input.deliveryStatus && existing.delivery_status !== input.deliveryStatus) {
         run('UPDATE messages SET delivery_status = ? WHERE id = ?', input.deliveryStatus, existing.id);
         existing.delivery_status = input.deliveryStatus;
@@ -88,6 +108,8 @@ export function post(input: PostMessageInput): Message {
     to: input.to,
     kind: input.kind,
     body: input.body,
+    visibility,
+    audience,
     meta: input.meta ?? null,
     taskId: input.taskId ?? null,
     replyTo: input.replyTo ?? null,
@@ -100,8 +122,8 @@ export function post(input: PostMessageInput): Message {
   run(
     `INSERT INTO messages (
        id, run_id, conversation_id, seq, from_agent, to_agent, kind, body, meta,
-       task_id, reply_to, message_type, payload, delivery_status, client_message_id, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       task_id, reply_to, message_type, payload, delivery_status, client_message_id, created_at, visibility, audience
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     message.id,
     message.runId,
     message.conversationId,
@@ -118,6 +140,8 @@ export function post(input: PostMessageInput): Message {
     message.deliveryStatus,
     message.clientMessageId,
     message.createdAt,
+    visibility,
+    JSON.stringify(audience),
   );
   afterCommit(() => emit({ type: 'message', message }));
   return message;
@@ -131,8 +155,9 @@ export function listByRun(runId: string): Message[] {
   ).map(rowToMessage);
 }
 
-export function listByConversation(conversationId: string): Message[] {
-  return all<MessageRow>('SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq ASC', conversationId).map(rowToMessage);
+export function listByConversation(conversationId: string, viewerId = 'user'): Message[] {
+  return all<MessageRow>('SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq ASC', conversationId)
+    .map(rowToMessage).filter(message => isMessageVisibleTo(message, viewerId));
 }
 
 export function updateRunUserMessageStatus(runId: string, deliveryStatus: NonNullable<Message['deliveryStatus']>): void {
@@ -168,7 +193,7 @@ export function listForAgent(
   return all<MessageRow>(
     `SELECT * FROM messages WHERE ${where.join(' AND ')} ORDER BY created_at ASC, rowid ASC`,
     ...params,
-  ).map(rowToMessage);
+  ).map(rowToMessage).filter(message => isMessageVisibleTo(message, agentId));
 }
 
 export function listForTask(taskId: string): Message[] {
@@ -183,6 +208,7 @@ export function listMessages(input: {
   agentId?: string;
   taskId?: string;
   messageType?: AgentMessageType;
+  viewerId?: string;
 }): Message[] {
   const where = ['run_id = ?'];
   const params: unknown[] = [input.runId];
@@ -201,7 +227,7 @@ export function listMessages(input: {
   return all<MessageRow>(
     `SELECT * FROM messages WHERE ${where.join(' AND ')} ORDER BY created_at ASC, rowid ASC`,
     ...params,
-  ).map(rowToMessage);
+  ).map(rowToMessage).filter(message => isMessageVisibleTo(message, input.viewerId ?? 'user'));
 }
 
 /** 语义化别名：调度器通过它产生可审计的 Agent 点对点通信。 */

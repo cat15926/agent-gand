@@ -53,6 +53,8 @@ export interface RuntimeRunContract {
     evidenceLoopGuardVersion?: 1;
     /** 1 表示 Context 由带来源和敏感信息策略的 Contributor Pipeline 组装。 */
     contextContributorVersion?: 1;
+    /** 1 表示消息、派生上下文及原生会话遵守显式信息可见性。 */
+    messageVisibilityVersion?: 1;
     /** 缺失表示历史直接恢复路径；v2 增加超时、退避、错误分类和恢复审计。 */
     durableHoldVersion?: 1 | 2;
     /** 1 表示 Agent 可请求 timer/dependency Hold，注册事件接收器使用带代际的可信信封。 */

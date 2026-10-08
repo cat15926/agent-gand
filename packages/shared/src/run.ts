@@ -15,6 +15,18 @@ export type RunStatus =
 
 export type RunTerminalDisposition = 'accepted' | 'authorized_partial' | 'delegated' | 'failed' | 'cancelled';
 
+export interface RunRecoveryAssessment {
+  runId: string;
+  category: 'active' | 'completed' | 'user_cancelled' | 'temporary_failure' | 'external_condition' | 'result_unknown' | 'unclassified_failure';
+  continuationAllowed: boolean;
+  reasonCodes: string[];
+  explanation: string;
+  confirmedOutputs: number;
+  targetAgentId: string | null;
+  continuationRunId: string | null;
+  sourceRunId: string | null;
+}
+
 export interface Run {
   id: string;
   /** 所属聊天室；旧数据启动时自动回填。 */

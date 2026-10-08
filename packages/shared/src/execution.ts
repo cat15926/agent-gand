@@ -33,6 +33,20 @@ export interface ExecutionDriverInfo {
 export type ExecutionErrorCode = 'missing_binary' | 'unsupported_cli' | 'auth_required' | 'invalid_json'
   | 'protocol_error' | 'nonzero_exit' | 'timeout' | 'cancelled' | 'interrupted' | 'policy_rejected';
 
+export interface ExecutionFailureDetails {
+  phase?: 'queue' | 'initialization' | 'before_session' | 'before_first_activity' | 'after_activity' | 'deadline';
+  stderr?: string;
+}
+export interface ExternalExecutionProgress {
+  queuedAt?: string; memberAcquiredAt?: string; workspaceReadyAt?: string;
+  nativeInvokedAt?: string; sessionBoundAt?: string; firstTextAt?: string; firstToolAt?: string; lastEventAt?: string;
+}
+export interface ExternalTimeoutPolicy {
+  configuredMs: number; effectiveMs: number;
+  source: 'account' | 'server' | 'coordination_lease' | 'run_deadline';
+  deadlineAt: string;
+}
+
 export type NativeAgentEvent =
   | { type: 'session.bound'; sessionId: string }
   | { type: 'text.delta'; itemId: string; text: string }
@@ -55,6 +69,9 @@ export interface ExternalAgentExecution {
   sessionId: string | null;
   errorCode: ExecutionErrorCode | null;
   error: string | null;
+  failureDetails?: ExecutionFailureDetails;
+  progress?: ExternalExecutionProgress;
+  timeoutPolicy?: ExternalTimeoutPolicy;
   content: string;
   tokensIn: number | null;
   tokensOut: number | null;

@@ -12,7 +12,7 @@ import { getExternal, externalId } from '../workspaces/external.ts';
 import { config } from '../config.ts';
 import { providerForAgent } from '../llm/router.ts';
 import { savePlanningResult, activateCoordinationPlan, getRunCoordinationPlan, applyCoordinationPlanRevision, getCoordinationDraft } from '../coordination/store.ts';
-import { prepareOrchestration, type LegacySubmissionResult } from './service.ts';
+import { prepareOrchestration, replyMessageAccess, type LegacySubmissionResult } from './service.ts';
 import { objectInput, OrchestrationError, semanticRequest, stableDigest } from './normalize.ts';
 import { resolveExecutableOrchestration } from './resolver.ts';
 import { compileWorkflow } from './workflows.ts';
@@ -40,6 +40,7 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource): S
   const replied = input.replyTo && input.conversationId
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
   const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
+  replyMessageAccess(old.request, decision.execution!.engine, decision.targetIds);
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
   const add = (code: string, message: string) => decision.issues.push({ code, message, severity: 'error' });
@@ -178,7 +179,9 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       supervisorId: request.supervisorId, defaultReviewerId: request.defaultReviewerId });
     const currentRun = createRun(request.goal, decision.execution!.engine === 'collaboration' ? 'collaboration' : 'pipeline',
       decision.execution!.participantIds, room.workspace, null, room.id, nextTurnNo(room.id), decision.execution!.participantIds.includes(request.defaultReviewerId ?? '') ? request.defaultReviewerId : null);
+    const messageAccess = replyMessageAccess(request, decision.execution!.engine, decision.targetIds);
     const message = post({ runId: currentRun.id, from: 'user', to: request.recipientIds.join(',') || 'all', kind: 'user', body: request.goal,
+      ...messageAccess, audience: messageAccess.audience.filter(id => id === 'user' || decision.execution!.participantIds.includes(id)),
       replyTo: request.replyTo, taskId: request.taskId, clientMessageId: request.clientRequestId!, deliveryStatus: 'queued',
       meta: { orchestrationSource: source, entryVersion: 1 } });
     let plan = null;

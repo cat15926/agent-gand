@@ -124,6 +124,8 @@ try {
   requiredArtifactsSatisfied: true, reviewAccepted: true, protocolTerminal: true,
   successorObligationsSatisfied: true }).status, 'accepted', '未胜出取消不能污染 Run 终局');
 
+  // 各故障场景独立；前例留下的待汇总任务会占用全局成员队列。
+  store.cancelCollaborationRun(race.runId);
   const rollback = fixture('rollback');
   const rollbackClaim = store.claimNextDispatch(rollback.conversationId, 'owner-b');
   assert.throws(() => db.tx(() => {
@@ -136,6 +138,7 @@ try {
   assert.ok(rollback.children.every((item) => ['queued', 'running'].includes(store.getDispatch(item.id).status)));
   assert.equal(db.get('SELECT COUNT(*) n FROM runtime_completion_candidates WHERE run_id=?', rollback.runId).n, 0);
 
+  store.cancelCollaborationRun(rollback.runId);
   const timeout = fixture('timeout');
   const timeoutClaim = store.claimNextDispatch(timeout.conversationId, 'owner-b');
   assert.ok(timeoutClaim);
@@ -145,6 +148,7 @@ try {
   assert.ok(timeout.children.every((item) => store.getDispatch(item.id).status === 'cancelled'));
   assert.equal(listSuccessorObligations(timeout.runId).find((item) => item.required)?.status, 'failed');
 
+  store.cancelCollaborationRun(timeout.runId);
   const stopped = fixture('stop');
   store.cancelCollaborationRun(stopped.runId);
   assert.equal(store.getBatch(stopped.batch.id).status, 'cancelled');

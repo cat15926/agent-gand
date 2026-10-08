@@ -164,7 +164,7 @@ export function conversationHistory(conversationId: string, beforeTurn: number, 
   const rows = all<{ from_agent: string; to_agent: string; body: string }>(
     `SELECT m.from_agent, m.to_agent, m.body FROM messages m
      JOIN runs r ON r.id = m.run_id
-     WHERE r.conversation_id = ? AND r.turn_no < ? AND m.kind IN ('user', 'agent')
+     WHERE r.conversation_id = ? AND r.turn_no < ? AND m.kind IN ('user', 'agent') AND m.visibility = 'public'
      ORDER BY m.seq DESC LIMIT ?`,
     conversationId, beforeTurn, maxMessages,
   ).reverse();

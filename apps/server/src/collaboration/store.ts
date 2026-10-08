@@ -469,12 +469,19 @@ export function budgetSnapshot(runId: string): CollaborationBudgetSnapshot {
   const initial = initialBudgetLimits(); const current = currentBudgetLimits(runId);
   const usage = get<{ tokens: number; cost: number }>(`SELECT COALESCE(SUM(tokens_in+tokens_out),0) tokens,COALESCE(SUM(cost_usd),0) cost FROM run_events WHERE run_id=?`, runId) ?? { tokens: 0, cost: 0 };
   const dispatches = get<{ n: number }>('SELECT COUNT(*) n FROM collaboration_dispatches WHERE run_id=?', runId)?.n ?? 0;
+  const coverage = get<{ unknown_tokens: number; unknown_cost: number; pending: number }>(`SELECT
+    COALESCE(SUM(CASE WHEN status != 'running' AND (json_extract(record,'$.tokensIn') IS NULL OR json_extract(record,'$.tokensOut') IS NULL) THEN 1 ELSE 0 END),0) unknown_tokens,
+    COALESCE(SUM(CASE WHEN status != 'running' AND json_extract(record,'$.costUsd') IS NULL THEN 1 ELSE 0 END),0) unknown_cost,
+    COALESCE(SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END),0) pending
+    FROM external_agent_executions WHERE run_id=?
+      AND (json_extract(record,'$.progress') IS NULL OR json_extract(record,'$.progress.nativeInvokedAt') IS NOT NULL)`, runId)!;
   const created = get<{ created_at: string }>('SELECT created_at FROM runs WHERE id=?', runId)?.created_at;
   const duration = created ? Math.max(0, Date.now() - new Date(created).getTime()) : 0;
   return {
     dispatches: { used: dispatches, initialLimit: initial.maxDispatches, currentLimit: current.maxDispatches },
     tokens: { used: usage.tokens, initialLimit: initial.maxTokens, currentLimit: current.maxTokens },
     costUsd: { used: usage.cost, initialLimit: initial.maxCostUsd, currentLimit: current.maxCostUsd },
+    usageCoverage: { unknownTokenCalls: coverage.unknown_tokens, unknownCostCalls: coverage.unknown_cost, pendingNativeCalls: coverage.pending },
     durationMs: { used: duration, initialLimit: initial.maxDurationMs, currentLimit: current.maxDurationMs },
     cumulativeMultiplier: Math.max(current.maxDispatches / initial.maxDispatches, current.maxTokens / initial.maxTokens, current.maxCostUsd / initial.maxCostUsd, current.maxDurationMs / initial.maxDurationMs),
     maxMultiplier: config.collaboration.maxBudgetMultiplier, revisions: listBudgetRevisions(runId),

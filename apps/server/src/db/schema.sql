@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS orchestration_run_controls (
 CREATE TABLE IF NOT EXISTS orchestration_task_retries (
   source_task_id TEXT PRIMARY KEY, target_task_id TEXT NOT NULL, target_run_id TEXT NOT NULL
 );
+-- A terminal source is immutable. One linked continuation per source, committed with new admission.
+CREATE TABLE IF NOT EXISTS orchestration_run_continuations (
+  source_run_id TEXT PRIMARY KEY, target_run_id TEXT NOT NULL UNIQUE,
+  source_dispatch_id TEXT NOT NULL, manifest TEXT NOT NULL, created_at TEXT NOT NULL
+);
 
 -- Account metadata and immutable connection/credential revisions. Never store plaintext keys.
 CREATE TABLE IF NOT EXISTS accounts (
@@ -190,6 +195,7 @@ CREATE TABLE IF NOT EXISTS messages (
   seq INTEGER,
   from_agent TEXT NOT NULL, to_agent TEXT NOT NULL, -- agent id | 'user' | 'system'
   kind TEXT NOT NULL, body TEXT NOT NULL, meta TEXT,
+  visibility TEXT NOT NULL DEFAULT 'public', audience TEXT NOT NULL DEFAULT '[]',
   task_id TEXT, reply_to TEXT,
   message_type TEXT NOT NULL DEFAULT 'informational', payload TEXT,
   delivery_status TEXT, client_message_id TEXT,
@@ -310,7 +316,8 @@ CREATE TABLE IF NOT EXISTS runtime_context_assemblies (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, dispatch_id TEXT NOT NULL,
   attempt_id TEXT NOT NULL UNIQUE, segments TEXT NOT NULL,
   char_count INTEGER NOT NULL, token_estimate INTEGER NOT NULL,
-  context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+  context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'public', audience TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS runtime_completion_evaluations (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, seq INTEGER NOT NULL,

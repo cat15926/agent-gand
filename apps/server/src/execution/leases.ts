@@ -24,7 +24,7 @@ export function acquireDurableLease(resource: string, holder: string, readonly: 
 }
 export async function waitForDurableLease(resource: string, holder: string, readonly: boolean, signal: AbortSignal): Promise<() => void> {
   for (;;) {
-    if (signal.aborted) throw new ExecutionError('cancelled', '等待持久占用时执行已停止');
+    if (signal.aborted) throw signal.reason instanceof ExecutionError ? signal.reason : new ExecutionError('cancelled', '等待持久占用时执行已停止');
     try { return acquireDurableLease(resource, holder, readonly); }
     catch (error) { if (!(error instanceof ExecutionError) || error.code !== 'policy_rejected') throw error; }
     await new Promise((resolve) => setTimeout(resolve, 50));

@@ -79,6 +79,9 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
   if (contract.runId !== runId) {
     throw new RuntimePolicyError('RUNTIME_CONTRACT_MISMATCH', `Contract 绑定 ${contract.runId}，实际请求 ${runId}`);
   }
+  if (contract.features?.messageVisibilityVersion !== undefined && contract.features.messageVisibilityVersion !== 1) {
+    throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', `Run ${runId} 的消息可见性版本不受支持`);
+  }
   return contract;
 }
 

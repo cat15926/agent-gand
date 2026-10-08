@@ -1,4 +1,6 @@
 import { applyRunAction, cancelTaskExecution, retryTaskExecution } from '../orchestration/actions.ts';
+import { assessRunRecovery } from '../runtime/recovery.ts';
+import { previewRunContinuation, submitRunContinuation } from '../orchestration/continuation.ts';
 import { get } from '../db/database.ts';
 import { createEmptyRoom, validateRoomPreferences } from '../conversations/entry.ts';
 import { memberQueue } from '../execution/memberAdmission.ts';
@@ -238,6 +240,14 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     return applyRunAction(req.params.runId, action);
   });
   app.post<{ Params: { runId: string } }>('/api/runs/:runId/stop', async req => applyRunAction(req.params.runId, 'cancel'));
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/recovery', async req => assessRunRecovery(req.params.runId));
+  app.post<{ Params: { runId: string } }>('/api/runs/:runId/continuation-preview', async req => previewRunContinuation(req.params.runId));
+  app.post<{ Params: { runId: string }; Body: unknown }>('/api/runs/:runId/continuations', async (req, reply) => {
+    const result = submitRunContinuation(req.params.runId, req.body);
+    if (!result.deduplicated) enqueueConversationRun(result.run.id);
+    reply.code(result.deduplicated ? 200 : 202);
+    return result;
+  });
   app.post('/api/tools/mcp/refresh', async (_req, reply) => {
     const status = await refreshMcpTools();
     if (status.configured && !status.connected) reply.code(503);
@@ -415,7 +425,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         revision: plan?.revision ?? null, pauseRequested: Boolean(control?.pause_requested || plan?.status === 'pause_requested'),
         paused: item.status === 'waiting_for_user' && (plan?.status === 'paused' || Boolean(control?.pause_requested)),
         attention: unknown, reason: control?.reason ?? (unknown ? '原生执行结果未知，请核对工作区后创建新任务' : null),
-        reservations: memberQueue(item.id) };
+        reservations: memberQueue(item.id), recovery: assessRunRecovery(item.id) };
     }) };
   });
   app.patch<{ Params: { id: string }; Body: { preferences?: unknown; expectedMembersVersion?: number } }>('/api/conversations/:id/preferences', async req => {

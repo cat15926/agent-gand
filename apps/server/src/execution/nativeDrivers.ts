@@ -33,7 +33,7 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
     if (event.type === 'session.bound') initialized = true;
     // Resume billing semantics are not assumed to be turn-local; retain unknown rather than count twice.
     input.onEvent(input.session?.resume && event.type === 'usage' ? { ...event, tokensIn: null, tokensOut: null, costUsd: null } : event, parser.content);
-  }, [...(input.controlOnly ? [] : mode === 'readonly' ? READ_TOOLS : SDK_TOOLS), ...mcpTools], input.bridge ? [BRIDGE_NAME] : []);
+  }, [...(input.controlOnly || input.privateContext ? [] : mode === 'readonly' ? READ_TOOLS : SDK_TOOLS), ...mcpTools], input.bridge ? [BRIDGE_NAME] : []);
   return withRpcProcess({ command: config.externalAgents.sdkWorkerCommand ?? process.execPath,
     args: config.externalAgents.sdkWorkerCommand ? [] : ['--import', import.meta.resolve('tsx'), fileURLToPath(new URL('./sdkWorker.ts', import.meta.url))],
     cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped,
@@ -52,7 +52,7 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
         const params = message.params ?? {};
         if (typeof params.tool !== 'string' || !params.input || typeof params.input !== 'object' || Array.isArray(params.input) || typeof params.toolUseId !== 'string') throw new ExecutionError('protocol_error', 'SDK 权限请求缺少参数');
         const isBridge = mcpTools.includes(params.tool);
-        const decision = isBridge ? 'allow' : input.controlOnly ? 'deny' : sdkPermission({ permissionMode: mode, execution: { kind: 'external', driver: 'claude-sdk', nativeTools: input.nativeTools } }, input.cwd, params.tool, params.input);
+        const decision = isBridge ? 'allow' : input.controlOnly || input.privateContext ? 'deny' : sdkPermission({ permissionMode: mode, execution: { kind: 'external', driver: 'claude-sdk', nativeTools: input.nativeTools } }, input.cwd, params.tool, params.input);
         let accepted = decision === 'allow';
         if (decision === 'ask') {
           const id = String(message.id);
@@ -62,7 +62,7 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
         if (!input.signal.aborted) peer.send({ id: message.id, result: { allow: accepted && input.authorized?.() !== false && !input.bridge?.sealed() } });
       } else throw new ExecutionError('protocol_error', 'SDK worker 返回未准入的消息');
     });
-    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
+    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
     if (ending === 'control') peer.send({ method: 'sdk/interrupt', params: {} }); else parser.finish();
     return parser.content;
@@ -88,7 +88,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     enabled_tools: input.bridge.launch.toolNames, default_tools_approval_mode: 'approve', tool_timeout_sec: Math.ceil(input.timeoutMs / 1000) + 5 } : null;
   const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY,
     '-c', 'web_search="disabled"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
-    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
+    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly || input.privateContext ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
   if (input.account?.managed) args.splice(args.indexOf('sandbox_mode="read-only"') - 1, 2);
   return withRpcProcess({ command: config.externalAgents.codexCommand, args, cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, env: { ...input.environment, CODEX_HOME: nativeHome, ...input.bridge?.launch.env }, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped }, async (peer) => {
     let threadId = ''; let turnId = ''; let final = ''; let ended = false;
@@ -154,13 +154,13 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
         if (item.type === 'agentMessage') {
           if (typeof item.text === 'string') { textItems.set(item.id, item.text); if (item.phase === 'final_answer') final = item.text; emitEvent({ type: 'text.snapshot', itemId: item.id, text: item.text }); }
         } else if (['commandExecution', 'fileChange'].includes(item.type)) {
-          if (input.controlOnly) throw new ExecutionError('policy_rejected', '纠偏回合不允许原生普通工具');
+          if (input.controlOnly || input.privateContext) throw new ExecutionError('policy_rejected', '当前回合不允许原生普通工具');
           if (mode === 'readonly' && item.type === 'fileChange' && item.status === 'completed') throw new ExecutionError('policy_rejected', '只读 Codex 回合返回了文件写入完成');
           emitEvent({ type: message.method === 'item/completed' ? 'tool.completed' : 'tool.started', itemId: item.id, name: item.type,
             output: diagnostic(item.aggregatedOutput ?? JSON.stringify(item.changes ?? '')), exitCode: typeof item.exitCode === 'number' ? item.exitCode : null, failed: ['failed', 'declined'].includes(item.status) });
         } else if (item.type === 'mcpToolCall') {
           if (item.server !== BRIDGE_NAME || !input.bridge?.launch.toolNames.includes(item.tool)) throw new ExecutionError('policy_rejected', 'Codex 请求未准入的 MCP 工具');
-          emitEvent({ type: message.method === 'item/completed' ? 'tool.completed' : 'tool.started', itemId: item.id, name: `mcp:${item.tool}`, output: diagnostic(JSON.stringify(item.result ?? item.error ?? '')), failed: !!item.error });
+          emitEvent({ type: message.method === 'item/completed' ? 'tool.completed' : 'tool.started', itemId: item.id, name: `mcp:agent_gand/${item.tool}`, output: diagnostic(JSON.stringify(item.result ?? item.error ?? '')), failed: !!item.error });
         } else if (['dynamicToolCall', 'collabAgentToolCall', 'imageGeneration'].includes(item.type)) throw new ExecutionError('policy_rejected', `Codex 暴露未准入工具：${item.type}`);
       }
       if (message.method === 'thread/tokenUsage/updated') {

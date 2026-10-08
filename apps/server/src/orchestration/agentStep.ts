@@ -134,7 +134,10 @@ export interface AgentTurnOptions {
   executionBinding?: ExecutionBinding;
   /** Server-controlled narrowing for planning/summary calls. */
   disableTools?: boolean;
+  /** Private context is restricted to text and Runtime controls until artifact ACLs exist. */
+  privateContext?: boolean;
   executionSignal?: AbortSignal;
+  admissionTiming?: { queuedAt: string; memberAcquiredAt: string; workspaceReadyAt: string };
 }
 
 export interface AgentTurnResult {
@@ -246,8 +249,17 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const controller = new AbortController();
   opts = { ...opts, executionSignal: controller.signal };
   const remaining = policy?.execution?.deadlineAt ? Date.parse(policy.execution.deadlineAt) - Date.now() : Infinity;
-  const timer = setTimeout(() => controller.abort(new ExecutionError('timeout', '本轮执行超时或超过截止时间')), Math.max(1, Math.min(config.externalAgents.timeoutMs, remaining)));
-  timer.unref();
+  const deadlineTimer = Number.isFinite(remaining)
+    ? setTimeout(() => controller.abort(new ExecutionError('timeout', '本轮已到达冻结的运行截止时间', { phase: 'deadline' })), Math.max(1, remaining)) : undefined;
+  deadlineTimer?.unref();
+  let stageTimer: ReturnType<typeof setTimeout> | undefined;
+  const stageTimeout = (phase: 'queue' | 'initialization' | 'after_activity', message: string) => {
+    clearTimeout(stageTimer);
+    stageTimer = setTimeout(() => controller.abort(new ExecutionError('timeout', message, { phase })), config.externalAgents.timeoutMs);
+    stageTimer.unref();
+  };
+  const queuedAt = new Date().toISOString();
+  stageTimeout('queue', '成员排队超时，尚未开始模型执行');
   const unsubscribe = subscribe((event) => {
     if (event.type === 'run.updated' && event.run.id === opts.run.id && ['completed', 'failed', 'cancelled'].includes(event.run.status)) controller.abort();
     if (event.type === 'collaboration.attempt.updated' && event.attempt.id === opts.attemptId && event.attempt.status !== 'running') controller.abort();
@@ -262,7 +274,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       scope: opts.executionScopeId ?? `agent:${opts.agent.id}`, signal: controller.signal,
       authorized: () => !['completed','failed','cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')
         && (!opts.executionBinding || bindingAuthorized(opts.executionBinding)) });
+    const memberAcquiredAt = new Date().toISOString();
+    stageTimeout('initialization', '准备工作区超时，尚未开始模型执行');
     await ensureIsolatedWorkspace(opts.run, controller.signal);
+    opts = { ...opts, admissionTiming: { queuedAt, memberAcquiredAt, workspaceReadyAt: new Date().toISOString() } };
     assertBindingAuthorized(opts.executionBinding);
     if (opts.reviewSourceExecutionId) {
       const snapshot = reviewSnapshotPath(opts.reviewSourceExecutionId);
@@ -270,11 +285,13 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       opts = { ...opts, workspaceRoot: snapshot, agent: asReadonlyAgent(opts.agent) };
     }
     if (opts.agent.execution?.kind === 'external') {
+      clearTimeout(stageTimer); // runner freezes and enforces the selected account's effective timeout.
       const result = await runExternalAgentTurn(opts);
       assertBindingAuthorized(opts.executionBinding);
       if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
     }
+    stageTimeout('after_activity', '本轮模型执行超时');
     const managed = getIsolatedWorkspace(opts.run.id);
     const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot });
     mkdirSync(root, { recursive: true });
@@ -298,7 +315,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
     } finally { releaseShared?.(); release(); }
-  } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(timer); clearInterval(authorityTimer); unsubscribe(); }
+  } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(stageTimer); clearTimeout(deadlineTimer); clearInterval(authorityTimer); unsubscribe(); }
 }
 
 async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
