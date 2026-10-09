@@ -103,7 +103,8 @@
     "verify:orchestration-o7-demo-ui": "node scripts/verify-orchestration-o7-demo-ui.mjs",
     "verify:chat-state": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-state.mjs",
     "verify:chatroom-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chatroom-ui.mjs",
-    "verify:chat-history": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-history.mjs"
+    "verify:chat-history": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-history.mjs",
+    "verify:business-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-acceptance.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

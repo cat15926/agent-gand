@@ -1,5 +1,7 @@
 import { applyRunAction, cancelTaskExecution, retryTaskExecution } from '../orchestration/actions.ts';
 import { assessRunRecovery } from '../runtime/recovery.ts';
+import { businessSummary } from '../orchestration/business.ts';
+import { registerBusinessRoutes } from './businessRoutes.ts';
 import { previewRunContinuation, submitRunContinuation } from '../orchestration/continuation.ts';
 import { get } from '../db/database.ts';
 import { createEmptyRoom, validateRoomPreferences } from '../conversations/entry.ts';
@@ -133,6 +135,7 @@ function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: un
 }
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  await registerBusinessRoutes(app);
   const entryEndpoints = new Set(['/api/conversations','/api/conversations/empty','/api/conversations/:id/messages','/api/conversations/:id/requests','/api/runs','/api/orchestration/preview','/api/coordination/preview','/api/conversations/:id/followup-preview']);
   const format = (endpoint: string, body: unknown): 'legacy' | 'unified' => ['/api/coordination/preview','/api/conversations/:id/followup-preview'].includes(endpoint)
     || ['/api/conversations','/api/conversations/:id/messages','/api/runs'].includes(endpoint) && !usesExecutionEntry(body && typeof body === 'object' ? body as Record<string,unknown> : {}) ? 'legacy' : 'unified';
@@ -425,7 +428,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         revision: plan?.revision ?? null, pauseRequested: Boolean(control?.pause_requested || plan?.status === 'pause_requested'),
         paused: item.status === 'waiting_for_user' && (plan?.status === 'paused' || Boolean(control?.pause_requested)),
         attention: unknown, reason: control?.reason ?? (unknown ? '原生执行结果未知，请核对工作区后创建新任务' : null),
-        reservations: memberQueue(item.id), recovery: assessRunRecovery(item.id) };
+        reservations: memberQueue(item.id), recovery: assessRunRecovery(item.id), business: businessSummary(item.id) };
     }) };
   });
   app.patch<{ Params: { id: string }; Body: { preferences?: unknown; expectedMembersVersion?: number } }>('/api/conversations/:id/preferences', async req => {

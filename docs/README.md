@@ -41,6 +41,7 @@
 - [编排入口 O6：迁移、灰度与故障恢复](./architecture/orchestration-entry-phase-o6.md)
 - [编排入口 O7：整体验收与演示工具](./architecture/orchestration-entry-phase-o7.md)
 - [编排 API 迁移说明](./architecture/orchestration-api-migration.md)
+- [任务阶段与业务验收 v1](./architecture/business-acceptance-v1.md)
 
 ### 实施计划
 
@@ -86,6 +87,7 @@
 - [编排入口 O7：整体验收与收尾记录](./reports/orchestration-entry-phase-o7-acceptance.md)
 - [长链路协作能力差距分析（真实混合后端测试）](./reports/platform-collaboration-gaps-2026-10-08.md)
 - [平台协作修复进度（第一批）](./reports/platform-collaboration-repair-progress-2026-10-08.md)
+- [平台协作修复进度（第二批：阶段与业务验收）](./reports/platform-collaboration-repair-progress-2026-10-09.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

@@ -1,12 +1,12 @@
 import type { AccountBackend, AccountCheck, AccountInput, NativeAccountInput, AccountLoginOperation, AccountTestResult, AccountListResponse, AccountReferences, AccountView } from '@agent-gand/shared';
-import { ApiError } from './api';
+import { ApiError } from './apiError';
 
 let csrfToken: string | null = null;
 let sessionPromise: Promise<void> | null = null;
 let adminToken: string | null = null;
 async function decode<T>(response: Response): Promise<T> {
-  const data = await response.json() as T & { error?: string; fieldErrors?: Record<string, string> };
-  if (!response.ok) throw new ApiError(data.error ?? '账户请求失败', response.status, data.fieldErrors ?? {});
+  const data = await response.json() as T & { error?: string; fieldErrors?: Record<string, string>; code?: string };
+  if (!response.ok) throw new ApiError(data.error ?? '账户请求失败', response.status, data.fieldErrors ?? {}, data.code);
   return data;
 }
 export async function getAccountAccess(): Promise<{ mode: 'local' | 'token'; available: boolean }> {
@@ -24,14 +24,15 @@ export function connectAccounts(token?: string): Promise<void> {
   sessionPromise = pending;
   return pending.finally(() => { if (sessionPromise === pending) sessionPromise = null; });
 }
-async function request<T>(path: string, method = 'GET', body?: unknown, retried = false): Promise<T> {
+export async function managementRequest<T>(path: string, method = 'GET', body?: unknown, retried = false): Promise<T> {
   if (!csrfToken) await connectAccounts();
   const response = await fetch(path, { method, credentials: 'same-origin',
     headers: { 'x-gand-csrf': csrfToken!, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-  if (response.status === 401 && !retried) { csrfToken = null; await connectAccounts(); return request(path, method, body, true); }
+  if (response.status === 401 && !retried) { csrfToken = null; await connectAccounts(); return managementRequest(path, method, body, true); }
   return decode<T>(response);
 }
+const request = managementRequest;
 export const getAccounts = (includeArchived = false) => request<AccountListResponse>(`/api/accounts${includeArchived ? '?includeArchived=1' : ''}`);
 export const createAccount = (input: AccountInput | NativeAccountInput) => request<AccountView>('/api/accounts', 'POST', input);
 export const updateAccount = (id: string, input: Partial<Omit<AccountInput, 'apiKey' | 'provider'>> & { expectedVersion: number; enabled?: boolean }) => request<AccountView>(`/api/accounts/${encodeURIComponent(id)}`, 'PATCH', input);

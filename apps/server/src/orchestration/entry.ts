@@ -24,7 +24,7 @@ import { getRun } from '../runs/trace.ts';
 import { assertOrchestrationAdmission, orchestrationAdmissionIssues } from './rollout.ts';
 
 const fields = ['goal','conversationId','agentIds','recipientIds','strategy','workflow','workspace','supervisorId',
-  'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning'];
+  'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning','businessContract'];
 interface StoredPreview { preview: OrchestrationPreview; configurationFingerprint: string; decomposition?: DecomposedTask[] }
 function invalid(code: string, message: string, status = 409): never { throw new OrchestrationError(status, code, message); }
 const hasErrors = (preview: OrchestrationPreview) => preview.decision.issues.some(i => i.severity === 'error');
@@ -40,6 +40,7 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource): S
   const replied = input.replyTo && input.conversationId
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
   const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
+  if (old.request.businessContract) decision.requiresConfirmation = true;
   replyMessageAccess(old.request, decision.execution!.engine, decision.targetIds);
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
@@ -80,8 +81,9 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
     assertCoordinationRecoveryReady(revisionRun.id);
     if (preview.request.workflow !== original.request.workflow
       || preview.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
-      || stableDigest(preview.request.constraints) !== stableDigest(original.request.constraints)) {
-      invalid('REVISION_POLICY_CONFLICT','修订预览必须保留原任务的工作流、工作区和预算；修改这些设置请创建新任务');
+      || stableDigest(preview.request.constraints) !== stableDigest(original.request.constraints)
+      || stableDigest(preview.request.businessContract ?? null) !== stableDigest(original.request.businessContract ?? null)) {
+      invalid('REVISION_POLICY_CONFLICT','修订预览必须保留原任务的工作流、工作区、预算和阶段验收清单；修改这些设置请创建新任务');
     }
   }
   if (body.planning === 'detailed' && !revisionRun) assertOrchestrationAdmission(preview);
@@ -209,7 +211,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
 }
 
 export function usesExecutionEntry(body: Record<string, unknown>): boolean {
-  return ['entryVersion','strategy','workflow','constraints','aggregatorId','previewId','planning'].some(key => body[key] !== undefined);
+  return ['entryVersion','strategy','workflow','constraints','aggregatorId','previewId','planning','businessContract'].some(key => body[key] !== undefined);
 }
 
 /** Confirmed graph revision, with the original Run policy and frozen actors retained. */
@@ -238,7 +240,8 @@ export function reviseExecutionOrchestration(runId: string, value: unknown) {
     if (candidate.request.conversationId !== currentRun.conversationId || candidate.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
       || candidate.request.workflow !== original.request.workflow || candidate.decision.execution?.engine !== 'coordination'
       || stableDigest(candidate.request.constraints) !== stableDigest(original.request.constraints)
-      || candidate.decision.execution.readonly !== original.execution.readonly) invalid('REVISION_POLICY_CONFLICT','本轮工作流、工作区、预算和读写政策已冻结；改变这些设置请创建新任务');
+      || stableDigest(candidate.request.businessContract ?? null) !== stableDigest(original.request.businessContract ?? null)
+      || candidate.decision.execution.readonly !== original.execution.readonly) invalid('REVISION_POLICY_CONFLICT','本轮工作流、工作区、预算、读写政策和阶段验收清单已冻结；改变这些设置请创建新任务');
     if (prepare(candidate.request as unknown as Record<string,unknown>,'unified_preview').configurationFingerprint !== stored.configurationFingerprint) invalid('PREVIEW_STALE','角色、账户或聊天室在预览后发生变化');
     for (const id of candidate.decision.execution.participantIds) {
       if (!currentRun.agentIds.includes(id) || stableDigest(original.capabilities.agents.find(a=>a.id===id)) !== stableDigest(candidate.capabilities.agents.find(a=>a.id===id))) invalid('REVISION_ACTOR_CONFLICT','修订只能使用本 Run 原来冻结的成员和账户；新成员或新配置需要新任务');

@@ -523,3 +523,11 @@ CREATE TABLE IF NOT EXISTS orchestration_token_reservations (
   used INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_orchestration_token_run ON orchestration_token_reservations(run_id,status);
+
+-- Owner acceptance ledger. Execution terminal records remain immutable.
+CREATE TABLE IF NOT EXISTS business_acceptance_events (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, version INTEGER NOT NULL,
+  client_request_id TEXT NOT NULL, command_digest TEXT NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(run_id, version), UNIQUE(run_id, client_request_id)
+);

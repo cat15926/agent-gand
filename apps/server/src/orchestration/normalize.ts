@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { normalizeBusinessContract } from './businessContract.ts';
 import {
   ORCHESTRATION_STRATEGIES, ORCHESTRATION_WORKFLOWS,
   type Conversation, type CoordinationProtocolId, type OrchestrationConstraints,
@@ -88,6 +89,7 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
     defaultReviewerId: optionalId(input.defaultReviewerId !== undefined ? input.defaultReviewerId : room?.defaultReviewerId, 'defaultReviewerId'),
     aggregatorId: optionalId(input.aggregatorId, 'aggregatorId'), replyTo: optionalId(input.replyTo, 'replyTo'), taskId: optionalId(input.taskId, 'taskId'),
     clientRequestId, wholeTeam: input.wholeTeam === true, constraints,
+    ...(input.businessContract != null ? { businessContract: normalizeBusinessContract(input.businessContract) } : {}),
     legacy: { mode, coordinationDraftId: context.coordinationDraftId ?? null, requestedProtocol: protocol, followupRouting: context.followupRouting ?? null },
   };
 }

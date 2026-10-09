@@ -1,3 +1,4 @@
+import { BusinessAcceptancePanel, BUSINESS_OUTCOME_LABEL } from './BusinessAcceptancePanel';
 import { useEffect, useState } from 'react';
 import type { Run } from '@agent-gand/shared';
 import * as api from '../services/api';
@@ -46,6 +47,7 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
   const actionClass = 'rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 disabled:opacity-40';
   return <section aria-label={`${label}任务`} className={`my-3 min-w-0 rounded-xl border ${state.activeRunId === run.id ? 'border-violet-500/40' : 'border-zinc-800'} bg-zinc-900/70 p-3 text-xs [overflow-wrap:anywhere]`}>
     <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-violet-200">{label} · {taskLabel(detail?.snapshot ?? null, run.mode)}</strong><span className={run.status === 'failed' ? 'text-red-300' : 'text-zinc-400'}>{detail?.paused ? '已安全暂停' : STATUS_LABEL[run.status] ?? run.status}</span></div>
+    <p className={`mt-2 ${detail?.business?.outcome === 'achieved' ? 'text-emerald-300' : 'text-zinc-400'}`}>业务目标：{BUSINESS_OUTCOME_LABEL[detail?.business?.outcome ?? 'unverified']}{detail?.business?.contractPresent ? ` · ${detail.business.acceptedStages}/${detail.business.totalStages} 阶段已验收` : ''}</p>
     <p className={`mt-2 text-zinc-300 ${compact ? 'truncate' : ''}`} title={detail?.revisedGoal ?? run.goal}>{detail?.revisedGoal ?? run.goal}</p>{detail?.revisedGoal && <details className="mt-1 text-zinc-400"><summary>查看原目标</summary>{run.goal}</details>}
     {!compact && detail?.snapshot && <p className="mt-1 text-zinc-400">{detail.snapshot.decision.reason}{detail.revision ? ` · 计划版本 ${detail.revision}` : ''}</p>}
     {detail?.recovery?.sourceRunId && <p className="mt-2 text-violet-200">关联续跑 · <button className="underline" onClick={() => setActiveRun(detail.recovery!.sourceRunId!)}>查看原任务</button></p>}
@@ -66,12 +68,13 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
       {detail?.paused && <button aria-label={`恢复${label}`} disabled={busy || detail.attention} className={actionClass} onClick={() => void action('resume')}>恢复此任务</button>}
       {detail?.paused && detail.snapshot?.executionAuthority === 'orchestration' && detail.snapshot.execution?.engine === 'coordination' && <button aria-label={`修订${label}`} disabled={busy || detail.attention || pending.length > 0 || Boolean(detail.revisionBlockedReason)} className={actionClass} onClick={() => onRevise(detail)}>补充当前任务／修订计划</button>}
       {!terminal && <button aria-label={`取消${label}`} disabled={busy} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-300 disabled:opacity-40" onClick={() => void action('cancel')}>取消此任务</button>}
-      <button className={actionClass} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收起详情' : '查看计划与已确认结果'}</button>
+      <button className={actionClass} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收起详情' : '查看计划、结果与验收'}</button>
     </div>
     {expanded && <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3"><p className="text-zinc-400">任务 {run.id} · 工作区 {run.workspace ?? '自动工作区'}</p>{coordination?.plan.steps.map(step => {
       const current = coordination.steps.find(s => s.stepId === step.id && s.revision === coordination.plan.revision);
       return <details key={step.id} className="rounded bg-zinc-950/60 p-2" open={current?.status === 'failed'}><summary>{typeof step.metadata.title === 'string' ? step.metadata.title : step.completion} · {state.agents.find(a => a.id === step.agentId)?.name ?? step.actorRole} · {displayStatus(current?.status ?? 'pending')} · 尝试 {current?.attemptNo ?? 0}/{step.maxAttempts}</summary><p className="mt-1 text-zinc-400">{step.dependsOn.length ? `等待 ${step.dependsOn.join('、')}` : '无前置依赖'}</p>{current?.error && <p className="mt-2 text-red-300">{current.error}</p>}{current?.output && <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap [overflow-wrap:anywhere]">{current.output}</pre>}</details>;
     })}{!coordination && <p className="text-zinc-400">执行结果保存在该任务的消息与执行轨迹中。</p>}{run.status === 'failed' && detail?.snapshot?.execution?.engine === 'coordination' && <p className="text-amber-200">此工作流暂不支持单独重试分支。可查看已确认结果，再创建新任务。</p>}{run.status === 'completed' && detail?.snapshot && !detail.snapshot.execution?.readonly && <p className="text-zinc-400">任务完成不代表已经提交、推送、合并或部署；请检查变更补丁与审查结果。</p>}</div>}
+    {expanded && <div className="mt-3"><BusinessAcceptancePanel runId={run.id} version={detail?.business?.version} executionStatus={run.status} /></div>}
     {error && <p role="alert" className="mt-2 text-red-300">{error}</p>}
   </section>;
 }

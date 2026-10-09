@@ -1,4 +1,5 @@
 import type { Run, Task } from '@agent-gand/shared';
+import { getRunOrchestrationSnapshot } from './store.ts';
 import { all, get, run, tx } from '../db/database.ts';
 import { createRun, getRun, setRunStatus } from '../runs/trace.ts';
 import { nextTurnNo } from '../conversations/service.ts';
@@ -92,6 +93,7 @@ export function retryTaskExecution(taskId: string): Task {
     || get("SELECT id FROM tool_executions WHERE run_id=? AND (status IN ('running','needs_attention') OR (replay_policy='manual' AND status IN ('failed','interrupted')))", source.id)) return reject('存在未确认的执行或写入，需先核对工作区并创建新任务');
   if (get("SELECT id FROM external_agent_executions WHERE run_id=? AND COALESCE(json_extract(record,'$.permissionMode'),'readonly')!='readonly'", source.id)) return reject('原生写入分支需要先核对并迁移已确认的工作区，不能只复用文字结果');
   if (!terminal(source)) { const retried = retryTask(taskId); void resumeSupervisorRun(source.id).catch(() => {}); return retried; }
+  if (getRunOrchestrationSnapshot(source.id)?.request.businessContract) return reject('阶段验收账本尚不可跨 Run 迁移，请核对已验收结果后创建新任务');
   assertLegacyAdmission(); // A terminal branch retry creates a new Run; an active branch stays admitted.
   const result = tx(() => {
     const duplicate = get<{ target_task_id: string }>('SELECT target_task_id FROM orchestration_task_retries WHERE source_task_id=?', taskId);

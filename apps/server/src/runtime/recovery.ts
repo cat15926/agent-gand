@@ -30,6 +30,7 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
   if (source.status === 'cancelled') return blocked('USER_CANCELLED', '用户已取消；如需继续，请重新明确目标。', 'user_cancelled');
   if (source.status === 'completed') return blocked('ALREADY_COMPLETED', '本轮已结束；补充工作请创建新任务。', 'completed');
   if (source.status !== 'failed') return blocked('RUN_NOT_TERMINAL', '本轮尚未失败；暂停、回答问题或恢复应使用原任务入口。', 'active');
+  if (getRunOrchestrationSnapshot(runId)?.request.businessContract) return blocked('BUSINESS_CHECKPOINT_UNSUPPORTED', '本轮包含阶段验收清单，尚不支持跨 Run 迁移阶段账本；请核对已验收结果后新建明确剩余目标的任务。');
   const control = get<{ recovery_attention: number }>('SELECT recovery_attention FROM orchestration_run_controls WHERE run_id=?', runId);
   if (control?.recovery_attention || executions.some(item => item.status === 'running' || item.recovery?.state === 'attention'
       || item.status === 'interrupted' && item.recovery?.state !== 'quiesced')

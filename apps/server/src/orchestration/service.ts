@@ -101,7 +101,7 @@ function duplicateResult(snapshot: RunOrchestrationSnapshot): LegacySubmissionRe
  */
 export function submitLegacyOrchestration(source: SubmissionSource, value: unknown, conversationId?: string): LegacySubmissionResult {
   const body = objectInput(value);
-  if (['strategy', 'workflow', 'constraints', 'aggregatorId', 'entryVersion', 'initialRequest'].some(field => body[field] !== undefined)) throw new OrchestrationError(400, 'COMPARISON_ONLY', 'O1 的新策略仅支持预览；执行请继续使用现有 mode 与协作计划入口');
+  if (['strategy', 'workflow', 'constraints', 'aggregatorId', 'entryVersion', 'initialRequest', 'businessContract'].some(field => body[field] !== undefined)) throw new OrchestrationError(400, 'COMPARISON_ONLY', '旧入口不支持新的编排字段；请使用统一任务预览和确认入口');
   const goal = source === 'conversation_message' ? body.body : body.goal;
   if (typeof goal !== 'string' || !goal.trim()) throw new OrchestrationError(400, 'MISSING_GOAL', source === 'conversation_message' ? 'body 必填' : 'goal 必填');
   const clientRequestId = source === 'conversation_message' ? body.clientMessageId : body.clientRequestId;

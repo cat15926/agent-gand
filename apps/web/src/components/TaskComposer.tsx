@@ -1,8 +1,10 @@
+import { BusinessContractEditor } from './BusinessContractEditor';
+import { readBusinessContractDraft } from '../services/businessContract';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Conversation, Message, OrchestrationPreview, OrchestrationPreviewInput, RoomPreferences } from '@agent-gand/shared';
+import type { BusinessContract, Conversation, Message, OrchestrationPreview, OrchestrationPreviewInput, RoomPreferences } from '@agent-gand/shared';
 import { useStore } from '../store';
 import * as api from '../services/api';
-import { clearRoomDraft, emptyPreferences, readRoomDraft, recoveryDraftText, writeRoomDraft } from '../services/roomDraft';
+import { clearRoomDraft, emptyPreferences, readRoomDraft, recoveryDraftText, roomPreferencesOnly, writeRoomDraft } from '../services/roomDraft';
 import { mentionedRecipients } from '../services/recipientSelection';
 import { AgentAvatar } from './AgentAvatar';
 import { Drawer } from './Drawer';
@@ -30,6 +32,7 @@ export function PlanPreview({ preview, children }: { preview: OrchestrationPrevi
     {preview.request.constraints.maxTokens && <p className="mt-1">本任务输出 tokens 硬上限：{preview.request.constraints.maxTokens}（输入和费用另计）</p>}
     {preview.request.constraints.deadlineMs && <p className="mt-1">提交后执行时限：{preview.request.constraints.deadlineMs / 1000} 秒</p>}
 
+    {preview.request.businessContract && <div className="mt-3 space-y-2 rounded-lg border border-zinc-700 p-2"><p>业务目标需由你逐项验收，执行结束不会自动通过。</p>{preview.request.businessContract.stages.map((stage, index) => <div key={stage.id}><strong>{index + 1}. {stage.title}</strong><p className="mt-1 text-zinc-400">标准：{stage.criteria.join('；')}</p><p className="text-zinc-400">必要交付：{stage.deliverables.map(d => `${d.title}（${d.kind === 'file' ? '文件' : '文本'}）`).join('；')}</p></div>)}</div>}
     {preview.plan && <ol className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded bg-zinc-950/50 p-2">{preview.plan.plan.steps.map((step, index) => <li key={step.id}><span className="text-zinc-300">{index + 1}. {typeof step.metadata.title === 'string' ? step.metadata.title : step.completion}</span>{typeof step.metadata.objective === 'string' && <p className="mt-1 whitespace-pre-wrap text-zinc-400">{step.metadata.objective}</p>}{Array.isArray(step.metadata.acceptanceCriteria) && <p className="mt-1 text-zinc-400">验收：{step.metadata.acceptanceCriteria.join('；')}</p>}<p className="mt-0.5 text-zinc-400">{step.agentId ? names([step.agentId]) : '完成检查'}{step.dependsOn.length > 0 ? ` · 等待：${step.dependsOn.map(id => { const dependency = preview.plan!.plan.steps.find(item => item.id === id); return dependency?.metadata.title ?? `步骤 ${preview.plan!.plan.steps.findIndex(item => item.id === id) + 1}`; }).join('、')}` : ' · 无前置依赖'}</p></li>)}</ol>}
     {preview.decision.execution?.plannerRequired && !preview.plan && <p className="mt-2 text-amber-200">先点击“生成详细计划”得到实际任务与依赖，再确认执行。</p>}
     </div>
@@ -48,11 +51,17 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   const [draft] = useState(() => room ? null : readRoomDraft());
   const [taskDraft] = useState(() => { try {
     const value = room ? JSON.parse(sessionStorage.getItem(`gand:task-draft:${room.id}`) ?? 'null') : null;
-    return value && typeof value.goal === 'string' && Array.isArray(value.targets) && value.targets.every((id: unknown) => typeof id === 'string') && ['auto','parallel','serial'].includes(value.prefs?.strategy) && ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'].includes(value.prefs?.workflow) && value.prefs.constraints && typeof value.prefs.constraints === 'object' ? value as { goal: string; targets: string[]; prefs: RoomPreferences } : null;
+    let recoveryNotice = '';
+    if (value?.businessContract != null && !readBusinessContractDraft(value.businessContract)) {
+      try { sessionStorage.setItem('gand:room-draft:recovery', JSON.stringify(value)); recoveryNotice = '草稿阶段清单损坏，原内容已保留在草稿恢复记录中，请重新核对。'; }
+      catch { recoveryNotice = '草稿阶段清单损坏，无法保存恢复副本，请重新核对。'; }
+    }
+    return value && typeof value.goal === 'string' && Array.isArray(value.targets) && value.targets.every((id: unknown) => typeof id === 'string') && ['auto','parallel','serial'].includes(value.prefs?.strategy) && ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'].includes(value.prefs?.workflow) && value.prefs.constraints && typeof value.prefs.constraints === 'object' ? { ...value, businessContract: readBusinessContractDraft(value.businessContract), recoveryNotice } as { goal: string; targets: string[]; prefs: RoomPreferences; businessContract: BusinessContract | null; recoveryNotice: string } : null;
   } catch { return null; } });
   const frozen = revisionTask?.snapshot;
   const defaults = frozen ? { strategy: frozen.request.strategy, workflow: frozen.request.workflow, constraints: frozen.request.constraints, supervisorId: frozen.request.supervisorId, defaultReviewerId: frozen.request.defaultReviewerId, aggregatorId: frozen.request.aggregatorId } : taskDraft?.prefs ?? room?.preferences ?? draft ?? emptyPreferences();
-  const [prefs, setPrefs] = useState<RoomPreferences>(defaults);
+  const [businessContract, setBusinessContract] = useState<BusinessContract | null>(frozen?.request.businessContract ?? taskDraft?.businessContract ?? draft?.businessContract ?? null);
+  const [prefs, setPrefs] = useState<RoomPreferences>(() => roomPreferencesOnly(defaults));
   const [goal, setGoal] = useState(revisionTask?.revisedGoal ?? frozen?.request.goal ?? taskDraft?.goal ?? draft?.goal ?? '');
   const goalRef = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -81,7 +90,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [preview, setPreview] = useState<OrchestrationPreview | null>(null);
   const [admission,setAdmission] = useState<api.OrchestrationAdmission | null>(null);
-  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(draft?.recoveryNotice ?? '');
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState(taskDraft?.recoveryNotice ?? draft?.recoveryNotice ?? '');
   const epoch = useRef(0); const clientId = useRef(crypto.randomUUID());
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -89,8 +98,8 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   useEffect(() => { if (!initialized.current && state.agents.length) { setTeam(state.agents.map(a => a.id)); initialized.current = true; } }, [state.agents]);
   function invalidate() { epoch.current++; setPreview(null); setError(''); clientId.current = crypto.randomUUID(); }
   function changePrefs(value: Partial<RoomPreferences>) { invalidate(); setPrefs(p => ({ ...p, ...value })); }
-  useEffect(() => { if (!room) writeRoomDraft({ ...prefs, version: 2, goal, title, selected: team, initialTargets: targets, workspace, ...(draft?.legacyMode ? { legacyMode: draft.legacyMode } : {}) }); }, [room, prefs, goal, title, team, targets, workspace, draft]);
-  useEffect(() => { if (room && !revisionTask) { try { sessionStorage.setItem(`gand:task-draft:${room.id}`,JSON.stringify({ goal, targets, prefs })); } catch { /* Live draft stays usable. */ } } }, [room, revisionTask, goal, targets, prefs]);
+  useEffect(() => { if (!room) writeRoomDraft({ ...prefs, version: 2, goal, title, businessContract, selected: team, initialTargets: targets, workspace, ...(draft?.legacyMode ? { legacyMode: draft.legacyMode } : {}) }); }, [room, prefs, goal, title, team, targets, workspace, businessContract, draft]);
+  useEffect(() => { if (room && !revisionTask) { try { sessionStorage.setItem(`gand:task-draft:${room.id}`,JSON.stringify({ goal, targets, prefs, businessContract })); } catch { /* Live draft stays usable. */ } } }, [room, revisionTask, goal, targets, prefs, businessContract]);
   useEffect(() => { invalidate(); }, [room?.membersVersion, state.agents, reply?.id]); // A role/account edit cannot retain confirmation.
   const teamIds = room?.agentIds ?? team;
   const candidates = state.agents.filter(a => teamIds.includes(a.id));
@@ -102,7 +111,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   const mentionQuery = goal.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   const suggestions = mentionQuery === undefined ? [] : executors.filter(a => a.name.toLowerCase().includes(mentionQuery.toLowerCase()) || a.id.toLowerCase().includes(mentionQuery.toLowerCase()));
   function chooseMention(id: string) { invalidate(); const agent = executors.find(a => a.id === id); if (!agent) return; setGoal(value => value.replace(/@[^\s@]*$/, `@${executors.filter(a => a.name === agent.name).length > 1 ? agent.id : agent.name} `)); setRecipientsOpen(true); requestAnimationFrame(() => document.getElementById('goal-input')?.focus()); }
-  const input = (): OrchestrationPreviewInput => ({ goal: goal.trim(), agentIds: teamIds, recipientIds: targets, strategy: prefs.strategy, workflow: prefs.workflow,
+  const input = (): OrchestrationPreviewInput => ({ businessContract, goal: goal.trim(), agentIds: teamIds, recipientIds: targets, strategy: prefs.strategy, workflow: prefs.workflow,
     constraints: { ...prefs.constraints, ...(['analysis_summary','bounded_debate'].includes(prefs.workflow) ? { readonly: true } : {}), ...(prefs.workflow === 'bounded_debate' ? { rounds: prefs.constraints.rounds ?? 2 } : {}) },
     workspace: workspace || null, supervisorId: prefs.supervisorId, defaultReviewerId: prefs.defaultReviewerId, aggregatorId: prefs.aggregatorId,
     ...(room ? { conversationId: room.id } : {}), ...(revisionTask ? { revisionRunId: revisionTask.runId } : {}), ...(reply && !revisionTask ? { replyTo: reply.id, taskId: reply.taskId } : {}) });
@@ -114,7 +123,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
     catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { if (alive.current) setBusy(false); }
   }
-  function reset() { setGoal(''); setTargets([]); setPreview(null); setPrefs(room?.preferences ?? emptyPreferences()); setWorkspace(room?.workspace ?? ''); clientId.current = crypto.randomUUID(); onReplyClear?.(); }
+  function reset() { setBusinessContract(null); setGoal(''); setTargets([]); setPreview(null); setPrefs(room?.preferences ?? emptyPreferences()); setWorkspace(room?.workspace ?? ''); clientId.current = crypto.randomUUID(); onReplyClear?.(); }
   async function send(confirm = false) {
     if (blocked) return;
     const revision = epoch.current; setBusy(true); setError('');
@@ -136,7 +145,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   async function emptyRoom() {
     if (busy || !teamIds.length || !title.trim()) return; setBusy(true); setError('');
     try { const created = await api.createEmptyRoom({ title: title.trim(), agentIds: teamIds, workspace: workspace || null, preferences: useAsDefault ? { ...prefs, constraints: input().constraints ?? {} } : emptyPreferences() });
-      if (goal.trim()) try { sessionStorage.setItem(`gand:task-draft:${created.conversation.id}`, JSON.stringify({ goal, targets, prefs })); } catch { /* Browser storage may be unavailable. */ }
+      if (goal.trim()) try { sessionStorage.setItem(`gand:task-draft:${created.conversation.id}`, JSON.stringify({ goal, targets, prefs, businessContract })); } catch { /* Browser storage may be unavailable. */ }
       clearRoomDraft(); setActiveConversation(created.conversation.id); }
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally { setBusy(false); }
   }
@@ -173,6 +182,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
       {prefs.strategy === 'serial' && targets.length > 1 && <ol className="mt-2 space-y-1 text-xs text-zinc-400">{targets.map((id,index) => <li key={id} className="flex flex-wrap items-center gap-2">{index + 1}. {candidates.find(a => a.id === id)?.name ?? id}<button aria-label={`上移 ${id}`} className={button} disabled={busy || Boolean(revisionTask) || index === 0} onClick={() => { invalidate(); setTargets(ids => { const next = [...ids]; [next[index - 1],next[index]] = [next[index]!,next[index - 1]!]; return next; }); }}>↑</button></li>)}</ol>}
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">{prefs.workflow === 'supervisor_decomposition' && roleSelect('主管', 'supervisorId', candidates.filter(a => a.capabilities.includes('coordinate') && a.execution?.kind !== 'external'))}{['development_review','supervisor_decomposition','bounded_debate'].includes(prefs.workflow) && roleSelect(prefs.workflow === 'bounded_debate' ? '独立裁判（与汇总者二选一）' : '独立评审者', 'defaultReviewerId', candidates.filter(a => a.capabilities.includes('review') && !targets.includes(a.id)))}{['analysis_summary','bounded_debate'].includes(prefs.workflow) && roleSelect('汇总者', 'aggregatorId', executors)}</div>
       {prefs.workflow === 'bounded_debate' && <label className="mt-2 block text-xs text-zinc-400">固定轮数（1–10）<input aria-label="辩论轮数" type="number" min={1} max={10} value={prefs.constraints.rounds ?? 2} disabled={busy || Boolean(revisionTask)} onChange={e => changePrefs({ constraints: { ...prefs.constraints, rounds: Number(e.target.value) } })} className="input mt-1 text-xs" /></label>}
+      <BusinessContractEditor value={businessContract} disabled={busy || Boolean(revisionTask)} onChange={value => { invalidate(); setBusinessContract(value); }} />
       <details className="mt-3 text-xs text-zinc-400"><summary className="cursor-pointer">本轮约束与房间默认偏好</summary><div className="mt-2 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2"><label>读写约束<select aria-label="读写约束" className="input mt-1 text-xs" disabled={busy || Boolean(revisionTask) || ['analysis_summary','bounded_debate'].includes(prefs.workflow)} value={['analysis_summary','bounded_debate'].includes(prefs.workflow) ? 'readonly' : prefs.constraints.readonly === undefined ? 'infer' : prefs.constraints.readonly ? 'readonly' : 'write'} onChange={e => changePrefs({ constraints: { ...prefs.constraints, readonly: e.target.value === 'infer' ? undefined : e.target.value === 'readonly' } })}><option value="infer">根据目标判断</option><option value="readonly">只读</option><option value="write">按角色权限写入</option></select></label>
       <label>输出 tokens 硬上限<input aria-label="输出 tokens 硬上限" className="input mt-1 text-xs" type="number" min={1} max={1000000} value={prefs.constraints.maxTokens ?? ''} disabled={busy || Boolean(revisionTask)} placeholder="不另设；外部 SDK 不支持此硬限制" onChange={e => changePrefs({ constraints: { ...prefs.constraints, maxTokens: e.target.value ? Number(e.target.value) : undefined } })} /></label>
       <label>执行时限（秒）<input aria-label="执行时限" className="input mt-1 text-xs" type="number" min={1} max={86400} value={prefs.constraints.deadlineMs === undefined ? '' : prefs.constraints.deadlineMs / 1000} disabled={busy || Boolean(revisionTask)} onChange={e => changePrefs({ constraints: { ...prefs.constraints, deadlineMs: e.target.value ? Number(e.target.value) * 1000 : undefined } })} /></label></div>

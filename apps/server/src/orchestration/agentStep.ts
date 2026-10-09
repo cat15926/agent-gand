@@ -1,3 +1,4 @@
+import { businessContractInstructions } from './businessContract.ts';
 /**
  * 单 agent 执行步骤（pipeline 与 supervisor 共用，避免两份工具逻辑漂移）
  *
@@ -217,6 +218,8 @@ export async function chatOnce(
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   const policy = executionPolicy(opts.run.id);
+  const acceptance = businessContractInstructions(policy?.request.businessContract);
+  if (acceptance) opts = { ...opts, messages: [{ role: 'system', content: acceptance }, ...opts.messages] };
   assertExecutionDeadline(opts.run.id);
   if (policy?.execution?.readonly) opts = { ...opts, agent: asReadonlyAgent(opts.agent) };
   if (opts.attemptId && !opts.executionBinding) opts = { ...opts, executionBinding: captureExecutionBinding(opts.run.id, opts.agent.id, opts.attemptId) };

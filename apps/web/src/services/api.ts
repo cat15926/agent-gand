@@ -1,6 +1,9 @@
 /**
  * REST 客户端：对应 server §4.3 的 API 表（dev 经 vite proxy）
  */
+import { ApiError } from './apiError';
+import { managementRequest } from './accounts';
+export { ApiError } from './apiError';
 import type {
   OrchestrationPreview, OrchestrationPreviewInput, RunOrchestrationSnapshot, RoomPreferences,
   AgentDefinition,
@@ -15,6 +18,7 @@ import type {
   ConversationHistoryPage, ConversationMessageSearch,
   Run,
   RunRecoveryAssessment,
+  BusinessCommand, BusinessState, BusinessOutcome, BusinessEvidenceChoice, BusinessAuditEntry,
   RunEvent,
   Task,
   TaskAttempt,
@@ -72,10 +76,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-export class ApiError extends Error {
-  constructor(message: string, public status: number, public fieldErrors: Record<string, string>, public code?: string) { super(message); }
-}
-
 export interface RunDetail {
   run: Run;
   agents: AgentDefinition[];
@@ -115,7 +115,12 @@ export const getConversations = () => request<Conversation[]>('/api/conversation
 export interface OrchestrationAdmission { entryMode: 'execute' | 'preview' | 'closed'; legacyEntryEnabled: boolean; enabledWorkflows: RoomPreferences['workflow'][]; enabledDrivers: string[]; existingRunsContinue: true }
 export const getOrchestrationOptions = () => request<{ admission: OrchestrationAdmission }>('/api/orchestration/options');
 export interface MemberReservation { runId: string; agentId: string; attemptId: string | null; status: string; position: number }
-export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment }
+export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment; business?: { version: number; outcome: BusinessOutcome; contractPresent: boolean; acceptedStages: number; totalStages: number } }
+export const getBusinessState = (id: string) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`);
+export const getBusinessHistory = (id: string) => managementRequest<{ events: BusinessAuditEntry[] }>(`/api/accounts/business/${encodeURIComponent(id)}/history`);
+export const getBusinessEvidence = (id: string) => managementRequest<{ choices: BusinessEvidenceChoice[] }>(`/api/accounts/business/${encodeURIComponent(id)}/evidence`);
+export const applyBusinessCommand = (id: string, command: BusinessCommand) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`, 'POST', command);
+export const createBusinessFileEvidence = (id: string, path: string) => managementRequest<BusinessEvidenceChoice>(`/api/accounts/business/${encodeURIComponent(id)}/file-evidence`, 'POST', { path });
 export const previewOrchestration = (input: OrchestrationPreviewInput) => request<OrchestrationPreview>('/api/orchestration/preview', { method: 'POST', body: JSON.stringify(input) });
 export const createEmptyRoom = (input: { title: string; agentIds: string[]; workspace: string | null; preferences: RoomPreferences }) => request<{ conversation: Conversation }>('/api/conversations/empty', { method: 'POST', body: JSON.stringify(input) });
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });

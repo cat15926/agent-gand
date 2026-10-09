@@ -2,6 +2,7 @@ import type { AgentCapability, PermissionMode } from './agent.ts';
 import type { CoordinationProtocolId, CoordinationPreview } from './coordination.ts';
 import type { ExternalDriverId } from './execution.ts';
 import type { RunMode } from './run.ts';
+import type { BusinessContract } from './business.ts';
 
 export const ORCHESTRATION_SCHEMA_VERSION = 1 as const;
 export const ORCHESTRATION_STRATEGIES = ['auto', 'parallel', 'serial'] as const;
@@ -20,6 +21,7 @@ export interface OrchestrationConstraints {
 
 /** Rules previews never call models. Detailed planning is an explicit pre-execution request. */
 export interface OrchestrationPreviewInput {
+  businessContract?: BusinessContract | null;
   goal: string;
   conversationId?: string;
   agentIds?: string[];
@@ -42,6 +44,8 @@ export interface OrchestrationPreviewInput {
 }
 
 export interface OrchestrationRequest {
+  /** Absent on historical snapshots; never inferred from non-empty output. */
+  businessContract?: BusinessContract | null;
   schemaVersion: 1;
   source: OrchestrationSource;
   conversationId: string | null;
