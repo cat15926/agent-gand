@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { BusinessAuditEntry, BusinessCommand, BusinessEvidenceChoice, BusinessOutcome, BusinessState } from '@agent-gand/shared';
 import * as api from '../services/api';
 import { BusinessStageReworkPanel } from './BusinessStageReworkPanel';
+import { RecoveryReviewHistory } from './BusinessRecoveryPanel';
 import { ArtifactSnapshotPanel } from './ArtifactSnapshotPanel';
 
 export const BUSINESS_OUTCOME_LABEL: Record<BusinessOutcome, string> = {
@@ -106,6 +107,7 @@ export function BusinessAcceptancePanel({ runId, version, executionStatus, membe
   const continues = gated && !['completed', 'failed', 'cancelled'].includes(executionStatus);
   return <section aria-label="业务阶段验收" className="space-y-3 rounded-xl border border-violet-500/20 p-3">
     <h4 className="font-medium text-violet-200">业务目标 · {BUSINESS_OUTCOME_LABEL[state.outcome]}</h4>
+    <RecoveryReviewHistory runId={runId}/>
     <ArtifactSnapshotPanel runId={runId} businessVersion={state.version} stages={state.stages}/>
     {state.successorRunId && <p className="text-violet-200">原验收记录已封存，请在后续任务继续处理。{onNavigate && <button className="underline" onClick={() => void onNavigate(state.successorRunId!)}>查看后续任务</button>}</p>}
     {state.checkpoint && <details className="rounded bg-violet-500/10 p-2"><summary>继承 {state.checkpoint.acceptedStageIds.length} 个已验收阶段 · 复用 {state.checkpoint.completedWorkers} 个成员结果</summary><p className="mt-2 break-all text-zinc-400">来源任务 {state.checkpoint.sourceRunId} · 原验收版本 {state.checkpoint.sourceVersion}。已验收结论保留原证据和决定，不重新调用成员。检查点 SHA256：{state.checkpoint.digest}</p>{state.checkpoint.files.map(file => <p key={file.path} className="mt-1 break-all text-zinc-400">已归档文件 {file.path} · SHA256 {file.sha256}</p>)}</details>}

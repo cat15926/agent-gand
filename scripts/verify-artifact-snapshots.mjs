@@ -144,7 +144,7 @@ try {
   const saved=await app.inject({method:'POST',url,headers:auth,payload:{paths:[],stageIds:[],fingerprint:hp.json().fingerprint}});assert.equal(saved.statusCode,200,saved.body);
   const rp=await app.inject({method:'POST',url:'/api/accounts/artifact-snapshots/'+saved.json().id+'/restore-preview',headers:auth,payload:{}});assert.equal(rp.statusCode,200,rp.body);
   const rr=await app.inject({method:'POST',url:'/api/accounts/artifact-snapshots/'+saved.json().id+'/restores',headers:auth,payload:{fingerprint:rp.json().fingerprint,clientRequestId:randomUUID()}});assert.equal(rr.statusCode,200,rr.body);
-  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,7);
+  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,9);
   const originalVersions=db.all('SELECT * FROM managed_artifact_versions'),keyPath=path.join(config.accounts.privateDir,'account-master-key.json'),originalKey=await readFile(keyPath);
   db.run('DELETE FROM managed_artifact_versions');await rm(keyPath);
   const {sealManagedContent}=await import('../apps/server/src/accounts/credentials.ts');assert.throws(()=>sealManagedContent(Buffer.from('new fixture archive'),'fixture'),/主密钥缺失/);assert.equal(existsSync(keyPath),false,'snapshots alone prevent replacement of a lost master key');

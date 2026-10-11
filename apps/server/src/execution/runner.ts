@@ -1,4 +1,7 @@
 import { mkdirSync, realpathSync } from 'node:fs';
+import { get } from '../db/database.ts';
+import { readBusinessCheckpoint } from '../orchestration/businessCheckpointStore.ts';
+import { reserveCost, settleCost, type CostReservationRow } from '../orchestration/costBudget.ts';
 import type { ExternalAgentExecution, NativeAgentEvent, RunEvent } from '@agent-gand/shared';
 import { assertExternalPolicy } from '../agents/validation.ts';
 import { config } from '../config.ts';
@@ -96,7 +99,9 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTu
   if (!opts.run.workspace?.startsWith('ext:')) mkdirSync(root, { recursive: true });
   const cwd = realpathSync(root);
   if (duplex && opts.agent.permissionMode !== 'readonly' && opts.displayKind !== 'review_protocol') {
-    if (!opts.run.workspace?.startsWith('ext:')) throw new ExecutionError('policy_rejected', '阶段 B 写入须选择已注册的 Git 仓库工作区');
+    const restored=get<{snapshot_id:string}>('SELECT snapshot_id FROM artifact_snapshot_restores WHERE path=?',cwd);
+    const checkpoint=readBusinessCheckpoint(opts.run.id);
+    if (!opts.privateContext && !opts.run.workspace?.startsWith('ext:') && !(checkpoint?.version===3&&checkpoint.readonly===false&&restored?.snapshot_id===checkpoint.archive?.id)) throw new ExecutionError('policy_rejected', '写入需要已注册隔离仓库或经核对恢复的 Git 快照');
   }
   const account = resolveAccount(opts.agent, opts.run.id);
   const execution = createExecution({ runId: opts.run.id, agentId: opts.agent.id, scopeId, driver: opts.agent.execution.driver, agentVersion: opts.agent.version, cwd });
@@ -206,7 +211,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
   try {
     if (bidirectional(execution.driver)) {
       release = await waitForWorkspace(execution.cwd, execution.id, signal, mode === 'readonly');
-      if (mode !== 'readonly') await assertCodingWorkspace(execution.cwd);
+      if (mode !== 'readonly'&&!opts.privateContext) await assertCodingWorkspace(execution.cwd);
     }
     if (bidirectional(execution.driver)) {
       before = await captureEvidence(execution.cwd);
@@ -220,7 +225,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     if (signal.aborted || terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已停止');
     const systems = opts.messages.filter((message) => message.role === 'system' && !message.content.startsWith('会话边界提示：')).map((message) => message.content);
     const instructions = [...systems, `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
-      opts.privateContext ? '本轮上下文含私密信息。文件仅通过平台 fs.read / search.files 受控桥读取；禁止原生文件、shell、网络和其他业务工具。回复与交接不得扩大授权。' : '',
+      opts.privateContext ? '本轮上下文含私密信息。文件仅通过平台 fs.read / fs.write / search.files 受控桥读取或加密写入；禁止原生文件、shell、网络和其他业务工具。回复与交接不得扩大授权。' : '',
       opts.controlTools?.length ? 'Runtime 工具通过 agent_gand MCP 提供。上下文中的 agent.complete/handoff/consult/hold 对应 agent_complete/agent_handoff/agent_consult/agent_hold。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。' : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
     let prompt = opts.messages.filter((message) => message.role !== 'system').map((message) => `[${message.role}]\n${message.content}`).join('\n\n');
     let result: AgentTurnResult;
@@ -237,7 +242,9 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       let content = ''; let retryCold = false; naturalTerminal = false;
       usage.set(correction, { tokensIn: null, tokensOut: null, costUsd: null });
       updateExecution(execution.id, { tokensIn: null, tokensOut: null, costUsd: null });
+      let cost: CostReservationRow | null = null;
       try {
+        cost = reserveCost(opts.run.id, opts.agent.id, opts.agent.model, execution.driver);
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
         activity.start();
@@ -254,11 +261,15 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
             try { return await approve(`${correction}:${id}`, tool, args, reason); }
             finally { activity.resume(`approval:${id}`); }
           },
-          bridge, controlOnly: correction > 0, privateContext: opts.privateContext, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
+          bridge, controlOnly: correction > 0, privateContext: opts.privateContext,recoveryFilesOnly:opts.recoveryFilesOnly, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
           session: session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
           onProcessStopped: markNativeProcessStopped }));
+        const part = usage.get(correction)!;
+        settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' });
       } catch (error) {
+        const part = usage.get(correction)!;
+        settleCost(cost, { costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }, true);
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
         } else throw error;

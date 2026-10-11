@@ -475,13 +475,17 @@ export function budgetSnapshot(runId: string): CollaborationBudgetSnapshot {
     COALESCE(SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END),0) pending
     FROM external_agent_executions WHERE run_id=?
       AND (json_extract(record,'$.progress') IS NULL OR json_extract(record,'$.progress.nativeInvokedAt') IS NOT NULL)`, runId)!;
+  const apiCoverage = get<{tokens:number;cost:number}>(`SELECT
+    COALESCE(SUM(CASE WHEN status='error' OR json_extract(attributes,'$."llm.usage_known"')=0 THEN 1 ELSE 0 END),0) tokens,
+    COALESCE(SUM(CASE WHEN status='error' OR json_extract(attributes,'$."llm.cost_known"')=0 THEN 1 ELSE 0 END),0) cost
+    FROM run_events WHERE run_id=? AND span_kind='llm' AND status IN ('ok','error') AND json_extract(attributes,'$."execution.id"') IS NULL`,runId)!;
   const created = get<{ created_at: string }>('SELECT created_at FROM runs WHERE id=?', runId)?.created_at;
   const duration = created ? Math.max(0, Date.now() - new Date(created).getTime()) : 0;
   return {
     dispatches: { used: dispatches, initialLimit: initial.maxDispatches, currentLimit: current.maxDispatches },
     tokens: { used: usage.tokens, initialLimit: initial.maxTokens, currentLimit: current.maxTokens },
     costUsd: { used: usage.cost, initialLimit: initial.maxCostUsd, currentLimit: current.maxCostUsd },
-    usageCoverage: { unknownTokenCalls: coverage.unknown_tokens, unknownCostCalls: coverage.unknown_cost, pendingNativeCalls: coverage.pending },
+    usageCoverage: { unknownTokenCalls: coverage.unknown_tokens + apiCoverage.tokens, unknownCostCalls: coverage.unknown_cost + apiCoverage.cost, pendingNativeCalls: coverage.pending },
     durationMs: { used: duration, initialLimit: initial.maxDurationMs, currentLimit: current.maxDurationMs },
     cumulativeMultiplier: Math.max(current.maxDispatches / initial.maxDispatches, current.maxTokens / initial.maxTokens, current.maxCostUsd / initial.maxCostUsd, current.maxDurationMs / initial.maxDurationMs),
     maxMultiplier: config.collaboration.maxBudgetMultiplier, revisions: listBudgetRevisions(runId),

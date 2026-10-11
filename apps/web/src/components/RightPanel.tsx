@@ -308,7 +308,7 @@ export function RightPanel() {
                   <span>输出 {u.tokensOut.toLocaleString()} tok</span>
                   <span>LLM {u.llmCalls} 次</span>
                   <span>工具 {u.toolCalls} 次</span>
-                  <span className="col-span-2 text-zinc-400">{u.hasUnknownCost ? '成本未知（CLI 未完整报告）' : `成本 ≈ $${u.costUsd.toFixed(4)}`}{u.hasUnknownTokens ? ' · 以上为已报告用量，部分调用未知' : ''}</span>
+                  <span className="col-span-2 text-zinc-400">{u.hasUnknownCost ? '费用未完整报告（价格或用量未知）' : `成本 ≈ $${u.costUsd.toFixed(4)}`}{u.hasUnknownTokens ? ' · 以上为已报告用量，部分调用未知' : ''}</span>
                 </div>
               </div>
             ))}

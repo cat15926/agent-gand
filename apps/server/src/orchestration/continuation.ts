@@ -12,6 +12,8 @@ import { previewExecutionOrchestration, submitExecutionOrchestration } from './e
 import { buildBusinessCheckpoint } from './businessCheckpoint.ts';
 import { checkpointDigest, checkpointSummary, saveBusinessCheckpoint, type BusinessCheckpoint } from './businessCheckpointStore.ts';
 import { redactSensitive } from '../runtime/evidence.ts';
+import { runSourceAccess } from '../messaging/access.ts';
+import { costCarry, carryCosts, costBudgetState } from './costBudget.ts';
 
 function continuationInput(runId: string): OrchestrationPreviewInput {
   const assessment = assessRunRecovery(runId);
@@ -28,7 +30,7 @@ function continuationInput(runId: string): OrchestrationPreviewInput {
   return { conversationId: source.conversationId, goal: `继续未交付事项：\n${pendingMessage.body}`, agentIds: source.agentIds,
     recipientIds: [assessment.targetAgentId!], strategy: 'auto', workflow: 'routine', workspace: source.workspace ?? null,
     wholeTeam: false, supervisorId: null, defaultReviewerId: null, aggregatorId: null, replyTo: null, taskId: null,
-    constraints: { readonly: true, ...(snapshot?.request.constraints.deadlineMs ? { deadlineMs: snapshot.request.constraints.deadlineMs } : {}),
+    constraints: { ...snapshot?.request.constraints, readonly: true, ...(snapshot?.request.constraints.deadlineMs ? { deadlineMs: snapshot.request.constraints.deadlineMs } : {}),
       ...(snapshot?.request.constraints.firstResponseTimeoutMs ? { firstResponseTimeoutMs: snapshot.request.constraints.firstResponseTimeoutMs } : {}),
       ...(snapshot?.request.constraints.idleTimeoutMs ? { idleTimeoutMs: snapshot.request.constraints.idleTimeoutMs } : {}) },
     clientRequestId: `continuation:${source.id}` };
@@ -43,22 +45,23 @@ export function businessCheckpointInput(runId: string, clientRequestId: string):
   const snapshot = getRunOrchestrationSnapshot(runId)!;
   return { conversationId: source.conversationId, goal: source.goal, agentIds: room.agentIds, recipientIds: [], strategy: 'serial', workflow: 'routine',
     workspace: room.workspace, wholeTeam: false, supervisorId: null, defaultReviewerId: null, aggregatorId: null, replyTo: null, taskId: null,
-    businessContract: snapshot.request.businessContract, constraints: { ...snapshot.request.constraints, readonly: true }, clientRequestId };
+    ...runSourceAccess(runId),businessContract: snapshot.request.businessContract, constraints: { ...snapshot.request.constraints, readonly: snapshot.execution?.readonly!==false }, clientRequestId };
 }
 
 /** Model-free preview; admission freezes the current role/account configuration again. */
 export async function previewRunContinuation(runId: string, owner = false) {
-  if (getRunOrchestrationSnapshot(runId)?.request.businessContract && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段续跑需通过所有者账户管理入口预览和确认');
+  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy) && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段或费用续跑需通过所有者账户管理入口预览和确认');
   const input = continuationInput(runId);
   const checkpoint = input.businessContract ? buildBusinessCheckpoint(runId) : undefined;
   const preview = await previewExecutionOrchestration(input, 'unified_preview', checkpoint);
   if (checkpoint) return { assessment: assessRunRecovery(runId), preview, checkpoint: {
     pendingObjective: checkpoint.contract.stages.filter(s => !checkpoint.accepted.some(a => a.stageId === s.id)).map(s => `${s.title}：${s.execution!.assignments.filter((_, i) => !checkpoint.outputs.some(o => o.stepId === `stage-${checkpoint.contract.stages.indexOf(s) + 1}-work-${i + 1}`)).map(a => a.objective).join('；') || '成员步骤已完成，等待验收'}`).join('\n'),
-    confirmedOutputs: checkpoint.outputs.map(o => ({ attemptId: o.attemptId, agentId: o.agentId, excerpt: redactSensitive(o.output).slice(0,800), truncated: o.output.length > 800 })),
+    confirmedOutputs: checkpoint.outputs.map(o => ({ attemptId: o.attemptId, agentId: o.agentId, origin:o.origin, excerpt: redactSensitive(o.output).slice(0,800), truncated: o.output.length > 800 })),
     business: { ...checkpointSummary(checkpoint), acceptedStages: checkpoint.accepted.map(a => ({ id: a.stageId, title: checkpoint.contract.stages.find(s => s.id === a.stageId)!.title })),
       carriedRunTokens: checkpoint.runTokens, carriedStageTokens: checkpoint.stageTokens, workspace: 'fresh_run' as const, timeLimitsReset: true } } };
   const outputs = listAttempts(runId).filter(attempt => attempt.status === 'completed' && attempt.output?.trim());
-  return { assessment: assessRunRecovery(runId), preview, checkpoint: {
+  const costs = costCarry(runId), fees = costBudgetState(runId);
+  return { assessment: assessRunRecovery(runId), preview, ...(fees ? { costCarryDigest: stableDigest(costs), costBudget: fees } : {}), checkpoint: {
     pendingObjective: input.goal,
     confirmedOutputs: outputs.map(attempt => ({ attemptId: attempt.id, agentId: attempt.agentId,
       excerpt: attempt.output!.slice(0, 800), truncated: attempt.output!.length > 800 })) } };
@@ -66,9 +69,9 @@ export async function previewRunContinuation(runId: string, owner = false) {
 
 /** One linked Run per terminal source; source records and confirmed attempts are never updated. */
 export function submitRunContinuation(runId: string, value: unknown, owner = false) {
-  if (getRunOrchestrationSnapshot(runId)?.request.businessContract && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段续跑需通过所有者账户管理入口预览和确认');
+  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy) && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段或费用续跑需通过所有者账户管理入口预览和确认');
   const body = objectInput(value);
-  if (Object.keys(body).some(key => !['previewId','orchestrationFingerprint'].includes(key))
+  if (Object.keys(body).some(key => !['previewId','orchestrationFingerprint','costCarryDigest'].includes(key))
     || typeof body.previewId !== 'string' || typeof body.orchestrationFingerprint !== 'string') {
     throw new OrchestrationError(400, 'CONTINUATION_CONFIRMATION_REQUIRED', '请提交续跑预览及其 fingerprint');
   }
@@ -82,7 +85,7 @@ export function submitRunContinuation(runId: string, value: unknown, owner = fal
     const input = continuationInput(runId);
     if (input.businessContract) {
       const checkpoint = buildBusinessCheckpoint(runId);
-      const result = submitExecutionOrchestration({ ...input, entryVersion: 1, ...body }, input.conversationId!, 'conversation_message', checkpoint);
+      const result = submitExecutionOrchestration({ ...input, entryVersion: 1, previewId: body.previewId, orchestrationFingerprint: body.orchestrationFingerprint }, input.conversationId!, 'conversation_message', checkpoint);
       saveBusinessCheckpoint(result.run.id, checkpoint);
       carryTokenCharges(result.run.id, checkpoint);
       const manifest = { version: 2, kind: 'business_stages', sourceRunId: runId, checkpointDigest: checkpointDigest(checkpoint),
@@ -104,15 +107,25 @@ export function submitRunContinuation(runId: string, value: unknown, owner = fal
     });
     const manifest = { version: 1, sourceRunId: runId, sourceDispatchId: failed.id, confirmation: stableDigest(body),
       originalObjective: getRun(runId)!.goal, pendingObjective: sourceMessage.body, outputs };
-    const result = submitExecutionOrchestration({ ...input, entryVersion: 1, ...body }, input.conversationId!);
+    const costs = costCarry(runId);
+    if (input.constraints?.costPolicy && body.costCarryDigest !== stableDigest(costs)) throw new OrchestrationError(409, 'COST_CARRY_STALE', '费用账本已变化，请重新预览续跑');
+    const result = submitExecutionOrchestration({ ...input, entryVersion: 1, previewId: body.previewId, orchestrationFingerprint: body.orchestrationFingerprint }, input.conversationId!);
+    carryTokenCharges(result.run.id, { costs, runTokens: get<{n:number}>("SELECT COALESCE(SUM(CASE WHEN status='settled' THEN used ELSE reserved END),0) n FROM orchestration_token_reservations WHERE run_id=?",runId)!.n, stageTokens: [] });
     run(`INSERT INTO orchestration_run_continuations(source_run_id,target_run_id,source_dispatch_id,manifest,created_at)
       VALUES (?,?,?,?,?)`, runId, result.run.id, failed.id, JSON.stringify(manifest), new Date().toISOString());
     return { run: result.run, deduplicated: result.deduplicated };
   });
 }
 
-export function carryTokenCharges(runId: string, checkpoint: BusinessCheckpoint): void {
+export function carryTokenCharges(runId: string, checkpoint: Pick<BusinessCheckpoint, 'runTokens' | 'stageTokens' | 'recovery' | 'costs'>): void {
+  carryCosts(runId, checkpoint.costs ?? []);
   const now = new Date().toISOString();
-  if (checkpoint.runTokens) run("INSERT INTO orchestration_token_reservations(id,run_id,reserved,used,status,created_at) VALUES (?,?,?,?,'settled',?)", randomUUID(), runId, checkpoint.runTokens, checkpoint.runTokens, now);
-  for (const item of checkpoint.stageTokens) if (item.charged) run("INSERT INTO business_stage_token_reservations(id,run_id,stage_id,reserved,used,status,created_at) VALUES (?,?,?,?,?,'settled',?)", randomUUID(), runId, item.stageId, item.charged, item.charged, now);
+  const runUnknown=checkpoint.recovery?.runUnknownTokens??0;
+  if (checkpoint.runTokens>runUnknown) run("INSERT INTO orchestration_token_reservations(id,run_id,reserved,used,status,created_at) VALUES (?,?,?,?,'settled',?)", randomUUID(), runId, checkpoint.runTokens-runUnknown, checkpoint.runTokens-runUnknown, now);
+  if(runUnknown)run("INSERT INTO orchestration_token_reservations(id,run_id,reserved,status,created_at) VALUES (?,?,?,'carried_unknown',?)",randomUUID(),runId,runUnknown,now);
+  for (const item of checkpoint.stageTokens) {
+    const unknown=checkpoint.recovery?.stageUnknownTokens.find(s=>s.stageId===item.stageId)?.tokens??0;
+    if(item.charged>unknown)run("INSERT INTO business_stage_token_reservations(id,run_id,stage_id,reserved,used,status,created_at) VALUES (?,?,?,?,?,'settled',?)", randomUUID(), runId, item.stageId, item.charged-unknown, item.charged-unknown, now);
+    if(unknown)run("INSERT INTO business_stage_token_reservations(id,run_id,stage_id,reserved,status,created_at) VALUES (?,?,?,?,'carried_unknown',?)",randomUUID(),runId,item.stageId,unknown,now);
+  }
 }

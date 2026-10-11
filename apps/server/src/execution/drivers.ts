@@ -31,6 +31,7 @@ export interface DriverInput {
   bridge?: ExecutionBridge;
   controlOnly?: boolean;
   privateContext?: boolean;
+  recoveryFilesOnly?:boolean;
   connectionTest?: boolean;
   correctionMaxTokens?: number;
   onProcess?: (owner: ProcessRegistration) => void | Promise<void>;

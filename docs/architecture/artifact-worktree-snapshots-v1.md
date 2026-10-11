@@ -1,6 +1,6 @@
 # 声明产物与独立工作树快照 v1
 
-状态：已完成。2026-10-11，R3 生效契约。继承 [R2 文件权限](./private-interaction-artifact-acl-v1.md)，新增编排迁移 v7。私密/写入自动续跑及副作用核对仍由 R4 实施。
+状态：已完成。2026-10-11，R3 生效契约。继承 [R2 文件权限](./private-interaction-artifact-acl-v1.md)，新增编排迁移 v7。私密/写入逐阶段恢复及副作用核对已由[R4](./private-write-stage-recovery-v1.md)接入。
 
 ## 归档范围
 
@@ -36,7 +36,7 @@ Owner 先预览再确认，目标仅为平台生成的 `sandbox/restored-artifac
 
 公开只读 `stage_gated` 续跑/返工带入已验收声明及用户输入附件；未验收/被拒绝的受控产物明确遗漏，不能变成后续输入或完成证明。受控文件在新 Run 创建同权限不可变版本，并以 `restoredFrom` 记录原版本与快照来源；旧版本及原验收证据不改写。成员必须具备受控文件读取能力。原生工作目录只恢复物理声明与 Git 基线。
 
-私密/写入续跑继续使用已有拒绝代码，留给 R4。自由协作受控文件的跨引擎承接仍明确拒绝，留给 R6；可先保存 Owner 产物快照。
+R4 追加加密检查点 v3，私密/写入逐阶段续跑及整阶段返工须按[恢复契约](./private-write-stage-recovery-v1.md)核对；保留原验收归档，另恢复核对后的当前工作状态。自由协作受控文件的跨引擎承接仍明确拒绝，留给 R6；可先保存 Owner 产物快照。
 
 `artifact_snapshot_refs` 保留验收和检查点引用，`artifact_snapshot_restores` 保留恢复绑定。已验收、被后继引用或已恢复快照不能清理；原受控版本继续按 R2 不可变规则保存。未被引用且未恢复的手动归档可由 Owner 携带摘要明确清理。没有自动过期删除；软删除 Run、归档聊天室或移除旧临时目录不会删除证据。
 
@@ -56,4 +56,4 @@ Owner 先预览再确认，目标仅为平台生成的 `sandbox/restored-artifac
 
 任务卡展开“查看计划、结果与验收”后，“产物与工作树快照”可声明阶段和额外路径、查看版本/改动/权限、下载、预览和确认新目录恢复。阶段续跑与返工预览复用同一清单组件，说明 Git 基线、保留产物及遗漏。桌面和 390px 页面均有回归证据。
 
-验证与未覆盖事项见 [R3 验收报告](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)。真实供应商、多分支承接、私密/写入续跑和费用治理分别留给 R8、R6、R4、R5。
+验证与未覆盖事项见 [R3 验收报告](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)。R4 适用恢复验收见[R4 报告](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)。真实供应商、多分支及其他引擎承接和费用治理分别留给 R8、R6、R5。

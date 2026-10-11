@@ -17,3 +17,5 @@ export * from './orchestration.ts';
 export * from './runtime.ts';
 export * from './business.ts';
 export * from './artifacts.ts';
+export * from './recovery.ts';
+export * from './cost.ts';

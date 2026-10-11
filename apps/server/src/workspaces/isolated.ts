@@ -10,6 +10,7 @@ import { getExternalByIdOrThrow } from './external.ts';
 import { waitForDurableLease } from '../execution/leases.ts';
 import { ExecutionError } from '../execution/errors.ts';
 import { isAccountPrivatePath } from '../accounts/privatePaths.ts';
+import { runSourceAccess } from '../messaging/access.ts';
 
 const preparing = new Map<string, Promise<ExternalWorkspaceBinding | null>>();
 const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
@@ -64,6 +65,7 @@ function save(binding: ExternalWorkspaceBinding): void {
 }
 /** Existing mixed teams resolve the same managed root before their first tool call. */
 export async function ensureIsolatedWorkspace(current: Run, signal: AbortSignal = new AbortController().signal): Promise<ExternalWorkspaceBinding | null> {
+  if(runSourceAccess(current.id).visibility==='private')return null;
   if (config.externalAgents.workspaceMode !== 'isolated' || !current.workspace?.startsWith('ext:')) return null;
   const members = all<{ definition: string }>('SELECT definition FROM run_agent_snapshots WHERE run_id=?', current.id).map((row) => JSON.parse(row.definition));
   const orchestration = getRunOrchestrationSnapshot(current.id);

@@ -35,6 +35,25 @@ CREATE TABLE IF NOT EXISTS business_run_checkpoints (
   run_id TEXT PRIMARY KEY, source_run_id TEXT NOT NULL, manifest TEXT NOT NULL,
   digest TEXT NOT NULL, created_at TEXT NOT NULL
 );
+-- Immutable owner reconciliation; never changes source attempts, tool ledgers or terminal records.
+CREATE TABLE IF NOT EXISTS business_recovery_reviews (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, client_request_id TEXT NOT NULL,
+  fingerprint TEXT NOT NULL, digest TEXT NOT NULL, record TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(run_id,client_request_id)
+);
+CREATE TABLE IF NOT EXISTS business_write_workspace_states (
+  run_id TEXT PRIMARY KEY, digest TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+-- Money uses integer millionths of the declared currency; pending/unknown never release credit.
+CREATE TABLE IF NOT EXISTS execution_cost_reservations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, stage_id TEXT, agent_id TEXT NOT NULL,
+  model TEXT NOT NULL, backend TEXT NOT NULL, currency TEXT NOT NULL,
+  reserved INTEGER NOT NULL, known INTEGER, status TEXT NOT NULL, cost_source TEXT,
+  pricing TEXT, policy_digest TEXT NOT NULL, source_reservation_id TEXT,
+  created_at TEXT NOT NULL, settled_at TEXT,
+  UNIQUE(run_id, source_reservation_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cost_reservations_run_stage ON execution_cost_reservations(run_id,stage_id,status);
 
 -- Account metadata and immutable connection/credential revisions. Never store plaintext keys.
 CREATE TABLE IF NOT EXISTS accounts (

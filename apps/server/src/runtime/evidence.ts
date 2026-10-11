@@ -106,7 +106,7 @@ export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId
   if (ref.kind === 'attempt_output') {
     const archived = checkpointOutput(runId, ref.id);
     if (archived) {
-      const resolved = accepted(ref, `checkpoint:${archived.sourceRunId}/attempt_output:${ref.id}`, archived.output);
+      const resolved = accepted(ref, `checkpoint:${archived.sourceRunId}/${archived.origin==='owner_reconciled'?'owner_reconciled':'attempt_output'}:${ref.id}`, archived.output);
       return resolved.contentSha256 === archived.sha256 ? resolved : rejected(ref, '归档输出哈希无效');
     }
     const row = get<{ run_id: string; status: string; output: string | null }>('SELECT run_id,status,output FROM collaboration_attempts WHERE id=?', ref.id);

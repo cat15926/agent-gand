@@ -15,6 +15,7 @@ const requests = new Map(); let sequence = 0; let input; let thread; let state; 
 const storePath = (id) => path.join(process.env.CODEX_HOME, 'fixture-threads', id + '.json');
 const sdkPath = (id) => path.join(process.env.CLAUDE_CONFIG_DIR, 'projects', process.env.CLAUDE_CODE_PROJECT_DIR_NAME, id + '.jsonl');
 const request = (method, params) => new Promise((resolve) => { const id = 'native:' + ++sequence; requests.set(id, resolve); send({ id, method, params }); });
+const sdkTools = () => input.controlOnly || input.privateContext ? [] : input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', ...(input.recoveryFilesOnly ? [] : ['Bash'])];
 const sdk = (message) => send({ method: 'sdk/message', params: { message } });
 function persist() {
   const file = codex ? storePath(thread) : input.session?.id ? sdkPath(thread) : null;
@@ -34,7 +35,7 @@ async function execute(prompt) {
     transport.stderr?.on('data', () => {}); await mcp.connect(transport);
     const tools = (await mcp.listTools()).tools.map(tool => tool.name);
     if (!codex) sdk({ type: 'system', subtype: 'init', session_id: thread,
-      tools: [...(input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash']), ...tools.map(name => 'mcp__agent_gand__' + name)],
+      tools: [...sdkTools(), ...tools.map(name => 'mcp__agent_gand__' + name)],
       mcp_servers: [{ name: 'agent_gand', status: 'connected' }] });
     const artifact = /本步骤产物必须使用 fs.write 完整冻结到 `([^`]+)`/.exec(raw)?.[1];
     if (artifact || input.model.includes('bridge')) {
@@ -50,6 +51,7 @@ async function execute(prompt) {
     if (value.isError) throw new Error('O4 control rejected');
     return;
   }
+  if (input.model === 'r4-before-write-wait') return;
   const target = path.join(input.cwd, 'work.txt');
   if (input.model.includes('wait')) {
     const child = spawn(process.execPath, ['-e', "process.on('SIGTERM',()=>{});process.send({type:'ready'});setTimeout(()=>require('fs').writeFileSync(process.argv[1],'late'),1600);setInterval(()=>{},1000)", path.join(input.cwd, 'late-orphan.txt')], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
@@ -100,7 +102,7 @@ createInterface({ input: process.stdin }).on('line', (line) => { void (async () 
       if (existsSync(path.join(input.cwd, 'reject-resume')) || !existsSync(file)) { log({ kind: 'resume-rejected' }); send({ method: 'sdk/resumeUnavailable', params: {} }); return; }
       state = JSON.parse(readFileSync(file, 'utf8'));
     }
-    sdk({ type: 'system', subtype: 'init', session_id: thread, tools: input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'], mcp_servers: [] });
+    sdk({ type: 'system', subtype: 'init', session_id: thread, tools: sdkTools(), mcp_servers: [] });
     await execute(input.prompt); return;
   }
   if (message.method === 'initialize') send({ id: message.id, result: { userAgent: 'fixture-d' } });

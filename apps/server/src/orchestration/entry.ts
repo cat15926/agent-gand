@@ -24,6 +24,7 @@ import { assertCoordinationRecoveryReady } from '../coordination/runtime.ts';
 import { getRun } from '../runs/trace.ts';
 import { assertOrchestrationAdmission, orchestrationAdmissionIssues } from './rollout.ts';
 import { checkpointDigest, type BusinessCheckpoint } from './businessCheckpointStore.ts';
+import { costAdmissionIssues } from './costBudget.ts';
 
 const fields = ['goal','conversationId','agentIds','recipientIds','visibility','audience','strategy','workflow','workspace','supervisorId',
   'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning','businessContract','attachments'];
@@ -57,7 +58,11 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
         if (!actor?.supports.privateContext) decision.issues.push({ code: 'PRIVATE_BACKEND_UNSUPPORTED', severity: 'error', agentId: id, message: '该成员后端无法隔离私密上下文，请选择模型 API、Claude SDK 或 Codex app-server' });
       }
       if (!decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm')) {
-        decision.issues.push({ code: 'PRIVATE_NATIVE_WRITE_UNSUPPORTED', severity: 'error', message: '私密外部 Agent 当前仅支持只读任务与受控文件读取；原生写入隔离和自动恢复将在 R4 完成' });
+        decision.issues.push({ code: 'PRIVATE_CONTROLLED_WRITE_ONLY', severity: 'warning', message: '私密文件仅通过平台 fs.write 加密保存；原生文件、shell 和网络保持关闭' });
+        for(const id of decision.execution!.participantIds) {
+          const agent=getAnyAgent(id);
+          if(agent?.execution?.kind==='external'&&!agent.execution.platformTools?.includes('fs.write')) decision.issues.push({code:'PRIVATE_NATIVE_WRITE_UNSUPPORTED',severity:'error',agentId:id,message:'私密写入成员需启用平台 fs.write；私密原生写入不能落入工作目录'});
+        }
       }
     }
   } catch (error) {
@@ -66,16 +71,20 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
   }
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
+  if(checkpoint?.version===3)decision.issues.push({code:'RECOVERY_FILES_ONLY',severity:'warning',message:'关联恢复只开放获准的文件读取、检索和写入，命令及外部副作用工具保持禁用；使用新隔离目录和新模型会话'});
   const add = (code: string, message: string) => decision.issues.push({ code, message, severity: 'error' });
+  decision.issues.push(...costAdmissionIssues(preview));
   if (old.request.attachments?.length) {
     decision.requiresConfirmation = true;
     for (const id of decision.execution!.participantIds) if (!old.capabilities.agents.find(a => a.id === id)?.supports.controlledFiles) add('ATTACHMENT_BACKEND_UNSUPPORTED','包含附件的任务要求每位执行成员开放平台 fs.read 或 search.files；请在角色工具配置中启用受控文件读取');
   }
   if(checkpoint?.archive?.manifest.files.some(f=>f.storage==='managed')) for(const id of decision.execution!.participantIds)
     if(!old.capabilities.agents.find(a=>a.id===id)?.supports.controlledFiles) add('ATTACHMENT_BACKEND_UNSUPPORTED','续跑归档包含受控文件，执行成员需开放平台 fs.read 或 search.files');
-  const nativeWriter = !decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm');
+  const nativeWriter = old.request.visibility!=='private'&&!decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm');
   const needsGit = nativeWriter || !decision.execution!.readonly && ['development_review','supervisor_decomposition'].includes(old.request.workflow);
-  if (needsGit) {
+  if (needsGit && checkpoint?.version===3) {
+    if(!checkpoint.archive?.manifest.git)add('REGISTERED_GIT_WORKSPACE_REQUIRED','写入恢复缺少可验证 Git 基线，不能启动原生编码');
+  } else if (needsGit) {
     const registration = old.request.workspace && getExternal(externalId(old.request.workspace) ?? '');
     if (!registration || config.externalAgents.workspaceMode !== 'isolated') add('REGISTERED_GIT_WORKSPACE_REQUIRED', '编码任务需要已注册的 Git 根工作区及隔离工作区模式，请先选择工作区');
     else try {
@@ -121,6 +130,7 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
   }
   if (body.planning === 'detailed' && !revisionRun) assertOrchestrationAdmission(preview);
   if (body.planning === 'detailed' && !preview.decision.execution!.plannerRequired) invalid('DETAILED_PLANNING_NOT_REQUIRED','详细规划只用于主管拆解；当前工作流使用确定性模板',400);
+  if (body.planning === 'detailed' && preview.request.constraints.costPolicy) invalid('COST_PLANNING_UNSUPPORTED','费用政策绑定提交后的执行；请使用规则预览，当前不开放该政策下的付费详细规划',400);
   if (body.planning === 'detailed' && !hasErrors(preview)) {
     const agents = preview.decision.execution!.participantIds.map(id => getAnyAgent(id)!);
     const supervisor = agents.find(a => a.id === preview.request.supervisorId)!;

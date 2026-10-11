@@ -29,12 +29,17 @@ claimRuntimeHost();
 for (const id of ['network-a', 'network-b']) if (!registry.getAnyAgent(id)) registry.createAgent({ id, name: id,
   description: 'network fixture', systemPrompt: 'Give an actual readonly analysis.', model: 'mock:network', permissionMode: 'readonly',
   capabilities: ['execute'], tools: [], disallowedTools: [], color: '#4477aa', avatar: '' });
+if(!registry.getAnyAgent('network-r4-writer'))registry.createAgent({id:'network-r4-writer',name:'R4 write fixture',description:'temporary private write',systemPrompt:'Write the scoped file and report results.',model:'mock:r4-network-writer',permissionMode:'auto',capabilities:['execute'],tools:['fs.read','fs.write','search.files'],disallowedTools:[],color:'#4477aa',avatar:''});
 const calls = () => existsSync(process.env.R1_CALL_LOG) ? readFileSync(process.env.R1_CALL_LOG, 'utf8').split('\n').filter(Boolean).map(JSON.parse) : [];
 mockProvider.chat = async (request, delta) => {
   const text = request.messages.map(item => typeof item.content === 'string' ? item.content : JSON.stringify(item.content)).join('\n');
   const scenario = text.includes('R1_NETWORK_CRASH') ? 'crash' : text.includes('R1_NETWORK_TIMEOUT') ? 'timeout' : 'success';
   appendFileSync(process.env.R1_CALL_LOG, JSON.stringify({ scenario, at: new Date().toISOString() }) + '\n');
   delta?.('已收到模型的可信活动。'); request.onActivity?.('reasoning');
+  if(request.model==='mock:r4-network-writer'){
+    if(text.includes('【工具结果】fs.write'))throw new Error('R4 response lost after private file write');
+    return {content:'',toolCalls:[{id:'r4-network-write',name:'fs.write',input:JSON.stringify({path:'reports/r4-private.txt',content:'R4_NETWORK_PRIVATE 完整的私密文件内容，响应丢失后必须核对，不能重复写入。'})}],usage:{tokensIn:2,tokensOut:4,costUsd:0},stopReason:'tool_use',truncated:false};
+  }
   if (scenario === 'crash') return new Promise(() => {});
   if (scenario === 'timeout') return new Promise(resolve => setTimeout(() => {
     delta?.('R1_LATE_CALLBACK'); request.onActivity?.('text');

@@ -32,6 +32,37 @@ export interface LlmUsage {
   tokensIn: number;
   tokensOut: number;
   costUsd: number;
+  inputKnown?: boolean;
+  outputKnown?: boolean;
+  costKnown?: boolean;
+  costSource?: 'calculated' | 'reported';
+  billingComplete?: boolean;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  inputBaseTokens?: number;
+}
+/** Preserve missing/partial usage instead of treating parser placeholders as measured zero. */
+function apiUsage(model: string, raw: Record<string, unknown> | undefined, kind: 'openai' | 'anthropic'): LlmUsage {
+  const valid = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+  const input = raw?.[kind === 'openai' ? 'prompt_tokens' : 'input_tokens'], output = raw?.[kind === 'openai' ? 'completion_tokens' : 'output_tokens'];
+  const details = raw?.prompt_tokens_details as Record<string, unknown> | undefined;
+  const rawCacheRead = kind === 'openai' ? details?.cached_tokens : raw?.cache_read_input_tokens, rawCacheWrite = raw?.cache_creation_input_tokens;
+  const cacheValid = (rawCacheRead === undefined || valid(rawCacheRead)) && (rawCacheWrite === undefined || valid(rawCacheWrite))
+    && !(kind === 'openai' && valid(input) && valid(rawCacheRead) && rawCacheRead > input);
+  const cacheRead = cacheValid ? toInt(rawCacheRead) : 0, cacheWrite = cacheValid ? toInt(rawCacheWrite) : 0;
+  const inputBaseTokens = Math.max(0, toInt(input) - (kind === 'openai' ? cacheRead : 0)), tokensIn = toInt(input) + (kind === 'anthropic' ? cacheRead + cacheWrite : 0), tokensOut = toInt(output);
+  const completionDetails = raw?.completion_tokens_details as Record<string, unknown> | undefined;
+  const knownFields = new Set(['prompt_tokens','completion_tokens','total_tokens','input_tokens','output_tokens','cache_read_input_tokens','cache_creation_input_tokens','prompt_tokens_details','completion_tokens_details','service_tier','inference_geo']);
+  const populated = (v: unknown) => v !== undefined && v !== null && v !== 0 && v !== false;
+  const ancillaryUnknown = Object.entries(raw ?? {}).some(([key,value]) => !knownFields.has(key) && populated(value))
+    || Object.entries(details ?? {}).some(([key,value]) => key !== 'cached_tokens' && populated(value))
+    || Object.entries(completionDetails ?? {}).some(([key,value]) => key !== 'reasoning_tokens' && populated(value));
+  const billingComplete = cacheValid && !ancillaryUnknown;
+  const inputKnown = valid(input) && cacheValid;
+  const costKnown = inputKnown && valid(output) && Boolean(lookupPricing(model)) && billingComplete && !(cacheRead || cacheWrite);
+  return { tokensIn, tokensOut, costUsd: costKnown ? calculateCostUsd(model,tokensIn,tokensOut) : 0, inputKnown, outputKnown: valid(output), costKnown, costSource: 'calculated',
+    // Owner tariffs can account for caching explicitly; unrecognized ancillary billing remains unknown.
+    billingComplete, cacheReadTokens: cacheRead, cacheWriteTokens: cacheWrite, inputBaseTokens };
 }
 
 /** 传给 Provider 的工具 schema（JSON Schema 形式） */
@@ -159,7 +190,7 @@ export function lookupPricing(model: string): { inputPerMillion: number; outputP
   return config.llm.pricing[model] ?? config.llm.pricing[`${provider}:*`] ?? null;
 }
 
-/** 未知价格保持 0，避免伪造供应商账单。 */
+/** Legacy numeric projection only. Unknown zero placeholders are marked by usage.costKnown=false. */
 export function calculateCostUsd(model: string, tokensIn: number, tokensOut: number): number {
   const price = lookupPricing(model);
   if (!price) return 0;
@@ -548,6 +579,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     let stopReason: string | null = null;
     let tokensIn = 0;
     let tokensOut = 0;
+    let rawUsage: Record<string, unknown> | undefined;
     const toolAccs = new Map<number, ToolCallAcc>();
     for await (const data of sseDataLines(res.body)) {
       if (data === '[DONE]') break;
@@ -581,13 +613,14 @@ export class OpenAICompatibleProvider implements LLMProvider {
         stopReason = choice.finish_reason;
       }
       if (chunk.usage) {
+        rawUsage = chunk.usage as Record<string, unknown>;
         tokensIn = toInt(chunk.usage.prompt_tokens);
         tokensOut = toInt(chunk.usage.completion_tokens);
       }
     }
     return {
       content,
-      usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
+      usage: apiUsage(req.model, rawUsage, 'openai'),
       toolCalls: finishToolAccs(toolAccs),
       stopReason,
       truncated: stopReason === 'length',
@@ -609,11 +642,7 @@ function parseOpenAIFullResponse(data: OpenAIChatResponse, onDelta?: DeltaHandle
   }
   return {
     content,
-    usage: {
-      tokensIn: toInt(data.usage?.prompt_tokens),
-      tokensOut: toInt(data.usage?.completion_tokens),
-      costUsd: calculateCostUsd(model, toInt(data.usage?.prompt_tokens), toInt(data.usage?.completion_tokens)),
-    },
+    usage: apiUsage(model, data.usage as Record<string, unknown> | undefined, 'openai'),
     toolCalls: finishToolAccs(toolAccs),
     stopReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : null,
     truncated: choice?.finish_reason === 'length',
@@ -713,6 +742,7 @@ export class AnthropicProvider implements LLMProvider {
     // R2：anthropic usage 双段——message_start.usage.input_tokens + message_delta.usage.output_tokens
     let tokensIn = 0;
     let tokensOut = 0;
+    let rawUsage: Record<string, unknown> | undefined;
     for await (const data of sseDataLines(res.body)) {
       let ev: AnthropicStreamEvent;
       try {
@@ -722,6 +752,7 @@ export class AnthropicProvider implements LLMProvider {
       }
       switch (ev.type) {
         case 'message_start':
+          if (ev.message?.usage) rawUsage = { ...ev.message.usage };
           tokensIn = toInt(ev.message?.usage?.input_tokens);
           break;
         case 'content_block_start': {
@@ -755,6 +786,7 @@ export class AnthropicProvider implements LLMProvider {
           break;
         }
         case 'message_delta': {
+          if (ev.usage) rawUsage = { ...rawUsage, ...ev.usage, ...(ev.usage.input_tokens === 0 && typeof rawUsage?.input_tokens === 'number' && rawUsage.input_tokens > 0 ? { input_tokens: rawUsage.input_tokens } : {}) };
           const stop = (ev as { delta?: { stop_reason?: unknown } }).delta?.stop_reason;
           if (typeof stop === 'string') stopReason = stop;
           // R2 双段合并：官方端点 input 只在 message_start、output 在 message_delta；
@@ -778,7 +810,7 @@ export class AnthropicProvider implements LLMProvider {
       .map((b) => ({ name: b.toolName, input: b.json.trim().length > 0 ? b.json : '{}' }));
     return {
       content: text,
-      usage: { tokensIn, tokensOut, costUsd: calculateCostUsd(req.model, tokensIn, tokensOut) },
+      usage: apiUsage(req.model, rawUsage, 'anthropic'),
       toolCalls,
       stopReason,
       truncated: stopReason === 'max_tokens',
@@ -803,11 +835,7 @@ function parseAnthropicFullResponse(
     .map((b) => ({ name: b.name, input: JSON.stringify(b.input ?? {}) }));
   return {
     content: text,
-    usage: {
-      tokensIn: toInt(data.usage?.input_tokens),
-      tokensOut: toInt(data.usage?.output_tokens),
-      costUsd: calculateCostUsd(model, toInt(data.usage?.input_tokens), toInt(data.usage?.output_tokens)),
-    },
+    usage: apiUsage(model, data.usage as Record<string, unknown> | undefined, 'anthropic'),
     toolCalls,
     stopReason: typeof data.stop_reason === 'string' ? data.stop_reason : null,
     truncated: data.stop_reason === 'max_tokens',

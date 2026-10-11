@@ -39,7 +39,7 @@ export function ArtifactSnapshotPanel({runId,businessVersion,stages=[]}:{runId:s
     const link=document.createElement('a');link.href=url;link.download=r.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   });}
   return <details className="rounded-lg border border-zinc-700 p-3" aria-label="产物与工作树快照"><summary className="cursor-pointer text-zinc-200">产物与工作树快照 · {rows.length} 份归档</summary><div className="mt-3 space-y-3 text-xs">
-    <p className="text-zinc-400">已验收阶段自动保留证据。额外归档先声明路径并核对预览；恢复只创建新隔离目录，不执行 Agent。私密受控文件保持加密，私密与写入自动续跑将在后续阶段开放。</p>
+    <p className="text-zinc-400">已验收阶段自动保留证据。额外归档先声明路径并核对预览；恢复只创建新隔离目录，不执行 Agent。私密受控文件保持加密，逐阶段任务可先核对副作用，再预览私密或写入续跑。</p>
     <fieldset disabled={busy} className="space-y-2"><legend className="mb-1 text-zinc-400">本次归档的阶段</legend>{stages.map(s=><label key={s.stage.id} className="flex items-start gap-2"><input type="checkbox" checked={selected.includes(s.stage.id)} onChange={e=>{setSelected(p=>e.target.checked?[...p,s.stage.id]:p.filter(id=>id!==s.stage.id));setPreview(null);}}/>{s.stage.title}</label>)}</fieldset>
     <label className="block text-zinc-400">额外声明的工作树改动（每行一个相对路径，含删除）<textarea aria-label="快照声明路径" className="input mt-1 min-h-16" disabled={busy} value={paths} onChange={e=>{setPaths(e.target.value);setPreview(null);}} placeholder={'src/result.ts\nreports/chart.png'}/></label>
     <button className={button} disabled={busy} onClick={()=>void action(async()=>{const id=epoch.current;const r=await api.previewArtifactSnapshot(runId,input());if(epoch.current===id){setPreview(r);setRestore(null);}})}>预览产物归档</button>

@@ -26,6 +26,7 @@ export interface RunRecoveryAssessment {
   continuationRunId: string | null;
   sourceRunId: string | null;
   continuationKind?: 'readonly_collaboration' | 'business_stages';
+  reconciliationAvailable?:boolean;
 }
 
 export interface Run {

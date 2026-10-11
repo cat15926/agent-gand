@@ -5,7 +5,7 @@ import { ApiError } from './apiError';
 import { managementRequest } from './accounts';
 export { ApiError } from './apiError';
 import type {
-  ArtifactSnapshot, SnapshotPreview, SnapshotRestorePreview,
+  ArtifactSnapshot, SnapshotPreview, SnapshotRestorePreview, RecoveryInspection, RecoveryReviewInput, RecoveryReview, CostBudgetState, CostPrice,
   OrchestrationPreview, OrchestrationPreviewInput, RunOrchestrationSnapshot, RoomPreferences,
   AgentDefinition,
   AgentInput,
@@ -118,10 +118,14 @@ export const getOrchestrationOptions = () => request<{ admission: OrchestrationA
 export interface MemberReservation { runId: string; agentId: string; attemptId: string | null; status: string; position: number }
 export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment; business?: { version: number; outcome: BusinessOutcome; contractPresent: boolean; acceptedStages: number; totalStages: number } }
 export const getBusinessState = (id: string) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`);
+export const getCostBudget = (id: string) => managementRequest<{budget:CostBudgetState|null;records:Array<{id:string;stageId:string|null;agentId:string;model:string;backend:string;currency:string;reserved:number;known:number|null;status:string;costSource:string|null;pricing:CostPrice|null;sourceReservationId:string|null}>}>(`/api/accounts/business/${encodeURIComponent(id)}/cost-budget`);
 export const getBusinessHistory = (id: string) => managementRequest<{ events: BusinessAuditEntry[] }>(`/api/accounts/business/${encodeURIComponent(id)}/history`);
 export const getBusinessEvidence = (id: string) => managementRequest<{ choices: BusinessEvidenceChoice[] }>(`/api/accounts/business/${encodeURIComponent(id)}/evidence`);
 export const applyBusinessCommand = (id: string, command: BusinessCommand) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`, 'POST', command);
 export const createBusinessFileEvidence = (id: string, path: string, stageId?: string) => managementRequest<BusinessEvidenceChoice>(`/api/accounts/business/${encodeURIComponent(id)}/file-evidence`, 'POST', { path, ...(stageId ? { stageId } : {}) });
+export const getBusinessRecoveryReviews = (id: string) => managementRequest<{reviews:RecoveryReview[]}>(`/api/accounts/business/${encodeURIComponent(id)}/recovery-reviews`);
+export const inspectBusinessRecovery = (id: string) => managementRequest<RecoveryInspection>(`/api/accounts/business/${encodeURIComponent(id)}/recovery-inspection`, 'POST', {});
+export const confirmBusinessRecovery = (id: string, input: RecoveryReviewInput) => managementRequest<RecoveryInspection>(`/api/accounts/business/${encodeURIComponent(id)}/recovery-reviews`, 'POST', input);
 export interface BusinessReworkPreview {
   input: BusinessReworkInput; preview: OrchestrationPreview; closesWaitingSource: boolean;
   stage: { id: string; title: string; assignments: Array<{ agentId: string; objective: string }> };
@@ -151,14 +155,14 @@ export async function getTaskStates(id: string, runIds?: string[]) {
 function runChunks(ids: string[]): string[][] { return Array.from({length:Math.ceil(ids.length/100)},(_,i) => ids.slice(i*100,(i+1)*100)); }
 export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
-export interface ContinuationPreview { assessment: RunRecoveryAssessment; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; excerpt: string; truncated: boolean }>;
-  business?: { sourceRunId: string; sourceVersion: number; digest: string; acceptedStages: Array<{ id: string; title: string }>;
+export interface ContinuationPreview { assessment: RunRecoveryAssessment; costCarryDigest?:string; costBudget?:CostBudgetState; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; origin?: 'member' | 'owner_reconciled'; excerpt: string; truncated: boolean }>;
+  business?: Pick<NonNullable<BusinessState['checkpoint']>, 'access' | 'readonly' | 'recovery' | 'costBudget'> & { sourceRunId: string; sourceVersion: number; digest: string; acceptedStages: Array<{ id: string; title: string }>;
     files: Array<{ path: string; sha256: string }>; archive?:{id:string;digest:string;manifest:ArtifactSnapshot}; carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }>; workspace: 'fresh_run'; timeLimitsReset: boolean } } }
 export const previewRunContinuation = (id: string, stages = false) => stages
   ? managementRequest<ContinuationPreview>(`/api/accounts/business/${encodeURIComponent(id)}/continuation-preview`, 'POST', {})
   : request<ContinuationPreview>(`/api/runs/${encodeURIComponent(id)}/continuation-preview`, { method: 'POST' });
-export const continueRun = (id: string, preview: OrchestrationPreview, stages = false) => {
-  const body = { previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint };
+export const continueRun = (id: string, preview: OrchestrationPreview, stages = false, costCarryDigest?: string) => {
+  const body = { ...(costCarryDigest ? {costCarryDigest} : {}), previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint };
   return stages ? managementRequest<{ run: Run; deduplicated: boolean }>(`/api/accounts/business/${encodeURIComponent(id)}/continuations`, 'POST', body)
     : request<{ run: Run; deduplicated: boolean }>(`/api/runs/${encodeURIComponent(id)}/continuations`, { method: 'POST', body: JSON.stringify(body) });
 };

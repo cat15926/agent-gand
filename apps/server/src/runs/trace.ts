@@ -351,6 +351,8 @@ export interface EndSpanInput {
   tokensIn?: number;
   tokensOut?: number;
   costUsd?: number;
+  usageKnown?: boolean;
+  costKnown?: boolean;
   /** 结束时补充的结果属性（如 stop_reason），与开始属性合并。 */
   attributes?: SpanAttributes;
 }
@@ -361,7 +363,7 @@ export function endSpan(span: RunEvent, input: EndSpanInput = {}): RunEvent {
     ...span,
     output: input.output ?? null,
     status: input.status ?? 'ok',
-    attributes: { ...span.attributes, ...input.attributes },
+    attributes: { ...span.attributes, ...input.attributes, ...(input.usageKnown !== undefined ? { 'llm.usage_known': input.usageKnown } : {}), ...(input.costKnown !== undefined ? { 'llm.cost_known': input.costKnown } : {}) },
     tokensIn: input.tokensIn ?? 0,
     tokensOut: input.tokensOut ?? 0,
     costUsd: input.costUsd ?? 0,
@@ -461,12 +463,12 @@ const USAGE_SQL = `
          SUM(cost_usd)   AS cost_usd,
          SUM(CASE WHEN span_kind = 'llm'  THEN 1 ELSE 0 END) AS llm_calls,
          SUM(CASE WHEN span_kind = 'tool' THEN 1 ELSE 0 END) AS tool_calls,
-         SUM(CASE WHEN span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL
-           AND COALESCE(json_extract(attributes, '$."execution.usage_known"'),0)=0 THEN 1 ELSE 0 END) AS tokens_unknown,
-         SUM(CASE WHEN span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL
-           AND COALESCE(json_extract(attributes, '$."execution.cost_known"'),0)=0 THEN 1 ELSE 0 END) AS cost_unknown
+         SUM(CASE WHEN span_kind = 'llm' AND (json_extract(attributes, '$."llm.usage_known"')=0 OR status='error' OR (json_extract(attributes, '$."execution.id"') IS NOT NULL
+           AND COALESCE(json_extract(attributes, '$."execution.usage_known"'),0)=0)) THEN 1 ELSE 0 END) AS tokens_unknown,
+         SUM(CASE WHEN span_kind = 'llm' AND (json_extract(attributes, '$."llm.cost_known"')=0 OR status='error' OR (json_extract(attributes, '$."execution.id"') IS NOT NULL
+           AND COALESCE(json_extract(attributes, '$."execution.cost_known"'),0)=0)) THEN 1 ELSE 0 END) AS cost_unknown
   FROM run_events
-  WHERE (status = 'ok' OR (status = 'error' AND span_kind = 'llm' AND json_extract(attributes, '$."execution.id"') IS NOT NULL))`;
+  WHERE (status = 'ok' OR (status = 'error' AND span_kind = 'llm'))`;
 
 export function usageForRun(runId: string): UsageSummary | null {
   const row = get<UsageRow>(`${USAGE_SQL} AND run_id = ? GROUP BY run_id`, runId);

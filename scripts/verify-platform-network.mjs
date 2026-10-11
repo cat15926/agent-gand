@@ -171,8 +171,38 @@ try {
   const againRestore=await managed('/api/accounts/artifact-snapshots/'+archived.data.id+'/restores',restoreBody);assert.equal(againRestore.status,200);assert.equal(againRestore.data.path,restored.data.path);
   assert.equal((await api('/fixture/state')).data.calls.length,archiveCalls,'snapshot and restore never call models');
   if(archived.data.files.length){const downloaded=await managed('/api/accounts/artifact-snapshots/'+archived.data.id+'/content/file/0',null,'GET');assert.equal(downloaded.status,200);assert.equal(Buffer.from(downloaded.data.contentBase64,'base64').toString(),'R2_UI_FILE_SECRET');}
+  // R4: actual private write, owner reconciliation, cold preview, lost commit response and retry.
+  const r4Input={goal:'R4 私密写入后中断并只执行剩余检查',agentIds:['network-a','network-r4-writer'],strategy:'serial',workflow:'routine',visibility:'private',audience:['network-a','network-r4-writer'],constraints:{readonly:false},
+    businessContract:{version:1,executionMode:'stage_gated',stages:[
+      {id:'base',title:'确认基础',criteria:['有实际依据'],deliverables:[{id:'result',title:'基础报告',kind:'text'}],execution:{assignments:[{agentId:'network-a',objective:'确认分析基础'}]}},
+      {id:'write',title:'文件与检查',criteria:['文件正确'],deliverables:[{id:'result',title:'完整文件',kind:'file'}],execution:{assignments:[{agentId:'network-r4-writer',objective:'实际写入私密文件'},{agentId:'network-a',objective:'只核对剩余工作，不重写已有文件'}]}}
+    ]}};
+  const r4p=await api('/api/orchestration/preview','POST',r4Input);assert.equal(r4p.status,200);
+  const r4=await api('/api/conversations','POST',{...r4Input,entryVersion:1,clientRequestId:randomUUID(),previewId:r4p.data.previewId,orchestrationFingerprint:r4p.data.fingerprint,roomTitle:'R4 网络恢复'});assert.equal(r4.status,201,JSON.stringify(r4.data));
+  await terminal(r4.data.run.id,'waiting_for_user');const r4Url='/api/accounts/business/'+r4.data.run.id;
+  async function r4Command(command){const current=await managed(r4Url,null,'GET');return managed(r4Url,{...command,expectedVersion:current.data.version,clientRequestId:randomUUID()});}
+  const r4Evidence=await managed(r4Url+'/evidence',null,'GET');assert.equal(r4Evidence.status,200);
+  const r4Reported=await r4Command({action:'report',stageId:'base',kind:'delivery',note:'核对基础',evidence:[{deliverableId:'result',ref:r4Evidence.data.choices.find(c=>c.stageId==='base').ref}]});assert.equal(r4Reported.status,200);
+  assert.equal((await r4Command({action:'decide',stageId:'base',reportId:r4Reported.data.stages[0].report.id,verdict:'accept',checkedCriteria:[0],reason:'基础核对通过'})).status,200);
+  await terminal(r4.data.run.id,'failed');const r4Before=(await api('/fixture/state')).data.calls.length;
+  const inspection=await managed(r4Url+'/recovery-inspection',{});assert.equal(inspection.status,200,JSON.stringify(inspection.data));assert.equal(inspection.data.requiresReview,true);
+  const uncertain=inspection.data.steps.find(s=>s.state==='unknown');assert.ok(uncertain);assert.equal(uncertain.canConfirmNotExecuted,false);
+  const review={fingerprint:inspection.data.fingerprint,clientRequestId:randomUUID(),reason:'核对私密文件全文与工具账本，实际写入已经完成，后续仅检查剩余工作。',externalEffectsChecked:true,
+    steps:[{stepId:uncertain.stepId,verdict:'completed',reason:'已通过所有者下载核对文件全文和哈希，确认写入完成。',output:'所有者核对交付：私密文件已完整写入，内容正确且工具记录显示完成。原响应丢失；后续成员保留此文件，只完成余下检查和新阶段验收。'}]};
+  const reviewed=await managed(r4Url+'/recovery-reviews',review);assert.equal(reviewed.status,200);assert.equal((await managed(r4Url+'/recovery-reviews',review)).data.reviewId,reviewed.data.reviewId);
+  const r4Preview=await managed(r4Url+'/continuation-preview',{});assert.equal(r4Preview.status,200,JSON.stringify(r4Preview.data));assert.equal(r4Preview.data.checkpoint.business.access.visibility,'private');
+  await stop();await start();archiveAuth=await ownerSession();
+  const r4Body={previewId:r4Preview.data.preview.previewId,orchestrationFingerprint:r4Preview.data.preview.fingerprint};
+  await new Promise((resolve,reject)=>{const req=http.request(base+r4Url+'/continuations',{method:'POST',headers:{...archiveAuth,'content-type':'application/json'}},response=>{response.destroy();req.destroy();resolve();});req.once('error',e=>{if(e.code!=='ECONNRESET')reject(e);});req.end(JSON.stringify(r4Body));});
+  const r4Next=await managed(r4Url+'/continuations',r4Body);assert.equal(r4Next.status,200,JSON.stringify(r4Next.data));await terminal(r4Next.data.run.id,'waiting_for_user');
+  assert.equal((await api('/fixture/state')).data.calls.length,r4Before+1,'confirmed write is skipped after real HTTP response loss');
+  await stop();await start();archiveAuth=await ownerSession();const r4Retry=await managed(r4Url+'/continuations',r4Body);assert.equal(r4Retry.status,200);assert.equal(r4Retry.data.run.id,r4Next.data.run.id);assert.equal((await api('/fixture/state')).data.calls.length,r4Before+1);
+  const r4State=await managed('/api/accounts/business/'+r4Next.data.run.id,null,'GET');assert.equal(r4State.status,200);assert.equal(r4State.data.checkpoint.access.visibility,'private');assert.equal(r4State.data.stages[0].status,'accepted');assert.equal(r4State.data.checkpoint.completedWorkers,2);
+  const roomFiles=await managed('/api/accounts/artifacts/rooms/'+r4.data.conversation.id,null,'GET');const newFile=roomFiles.data.files.find(f=>f.runId===r4Next.data.run.id&&f.path==='reports/r4-private.txt');assert.ok(newFile);assert.equal(newFile.visibility,'private');
+  const fileBytes=await managed('/api/accounts/artifacts/'+newFile.id+'/content',null,'GET');assert.match(Buffer.from(fileBytes.data.contentBase64,'base64').toString(),/R4_NETWORK_PRIVATE/);
+  assert.equal((await api('/fixture/state')).data.runs.find(r=>r.id===r4.data.run.id).status,'failed');
   console.log(JSON.stringify({ status: 'passed', evidence: 'real loopback HTTP/WS and cold host restart; mocked inference only',
-    checks: ['concurrent deduplication', 'lost response retry', 'preview across restart', 'terminal retry after restart', 'WS disconnect/reconnect and history', 'idle timeout diagnostics and late callback fence', 'unknown-call restart fence','R3 owner archive, cold restart and idempotent isolated restore', ...(process.env.R1_VERIFY_UI === '1' ? ['desktop/mobile actual HTTP/WS UI','R2 private preview and attachment','owner download, explicit publication and immutable versions','R3 private versions archived, retained encrypted and owner downloaded after restart'] : [])], supplierRequests: 0 }));
+    checks: ['concurrent deduplication', 'lost response retry', 'preview across restart', 'terminal retry after restart', 'WS disconnect/reconnect and history', 'idle timeout diagnostics and late callback fence', 'unknown-call restart fence','R3 owner archive, cold restart and idempotent isolated restore','R4 private write, owner review, cold preview, lost continuation response, exact retry and preserved ACL', ...(process.env.R1_VERIFY_UI === '1' ? ['desktop/mobile actual HTTP/WS UI','R2 private preview and attachment','owner download, explicit publication and immutable versions','R3 private versions archived, retained encrypted and owner downloaded after restart'] : [])], supplierRequests: 0 }));
 } finally {
   if (browser) await browser.close(); for (const socket of sockets) socket.close();
   await Promise.all([...children].map(worker => new Promise(resolve => {

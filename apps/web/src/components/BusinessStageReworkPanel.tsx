@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import type { BusinessState } from '@agent-gand/shared';
 import * as api from '../services/api';
+import { CostBudgetSummary } from './CostBudgetPanel';
+import { BusinessRecoveryPanel, CheckpointRecoveryScope } from './BusinessRecoveryPanel';
 import { SnapshotManifest } from './ArtifactSnapshotPanel';
 
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40';
@@ -34,7 +36,8 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
   }
   const busy = disabled || working;
   return <div aria-label={`${item.stage.title} 阶段返工`} className="space-y-3 rounded-lg border border-amber-500/30 p-3">
-    <p className="text-amber-200">需要成员修订交付时，可明确发起阶段返工。当前支持公开只读阶段。</p>
+    <p className="text-amber-200">需要成员修订交付时，可明确发起阶段返工。私密及写入任务须先核对授权和副作用。</p>
+    <BusinessRecoveryPanel runId={runId} members={members} onReviewed={() => setPreview(null)} />
     <label className="block text-zinc-400">补充修订要求<textarea aria-label={`${item.stage.title} 返工要求`} className="input mt-1 min-h-20" maxLength={2000} disabled={busy} value={instruction}
       onChange={e => { setInstruction(e.target.value); setPreview(null); setError(''); }} placeholder="说明需要补充或改正的内容；原验收标准和交付清单保持不变" /></label>
     <button className={button} disabled={busy || !instruction.trim()} onClick={() => void prepare()}>预览阶段返工</button>
@@ -45,6 +48,7 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
       <p className="whitespace-pre-wrap text-zinc-400">拒绝原因：{preview.checkpoint.rework?.reason}</p>
       <p className="whitespace-pre-wrap text-zinc-300">修订要求：{preview.input.instruction}</p>
       <p className="text-zinc-400">使用新的独立工作区及模型会话，恢复已验收产物与 Git 基线。被拒绝的候选留存供参考，不能用于新任务验收。</p>
+      <CheckpointRecoveryScope checkpoint={preview.checkpoint} members={members}/>{preview.checkpoint.costBudget&&<CostBudgetSummary budget={preview.checkpoint.costBudget}/>}
       {preview.checkpoint.archive&&<SnapshotManifest snapshot={preview.checkpoint.archive.manifest}/>}
       <p className="text-zinc-400">执行及阶段时限重新计算。已占用输出 Token 预算结转：本轮 {preview.checkpoint.carriedRunTokens}；返工阶段 {preview.checkpoint.carriedStageTokens.find(s => s.stageId === preview.stage.id)?.charged ?? 0}。</p>
       {preview.closesWaitingSource && <p className="text-amber-200">确认后会关闭原任务的等待执行，保留原拒绝及验收记录，并创建关联返工任务。</p>}

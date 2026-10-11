@@ -11,6 +11,6 @@ export function readBusinessContractDraft(value: unknown): BusinessContract | nu
     || !Array.isArray(s.deliverables) || !s.deliverables.length || s.deliverables.length > 12 || s.deliverables.some(d => !d || typeof d.id !== 'string' || typeof d.title !== 'string' || !['text', 'file'].includes(d.kind)))) return null;
   if (raw.executionMode === 'stage_gated' && raw.stages.some(s => !s.execution || !Array.isArray(s.execution.assignments) || !s.execution.assignments.length || s.execution.assignments.length > 12
     || s.execution.assignments.some(a => !a || typeof a.agentId !== 'string' || typeof a.objective !== 'string')
-    || ['timeoutMs', 'maxTokens'].some(key => { const v = s.execution![key as 'timeoutMs' | 'maxTokens']; return v !== undefined && (!Number.isFinite(v) || v <= 0); }))) return null;
+    || ['timeoutMs', 'maxTokens', 'maxCost'].some(key => { const v = s.execution![key as 'timeoutMs' | 'maxTokens' | 'maxCost']; return v !== undefined && (!Number.isFinite(v) || v <= 0); }))) return null;
   return structuredClone(raw);
 }

@@ -6,7 +6,8 @@ import { all, get, run, tx } from '../db/database.ts';
 import { config } from '../config.ts';
 import { getRun } from '../runs/trace.ts';
 import { getBusinessState } from '../orchestration/business.ts';
-import { businessQuiescent } from '../orchestration/businessGates.ts';
+import { checkpointOutput } from '../orchestration/businessCheckpointStore.ts';
+import { businessQuiescent, businessProcessesQuiescent } from '../orchestration/businessGates.ts';
 import { getRunCoordinationPlan } from '../coordination/store.ts';
 import { runSourceAccess } from '../messaging/access.ts';
 import { openManagedContent, sealManagedContent } from '../accounts/credentials.ts';
@@ -84,11 +85,11 @@ export function saveArtifactSnapshot(item: SnapshotPackage, ownerType?: 'accepta
 }
 
 /** Bounded model-free compilation. Completeness applies to the explicitly listed stages and paths. */
-export function buildArtifactSnapshot(runId: string, input: {paths?:string[];stageIds?:string[];checkpoint?:boolean} = {}): SnapshotPackage {
+export function buildArtifactSnapshot(runId: string, input: {paths?:string[];stageIds?:string[];checkpoint?:boolean;recovery?:boolean;managedIds?:string[]} = {}): SnapshotPackage {
   const source = getRun(runId); if (!source) snapshotFail('RUN_NOT_FOUND','任务不存在');
   if(!['completed','failed','cancelled'].includes(source!.status) && !(source!.status==='waiting_for_user'&&getRunCoordinationPlan(runId)?.status==='paused'))
     snapshotFail('SNAPSHOT_NOT_QUIESCENT','请先等待执行终态或阶段暂停边界，再保存产物快照');
-  if (!businessQuiescent(runId)) snapshotFail('SNAPSHOT_NOT_QUIESCENT','执行、工具或原生进程尚未收敛，不能归档');
+  if (!(input.recovery ? businessProcessesQuiescent(runId) : businessQuiescent(runId))) snapshotFail('SNAPSHOT_NOT_QUIESCENT','执行、工具或原生进程尚未收敛，不能归档');
   if (input.paths && (!Array.isArray(input.paths) || input.paths.length > 128 || input.paths.some(p=>typeof p!=='string'))
     || input.stageIds && (!Array.isArray(input.stageIds) || input.stageIds.length > 32 || input.stageIds.some(p=>typeof p!=='string')))
     snapshotFail('SNAPSHOT_INPUT_INVALID','快照声明格式或数量无效');
@@ -116,6 +117,7 @@ export function buildArtifactSnapshot(runId: string, input: {paths?:string[];sta
   const payload:Payload = {files:{},texts:{},managed:{},...(baseline.pack ? {pack:baseline.pack}:{})};
   const texts:ArtifactSnapshot['texts']=[],files:SnapshotFile[] = [], declarations:ArtifactSnapshot['declarations'] = [], omissions:ArtifactSnapshot['omissions'] = [];
   const managedIds = new Set<string>(); const physical = new Map<string,{stageId:string|null;deliverableId:string|null;sha256?:string;acceptanceVersion:number|null}>();
+  for(const id of input.managedIds??[]) managedIds.add(id);
   for (const stageId of stageIds) {
     const stage = state.stages.find(s=>s.stage.id===stageId)!;
     for (const required of stage.stage.deliverables) {
@@ -129,11 +131,12 @@ export function buildArtifactSnapshot(runId: string, input: {paths?:string[];sta
           ??get<{run_id:string;body:string}>('SELECT run_id,output body FROM coordination_step_attempts WHERE id=?',ref.id)
           ??get<{run_id:string;body:string}>('SELECT run_id,output body FROM task_attempts WHERE id=?',ref.id):undefined;
         const inherited=old.flatMap(s=>s.manifest.texts.map(t=>({text:t,snapshot:s}))).find(t=>t.text.stageId===stageId&&t.text.deliverableId===required.id&&t.text.sha256===evidence.contentSha256);
-        const bytes=row?Buffer.from(row.body):inherited?Buffer.from(inherited.snapshot.payload.texts[stageId+':'+required.id]!,'base64'):null;
+        const confirmed=ref.kind==='attempt_output'?checkpointOutput(runId,ref.id):undefined;
+        const bytes=confirmed?Buffer.from(confirmed.output):row?.body!=null?Buffer.from(row.body):inherited?Buffer.from(inherited.snapshot.payload.texts[stageId+':'+required.id]!,'base64'):null;
         if(!bytes||snapshotHash(bytes)!==evidence.contentSha256) present=false;
         else {
-          const policy=evidenceAccess(ref,row?.run_id??inherited!.text.sourceRunId);
-          texts.push({stageId,deliverableId:required.id,sourceRunId:row?.run_id??inherited!.text.sourceRunId,
+          const policy=evidenceAccess(ref,confirmed?.sourceRunId??row?.run_id??inherited!.text.sourceRunId);
+          texts.push({stageId,deliverableId:required.id,sourceRunId:confirmed?.sourceRunId??row?.run_id??inherited!.text.sourceRunId,
             acceptanceVersion:stage.status==='accepted'?acceptanceVersion(stageId,stage.report!.id):null,mimeType:'text/plain',
             ref,sha256:evidence.contentSha256!,size:bytes.length,...policy});
           payload.texts[stageId+':'+required.id]=bytes.toString('base64');
@@ -150,7 +153,7 @@ export function buildArtifactSnapshot(runId: string, input: {paths?:string[];sta
   }
   // Owner archives retain all own versions. Checkpoints admit exact accepted declarations and user inputs only.
   for (const artifact of listManagedArtifacts(source!.conversationId).filter(a=>a.runId===runId)) {
-    if(!input.checkpoint || managedIds.has(artifact.id) || artifact.createdBy==='user'&&!artifact.stageId&&!artifact.attemptId) managedIds.add(artifact.id);
+    if(input.managedIds ? managedIds.has(artifact.id) : !input.checkpoint || managedIds.has(artifact.id) || artifact.createdBy==='user'&&!artifact.stageId&&!artifact.attemptId) managedIds.add(artifact.id);
     else if(!managedIds.has(artifact.id)) omissions.push({path:artifact.path+' v'+artifact.version,reason:'尚未验收或被拒绝的受控产物版本不进入续跑输入'});
   }
   for (const id of [...managedIds].sort()) {
@@ -277,11 +280,11 @@ export function confirmArtifactRestore(id:string,input:{fingerprint:string;clien
   materializeArtifactSnapshot(id,root);
   return {snapshotId:id,path:root,encryptedFiles:preview.encryptedFiles};
 }
-/** Public continuation imports controlled versions transactionally; private continuation remains R4-gated. */
-export function importSnapshotArtifacts(runId:string,item:SnapshotPackage):void {
+/** Continuation imports exact controlled versions transactionally, within the frozen recovery scope. */
+export function importSnapshotArtifacts(runId:string,item:SnapshotPackage,scope?:import('@agent-gand/shared').MessageAccess):void {
   validatePackage(item);
   for(const file of item.manifest.files.filter(f=>f.storage==='managed').sort((a,b)=>(a.artifactVersion??0)-(b.artifactVersion??0))) {
-    if(file.visibility!=='public') snapshotFail('PRIVATE_CHECKPOINT_UNSUPPORTED','私密文件的跨 Run 承接需 R4 权限核对');
+    if(file.visibility!=='public' && (!scope || scope.visibility!=='private' || scope.audience.some(id=>id!=='user'&&!file.audience.includes(id)))) snapshotFail('PRIVATE_CHECKPOINT_UNSUPPORTED','当前任务范围不能承接受控文件授权');
     const source=item.payload.managed[file.artifactId!]!;
     createManagedArtifact({runId,path:file.path,content:Buffer.from(item.payload.files[file.artifactId!]!,'base64'),access:source,
       createdBy:'user',stageId:file.stageId??undefined,mimeType:file.mimeType,restoredFrom:{snapshotId:item.manifest.id,artifactId:source.id}});

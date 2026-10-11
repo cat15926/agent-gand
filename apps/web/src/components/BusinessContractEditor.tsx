@@ -2,7 +2,7 @@ import type { BusinessContract, BusinessStage } from '@agent-gand/shared';
 
 const newStage = (): BusinessStage => ({ id: crypto.randomUUID(), title: '', criteria: [''], deliverables: [{ id: crypto.randomUUID(), title: '', kind: 'text' }] });
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40';
-export function BusinessContractEditor({ value, onChange, disabled, agents }: { value: BusinessContract | null; onChange: (value: BusinessContract | null) => void; disabled: boolean; agents: Array<{ id: string; name: string }> }) {
+export function BusinessContractEditor({ value, onChange, disabled, agents, costCurrency }: { value: BusinessContract | null; onChange: (value: BusinessContract | null) => void; disabled: boolean; costCurrency?: 'USD' | 'CNY'; agents: Array<{ id: string; name: string }> }) {
   const update = (index: number, patch: Partial<BusinessStage>) => { if (value) onChange({ ...value, stages: value.stages.map((s, i) => i === index ? { ...s, ...patch } : s) }); };
   const gated = value?.executionMode === 'stage_gated';
   const assignment = () => ({ agentId: agents[0]?.id ?? '', objective: '' });
@@ -26,6 +26,7 @@ export function BusinessContractEditor({ value, onChange, disabled, agents }: { 
         <button type="button" className={button} disabled={stage.execution.assignments.length >= 12} onClick={() => update(index, { execution: { ...stage.execution!, assignments: [...stage.execution!.assignments, assignment()] } })}>添加成员任务</button>
         <div className="grid gap-2 sm:grid-cols-2"><label>阶段执行时限（秒）<input aria-label={`阶段 ${index + 1} 执行时限`} className="input mt-1" type="number" min={1} max={86400} value={stage.execution.timeoutMs === undefined ? '' : stage.execution.timeoutMs / 1000} placeholder="留空沿用运行时限" onChange={e => update(index, { execution: { ...stage.execution!, timeoutMs: e.target.value ? Number(e.target.value) * 1000 : undefined } })} /></label>
           <label>阶段输出 Token 总预算<input aria-label={`阶段 ${index + 1} Token 总预算`} className="input mt-1" type="number" min={1} max={1000000} value={stage.execution.maxTokens ?? ''} placeholder="可选；仅模型 API 支持" onChange={e => update(index, { execution: { ...stage.execution!, maxTokens: e.target.value ? Number(e.target.value) : undefined } })} /></label></div>
+        <label className="block">阶段费用上限{costCurrency ? `（${costCurrency}）` : '（先启用本轮费用控制）'}<input aria-label={`阶段 ${index + 1} 费用上限`} className="input mt-1" type="number" min={0.000001} max={1000000} step="0.000001" disabled={!costCurrency} value={stage.execution.maxCost??''} placeholder="不另设；继承本轮币种、价格和未知费用政策" onChange={e=>update(index,{execution:{...stage.execution!,maxCost:e.target.value?Number(e.target.value):undefined}})} /></label>
         <p className="text-zinc-500">时限从首个任务派发计时，包含工具与普通暂停；本阶段交付后的验收等待不计入，运行总截止时间仍持续。Token 总预算包含本阶段全部成员和工具轮次；未知消耗保留预约额度。</p>
       </div>}
       <label className="block">验收标准（每行一条，最多 12 条）<textarea aria-label={`阶段 ${index + 1} 验收标准`} className="input mt-1 min-h-20" value={stage.criteria.join('\n')} placeholder="例如：覆盖失败分支与恢复方式" onChange={e => update(index, { criteria: e.target.value.split('\n') })} /></label>

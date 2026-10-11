@@ -16,6 +16,7 @@ export interface OrchestrationConstraints {
   readonly?: boolean;
   /** Hard Run-wide generated output token ceiling; input tokens and billing are separate. */
   maxTokens?: number;
+  costPolicy?: import('./cost.ts').CostPolicy;
   deadlineMs?: number;
   /** Optional per-model-request limits; queue, tools and approval waits are excluded. */
   firstResponseTimeoutMs?: number;
@@ -98,7 +99,7 @@ export interface OrchestrationAgentCapability {
   /** Configured native exemptions/allowlist; readonly drivers also supply fixed read tools. */
   nativeTools: string[];
   deniedTools: string[];
-  supports: { control: boolean; resume: boolean; nativeWrite: boolean; hardTokenLimit: boolean; coordinationSteps: boolean; privateContext?: boolean; controlledFiles?: boolean };
+  supports: { control: boolean; resume: boolean; nativeWrite: boolean; hardTokenLimit: boolean; coordinationSteps: boolean; privateContext?: boolean; controlledFiles?: boolean; costControl?: 'estimate_only' };
   legacyModes: RunMode[];
   account: {
     id: string | null;

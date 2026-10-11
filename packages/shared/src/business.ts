@@ -17,6 +17,8 @@ export interface BusinessStage {
     timeoutMs?: number;
     /** Total output tokens across this stage's API requests, including tool rounds. */
     maxTokens?: number;
+    /** Inherits Run currency, pricing and unknown-cost policy. */
+    maxCost?: number;
   };
 }
 export type BusinessOutcome = 'unverified' | 'in_progress' | 'awaiting_acceptance' | 'achieved' | 'not_achieved' | 'partial_accepted' | 'user_ended';
@@ -47,6 +49,9 @@ export interface BusinessState {
   checkpoint?: { sourceRunId: string; sourceVersion: number; digest: string; acceptedStageIds: string[];
     completedWorkers: number; files: Array<{ path: string; sha256: string }>;
     archive?: {id:string;digest:string;manifest:ArtifactSnapshot};
+    access?:import('./message.ts').MessageAccess;readonly?:boolean;
+    recovery?:{reviewId:string|null;fingerprint:string;unknownUsage:number;runUnknownTokens:number;stageUnknownTokens:Array<{stageId:string;tokens:number}>};
+    costBudget?: import('./cost.ts').CostBudgetState;
     rework?: { sourceRunId: string; stageId: string; reportId: string; reason: string; instruction: string; rejectedWorkers: number } };
   /** A confirmed successor seals this Run's owner acceptance ledger. */
   successorRunId?: string;

@@ -1,6 +1,7 @@
 import { managedPath } from '../artifacts/path.ts';
 import { createHash } from 'node:crypto';
 import { normalizeBusinessContract } from './businessContract.ts';
+import { normalizeCostPolicy } from './costPolicy.ts';
 import {
   ORCHESTRATION_STRATEGIES, ORCHESTRATION_WORKFLOWS,
   type Conversation, type CoordinationProtocolId, type OrchestrationConstraints,
@@ -78,7 +79,8 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
   const constraints: OrchestrationConstraints = {};
   if (input.constraints !== undefined) {
     const raw = objectInput(input.constraints);
-    if (Object.keys(raw).some(key => !['readonly', 'maxTokens', 'deadlineMs', 'rounds', 'firstResponseTimeoutMs', 'idleTimeoutMs'].includes(key))) throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'constraints 包含未知限制');
+    if (Object.keys(raw).some(key => !['readonly', 'maxTokens', 'costPolicy', 'deadlineMs', 'rounds', 'firstResponseTimeoutMs', 'idleTimeoutMs'].includes(key))) throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'constraints 包含未知限制');
+    if (raw.costPolicy !== undefined) constraints.costPolicy = normalizeCostPolicy(raw.costPolicy);
     if (raw.readonly !== undefined) { if (typeof raw.readonly !== 'boolean') throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'readonly 必须为布尔值'); constraints.readonly = raw.readonly; }
     for (const key of ['maxTokens', 'deadlineMs', 'rounds', 'firstResponseTimeoutMs', 'idleTimeoutMs'] as const) if (raw[key] !== undefined) {
       const value = raw[key];
@@ -87,6 +89,9 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
       constraints[key] = value;
     }
   }
+  const businessContract = input.businessContract != null ? normalizeBusinessContract(input.businessContract) : null;
+  if (businessContract?.stages.some(s => s.execution?.maxCost !== undefined) && !constraints.costPolicy) throw new OrchestrationError(400, 'COST_POLICY_REQUIRED', '阶段费用上限需先设置本轮费用政策，币种和未知费用政策统一继承');
+  if (constraints.costPolicy?.prices.some(p => !agentIds.includes(p.agentId))) throw new OrchestrationError(400, 'INVALID_COST_POLICY', '价格成员必须属于本轮团队');
   let attachments: OrchestrationRequest['attachments'];
   if (input.attachments !== undefined) {
     if (!Array.isArray(input.attachments) || input.attachments.length > 4) throw new OrchestrationError(400,'INVALID_ATTACHMENTS','每轮最多 4 个附件');
@@ -106,7 +111,7 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
     defaultReviewerId: optionalId(input.defaultReviewerId !== undefined ? input.defaultReviewerId : room?.defaultReviewerId, 'defaultReviewerId'),
     aggregatorId: optionalId(input.aggregatorId, 'aggregatorId'), replyTo: optionalId(input.replyTo, 'replyTo'), taskId: optionalId(input.taskId, 'taskId'),
     clientRequestId, wholeTeam: input.wholeTeam === true, constraints,
-    ...(input.businessContract != null ? { businessContract: normalizeBusinessContract(input.businessContract) } : {}),
+    ...(businessContract ? { businessContract } : {}),
     legacy: { mode, coordinationDraftId: context.coordinationDraftId ?? null, requestedProtocol: protocol, followupRouting: context.followupRouting ?? null },
   };
 }

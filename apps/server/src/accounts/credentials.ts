@@ -26,7 +26,7 @@ function masterKey(create = false): Buffer {
       let present = true;
       try { lstatSync(file); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') present = false; else throw error; }
       if (!present) {
-        if (((get<{ count: number }>('SELECT COUNT(*) count FROM account_credentials')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM managed_artifact_versions')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM artifact_snapshots')?.count ?? 0)) > 0) throw new AccountError(503, '账户主密钥缺失，请恢复原主密钥；现有密钥未被覆盖');
+        if (((get<{ count: number }>('SELECT COUNT(*) count FROM account_credentials')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM managed_artifact_versions')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM artifact_snapshots')?.count ?? 0) + (get<{count:number}>('SELECT COUNT(*) count FROM business_recovery_reviews')?.count??0)) > 0) throw new AccountError(503, '账户主密钥缺失，请恢复原主密钥；现有密钥未被覆盖');
         try { writeFileSync(file, JSON.stringify({ version: 1, key: randomBytes(32).toString('hex') }) + '\n', { flag: 'wx', mode: 0o600 }); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
       }

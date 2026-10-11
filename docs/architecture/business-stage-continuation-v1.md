@@ -1,5 +1,7 @@
 # 阶段续跑检查点 v1
 
+R4 已在本契约的冻结阶段图基础上追加私密/写入续跑、整阶段返工及副作用核对，见[私密及写入阶段恢复 v1](./private-write-stage-recovery-v1.md)。下文公开只读规则仍是 v1/v2 的兼容基线；新增范围以 R4 契约为准。
+
 失败的公开只读逐阶段任务，可以由所有者预览并确认建立一个关联 Run。已验收阶段继承原报告、验收决定及证据来源；已完成成员步骤作为确认输入复用，从新执行图移除。新 Run 只执行未完成步骤，并继续经过原阶段验收门禁；不会复活原 Run 或重放已完成调用。
 
 ## 交互与支持范围
@@ -28,12 +30,14 @@ Owner 路由为 `POST /api/accounts/business/:runId/continuation-preview` 与 `P
 
 未知调用预约、未收敛进程、未知工具副作用和私密上下文均阻止迁移。结转数字是硬输出预算账本，不代表全部账单、输入 Token 或货币费用。未配置硬输出限制时不创建这类预约，模型用量仍在原执行记录中显示。SDK/app-server 仍不接受无法落实的输出 Token 硬限制。
 
+私密/写入续跑与未知输出预算核对按[R4 恢复契约](./private-write-stage-recovery-v1.md)扩展上述旧基线。已配置货币政策的任务另按[R5 费用契约](./cost-budget-governance-v1.md)继承全部已知及未知费用，占额不因新 Run 重置；后端费用限制仅为估算控制。
+
 ## 验证
 
 - `pnpm verify:business-stage-continuation`：临时 SQLite 与 API mock，覆盖已验收前缀/阶段内完成步骤不重放、原记录不改写、同阶段证据、预算结转、未知/私密/返工围栏、预览漂移、文件归档迁移、链接/内容漂移、缺失/损坏检查点、Owner HTTP/CSRF/来源与冷进程读取。追加 `--kernel-off` 检查兼容执行路径。
 - `pnpm verify:business-stage-gates`：本地 stdio 模拟客户端验证保留已验收 Claude SDK 阶段、Codex 超时后的配置漂移拒绝、新 Run 仅执行 Codex 和后续 API，再验收达成目标；不请求真实供应商。
 - `pnpm verify:business-stage-gates-ui`：先构建 Web，沿用可选 `PLAYWRIGHT_MODULE` / `CHROMIUM_EXECUTABLE_PATH`。真实浏览器操作桌面和 390px 续跑预览、Owner 确认、继承展示、后续登记与验收；页面/API/WS 事件来自内存夹具，不监听端口，不代表真实网络或真实模型验收。
 
-被拒绝交付须通过[公开只读阶段返工](./business-stage-rework-v1.md)明确预览和确认。返工中途失败后，本续跑入口保留已冻结修订要求与拒绝归档，继续跳过已完成返工步骤。私密/写入返工、多分支/跨引擎检查点、写入工作树迁移、货币硬预算仍未实现。
+被拒绝交付须通过[公开只读阶段返工](./business-stage-rework-v1.md)明确预览和确认。返工中途失败后，本续跑入口保留已冻结修订要求与拒绝归档，继续跳过已完成返工步骤。私密/写入阶段返工和写入工作状态承接已由 R4 接入；多分支/其他引擎检查点与货币硬预算继续待实施。
 
-用户私密入口与受控文件 ACL 见[R2 权限契约](./private-interaction-artifact-acl-v1.md)。完整声明产物、Git 基线和独立恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付；公开只读阶段已接入受控文件检查点 v2，私密/写入自动承接仍由 R4 实施。
+用户私密入口与受控文件 ACL 见[R2 权限契约](./private-interaction-artifact-acl-v1.md)。完整声明产物、Git 基线和独立恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付；公开只读阶段已接入受控文件检查点 v2，私密/写入逐阶段承接已由[R4](./private-write-stage-recovery-v1.md)实施。

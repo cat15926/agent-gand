@@ -29,9 +29,9 @@ for (const id of ['host','peer']) registry.createAgent({ id, name: id, descripti
   systemPrompt: 'Deliver the requested result.', model: 'mock:' + id, capabilities: ['execute'],
   permissionMode: 'readonly', tools: [], disallowedTools: [], color: '#4477aa', avatar: '' });
 
-function fixture(name, extra = {}) {
-  const room = rooms.createConversation({ title: name, mode: 'collaboration', agentIds: ['host','peer'], workspace: null });
-  const source = trace.createRun('完成分析报告', 'collaboration', ['host','peer'], null, null, room.id);
+function fixture(name, extra = {}, admitted = null) {
+  const room = admitted?.room ?? rooms.createConversation({ title: name, mode: 'collaboration', agentIds: ['host','peer'], workspace: null });
+  const source = admitted?.run ?? trace.createRun('完成分析报告', 'collaboration', ['host','peer'], null, null, room.id);
   trace.setRunStatus(source.id, 'running');
   const admission = planCollaborationAdmission({ runId: source.id, objective: source.goal, participantIds: source.agentIds,
     targetAgentIds: ['peer','host'], completionEngine: true, controlActionVersion: 2, messageVisibilityVersion: 1,
@@ -101,6 +101,35 @@ try {
   store.finishAttempt({ attemptId: claim.attempt.id, dispatchId: d.id, status: 'failed', error: 'fixture cleanup' });
   trace.setRunStatus(next.run.id, 'failed');
 
+  // Fee-enabled free collaboration uses owner admission and immutable carried charges.
+  const entry = await import('../apps/server/src/orchestration/entry.ts');
+  const costs = await import('../apps/server/src/orchestration/costBudget.ts');
+  const snapshots = await import('../apps/server/src/orchestration/store.ts');
+  const feeRoom = rooms.createConversation({title:'fees',mode:'collaboration',agentIds:['host','peer'],workspace:null});
+  const feePolicy = {version:1,currency:'USD',mode:'estimate',maxCost:0.5,unknownAction:'reserve',unknownReserve:0.1,prices:[]};
+  const feeInput = {conversationId:feeRoom.id,goal:'完成分析报告',agentIds:feeRoom.agentIds,recipientIds:['host'],strategy:'auto',workflow:'routine',workspace:null,constraints:{readonly:true,costPolicy:feePolicy}};
+  const feePreview = await entry.previewExecutionOrchestration(feeInput);
+  const feeSource = entry.submitExecutionOrchestration({...feeInput,entryVersion:1,clientRequestId:'fee-source',previewId:feePreview.previewId,orchestrationFingerprint:feePreview.fingerprint},feeRoom.id);
+  const paid = fixture('fee-safe',{}, {room:feeRoom,run:feeSource.run});
+  const knownFee = costs.reserveCost(paid.source.id,'host','mock:host','builtin-llm');costs.settleCost(knownFee,{costSource:'reported',costKnown:true,costUsd:0.02});
+  const unknownFee = costs.reserveCost(paid.source.id,'peer','mock:peer','builtin-llm');costs.settleCost(unknownFee);
+  await assert.rejects(()=>previewRunContinuation(paid.source.id),e=>e.code==='OWNER_REQUIRED');
+  const oldFeePreview = await previewRunContinuation(paid.source.id,true);
+  assert.equal(oldFeePreview.costBudget.run.charged,0.12);
+  const lateFee = costs.reserveCost(paid.source.id,'host','mock:host','builtin-llm');costs.settleCost(lateFee);
+  const feeConfirm = p=>({previewId:p.preview.previewId,orchestrationFingerprint:p.preview.fingerprint,costCarryDigest:p.costCarryDigest});
+  assert.throws(()=>submitRunContinuation(paid.source.id,feeConfirm(oldFeePreview),true),e=>e.code==='COST_CARRY_STALE');
+  const currentFeePreview = await previewRunContinuation(paid.source.id,true);
+  const originalFeeRows = costs.costRows(paid.source.id);
+  const feeNext = submitRunContinuation(paid.source.id,feeConfirm(currentFeePreview),true);
+  assert.equal(submitRunContinuation(paid.source.id,feeConfirm(currentFeePreview),true).run.id,feeNext.run.id);
+  assert.deepEqual(snapshots.getRunOrchestrationSnapshot(feeNext.run.id).request.constraints.costPolicy,feePolicy);
+  assert.equal(costs.costBudgetState(feeNext.run.id).run.charged,0.22);
+  assert.equal(costs.costBudgetState(feeNext.run.id).run.remaining,0.28);
+  assert.equal(costs.costBudgetState(feeNext.run.id).run.unknownCalls,2);
+  assert.equal(costs.costBudgetState(feeNext.run.id).inheritedCalls,3);
+  assert.deepEqual(costs.costRows(paid.source.id),originalFeeRows);
+
   const privateRun = fixture('private');
   inbox.post({ runId: privateRun.source.id, from: 'host', to: 'peer', kind: 'agent', body: 'PRIVATE_SECRET', visibility: 'private' });
   assert.equal(assessRunRecovery(privateRun.source.id).reasonCodes[0], 'PRIVATE_CHECKPOINT_UNSUPPORTED');
@@ -138,5 +167,5 @@ try {
     assert.equal(noConfirmation.statusCode, 400);
   } finally { await app.close(); }
   assert.equal(modelCalls, 0);
-  console.log('通过：只读续跑预览、唯一关联 Run、终态/证据不可变、确认输出复用、重复派发阻断、私密/写入/未知进程围栏、配置漂移和入口关闭；零模型调用。');
+  console.log('通过：只读续跑预览、唯一关联 Run、终态/证据不可变、确认输出复用、重复派发阻断、私密/写入/未知进程围栏、配置漂移和入口关闭；费用 Owner 准入、账本漂移阻断、已知/未知结转及原政策冻结；零模型调用。');
 } finally { db.db.close(); await rm(root, { recursive: true, force: true }); }

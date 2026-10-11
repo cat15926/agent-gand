@@ -30,6 +30,7 @@ import { recoverAccountTests, shutdownAccountTests } from './accounts/actions.ts
 import { claimRuntimeHost, releaseRuntimeHost } from './execution/host.ts';
 import { recoverMemberAdmissions } from './execution/memberAdmission.ts';
 import { reopenInterruptedTaskResponsibilities } from './runtime/taskAdapter.ts';
+import { recoverCostReservations } from './orchestration/costBudget.ts';
 
 claimRuntimeHost();
 
@@ -53,6 +54,7 @@ app.log.info({ preferenceMigration }, '编排房间默认偏好迁移完成');
 await recoverAccountLogins();
 await recoverAccountTests();
 await recoverExternalExecutions();
+recoverCostReservations();
 recoverMemberAdmissions();
 interruptRunningAttempts();
 reopenInterruptedTaskResponsibilities();

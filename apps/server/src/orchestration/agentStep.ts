@@ -50,6 +50,7 @@ import path from 'node:path';
 import { assembleRuntimeContext } from '../runtime/context.ts';
 import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
+import { readBusinessCheckpoint } from './businessCheckpointStore.ts';
 
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
@@ -149,6 +150,7 @@ export interface AgentTurnOptions {
   disableTools?: boolean;
   /** Private context allows only scoped platform file tools and Runtime controls. */
   privateContext?: boolean;
+  recoveryFilesOnly?:boolean;
   executionSignal?: AbortSignal;
   admissionTiming?: { queuedAt: string; memberAcquiredAt?: string; workspaceReadyAt?: string };
 }
@@ -202,7 +204,7 @@ export async function chatOnce(
     });
     let res: LlmResponse;
     try {
-      res = await budgetedChat(runId, provider, { model: agent.model, messages }, deltaForwarder(runId, llmSpan.id, { agentId: agent.id, displayKind }));
+      res = await budgetedChat(runId, provider, { model: agent.model, messages }, deltaForwarder(runId, llmSpan.id, { agentId: agent.id, displayKind }), agent.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       endSpan(llmSpan, { output: message, status: 'error', attributes: failureAttributes(err) });
@@ -212,6 +214,8 @@ export async function chatOnce(
       tokensIn: res.usage.tokensIn,
       tokensOut: res.usage.tokensOut,
       costUsd: res.usage.costUsd,
+      usageKnown: res.usage.inputKnown !== false && res.usage.outputKnown !== false,
+      costKnown: res.usage.costKnown !== false,
     };
     if ((res.content.trim().length > 0 && !isPseudoToolCallText(res.content)) || res.toolCalls.length > 0) {
       endSpan(llmSpan, { ...usage, output: llmSpanOutput(res), status: 'ok', attributes: { 'llm.stop_reason': res.stopReason } });
@@ -244,6 +248,9 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
   const sourceAccess = opts.attemptId ? attemptAccess(opts.attemptId) : runSourceAccess(opts.run.id);
   assertMessageAccess(sourceAccess, opts.agent.id, '本回合上下文');
   opts = { ...opts, privateContext: sourceAccess.visibility === 'private' || opts.privateContext };
+  const recovery=readBusinessCheckpoint(opts.run.id);
+  if(recovery?.version===3)opts={...opts,recoveryFilesOnly:true,agent:{...opts.agent,tools:opts.agent.tools.filter(n=>['fs.read','fs.write','search.files'].includes(n)),
+    ...(opts.agent.execution?.kind==='external'?{permissionMode:opts.agent.permissionMode==='readonly'?'readonly':'confirm',execution:{...opts.agent.execution,sessionPolicy:'run',nativeTools:opts.agent.execution.nativeTools?.filter(n=>n!=='Bash'),platformTools:opts.agent.execution.platformTools?.filter(n=>['fs.read','fs.write','search.files'].includes(n))}}:{})}};
   const files = listManagedArtifacts(opts.run.conversationId,opts.agent.id,sourceAccess);
   if (files.length) opts = { ...opts, messages: [{ role: 'system', content: '可读取的受控文件（内容仅通过平台 fs.read / search.files 获取，普通原生目录中没有这些文件）：\n' + [...new Map(files.map(file => [file.path, `${file.path} · v${file.version} · ${file.size} 字节`] as const).reverse()).values()].slice(0,40).join('\n') }, ...opts.messages] };
   const policy = executionPolicy(opts.run.id);
@@ -363,7 +370,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const { run, agent, parentSpanId } = opts;
   const provider = providerForAgent(agent, run.id);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
-  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent).filter(tool => !opts.privateContext || ['fs.read','fs.write','search.files'].includes(tool.name));
+  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent).filter(tool => !(opts.privateContext || opts.recoveryFilesOnly) || ['fs.read','fs.write','search.files'].includes(tool.name));
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set([
     ...(opts.controlTools ?? []).map((tool) => tool.name),
@@ -452,7 +459,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         const forward = deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
         });
-        res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
+        res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id);
       }
       assertBindingAuthorized(opts.executionBinding);
     } catch (err) {
@@ -465,6 +472,8 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       tokensIn: res.usage.tokensIn,
       tokensOut: res.usage.tokensOut,
       costUsd: res.usage.costUsd,
+      usageKnown: res.usage.inputKnown !== false && res.usage.outputKnown !== false,
+      costKnown: res.usage.costKnown !== false,
     };
 
     // AG-COORD-02 截断防御：只处理"有正文的截断"（半个产物比没有更危险，且 toolCalls 参数可能是不完整 JSON）。
@@ -636,7 +645,7 @@ async function closingCall(
     // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
     assertBindingAuthorized(opts.executionBinding);
     const forward = deltaForwarder(run.id, llmSpan.id);
-    res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); });
+    res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id);
     assertBindingAuthorized(opts.executionBinding);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -650,6 +659,8 @@ async function closingCall(
     tokensIn: res.usage.tokensIn,
     tokensOut: res.usage.tokensOut,
     costUsd: res.usage.costUsd,
+      usageKnown: res.usage.inputKnown !== false && res.usage.outputKnown !== false,
+      costKnown: res.usage.costKnown !== false,
   });
   return res.content;
 }
@@ -689,7 +700,7 @@ async function gateToolCall(
     await postTurnSystem(opts, note);
     return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
-  const decision = opts.privateContext && !['fs.read','fs.write','search.files'].includes(tool.name) ? 'deny' : checkPermission(agent, tool.name);
+  const decision = (opts.privateContext || opts.recoveryFilesOnly) && !['fs.read','fs.write','search.files'].includes(tool.name) ? 'deny' : checkPermission(agent, tool.name);
   if (decision === 'deny') {
     const note = `工具 ${tool.name} 被权限门控拒绝（模式 ${agent.permissionMode}${agent.disallowedTools.includes(tool.name) ? '，命中 disallowedTools' : ''}）`;
     await postTurnSystem(opts, note);

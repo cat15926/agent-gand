@@ -113,7 +113,9 @@
     "verify:business-stage-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-continuation.mjs",
     "verify:business-stage-rework": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-rework.mjs",
     "verify:private-interaction": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-private-interaction.mjs",
-    "verify:artifact-snapshots": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-artifact-snapshots.mjs"
+    "verify:artifact-snapshots": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-artifact-snapshots.mjs",
+    "verify:private-write-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-private-write-recovery.mjs",
+    "verify:cost-budget": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-cost-budget.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

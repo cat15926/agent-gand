@@ -11,6 +11,8 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 5, name: 'business-stage-rework-v1', descriptor: 'owner-explicit-rejected-stage-rework-v1;immutable-rejection-audit;accepted-prefix-only;rejected-output-not-evidence;atomic-source-closure;carried-rework-instruction' },
   { version: 6, name: 'private-interaction-artifact-acl-v1', descriptor: 'owner-task-scope-v1;private-coordination-admission;managed-artifact-versions-v1;scope-filtered-file-read-search-evidence;owner-authorized-release-audit-v1' },
   { version: 7, name: 'artifact-worktree-snapshots-v1', descriptor: 'declared-delivery-manifest-v1;encrypted-self-contained-git-tree-pack;controlled-add-modify-delete-binary;fresh-isolated-restore;accepted-and-referenced-retention;public-managed-stage-checkpoint-v2' },
+  { version: 8, name: 'private-write-recovery-v1', descriptor: 'owner-effect-reconciliation-v1;immutable-source;scope-bound-encrypted-stage-checkpoint-v3;exact-write-snapshot;fresh-run-native-home;no-unknown-effect-replay' },
+  { version: 9, name: 'cost-budget-governance-v1', descriptor: 'versioned-owner-pricing-policy;atomic-run-stage-money-reservation;unknown-cost-not-zero;estimate-only-backend-admission;immutable-lineage-cost-carry' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));

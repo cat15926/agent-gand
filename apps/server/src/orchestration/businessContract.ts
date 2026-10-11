@@ -1,5 +1,6 @@
 import type { BusinessContract, BusinessStage } from '@agent-gand/shared';
 import { objectInput, OrchestrationError } from './normalize.ts';
+import { costAmount } from './costPolicy.ts';
 
 export function normalizeBusinessContract(value: unknown): BusinessContract | null {
   if (value === undefined || value === null) return null;
@@ -25,14 +26,15 @@ export function normalizeBusinessContract(value: unknown): BusinessContract | nu
     if (raw.executionMode === 'stage_gated') {
       if (!stage.execution || typeof stage.execution !== 'object' || Array.isArray(stage.execution)) fail();
       const input = objectInput(stage.execution);
-      if (Object.keys(input).some(k => !['assignments', 'timeoutMs', 'maxTokens'].includes(k)) || !Array.isArray(input.assignments) || !input.assignments.length || input.assignments.length > 12) fail();
+      if (Object.keys(input).some(k => !['assignments', 'timeoutMs', 'maxTokens', 'maxCost'].includes(k)) || !Array.isArray(input.assignments) || !input.assignments.length || input.assignments.length > 12) fail();
       const assignments = (input.assignments as unknown[]).map(value => {
         const task = objectInput(value);
         if (Object.keys(task).some(k => !['agentId', 'objective'].includes(k))) fail();
         return { agentId: id(task.agentId), objective: text(task.objective, 2000) };
       });
       if (new Set(assignments.map(a => a.agentId)).size !== assignments.length) fail();
-      const limits: { timeoutMs?: number; maxTokens?: number } = {};
+      const limits: { timeoutMs?: number; maxTokens?: number; maxCost?: number } = {};
+      if (input.maxCost !== undefined) limits.maxCost = costAmount(input.maxCost);
       for (const key of ['timeoutMs', 'maxTokens'] as const) {
         if (input[key] === undefined) continue;
         if (!Number.isSafeInteger(input[key]) || (input[key] as number) < 1 || (input[key] as number) > (key === 'timeoutMs' ? 86400000 : 1000000)) fail();

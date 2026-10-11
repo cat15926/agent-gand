@@ -19,6 +19,10 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 5. “舰队 → 执行状态”查看各 Agent 状态（待输入置顶），“观测”查看运行历史与事件时间线。
 6. 在“账户”管理 API Key、独立登录身份、模型测试与撤销；创建角色时选择相容账户及模型，也可直接新增。见[角色向导说明](./docs/architecture/accounts-and-agent-creation-phase-e3.md)、[接入与登录说明](./docs/architecture/accounts-and-keys-phase-e2.md)及[加密备份说明](./docs/architecture/accounts-and-keys-phase-e1.md)。
 
+逐阶段任务失败后可先“检查恢复条件与副作用”，再预览私密或写入续跑；已确认步骤保留，未知写入由所有者核实。阶段拒绝后可明确发起整阶段返工，私密文件保持加密。见[恢复契约](./docs/architecture/private-write-stage-recovery-v1.md)及[R4 验收记录](./docs/reports/platform-collaboration-r4-acceptance-2026-10-11.md)。验证入口：`pnpm verify:private-write-recovery`（加 `--kernel-off` 验证兼容执行路径）。
+
+任务“执行设置”可启用 USD/CNY 费用控制，配置 Run/阶段上限、成员计价来源与版本及未知调用预留；任务面板显示已知、进行中和未知占额，续跑/返工继承原预算。当前后端只支持估算控制，严格账单上限明确拒绝。见[费用契约](./docs/architecture/cost-budget-governance-v1.md)及[R5 验收记录](./docs/reports/platform-collaboration-r5-acceptance-2026-10-12.md)。验证入口：`pnpm verify:cost-budget`（可加 `--kernel-off`）。
+
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm verify:collaboration-reliability`（验证事务回滚、规范化去重、Agent 竞态与恢复安全）、`pnpm verify:collaboration-ui`（验证 Batch、Attempt 和 Run Stop 视图模型）、`pnpm verify:coordination-stage-e`（验证只读能力 MCP、协议组合、计划修订和阈值校准）、`pnpm verify:followup-stage3`（验证模型追问、显式优先与全队处理）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
 自建角色保存在 SQLite，文件角色继续由 `agents/*.agent.md` 提供且在界面中只读，可复制为自建角色。角色通过“执行 / 审查 / 协调”能力参与调度，主管和默认评审者不再依赖固定 ID。每个 Run 创建时会保存成员配置快照，因此之后编辑或停用角色不会改变已经排队、执行中或历史 Run 的行为。
@@ -54,7 +58,7 @@ LLM_PROXY=http://127.0.0.1:7897
 无 key 的本地验证：`node scripts/verify-llm-stubs.mjs`（起一个本地 stub 端点，全链路验证两个 Provider 的
 请求格式、tool_calls/tool_use 解析、usage 记账与 supervisor 结构化拆解/fallback）。
 
-真实模型成本由 `LLM_PRICING_JSON` 配置，单位为美元/百万 token。完整模型路由优先，`provider:*` 可作为同一 Provider 的兜底；未配置价格的模型成本记为 0，避免把未知价格当成真实账单。示例见 `apps/server/.env.example`。
+旧模型成本摘要由 `LLM_PRICING_JSON` 配置，单位为美元/百万 Token。完整模型路由优先，`provider:*` 可作为同一 Provider 的兜底；缺价格或 usage 的数值兼容投影为 0，但覆盖状态显示未知，不能当作免费或完整账单。新的费用政策使用随 Run 冻结的 Owner 计价与独立费用账本。环境配置示例见 `apps/server/.env.example`。
 
 智能匹配会优先使用 `COORDINATION_PLANNER_MODEL`；未设置时复用当前团队内具备 `coordinate` 能力的真实模型。模型只能从能力快照提出结构化候选，服务端仍负责校验、评分和启动决策；模型不可用或连续输出非法候选时自动回退到确定性规划。可运行 `pnpm verify:coordination-planner` 验证模型候选、修复与回退，运行 `pnpm evaluate:coordination-planner` 查看离线样本指标。
 

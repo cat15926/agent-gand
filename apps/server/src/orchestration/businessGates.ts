@@ -19,11 +19,15 @@ export function stageAccepted(runId: string, stageId: string): boolean {
     AND json_extract(payload,'$.decision.verdict')='accept' LIMIT 1`, runId, stageId));
 }
 /** Quiescence is stricter than an empty ready queue; unknown effects cannot be accepted. */
-export function businessQuiescent(runId: string, includeUsage = false): boolean {
+export function businessProcessesQuiescent(runId: string): boolean {
   return !get(`SELECT 1 FROM external_agent_executions WHERE run_id=? AND
-    (status='running' OR (status='interrupted' AND COALESCE(json_extract(record,'$.recovery.state'),'')!='quiesced')) LIMIT 1`, runId)
+    (status='running' OR json_extract(record,'$.recovery.state')='attention' OR (status='interrupted' AND COALESCE(json_extract(record,'$.recovery.state'),'')!='quiesced')) LIMIT 1`, runId)
     && !get("SELECT 1 FROM external_native_processes p JOIN external_agent_executions e ON p.execution_id=e.id WHERE e.run_id=? AND p.status='active' LIMIT 1", runId)
     && !['collaboration_attempts', 'coordination_step_attempts', 'task_attempts'].some(table => get(`SELECT 1 FROM ${table} WHERE run_id=? AND status='running' LIMIT 1`, runId))
+    && !get("SELECT 1 FROM tool_executions WHERE run_id=? AND status='running' LIMIT 1",runId);
+}
+export function businessQuiescent(runId: string, includeUsage = false): boolean {
+  return businessProcessesQuiescent(runId)
     && !get("SELECT 1 FROM tool_executions WHERE run_id=? AND (status IN ('running','needs_attention') OR (replay_policy='manual' AND status IN ('failed','interrupted'))) LIMIT 1", runId)
     && (!includeUsage || !['orchestration_token_reservations', 'business_stage_token_reservations'].some(table => get(`SELECT 1 FROM ${table} WHERE run_id=? AND status IN ('pending','unknown') LIMIT 1`, runId)))
     && !get("SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1", runId);
@@ -74,7 +78,7 @@ export function stageExecutionState(runId: string, stage: BusinessStage) {
   const selected = workers.flatMap(s => states.filter(state => state.stepId === s.id));
   const timing = get<{ started_at: string; completed_at: string | null }>('SELECT * FROM business_stage_executions WHERE run_id=? AND stage_id=?', runId, stage.id);
   const budget = get<{ charged: number; unknown: number }>(`SELECT COALESCE(SUM(CASE WHEN status='settled' THEN used ELSE reserved END),0) charged,
-    COALESCE(SUM(CASE WHEN status='unknown' THEN 1 ELSE 0 END),0) unknown FROM business_stage_token_reservations WHERE run_id=? AND stage_id=?`, runId, stage.id)!;
+    COALESCE(SUM(CASE WHEN status IN ('unknown','carried_unknown') THEN 1 ELSE 0 END),0) unknown FROM business_stage_token_reservations WHERE run_id=? AND stage_id=?`, runId, stage.id)!;
   const status = stageAccepted(runId, stage.id) ? 'accepted' : selected.some(s => s.status === 'failed') ? 'failed'
     : selected.length === workers.length && workers.length > 0 && selected.every(s => s.status === 'completed')
       || !workers.length && waitingBusinessGate(runId)?.metadata.businessStageId === stage.id ? 'waiting_acceptance'

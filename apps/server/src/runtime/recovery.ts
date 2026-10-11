@@ -10,6 +10,7 @@ import { getRunCoordinationPlan } from '../coordination/store.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 import { attemptAccess } from '../messaging/access.ts';
 import { buildBusinessCheckpoint } from '../orchestration/businessCheckpoint.ts';
+import { costCarry, costBudgetState } from '../orchestration/costBudget.ts';
 
 /** Common, read-only recovery eligibility. Never quiesces a process or replays work. */
 export function assessRunRecovery(runId: string): RunRecoveryAssessment {
@@ -35,6 +36,18 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
   if (source.status !== 'failed') return blocked('RUN_NOT_TERMINAL', '本轮尚未失败；暂停、回答问题或恢复应使用原任务入口。', 'active');
   if (getRunOrchestrationSnapshot(runId)?.request.businessContract
     && getRunOrchestrationSnapshot(runId)?.request.businessContract?.executionMode !== 'stage_gated') return blocked('BUSINESS_CHECKPOINT_UNSUPPORTED', '执行后验收清单没有冻结阶段派发边界，暂不支持跨 Run 迁移；请核对交付后明确剩余目标。');
+  const stageContract=getRunOrchestrationSnapshot(runId)?.request.businessContract;
+  if(stageContract?.executionMode==='stage_gated') {
+    result.continuationKind='business_stages';
+    try {
+      const checkpoint=buildBusinessCheckpoint(runId);
+      return {...result,confirmedOutputs:checkpoint.outputs.length,continuationAllowed:true,
+        explanation:'可预览关联阶段续跑：保留已确认步骤、原授权和核对后的产物，在新隔离目录中只执行剩余事项。'};
+    } catch(error) {
+      const failure=error as {code?:string;message?:string};
+      return {...blocked(failure.code??'CHECKPOINT_INVALID',failure.message??'检查点无法校验'),reconciliationAvailable:failure.code==='WRITE_RECONCILIATION_REQUIRED'};
+    }
+  }
   const control = get<{ recovery_attention: number }>('SELECT recovery_attention FROM orchestration_run_controls WHERE run_id=?', runId);
   if (control?.recovery_attention || executions.some(item => item.status === 'running' || item.recovery?.state === 'attention'
       || item.status === 'interrupted' && item.recovery?.state !== 'quiesced')
@@ -51,22 +64,7 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
     || getRunOrchestrationSnapshot(runId)?.execution?.readonly === false) {
     return blocked('WRITE_RECONCILIATION_REQUIRED', '本轮包含写入或幂等操作，需核对产物与账本；仅复制文字不足以安全续跑。', 'result_unknown');
   }
-  if (get("SELECT 1 FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.visibility')='private' LIMIT 1", runId)) return blocked('PRIVATE_CHECKPOINT_UNSUPPORTED','本轮包含私密文件；跨 Run 的授权核对与自动恢复将在 R4 完成。');
-  const contract = getRunOrchestrationSnapshot(runId)?.request.businessContract;
-  if (contract) {
-    result.continuationKind = 'business_stages';
-    if (listByRun(runId).some(message => message.visibility === 'private')
-      || get("SELECT 1 FROM runtime_context_assemblies WHERE run_id=? AND visibility='private' LIMIT 1", runId)) return blocked('PRIVATE_CHECKPOINT_UNSUPPORTED', '私密阶段状态尚无跨 Run 迁移契约，请由所有者核对授权范围。');
-    try {
-      const checkpoint = buildBusinessCheckpoint(runId);
-      result.confirmedOutputs = checkpoint.outputs.length;
-      result.targetAgentId = getRunCoordinationPlan(runId)?.steps.find(s => s.agentId && !checkpoint.outputs.some(o => o.stepId === s.id))?.agentId ?? null;
-      return { ...result, continuationAllowed: true, explanation: '可预览阶段续跑：继承已验收结论，跳过已完成成员步骤，并在新独立工作区复用归档交付；需所有者确认后执行。' };
-    } catch (error) {
-      const failure = error as { code?: string; message?: string };
-      return blocked(failure.code ?? 'CHECKPOINT_INVALID', failure.message ?? '阶段检查点无法校验');
-    }
-  }
+  if (get("SELECT 1 FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.visibility')='private' LIMIT 1", runId)) return blocked('PRIVATE_CHECKPOINT_UNSUPPORTED','本轮包含私密文件；此入口的跨引擎私密产物承接尚未开放，请使用逐阶段任务恢复或明确新任务。');
   if (lastExecution?.errorCode === 'auth_required' || lastExecution?.errorCode === 'missing_binary') {
     result.category = 'external_condition';
   } else if ((lastExecution && ['timeout','interrupted'].includes(lastExecution.errorCode ?? ''))
@@ -89,6 +87,11 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
     return blocked('AMBIGUOUS_PENDING_WORK', '无法唯一确定待续事项或还有未结束分支，请准备新任务并明确剩余目标。');
   }
   if (result.category === 'unclassified_failure') return blocked('FAILURE_NOT_CLASSIFIED', '尚不能确认这是可继续的暂时性执行错误，请先检查失败原因。');
+  try {
+    costCarry(runId); if (costBudgetState(runId)?.run.remaining === 0) return blocked('COST_BUDGET_EXHAUSTED', '费用额度已耗尽，不能通过关联任务重置预算');
+    if (getRunOrchestrationSnapshot(runId)?.request.constraints.maxTokens && get("SELECT 1 FROM orchestration_token_reservations WHERE run_id=? AND status IN ('pending','unknown')",runId)) return blocked('RESULT_UNKNOWN', '历史输出 Token 用量未知，不能通过续跑重置预算');
+  }
+  catch(error) { const e=error as {code?:string;message?:string}; return blocked(e.code??'COST_RESULT_UNKNOWN',e.message??'费用无法核对'); }
   return { ...result, continuationKind: 'readonly_collaboration', continuationAllowed: true, explanation: '可预览只读关联续跑，携带已确认输出并只派发待续事项；新任务会重新冻结当前账户与角色。' };
 }
 
