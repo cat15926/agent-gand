@@ -17,9 +17,9 @@ export function effectiveExternalTimeout(input: {
 export function externalTimeoutError(policy: ExternalTimeoutPolicy, progress?: ExternalExecutionProgress): ExecutionError {
   const phase = policy.source === 'run_deadline' || policy.source === 'coordination_lease' ? 'deadline'
     : !progress?.nativeInvokedAt ? 'initialization'
-      : progress.firstTextAt || progress.firstToolAt ? 'after_activity'
+      : progress.firstResponseAt || progress.firstTextAt || progress.firstToolAt ? 'after_activity'
         : progress.sessionBoundAt ? 'before_first_activity' : 'before_session';
   const labels = { deadline: '到达运行截止时间或执行租约期限', initialization: '初始化阶段未完成',
     before_session: '尚未建立原生会话', before_first_activity: '会话已建立，但未收到正文或工具活动', after_activity: '收到活动后仍未完成回合' };
-  return new ExecutionError('timeout', `外部 Agent 执行超时：${labels[phase]}（有效上限 ${Math.ceil(policy.effectiveMs / 1000)} 秒）`, { phase });
+  return new ExecutionError('timeout', `外部 Agent 执行超时：${labels[phase]}（有效上限 ${Math.ceil(policy.effectiveMs / 1000)} 秒）`, { phase, timeoutKind: 'total', limitMs: policy.effectiveMs });
 }

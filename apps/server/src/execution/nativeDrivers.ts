@@ -143,6 +143,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
       if (params.threadId && threadId && params.threadId !== threadId) throw new ExecutionError('protocol_error', 'Codex 通知属于其他 thread');
       if (params.turnId && turnId && params.turnId !== turnId) throw new ExecutionError('protocol_error', 'Codex 通知属于其他 turn');
       if (message.method === 'turn/started') { if (turnId && turnId !== params.turn?.id) throw new ExecutionError('protocol_error', 'Codex turn 绑定冲突'); turnId = params.turn?.id ?? ''; }
+      if (['item/reasoning/textDelta', 'item/reasoning/summaryTextDelta'].includes(message.method ?? '') && typeof params.delta === 'string' && params.delta) emitEvent({ type: 'response.activity', kind: 'reasoning' });
       if (message.method === 'item/agentMessage/delta') {
         if (typeof params.itemId !== 'string' || typeof params.delta !== 'string') throw new ExecutionError('protocol_error', 'Codex 文本增量无效');
         textItems.set(params.itemId, (textItems.get(params.itemId) ?? '') + params.delta); emitEvent({ type: 'text.delta', itemId: params.itemId, text: params.delta });

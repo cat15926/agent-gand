@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS orchestration_run_continuations (
   source_run_id TEXT PRIMARY KEY, target_run_id TEXT NOT NULL UNIQUE,
   source_dispatch_id TEXT NOT NULL, manifest TEXT NOT NULL, created_at TEXT NOT NULL
 );
+-- Immutable, owner-confirmed stage progress and bounded artifact archive for a fresh Run.
+CREATE TABLE IF NOT EXISTS business_run_checkpoints (
+  run_id TEXT PRIMARY KEY, source_run_id TEXT NOT NULL, manifest TEXT NOT NULL,
+  digest TEXT NOT NULL, created_at TEXT NOT NULL
+);
 
 -- Account metadata and immutable connection/credential revisions. Never store plaintext keys.
 CREATE TABLE IF NOT EXISTS accounts (
@@ -531,3 +536,14 @@ CREATE TABLE IF NOT EXISTS business_acceptance_events (
   payload TEXT NOT NULL, created_at TEXT NOT NULL,
   UNIQUE(run_id, version), UNIQUE(run_id, client_request_id)
 );
+
+-- Stage execution starts at first worker claim; owner acceptance lives in its own append-only ledger.
+CREATE TABLE IF NOT EXISTS business_stage_executions (
+  run_id TEXT NOT NULL, stage_id TEXT NOT NULL, started_at TEXT NOT NULL, completed_at TEXT,
+  PRIMARY KEY(run_id, stage_id)
+);
+CREATE TABLE IF NOT EXISTS business_stage_token_reservations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, stage_id TEXT NOT NULL, reserved INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_business_stage_token_scope ON business_stage_token_reservations(run_id,stage_id,status);

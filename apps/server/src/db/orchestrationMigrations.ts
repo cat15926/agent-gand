@@ -6,6 +6,9 @@ import { legacyRoomPreferences, ROOM_PREFERENCES_VERSION, type RunMode } from '@
 export const ORCHESTRATION_MIGRATIONS = [
   { version: 1, name: 'o1-o5-additive-baseline', descriptor: 'requests-v1;previews-v1;bindings-v1;member-tickets-v1;run-controls-v1;token-reservations-v1;room-preferences-nullable' },
   { version: 2, name: 'o6-versioned-room-defaults', descriptor: 'preferences-version-v1;origin-explicit-or-legacy;mapping-audits-v1;entry-statistics-v1' },
+  { version: 3, name: 'business-stage-execution-v1', descriptor: 'stage-gated-contract-v1;owner-accept-before-next-step;durable-accepted-gate-wake;stage-timing-v1;stage-token-reservations-v1' },
+  { version: 4, name: 'business-stage-checkpoint-v1', descriptor: 'owner-confirmed-stage-checkpoint-v1;skip-confirmed-workers;accepted-prefix-provenance;immutable-output-and-file-archive;fresh-run-workspace;known-token-charge-carry' },
+  { version: 5, name: 'business-stage-rework-v1', descriptor: 'owner-explicit-rejected-stage-rework-v1;immutable-rejection-audit;accepted-prefix-only;rejected-output-not-evidence;atomic-source-closure;carried-rework-instruction' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
@@ -24,7 +27,7 @@ export function assertOrchestrationSchemaCompatible(db: Database.Database): void
 /** The pre-O6 idempotent schema is retained; explicitly adopt its verified baseline. */
 export function applyOrchestrationSchemaMigrations(db: Database.Database): void {
   db.transaction(() => {
-    for (const name of ['orchestration_requests','orchestration_previews','execution_bindings','execution_member_tickets','orchestration_run_controls','orchestration_token_reservations']) {
+    for (const name of ['orchestration_requests','orchestration_previews','execution_bindings','execution_member_tickets','orchestration_run_controls','orchestration_token_reservations','business_stage_executions','business_stage_token_reservations','business_run_checkpoints']) {
       if (!tables(db).has(name)) throw new Error(`编排迁移基线缺少 ${name}`);
     }
     const columns = new Set((db.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>).map(c => c.name));

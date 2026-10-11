@@ -43,6 +43,8 @@ export class NativeEventParser {
       if (event.type === 'message_start') this.currentMessage = text(object(event.message).id);
       const id = `${this.currentMessage}:${number(event.index) ?? 0}`;
       const delta = object(event.delta);
+      if (event.type === 'content_block_delta' && delta.type === 'thinking_delta' && text(delta.thinking)) this.emit({ type: 'response.activity', kind: 'reasoning' });
+      if (event.type === 'content_block_delta' && delta.type === 'input_json_delta' && text(delta.partial_json)) this.emit({ type: 'response.activity', kind: 'tool_input' });
       if (event.type === 'content_block_delta' && delta.type === 'text_delta') {
         if (!this.currentMessage || typeof delta.text !== 'string') throw new ExecutionError('protocol_error', 'Claude 文本增量缺少 message ID 或正文');
         this.items.set(id, (this.items.get(id) ?? '') + delta.text);
@@ -92,6 +94,7 @@ export class NativeEventParser {
       const item = object(record.item); const id = text(item.id);
       if (!id) throw new ExecutionError('protocol_error', 'Codex item 缺少 ID');
       if (item.type === 'agent_message') this.snapshot(id, text(item.text));
+      else if (item.type === 'reasoning' && text(item.text)) this.emit({ type: 'response.activity', kind: 'reasoning' });
       else if (item.type === 'file_change' || item.type === 'mcp_tool_call') throw new ExecutionError('policy_rejected', `Codex 请求了阶段 A 不允许的工具：${text(item.type)}`);
       else if (item.type === 'command_execution' || item.type === 'web_search') this.emit({ type: record.type === 'item.completed' ? 'tool.completed' : 'tool.started', itemId: id, name: text(item.type) });
     }

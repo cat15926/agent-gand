@@ -9,7 +9,7 @@ import type { DecomposedTask } from './supervisor.ts';
 
 /** Stable, inspectable templates. There is no planner invocation in compilation. */
 export function compileWorkflow(request: OrchestrationRequest, decision: OrchestrationDecision, agents: AgentDefinition[],
-  decomposition?: DecomposedTask[]): CoordinationPreview {
+  decomposition?: DecomposedTask[], checkpoint?: { acceptedStageIds: string[]; completedStepIds: string[] }): CoordinationPreview {
   const snapshot = createCapabilitySnapshot(decision.execution!.participantIds, agents);
   const protocol = decision.protocol;
   const steps: CoordinationPlanStep[] = [];
@@ -28,7 +28,23 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
         requiresApproval: !readonly }, metadata: { ...meta, readonly, templateVersion: 'o4-workflows-v1' } });
   };
   let tail: string[] = [];
-  if (request.workflow === 'development_review') {
+  if (request.businessContract?.executionMode === 'stage_gated') {
+    for (const [index, stage] of request.businessContract.stages.entries()) {
+      if (checkpoint?.acceptedStageIds.includes(stage.id)) continue;
+      for (const [at, assignment] of stage.execution!.assignments.entries()) {
+        const id = `stage-${index + 1}-work-${at + 1}`;
+        if (checkpoint?.completedStepIds.includes(id)) continue;
+        add(id, assignment.agentId, tail, 'agent_turn', { businessStageId: stage.id, title: stage.title,
+          objective: assignment.objective, acceptanceCriteria: stage.criteria }, 'sequential_pipeline');
+        steps.at(-1)!.maxAttempts = 1; // Never replay a failed stage as an implicit revision.
+        tail = [id];
+      }
+      const gate = `stage-${index + 1}-accept`;
+      add(gate, null, tail, 'completion_gate', { businessStageId: stage.id, businessAcceptanceGate: true, title: `验收：${stage.title}` }, 'sequential_pipeline');
+      steps.at(-1)!.completion = '等待用户关联当前阶段交付并逐项验收';
+      tail = [gate];
+    }
+  } else if (request.workflow === 'development_review') {
     add('review-implement', decision.targetIds[0]!, [], 'agent_turn', {}, 'review_revision');
     add('review-independent', request.defaultReviewerId!, ['review-implement'], 'review', { reviewTargetStepIds: ['review-implement'], independent: true }, 'review_revision');
     tail = ['review-independent'];

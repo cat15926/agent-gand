@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentDefinition, CapabilitySnapshot } from '@agent-gand/shared';
+import { COORDINATION_MAXIMUM_AGENTS } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { listTools } from '../tools/builtin/index.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
@@ -40,7 +41,7 @@ export function createCapabilitySnapshot(agentIds?: string[], frozenAgents?: Age
       };
     }),
     policy: {
-      maximumAgents: 12,
+      maximumAgents: COORDINATION_MAXIMUM_AGENTS,
       maximumSteps: 64,
       maximumAttemptsPerStep: 5,
       maximumTokensPerStep: 16_000,

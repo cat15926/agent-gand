@@ -20,6 +20,7 @@ import {
 } from '../runtime/holds.ts';
 import { observeWakeLink } from '../runtime/shadow.ts';
 import { commitWakeActionCommand } from '../runtime/actionCommands.ts';
+import { acceptedBusinessGateRuns } from '../orchestration/businessGates.ts';
 
 const durableWakeOwner = `wake:${process.pid}:${randomUUID()}`;
 
@@ -36,6 +37,7 @@ export function wakeRun(runId: string): void {
 }
 
 export function recoverDurableRuns(): void {
+  for (const runId of acceptedBusinessGateRuns()) void resumeCoordinationRun(runId).catch(() => {});
   for (const status of ['running', 'awaiting_approval']) {
     for (const run of listRuns({ status, includeDeleted: true })) wakeRun(run.id);
   }
@@ -46,6 +48,7 @@ export function recoverDurableRuns(): void {
  * claim 进程崩溃时，30 秒租约到期后可由下一进程重新接管。
  */
 export function recoverDurableHolds(runId?: string): number {
+  for (const id of acceptedBusinessGateRuns()) if (!runId || id === runId) void resumeCoordinationRun(id).catch(() => {});
   const claims = claimReadyDurableHolds({ claimOwner: durableWakeOwner, runId });
   const wakeRunIds = new Set<string>();
   let resumed = 0;

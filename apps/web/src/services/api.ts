@@ -18,7 +18,7 @@ import type {
   ConversationHistoryPage, ConversationMessageSearch,
   Run,
   RunRecoveryAssessment,
-  BusinessCommand, BusinessState, BusinessOutcome, BusinessEvidenceChoice, BusinessAuditEntry,
+  BusinessCommand, BusinessState, BusinessOutcome, BusinessEvidenceChoice, BusinessAuditEntry, BusinessReworkInput,
   RunEvent,
   Task,
   TaskAttempt,
@@ -120,7 +120,16 @@ export const getBusinessState = (id: string) => managementRequest<BusinessState>
 export const getBusinessHistory = (id: string) => managementRequest<{ events: BusinessAuditEntry[] }>(`/api/accounts/business/${encodeURIComponent(id)}/history`);
 export const getBusinessEvidence = (id: string) => managementRequest<{ choices: BusinessEvidenceChoice[] }>(`/api/accounts/business/${encodeURIComponent(id)}/evidence`);
 export const applyBusinessCommand = (id: string, command: BusinessCommand) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`, 'POST', command);
-export const createBusinessFileEvidence = (id: string, path: string) => managementRequest<BusinessEvidenceChoice>(`/api/accounts/business/${encodeURIComponent(id)}/file-evidence`, 'POST', { path });
+export const createBusinessFileEvidence = (id: string, path: string, stageId?: string) => managementRequest<BusinessEvidenceChoice>(`/api/accounts/business/${encodeURIComponent(id)}/file-evidence`, 'POST', { path, ...(stageId ? { stageId } : {}) });
+export interface BusinessReworkPreview {
+  input: BusinessReworkInput; preview: OrchestrationPreview; closesWaitingSource: boolean;
+  stage: { id: string; title: string; assignments: Array<{ agentId: string; objective: string }> };
+  checkpoint: NonNullable<BusinessState['checkpoint']> & { acceptedStages: Array<{ id: string; title: string }>;
+    carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }> };
+}
+export const previewBusinessRework = (id: string, input: BusinessReworkInput) => managementRequest<BusinessReworkPreview>(`/api/accounts/business/${encodeURIComponent(id)}/rework-preview`, 'POST', input);
+export const submitBusinessRework = (id: string, preview: BusinessReworkPreview) => managementRequest<{ run: Run; deduplicated: boolean }>(`/api/accounts/business/${encodeURIComponent(id)}/reworks`, 'POST',
+  { ...preview.input, previewId: preview.preview.previewId, orchestrationFingerprint: preview.preview.fingerprint });
 export const previewOrchestration = (input: OrchestrationPreviewInput) => request<OrchestrationPreview>('/api/orchestration/preview', { method: 'POST', body: JSON.stringify(input) });
 export const createEmptyRoom = (input: { title: string; agentIds: string[]; workspace: string | null; preferences: RoomPreferences }) => request<{ conversation: Conversation }>('/api/conversations/empty', { method: 'POST', body: JSON.stringify(input) });
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
@@ -134,9 +143,17 @@ export async function getTaskStates(id: string, runIds?: string[]) {
 function runChunks(ids: string[]): string[][] { return Array.from({length:Math.ceil(ids.length/100)},(_,i) => ids.slice(i*100,(i+1)*100)); }
 export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
-export interface ContinuationPreview { assessment: RunRecoveryAssessment; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; excerpt: string; truncated: boolean }> } }
-export const previewRunContinuation = (id: string) => request<ContinuationPreview>(`/api/runs/${encodeURIComponent(id)}/continuation-preview`, { method: 'POST' });
-export const continueRun = (id: string, preview: OrchestrationPreview) => request<{ run: Run; deduplicated: boolean }>(`/api/runs/${encodeURIComponent(id)}/continuations`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint }) });
+export interface ContinuationPreview { assessment: RunRecoveryAssessment; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; excerpt: string; truncated: boolean }>;
+  business?: { sourceRunId: string; sourceVersion: number; digest: string; acceptedStages: Array<{ id: string; title: string }>;
+    files: Array<{ path: string; sha256: string }>; carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }>; workspace: 'fresh_run'; timeLimitsReset: boolean } } }
+export const previewRunContinuation = (id: string, stages = false) => stages
+  ? managementRequest<ContinuationPreview>(`/api/accounts/business/${encodeURIComponent(id)}/continuation-preview`, 'POST', {})
+  : request<ContinuationPreview>(`/api/runs/${encodeURIComponent(id)}/continuation-preview`, { method: 'POST' });
+export const continueRun = (id: string, preview: OrchestrationPreview, stages = false) => {
+  const body = { previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint };
+  return stages ? managementRequest<{ run: Run; deduplicated: boolean }>(`/api/accounts/business/${encodeURIComponent(id)}/continuations`, 'POST', body)
+    : request<{ run: Run; deduplicated: boolean }>(`/api/runs/${encodeURIComponent(id)}/continuations`, { method: 'POST', body: JSON.stringify(body) });
+};
 export const reviseTaskPlan = (id: string, preview: OrchestrationPreview, instruction: string) => request<{ plan: CoordinationPlan }>(`/api/runs/${encodeURIComponent(id)}/orchestration/revisions`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint, instruction }) });
 export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });

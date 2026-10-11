@@ -23,6 +23,8 @@ import { resolveAccount, assertNotRevoked, type ResolvedAccount } from '../accou
 import { redactSecrets, redactSnapshot } from '../accounts/secrets.ts';
 import { effectiveExternalTimeout, externalTimeoutError } from './timeout.ts';
 import { executionPolicy } from '../orchestration/executionBudget.ts';
+import { ActivityTimeout } from './activityTimeout.ts';
+import { recordExternalPreparationFailure } from './preparationFailure.ts';
 
 const active = new Map<string, { runId: string; controller: AbortController; done: Promise<AgentTurnResult> }>();
 const terminal = (runId: string) => { const run = getRun(runId); return !run || ['completed', 'failed', 'cancelled'].includes(run.status); };
@@ -58,6 +60,11 @@ function asResult(content: string, toolRounds: number): AgentTurnResult {
 }
 
 export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  try { return await runExternalAgentTurnImpl(opts); }
+  catch (error) { throw recordExternalPreparationFailure(opts, error); }
+}
+
+async function runExternalAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   assertExternalPolicy(opts.agent);
   if (opts.agent.execution?.kind !== 'external') throw new ExecutionError('policy_rejected', '缺少外部执行配置');
   const duplex = bidirectional(opts.agent.execution.driver);
@@ -107,6 +114,9 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   const timeoutPolicy = effectiveExternalTimeout({ configuredMs: configuredTimeout, managed: account?.managed === true,
     runDeadlineAt: executionPolicy(opts.run.id)?.execution?.deadlineAt ?? undefined,
     leaseExpiresAt: opts.executionBinding?.origin === 'coordination_step_attempt' ? opts.executionBinding.leaseExpiresAt : undefined });
+  const limits = executionPolicy(opts.run.id)?.request.constraints;
+  if (limits?.firstResponseTimeoutMs) timeoutPolicy.firstResponseTimeoutMs = limits.firstResponseTimeoutMs;
+  if (limits?.idleTimeoutMs) timeoutPolicy.idleTimeoutMs = limits.idleTimeoutMs;
   execution.timeoutPolicy = timeoutPolicy;
   execution.progress = { ...opts.admissionTiming };
   updateExecution(execution.id, { timeoutPolicy, progress: execution.progress });
@@ -115,12 +125,14 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
     if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效'));
     try { if (account?.managed) assertNotRevoked(account.accountId); } catch { controller.abort(new ExecutionError('cancelled', '账户已立即撤销')); }
   }, 100);
-  const done = invokeTurn(opts, execution, controller.signal, account);
+  const done = invokeTurn(opts, execution, controller, account);
   active.set(execution.id, { runId: opts.run.id, controller, done });
   try { return await done; } finally { clearTimeout(timer); clearInterval(authorityTimer); opts.executionSignal?.removeEventListener('abort', abortFromTurn); active.delete(execution.id); }
 }
 
-async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, account: ResolvedAccount | null): Promise<AgentTurnResult> {
+async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, controller: AbortController, account: ResolvedAccount | null): Promise<AgentTurnResult> {
+  const signal = controller.signal;
+  const activity = new ActivityTimeout(execution.timeoutPolicy ?? {}, error => controller.abort(error));
   const mode = execution.permissionMode ?? 'readonly';
   const span = startSpan(opts.run.id, { parentId: opts.parentSpanId, spanKind: 'llm', name: `external:${execution.driver}:${opts.agent.model}`,
     input: JSON.stringify({ messages: opts.messages, cwd: execution.cwd, policy: mode, sessionPolicy: opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn' }),
@@ -133,8 +145,11 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
   let correction = 0;
   let session: SessionHandle | undefined;
   let forceCold = false; let naturalTerminal = false;
+  let initializationStep: 'workspace' | 'client' = 'workspace';
   const usage = new Map<number, { tokensIn: number | null; tokensOut: number | null; costUsd: number | null }>();
   const onEvent = (event: NativeAgentEvent, content: string) => {
+    const modelActivity = event.type === 'response.activity' || event.type === 'tool.started' || event.type === 'tool.completed'
+      || (event.type === 'text.delta' || event.type === 'text.snapshot') && Boolean(event.text);
     content = redactSnapshot(content);
     if (event.type === 'text.delta') event = { ...event, text: '' }; // Use the redacted accumulated snapshot below, never raw split tokens.
     if (event.type === 'text.snapshot') event = { ...event, text: redactSnapshot(event.text) };
@@ -143,15 +158,24 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     const at = new Date().toISOString();
     const progress = execution.progress ?? {};
     execution.progress = { ...progress, lastEventAt: at,
+      ...(modelActivity ? { firstResponseAt: progress.firstResponseAt ?? at, lastActivityAt: at } : {}),
       ...(event.type === 'session.bound' && !progress.sessionBoundAt ? { sessionBoundAt: at } : {}),
       ...((event.type === 'text.delta' || event.type === 'text.snapshot') && content && !progress.firstTextAt ? { firstTextAt: at } : {}),
       ...(event.type === 'tool.started' && !progress.firstToolAt ? { firstToolAt: at } : {}) };
+    if (event.type === 'response.activity') {
+      activity.activity();
+      if (!progress.firstResponseAt) updateExecution(execution.id, { progress: execution.progress });
+      return; // No hidden reasoning text or activity stream is persisted/broadcast.
+    }
     if (event.type !== 'text.delta' || !progress.firstTextAt) updateExecution(execution.id, { progress: execution.progress });
     if (correction && (event.type === 'text.delta' || event.type === 'text.snapshot') && Buffer.byteLength(content) > (opts.exitCorrectionMaxTokens ?? 2048)) throw new ExecutionError('policy_rejected', '纠偏输出超过平台限制');
     if ('itemId' in event) event = { ...event, itemId: `${correction}:${event.itemId}` };
+    if (modelActivity) activity.activity();
+    if (event.type === 'tool.started' && !toolSpans.has(event.itemId)) activity.pause(`tool:${event.itemId}`);
+    if (event.type === 'tool.completed') activity.resume(`tool:${event.itemId}`);
     emit({ type: 'execution.native', runId: opts.run.id, executionId: execution.id, event });
     if (event.type === 'session.bound') { session?.bind(event.sessionId); updateExecution(execution.id, { sessionId: event.sessionId }); }
-    if (event.type === 'terminal') naturalTerminal = event.status === 'completed';
+    if (event.type === 'terminal') { naturalTerminal = event.status === 'completed'; activity.stop(); }
     if (event.type === 'usage') {
       if (session && event.cumulative) session.record.totalUsage = event.cumulative;
       usage.set(correction, event);
@@ -184,6 +208,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       before = await captureEvidence(execution.cwd);
       updateExecution(execution.id, { evidence: { head: before.head, beforeDiff: before.diff, afterDiff: before.diff, truncated: before.truncated, commands: [] } });
     }
+    initializationStep = 'client';
     const driver = getDriver(execution.driver);
     const info = await driver.detect();
     updateExecution(execution.id, { driverVersion: info.version });
@@ -211,10 +236,20 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       try {
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
+        activity.start();
         content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           authorized: () => executionAuthorized(execution),
           permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
-          requestApproval: async (id, tool, args, reason) => !bridge?.sealed() && !correction && await approve(`${correction}:${id}`, tool, args, reason),
+          requestApproval: async (id, tool, args, reason) => {
+            if (bridge?.sealed() || correction) return false;
+            const at = new Date().toISOString();
+            execution.progress = { ...execution.progress, firstResponseAt: execution.progress?.firstResponseAt ?? at,
+              firstToolAt: execution.progress?.firstToolAt ?? at, lastActivityAt: at };
+            updateExecution(execution.id, { progress: execution.progress });
+            activity.activity(); activity.pause(`approval:${id}`);
+            try { return await approve(`${correction}:${id}`, tool, args, reason); }
+            finally { activity.resume(`approval:${id}`); }
+          },
           bridge, controlOnly: correction > 0, privateContext: opts.privateContext, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
           session: session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
@@ -223,7 +258,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
         } else throw error;
-      } finally { await bridge?.close(); }
+      } finally { activity.stop(); await bridge?.close(); }
       if (retryCold) continue;
       if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '原生回合停止后执行权已撤销');
       result = { ...asResult(content, toolsStarted), controlAction: bridge?.action() ?? null, exitCorrectionAttempts: correction };
@@ -251,15 +286,21 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     session?.finish(false);
     let failure = signal.aborted && signal.reason instanceof ExecutionError ? signal.reason : error instanceof ExecutionError ? error : new ExecutionError('protocol_error', diagnostic(error instanceof Error ? error.message : String(error)));
     if (failure.code === 'timeout' && !failure.details?.phase) failure = externalTimeoutError(execution.timeoutPolicy!, execution.progress);
+    if (!execution.progress?.nativeInvokedAt) failure.details = { ...failure.details, phase: failure.details?.phase ?? 'initialization', initializationStep };
     if (error instanceof ExecutionError && error.details?.stderr) failure.details = { ...failure.details, stderr: diagnostic(error.details.stderr) };
-    const after = before ? await captureEvidence(execution.cwd) : null;
+    let after: Awaited<ReturnType<typeof captureEvidence>> | null = null;
+    try { after = before ? await captureEvidence(execution.cwd) : null; }
+    catch (cleanupError) { failure.details = { ...failure.details, secondary: [{ step: 'evidence_capture', message: diagnostic(cleanupError instanceof Error ? cleanupError.message : String(cleanupError)) }] }; }
     const evidence = before && after ? { head: after.head, beforeDiff: before.diff, afterDiff: after.diff, truncated: before.truncated || after.truncated, commands } : undefined;
-    const record = updateExecution(execution.id, { status: failure.code === 'cancelled' ? 'cancelled' : 'failed', evidence, errorCode: failure.code, error: diagnostic(failure.message),
+    const record = updateExecution(execution.id, { status: failure.code === 'cancelled' ? 'cancelled' : 'failed', ...(evidence ? { evidence } : {}), errorCode: failure.code, error: diagnostic(failure.message),
       failureDetails: failure.details, progress: execution.progress, finishedAt: new Date().toISOString() });
     endSpan(span, { status: 'error', output: diagnostic(failure.message), tokensIn: record.tokensIn ?? undefined, tokensOut: record.tokensOut ?? undefined, costUsd: record.costUsd ?? undefined,
-      attributes: { 'execution.status': failure.code === 'cancelled' ? 'cancelled' : 'failed', 'execution.error_code': failure.code, 'execution.usage_known': record.tokensIn !== null && record.tokensOut !== null, 'execution.cost_known': record.costUsd !== null } });
+      attributes: { 'execution.status': failure.code === 'cancelled' ? 'cancelled' : 'failed', 'execution.error_code': failure.code,
+        'execution.failure_phase': failure.details?.phase, 'execution.timeout_kind': failure.details?.timeoutKind,
+        'execution.usage_known': record.tokensIn !== null && record.tokensOut !== null, 'execution.cost_known': record.costUsd !== null } });
     throw failure;
   } finally {
+    activity.stop();
     session?.release();
     expireExecutionApprovals(execution.id); release();
     const record = getExecution(execution.id);

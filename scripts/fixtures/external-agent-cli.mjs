@@ -39,6 +39,33 @@ if (scenario === 'half') { process.stdout.write('{"type":"thread.started"'); pro
 if (scenario === 'nonzero') { process.stderr.write('intentional failure'); process.exit(7); }
 if (driver === 'claude') send({ type: 'system', subtype: 'init', session_id: session, tools: ['Read', 'Grep', 'Glob'], mcp_servers: [] });
 else { send({ type: 'thread.started', thread_id: session }); send({ type: 'turn.started' }); }
+if (scenario === 'first-timeout' || scenario === 'idle-timeout') {
+  if (scenario === 'idle-timeout') {
+    if (driver === 'claude') send({ type: 'assistant', message: { id: 'partial', content: [{ type: 'text', text: 'first response' }] } });
+    else send({ type: 'item.updated', item: { id: 'partial', type: 'agent_message', text: 'first response' } });
+  }
+  process.on('SIGTERM', () => {
+    if (driver === 'claude') send({ type: 'assistant', message: { id: 'late', content: [{ type: 'text', text: 'late_native_output' }] } });
+    else send({ type: 'item.updated', item: { id: 'late', type: 'agent_message', text: 'late_native_output' } });
+    process.exit(0);
+  });
+  setInterval(() => {}, 1000); await new Promise(() => {});
+}
+if (scenario === 'tool-wait') {
+  if (driver === 'claude') send({ type: 'assistant', message: { id: 'waiting', content: [{ type: 'tool_use', id: 'slow-tool', name: 'Read' }] } });
+  else send({ type: 'item.started', item: { id: 'slow-tool', type: 'command_execution' } });
+  await sleep(600);
+  if (driver === 'claude') send({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'slow-tool' }] } });
+  else send({ type: 'item.completed', item: { id: 'slow-tool', type: 'command_execution' } });
+}
+if (scenario === 'reasoning') {
+  if (driver === 'claude') send({ type: 'stream_event', event: { type: 'message_start', message: { id: 'thinking' } } });
+  for (let index = 0; index < 6; index++) {
+    if (driver === 'claude') send({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'hidden_fixture_reasoning' } } });
+    else send({ type: 'item.updated', item: { id: 'thinking', type: 'reasoning', text: 'hidden_fixture_reasoning' } });
+    await sleep(100);
+  }
+}
 if (scenario === 'auth') {
   const message = 'Authentication required: invalid API key sk-fixtureSecret123';
   if (driver === 'claude') send({ type: 'result', subtype: 'error_during_execution', is_error: true, session_id: session, errors: [message], result: message });

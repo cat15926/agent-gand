@@ -18,7 +18,8 @@ previous.prepare(`INSERT INTO runs(id,goal,mode,status,agent_ids,conversation_id
 previous.prepare(`INSERT INTO runs(id,goal,mode,status,agent_ids,conversation_id,turn_no,created_at) VALUES ('old-active','旧活跃目标','pipeline','running','["aa"]','old-collaboration',1,'2025-01-01')`).run();
 previous.close();
 const maintenance=await import('./orchestration-maintenance.mjs');
-const beforeAudit=maintenance.auditOrchestration();assert.equal(beforeAudit.pendingMigrations.length,2);assert.equal(beforeAudit.pendingRoomIds.length,4);
+const supportedMigrationCount=(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.length;
+const beforeAudit=maintenance.auditOrchestration();assert.equal(beforeAudit.pendingMigrations.length,supportedMigrationCount);assert.equal(beforeAudit.pendingRoomIds.length,4);
 const beforeBytes=await readFile(process.env.DB_PATH);maintenance.auditOrchestration();assert.deepEqual(await readFile(process.env.DB_PATH),beforeBytes);
 const db=await import('../apps/server/src/db/database.ts');
 const migration=await import('../apps/server/src/db/orchestrationMigrations.ts');
@@ -51,7 +52,7 @@ try{
   assert.deepEqual(db.all('SELECT * FROM runs ORDER BY id'),frozenBefore);assert.deepEqual(db.all('SELECT * FROM run_agent_snapshots ORDER BY run_id,agent_id'),snapshotsBefore);
   assert.equal(conversations.getConversation('old-pipeline').membersVersion,8);assert.equal(conversations.getConversation('old-pipeline').updatedAt,'2025-01-01');
   const repeated=await fork('boot').finished;assert.equal(repeated.code,0,repeated.stderr);assert.equal(JSON.parse(repeated.stdout).migration.mapped,0);assert.equal(db.get('SELECT COUNT(*) n FROM room_preferences_migration_audits').n,4);
-  assert.equal(db.get('SELECT COUNT(*) n FROM orchestration_schema_migrations').n,2);
+  assert.equal(db.get('SELECT COUNT(*) n FROM orchestration_schema_migrations').n,supportedMigrationCount);
   db.run(`INSERT INTO runs(id,goal,mode,status,agent_ids,supervisor_id,default_reviewer_id,created_at,finished_at)
     VALUES ('unroomed-terminal','旧主管终态','supervisor','completed','["planner","aa","reviewer"]','planner','reviewer','2025-01-01','2025-01-02')`);
   conversations.backfillConversations();migration.migrateRoomPreferences(db.db);trace.backfillRunAgentSnapshots();

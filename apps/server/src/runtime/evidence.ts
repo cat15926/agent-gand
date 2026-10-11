@@ -15,6 +15,7 @@ import { isMessageVisibleTo, type MessageAccess } from '@agent-gand/shared';
 import { attemptAccess, eventAccess, messageAccess, unboundRunAccess } from '../messaging/access.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 import { resolveSandboxPath, workspaceRootDir } from '../tools/builtin/index.ts';
+import { checkpointOutput } from '../orchestration/businessCheckpointStore.ts';
 
 export interface ResolvedEvidence extends RuntimeEvidenceResolution {}
 
@@ -93,6 +94,11 @@ export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId
     return accepted(ref, `tool_execution:${ref.id}`, row.output);
   }
   if (ref.kind === 'attempt_output') {
+    const archived = checkpointOutput(runId, ref.id);
+    if (archived) {
+      const resolved = accepted(ref, `checkpoint:${archived.sourceRunId}/attempt_output:${ref.id}`, archived.output);
+      return resolved.contentSha256 === archived.sha256 ? resolved : rejected(ref, '归档输出哈希无效');
+    }
     const row = get<{ run_id: string; status: string; output: string | null }>('SELECT run_id,status,output FROM collaboration_attempts WHERE id=?', ref.id);
     const coordination = row ?? get<{ run_id: string; status: string; output: string | null }>(
       'SELECT run_id,status,output FROM coordination_step_attempts WHERE id=?', ref.id)

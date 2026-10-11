@@ -1,4 +1,5 @@
 import { businessContractInstructions } from './businessContract.ts';
+import { businessStageContext } from './businessStageExecution.ts';
 /**
  * 单 agent 执行步骤（pipeline 与 supervisor 共用，避免两份工具逻辑漂移）
  *
@@ -18,6 +19,7 @@ import { businessContractInstructions } from './businessContract.ts';
  */
 import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, Run } from '@agent-gand/shared';
 import { ExecutionError } from '../execution/errors.ts';
+import { recordExternalPreparationFailure } from '../execution/preparationFailure.ts';
 import { budgetedChat, executionPolicy, assertExecutionDeadline } from './executionBudget.ts';
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
@@ -50,6 +52,11 @@ import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts
 /** llm span input 统一记录 messages + 工具名单（事后可诊断 tools 是否下发） */
 export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): string {
   return JSON.stringify({ messages, tools: toolNames });
+}
+
+function failureAttributes(error: unknown) {
+  return error instanceof ExecutionError ? { 'execution.error_code': error.code,
+    'execution.failure_phase': error.details?.phase, 'execution.timeout_kind': error.details?.timeoutKind } : {};
 }
 
 /** nudge 文案（anthropic 协议不支持 mid-conversation system，用 user 轮实现同等效果） */
@@ -138,7 +145,7 @@ export interface AgentTurnOptions {
   /** Private context is restricted to text and Runtime controls until artifact ACLs exist. */
   privateContext?: boolean;
   executionSignal?: AbortSignal;
-  admissionTiming?: { queuedAt: string; memberAcquiredAt: string; workspaceReadyAt: string };
+  admissionTiming?: { queuedAt: string; memberAcquiredAt?: string; workspaceReadyAt?: string };
 }
 
 export interface AgentTurnResult {
@@ -190,10 +197,10 @@ export async function chatOnce(
     });
     let res: LlmResponse;
     try {
-      res = await provider.chat({ model: agent.model, messages }, deltaForwarder(runId, llmSpan.id, { agentId: agent.id, displayKind }));
+      res = await budgetedChat(runId, provider, { model: agent.model, messages }, deltaForwarder(runId, llmSpan.id, { agentId: agent.id, displayKind }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      endSpan(llmSpan, { output: message, status: 'error' });
+      endSpan(llmSpan, { output: message, status: 'error', attributes: failureAttributes(err) });
       throw err;
     }
     const usage: EndSpanInput = {
@@ -217,8 +224,16 @@ export async function chatOnce(
 }
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  try { return await runAgentTurnImpl(opts); }
+  catch (error) {
+    if (opts.agent.execution?.kind === 'external') throw recordExternalPreparationFailure(opts, error);
+    throw error;
+  }
+}
+
+async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   const policy = executionPolicy(opts.run.id);
-  const acceptance = businessContractInstructions(policy?.request.businessContract);
+  const acceptance = businessContractInstructions(policy?.request.businessContract, businessStageContext()?.stageId);
   if (acceptance) opts = { ...opts, messages: [{ role: 'system', content: acceptance }, ...opts.messages] };
   assertExecutionDeadline(opts.run.id);
   if (policy?.execution?.readonly) opts = { ...opts, agent: asReadonlyAgent(opts.agent) };
@@ -249,7 +264,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       opts.run.id, opts.executionScopeId ?? `agent:${opts.agent.id}`);
     if (cached) return (JSON.parse(cached.state) as { result: AgentTurnResult }).result;
   }
+  const upstreamSignal = opts.executionSignal;
   const controller = new AbortController();
+  const forwardAbort = () => controller.abort(upstreamSignal?.reason);
+  if (upstreamSignal?.aborted) forwardAbort(); else upstreamSignal?.addEventListener('abort', forwardAbort, { once: true });
   opts = { ...opts, executionSignal: controller.signal };
   const remaining = policy?.execution?.deadlineAt ? Date.parse(policy.execution.deadlineAt) - Date.now() : Infinity;
   const deadlineTimer = Number.isFinite(remaining)
@@ -262,6 +280,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     stageTimer.unref();
   };
   const queuedAt = new Date().toISOString();
+  opts = { ...opts, admissionTiming: { queuedAt } };
   stageTimeout('queue', '成员排队超时，尚未开始模型执行');
   const unsubscribe = subscribe((event) => {
     if (event.type === 'run.updated' && event.run.id === opts.run.id && ['completed', 'failed', 'cancelled'].includes(event.run.status)) controller.abort();
@@ -278,6 +297,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       authorized: () => !['completed','failed','cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')
         && (!opts.executionBinding || bindingAuthorized(opts.executionBinding)) });
     const memberAcquiredAt = new Date().toISOString();
+    opts = { ...opts, admissionTiming: { queuedAt, memberAcquiredAt } };
     stageTimeout('initialization', '准备工作区超时，尚未开始模型执行');
     await ensureIsolatedWorkspace(opts.run, controller.signal);
     opts = { ...opts, admissionTiming: { queuedAt, memberAcquiredAt, workspaceReadyAt: new Date().toISOString() } };
@@ -318,7 +338,11 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
       if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
     } finally { releaseShared?.(); release(); }
-  } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(stageTimer); clearTimeout(deadlineTimer); clearInterval(authorityTimer); unsubscribe(); }
+  } catch (error) {
+    const failure = controller.signal.aborted && controller.signal.reason instanceof ExecutionError ? controller.signal.reason : error;
+    if (opts.agent.execution?.kind === 'external') throw recordExternalPreparationFailure(opts, failure, 'workspace', Boolean(releaseMember));
+    throw failure;
+  } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(stageTimer); clearTimeout(deadlineTimer); clearInterval(authorityTimer); unsubscribe(); upstreamSignal?.removeEventListener('abort', forwardAbort); }
 }
 
 async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
@@ -420,7 +444,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     } catch (err) {
       // 流式中途超时/网络异常（R5）：增量已广播不回收，span 记 error 后向上抛（run 走 failed）
       const message = err instanceof Error ? err.message : String(err);
-      endSpan(llmSpan, { output: message, status: 'error' });
+      endSpan(llmSpan, { output: message, status: 'error', attributes: failureAttributes(err) });
       throw err;
     }
     const usage: EndSpanInput = {
@@ -603,7 +627,7 @@ async function closingCall(
     assertBindingAuthorized(opts.executionBinding);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    endSpan(llmSpan, { output: message, status: 'error' });
+    endSpan(llmSpan, { output: message, status: 'error', attributes: failureAttributes(err) });
     throw err;
   }
   endSpan(llmSpan, {

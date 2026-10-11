@@ -35,20 +35,27 @@ export type ExecutionErrorCode = 'missing_binary' | 'unsupported_cli' | 'auth_re
 
 export interface ExecutionFailureDetails {
   phase?: 'queue' | 'initialization' | 'before_session' | 'before_first_activity' | 'after_activity' | 'deadline';
+  timeoutKind?: 'total' | 'first_response' | 'idle';
+  limitMs?: number;
+  initializationStep?: 'workspace' | 'account' | 'client';
+  secondary?: Array<{ step: 'evidence_capture'; message: string }>;
   stderr?: string;
 }
 export interface ExternalExecutionProgress {
   queuedAt?: string; memberAcquiredAt?: string; workspaceReadyAt?: string;
   nativeInvokedAt?: string; sessionBoundAt?: string; firstTextAt?: string; firstToolAt?: string; lastEventAt?: string;
+  firstResponseAt?: string; lastActivityAt?: string;
 }
 export interface ExternalTimeoutPolicy {
   configuredMs: number; effectiveMs: number;
   source: 'account' | 'server' | 'coordination_lease' | 'run_deadline';
   deadlineAt: string;
+  firstResponseTimeoutMs?: number; idleTimeoutMs?: number;
 }
 
 export type NativeAgentEvent =
   | { type: 'session.bound'; sessionId: string }
+  | { type: 'response.activity'; kind: 'reasoning' | 'tool_input' }
   | { type: 'text.delta'; itemId: string; text: string }
   | { type: 'text.snapshot'; itemId: string; text: string }
   | { type: 'tool.started' | 'tool.completed'; itemId: string; name: string; output?: string; exitCode?: number | null; failed?: boolean }

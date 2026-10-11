@@ -11,8 +11,8 @@ export function isRoomPreferences(value: unknown): value is RoomPreferences {
   if (['supervisorId','defaultReviewerId','aggregatorId'].some(k => item[k] !== null && typeof item[k] !== 'string')) return false;
   for (const [key,entry] of Object.entries(constraints)) {
     if (key === 'readonly') { if (typeof entry !== 'boolean') return false; }
-    else if (!['rounds','maxTokens','deadlineMs'].includes(key) || typeof entry !== 'number' || !Number.isSafeInteger(entry) || entry < 1
-      || entry > (key === 'rounds' ? 10 : key === 'deadlineMs' ? 86400000 : 1000000)) return false;
+    else if (!['rounds','maxTokens','deadlineMs','firstResponseTimeoutMs','idleTimeoutMs'].includes(key) || typeof entry !== 'number' || !Number.isSafeInteger(entry) || entry < 1
+      || entry > (key === 'rounds' ? 10 : key === 'maxTokens' ? 1000000 : 86400000)) return false;
   }
   return true;
 }

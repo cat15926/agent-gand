@@ -424,7 +424,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       const snapshot = getRunOrchestrationSnapshot(item.id);
       const writeStarted = snapshot?.execution?.readonly === false && Boolean(get('SELECT id FROM coordination_step_attempts WHERE run_id=? LIMIT 1',item.id));
       const latestPreview = plan && plan.revision > 1 ? get<{ payload: string }>("SELECT p.payload FROM orchestration_previews p JOIN coordination_plan_revisions r ON p.id=json_extract(r.payload,'$.confirmationPreviewId') WHERE r.plan_id=? AND r.revision=?",plan.id,plan.revision) : null;
-      return { runId: item.id, revisedGoal: latestPreview ? JSON.parse(latestPreview.payload).preview.request.goal as string : null, revisionBlockedReason: writeStarted ? '写入任务已经开始，不能重建图；请检查变更后创建新任务。' : null, snapshot, planStatus: plan?.status ?? null,
+      return { runId: item.id, revisedGoal: latestPreview ? JSON.parse(latestPreview.payload).preview.request.goal as string : null, revisionBlockedReason: snapshot?.request.businessContract?.executionMode === 'stage_gated' ? '逐阶段任务与门禁已冻结；请验收当前阶段，补充工作请新建任务。' : writeStarted ? '写入任务已经开始，不能重建图；请检查变更后创建新任务。' : null, snapshot, planStatus: plan?.status ?? null,
         revision: plan?.revision ?? null, pauseRequested: Boolean(control?.pause_requested || plan?.status === 'pause_requested'),
         paused: item.status === 'waiting_for_user' && (plan?.status === 'paused' || Boolean(control?.pause_requested)),
         attention: unknown, reason: control?.reason ?? (unknown ? '原生执行结果未知，请核对工作区后创建新任务' : null),

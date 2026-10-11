@@ -47,6 +47,8 @@ export interface LlmRequest {
   /** 单次调用覆盖 max_tokens（截断重试升预算用）；缺省用 config.llm.maxTokens */
   maxTokens?: number;
   signal?: AbortSignal;
+  /** Activity metadata only; reasoning text is never forwarded or retained. */
+  onActivity?: (kind: 'text' | 'reasoning' | 'tool_input') => void;
   /** Minimal account probe; does not change normal model requests. */
   connectionTest?: boolean;
 }
@@ -453,6 +455,8 @@ interface OpenAIStreamChunk {
   choices?: Array<{
     delta?: {
       content?: string | null;
+      reasoning_content?: string | null;
+      reasoning?: string | null;
       tool_calls?: Array<{
         index?: number;
         function?: { name?: string | null; arguments?: string | null };
@@ -551,12 +555,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
       }
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
+      if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content.length > 0
+        || typeof delta?.reasoning === 'string' && delta.reasoning.length > 0) req.onActivity?.('reasoning');
       if (typeof delta?.content === 'string' && delta.content.length > 0) {
         content += delta.content;
+        req.onActivity?.('text');
         onDelta?.(delta.content);
       }
       if (Array.isArray(delta?.tool_calls)) {
         for (const tc of delta.tool_calls) {
+          if (tc.function?.name || tc.function?.arguments) req.onActivity?.('tool_input');
           const index = typeof tc.index === 'number' ? tc.index : 0;
           const acc = toolAccs.get(index) ?? { name: '', args: '' };
           // name 也可能跨片（GLM/DeepSeek 兼容端点见过）：按 index 拼接；arguments 空片段容错
@@ -721,7 +729,8 @@ export class AnthropicProvider implements LLMProvider {
             json: '',
           };
           blocks.set(ev.index ?? blocks.size, acc);
-          if (acc.kind === 'text' && acc.text.length > 0) onDelta?.(acc.text);
+          if (acc.kind === 'tool_use' && acc.toolName) req.onActivity?.('tool_input');
+          if (acc.kind === 'text' && acc.text.length > 0) { req.onActivity?.('text'); onDelta?.(acc.text); }
           break;
         }
         case 'content_block_delta': {
@@ -730,10 +739,13 @@ export class AnthropicProvider implements LLMProvider {
           const d = ev.delta;
           if (d?.type === 'text_delta' && typeof d.text === 'string') {
             acc.text += d.text;
-            if (acc.kind === 'text') onDelta?.(d.text);
+            if (acc.kind === 'text') { if (d.text) req.onActivity?.('text'); onDelta?.(d.text); }
           } else if (d?.type === 'input_json_delta' && typeof d.partial_json === 'string') {
             // 原始字符串拼接（不是 JSON 合并），结束后整体 parse 在消费侧（R1）
             acc.json += d.partial_json;
+            if (d.partial_json) req.onActivity?.('tool_input');
+          } else if (d?.type === 'thinking_delta' && typeof d.thinking === 'string' && d.thinking) {
+            req.onActivity?.('reasoning');
           }
           // thinking_delta 等其他增量直接丢弃（§8.1）
           break;

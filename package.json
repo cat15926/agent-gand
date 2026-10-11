@@ -53,6 +53,7 @@
     "verify:runtime-context": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
     "verify:message-visibility": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-message-visibility.mjs",
     "verify:execution-diagnostics": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-diagnostics.mjs",
+    "verify:execution-timeouts": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-timeouts.mjs",
     "verify:run-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-continuation.mjs",
     "verify:runtime-capsule-context-v2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
     "verify:runtime-completion": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-completion.mjs",
@@ -104,7 +105,11 @@
     "verify:chat-state": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-state.mjs",
     "verify:chatroom-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chatroom-ui.mjs",
     "verify:chat-history": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-history.mjs",
-    "verify:business-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-acceptance.mjs"
+    "verify:business-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-acceptance.mjs",
+    "verify:business-stage-gates": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-gates.mjs",
+    "verify:business-stage-gates-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-gates-ui.mjs",
+    "verify:business-stage-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-continuation.mjs",
+    "verify:business-stage-rework": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-rework.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

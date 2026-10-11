@@ -22,6 +22,7 @@ import { saveCheckpoint } from '../runs/checkpoints.ts';
 import { assertCoordinationRecoveryReady } from '../coordination/runtime.ts';
 import { getRun } from '../runs/trace.ts';
 import { assertOrchestrationAdmission, orchestrationAdmissionIssues } from './rollout.ts';
+import { checkpointDigest, type BusinessCheckpoint } from './businessCheckpointStore.ts';
 
 const fields = ['goal','conversationId','agentIds','recipientIds','strategy','workflow','workspace','supervisorId',
   'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning','businessContract'];
@@ -31,12 +32,14 @@ const hasErrors = (preview: OrchestrationPreview) => preview.decision.issues.som
 const shape = (preview: OrchestrationPreview) => preview.plan?.plan.steps.map(({ id, protocol, type, agentId, dependsOn, metadata, toolPolicy, maxAttempts, tokenBudget, timeoutMs }) =>
   ({ id, protocol, type, agentId, dependsOn, metadata, toolPolicy, maxAttempts, tokenBudget, timeoutMs })) ?? null;
 
-function prepare(value: Record<string, unknown>, source: OrchestrationSource): StoredPreview {
+function prepare(value: Record<string, unknown>, source: OrchestrationSource, checkpoint?: BusinessCheckpoint): StoredPreview {
   const room = typeof value.conversationId === 'string' ? getConversation(value.conversationId) : null;
   if (room?.preferencesIssue && value.revisionRunId === undefined) invalid('ROOM_PREFERENCES_INVALID',room.preferencesIssue);
   const defaults = room?.preferences;
   const input = { ...(defaults ?? {}), ...value, strategy: value.strategy ?? defaults?.strategy ?? 'auto', workflow: value.workflow ?? defaults?.workflow ?? 'routine' } as unknown as OrchestrationPreviewInput;
   const old = prepareOrchestration(input, source);
+  // Internal owner continuation context only; public requests cannot set this or choose a different room workspace.
+  if (checkpoint) old.request.workspace = null;
   const replied = input.replyTo && input.conversationId
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
   const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
@@ -58,16 +61,18 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource): S
   }
   if (old.request.workflow === 'development_review' && old.request.constraints.readonly === true) add('WORKFLOW_READONLY_CONFLICT', '开发与评审包含实现写入，请移除只读限制或选择分析工作流');
   if (!hasErrors(preview) && decision.execution!.engine === 'coordination' && !decision.execution!.plannerRequired) {
-    preview.plan = compileWorkflow(old.request, decision, decision.execution!.participantIds.map(id => getAnyAgent(id)!));
+    preview.plan = compileWorkflow(old.request, decision, decision.execution!.participantIds.map(id => getAnyAgent(id)!), undefined,
+      checkpoint ? { acceptedStageIds: checkpoint.accepted.map(a => a.stageId), completedStepIds: checkpoint.outputs.map(o => o.stepId) } : undefined);
     for (const issue of preview.plan.plan.validationIssues) decision.issues.push({ code: issue.code, message: issue.message, severity: issue.severity });
   }
   const { legacy: _legacy, ...semantic } = semanticRequest(preview.request);
-  const configurationFingerprint = stableDigest({ request: semantic, capabilities: preview.capabilities, decision });
+  const configurationFingerprint = stableDigest({ request: semantic, capabilities: preview.capabilities, decision,
+    ...(checkpoint ? { checkpoint: checkpointDigest(checkpoint) } : {}) });
   preview.fingerprint = stableDigest({ configurationFingerprint, steps: shape(preview) });
   return { preview, configurationFingerprint };
 }
 
-export async function previewExecutionOrchestration(value: unknown, source: OrchestrationSource = 'unified_preview'): Promise<OrchestrationPreview> {
+export async function previewExecutionOrchestration(value: unknown, source: OrchestrationSource = 'unified_preview', checkpoint?: BusinessCheckpoint): Promise<OrchestrationPreview> {
   const body = objectInput(value);
   if (Object.keys(body).some(key => ![...fields,'revisionRunId'].includes(key))) invalid('UNKNOWN_FIELD','预览请求包含未知字段',400);
   const revisionRun = typeof body.revisionRunId === 'string' ? getRun(body.revisionRunId) : null;
@@ -75,9 +80,10 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
     || revisionRun.status !== 'waiting_for_user' || getRunCoordinationPlan(revisionRun.id)?.status !== 'paused'
     || getRunOrchestrationSnapshot(revisionRun.id)?.execution?.engine !== 'coordination')) invalid('REVISION_UNSUPPORTED','修订预览需要属于当前房间的已暂停步骤图');
   if (body.planning !== undefined && !['rules','detailed'].includes(String(body.planning))) invalid('INVALID_PLANNING','planning 必须为 rules 或 detailed',400);
-  const stored = prepare(body, source), preview = stored.preview;
+  const stored = prepare(body, source, checkpoint), preview = stored.preview;
   if (revisionRun) {
     const original=getRunOrchestrationSnapshot(revisionRun.id)!;
+    if (original.request.businessContract?.executionMode === 'stage_gated') invalid('STAGE_REVISION_UNSUPPORTED', '逐阶段任务与门禁已冻结；请核对已有交付后创建新任务');
     assertCoordinationRecoveryReady(revisionRun.id);
     if (preview.request.workflow !== original.request.workflow
       || preview.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
@@ -133,7 +139,7 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
 
 /** Shared transaction for new tasks from rooms, messages and direct Run compatibility endpoints. */
 export function submitExecutionOrchestration(value: unknown, conversationId?: string,
-  source: 'room_create' | 'conversation_message' | 'direct_run' = conversationId ? 'conversation_message' : 'room_create'): LegacySubmissionResult {
+  source: 'room_create' | 'conversation_message' | 'direct_run' = conversationId ? 'conversation_message' : 'room_create', checkpoint?: BusinessCheckpoint): LegacySubmissionResult {
   const body = objectInput(value);
   if (conversationId && body.conversationId !== undefined && body.conversationId !== conversationId) invalid('ROOM_REFERENCE_CONFLICT','conversationId 与请求路径不一致',400);
   conversationId ??= typeof body.conversationId === 'string' ? body.conversationId : undefined;
@@ -150,7 +156,8 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
   if (conversationId && (body.roomTitle !== undefined || body.roomPreferences !== undefined)) invalid('INVALID_ROOM_SETTINGS','房间设置需要通过独立入口修改',400);
   if (body.roomTitle !== undefined && (typeof body.roomTitle !== 'string' || !body.roomTitle.trim() || body.roomTitle.length > 80)) invalid('INVALID_TITLE','房间名称长度应为 1～80',400);
   const roomPreferences = body.roomPreferences !== undefined ? validateRoomPreferences(body.roomPreferences, input.agentIds as string[]) : undefined;
-  const submissionDigest = stableDigest({ entryVersion: 1, input, previewId: body.previewId ?? null, roomTitle: body.roomTitle, roomPreferences });
+  const submissionDigest = stableDigest({ entryVersion: 1, input, previewId: body.previewId ?? null, roomTitle: body.roomTitle, roomPreferences,
+    ...(checkpoint ? { businessCheckpointDigest: checkpointDigest(checkpoint) } : {}) });
   return tx(() => {
     const existing = getSubmissionSnapshot(scope, input.clientRequestId as string);
     if (existing) {
@@ -160,7 +167,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       return { run: currentRun, conversation: room, message: listByRun(currentRun.id).find(m => m.kind === 'user') ?? null,
         plan: getRunCoordinationPlan(currentRun.id) ?? null, deduplicated: true };
     }
-    const fresh = prepare(input, source);
+    const fresh = prepare(input, source, checkpoint);
     assertOrchestrationAdmission(fresh.preview);
     let prepared = fresh.preview;
     if (typeof body.previewId === 'string') {
@@ -180,7 +187,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       mode: 'collaboration', agentIds: request.agentIds, workspace: request.workspace,
       supervisorId: request.supervisorId, defaultReviewerId: request.defaultReviewerId });
     const currentRun = createRun(request.goal, decision.execution!.engine === 'collaboration' ? 'collaboration' : 'pipeline',
-      decision.execution!.participantIds, room.workspace, null, room.id, nextTurnNo(room.id), decision.execution!.participantIds.includes(request.defaultReviewerId ?? '') ? request.defaultReviewerId : null);
+      decision.execution!.participantIds, checkpoint ? null : room.workspace, null, room.id, nextTurnNo(room.id), decision.execution!.participantIds.includes(request.defaultReviewerId ?? '') ? request.defaultReviewerId : null);
     const messageAccess = replyMessageAccess(request, decision.execution!.engine, decision.targetIds);
     const message = post({ runId: currentRun.id, from: 'user', to: request.recipientIds.join(',') || 'all', kind: 'user', body: request.goal,
       ...messageAccess, audience: messageAccess.audience.filter(id => id === 'user' || decision.execution!.participantIds.includes(id)),
@@ -201,6 +208,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
     }
     const frozen: RunOrchestrationSnapshot = { ...prepared, request, schemaVersion: 1, requestId: randomUUID(), runId: currentRun.id,
       conversationId: room.id, createdAt: currentRun.createdAt, submissionDigest, executionAuthority: 'orchestration',
+      ...(checkpoint ? { businessCheckpointDigest: checkpointDigest(checkpoint) } : {}),
       execution: { engine: decision.execution!.engine, planId: plan?.id ?? null, readonly: decision.execution!.readonly,
         deadlineAt: request.constraints.deadlineMs ? new Date(new Date(currentRun.createdAt).getTime() + request.constraints.deadlineMs).toISOString() : null },
       legacyExecution: { mode: currentRun.mode, agentIds: [...currentRun.agentIds], workspace: currentRun.workspace ?? null,
@@ -216,6 +224,7 @@ export function usesExecutionEntry(body: Record<string, unknown>): boolean {
 
 /** Confirmed graph revision, with the original Run policy and frozen actors retained. */
 export function reviseExecutionOrchestration(runId: string, value: unknown) {
+  if (getRunOrchestrationSnapshot(runId)?.request.businessContract?.executionMode === 'stage_gated') invalid('STAGE_REVISION_UNSUPPORTED', '逐阶段任务与门禁已冻结；不能重建图重放已派发阶段');
   const body = objectInput(value);
   if (Object.keys(body).some(key => !['previewId','orchestrationFingerprint','instruction'].includes(key))
     || typeof body.previewId !== 'string' || typeof body.orchestrationFingerprint !== 'string'

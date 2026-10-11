@@ -59,7 +59,13 @@ try {
     assert.equal((await api('/api/agents/validate', 'POST', { ...input(id, driver), tools: ['fs.write'] })).status, 400);
     assert.equal((await api('/api/agents/validate', 'POST', { ...input(id, driver), execution: { kind: 'external', driver, args: ['--dangerously-skip-permissions'] } })).status, 400);
     assert.equal((await api('/api/conversations', 'POST', { goal: 'read', mode: 'collaboration', agentIds: [id] })).status, 400);
-    assert.equal((await api('/api/coordination/preview', 'POST', { goal: 'read', agentIds: [id] })).status, 400);
+    // The planner now returns a reviewable unavailable draft; execution admission remains blocked.
+    const beforePreview = db.prepare('SELECT COUNT(*) count FROM runs').get().count;
+    const unavailable = await api('/api/coordination/preview', 'POST', { goal: 'read', agentIds: [id], requestedProtocol: 'sequential_pipeline' });
+    assert.equal(unavailable.status, 201, JSON.stringify(unavailable.data));
+    assert.equal(unavailable.data.draft.decision, 'unavailable');
+    assert.ok(unavailable.data.draft.validationErrors.includes('READONLY_CLI_COORDINATION_UNSUPPORTED'), JSON.stringify(unavailable.data.draft.validationErrors));
+    assert.equal(db.prepare('SELECT COUNT(*) count FROM runs').get().count, beforePreview, 'unavailable preview cannot launch a Run');
     const created = await room(id);
     const execution = await finished(created.run.id);
     assert.equal(execution.status, 'completed'); assert.equal(execution.content, '分析：# Fixture repository'); assert.ok(execution.sessionId);
@@ -125,7 +131,11 @@ try {
   const parent = startSpan(testRun.id, { spanKind: 'agent', name: 'dedupe' });
   const turnInput = { run: testRun, agent: getAgent('claude-reader'), parentSpanId: parent.id, messages: [{ role: 'user', content: testRun.goal }], executionScopeId: 'dedupe' };
   const before = (await calls()).length;
-  const turns = await Promise.all([runAgentTurn(turnInput), runAgentTurn(turnInput)]); assert.equal(turns[0].content, turns[1].content);
+  // Member admission rejects an active duplicate; a completed result remains reusable.
+  const turns = await Promise.allSettled([runAgentTurn(turnInput), runAgentTurn(turnInput)]);
+  assert.equal(turns.filter(turn => turn.status === 'fulfilled').length, 1);
+  assert.equal(turns.find(turn => turn.status === 'rejected').reason.code, 'interrupted');
+  assert.equal(turns.find(turn => turn.status === 'fulfilled').value.content, '分析：# Fixture repository');
   await runAgentTurn(turnInput); assert.equal((await calls()).length, before + 1);
   const stale = createExecution({ runId: testRun.id, agentId: 'claude-reader', scopeId: 'crashed', driver: 'claude-cli', agentVersion: 1, cwd: workspace });
   interruptStaleExecutions(); assert.equal(getExecution(stale.id).status, 'interrupted');

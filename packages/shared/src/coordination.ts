@@ -343,3 +343,5 @@ export interface FollowupPreview {
   roomMode: RunMode;
   preview: CoordinationPreview | null;
 }
+/** Bound the whole frozen step graph; dynamic dispatch recipient limits are separate. */
+export const COORDINATION_MAXIMUM_AGENTS = 12;

@@ -1,4 +1,5 @@
 import type { OrchestrationCapabilitySnapshot, OrchestrationDecision, OrchestrationIssue, OrchestrationRequest } from '@agent-gand/shared';
+import { COORDINATION_MAXIMUM_AGENTS } from '@agent-gand/shared';
 
 export function resolveOrchestration(request: OrchestrationRequest, snapshot: OrchestrationCapabilitySnapshot, replyAgentId?: string | null): OrchestrationDecision {
   const issues: OrchestrationIssue[] = [];
@@ -112,6 +113,25 @@ export function resolveExecutableOrchestration(request: OrchestrationRequest, sn
   const base = resolveOrchestration({ ...request, workflow: 'routine', legacy: { ...request.legacy, requestedProtocol: null } }, snapshot, replyAgentId);
   const issues = base.issues.filter(i => ['UNRESOLVED_MENTION','AMBIGUOUS_MENTION','WHOLE_TEAM_CONFLICT'].includes(i.code));
   const error = (code: string, message: string, agentId?: string) => issues.push({ code, severity: 'error', message, ...(agentId ? { agentId } : {}) });
+  if (request.businessContract?.executionMode === 'stage_gated') {
+    const targets = [...new Set(request.businessContract.stages.flatMap(s => s.execution!.assignments.map(a => a.agentId)))];
+    if (targets.length > COORDINATION_MAXIMUM_AGENTS) error('TOO_MANY_TARGETS', `阶段任务合计最多涉及 ${COORDINATION_MAXIMUM_AGENTS} 位成员`);
+    if (request.workflow !== 'routine' || request.strategy === 'parallel') error('STAGE_WORKFLOW_CONFLICT', '逐阶段执行使用常规工作流及顺序派发，请关闭并行或详细主管规划');
+    if (request.wholeTeam || request.replyTo || request.taskId || request.supervisorId || request.defaultReviewerId || request.aggregatorId) error('STAGE_ROUTING_CONFLICT', '逐阶段执行由阶段任务指定成员，请移除全队、回复目标或辅助角色');
+    if (request.recipientIds.length && (request.recipientIds.length !== targets.length || request.recipientIds.some(id => !targets.includes(id)))) error('STAGE_TARGET_CONFLICT', '本轮目标成员需与阶段任务涉及的成员一致，或清空本轮目标选择');
+    const mentions = resolveOrchestration({ ...request, recipientIds: [], wholeTeam: false, workflow: 'routine' }, snapshot);
+    if (mentions.targetSource === 'mention' && mentions.targetIds.some(id => !targets.includes(id))) error('STAGE_TARGET_CONFLICT', '正文 @ 的成员未被分配阶段任务');
+    for (const stage of request.businessContract.stages) for (const assignment of stage.execution!.assignments) {
+      const actor = ready(assignment.agentId);
+      if (!actor || !executor(assignment.agentId)) error('ACCOUNT_UNAVAILABLE', '阶段成员必须属于候选团队，具备执行能力且账户可用', assignment.agentId);
+      if (actor && !actor.supports.control) error('STAGE_BACKEND_UNSUPPORTED', '逐阶段执行支持模型 API、Claude SDK 和 Codex app-server；只读 CLI 暂不支持', assignment.agentId);
+      if ((stage.execution!.maxTokens || request.constraints.maxTokens) && !actor?.supports.hardTokenLimit) error('HARD_TOKEN_LIMIT_UNSUPPORTED', '阶段输出 Token 总预算仅支持可落实硬限制的模型 API 成员', assignment.agentId);
+    }
+    return { schemaVersion: 1, resolverVersion: 'o4-rules-v1', templateVersion: 'o4-workflows-v1', workflow: request.workflow,
+      protocol: 'sequential_pipeline', effectiveStrategy: targets.length < 2 ? 'single' : 'serial', targetIds: targets, targetSource: 'explicit',
+      reason: `逐阶段执行：阶段内按明确任务顺序派发，用户验收通过后才启动下一阶段；${readonly ? '本轮只读' : '按角色政策写入'}`,
+      requiresConfirmation: true, issues, comparisonOnly: false, execution: { engine: 'coordination', participantIds: targets, readonly, plannerRequired: false } };
+  }
   if (['analysis_summary','bounded_debate'].includes(request.workflow) && !readonly) error('WORKFLOW_READONLY_CONFLICT', '分析汇总和辩论必须只读；写入请使用常规接力或开发评审');
   const mentionedRounds = Number(/(\d+)\s*轮/.exec(request.goal)?.[1]);
   if (request.workflow === 'bounded_debate' && mentionedRounds && request.constraints.rounds !== mentionedRounds) error('ROUND_CONFLICT', '正文轮次与明确轮次不一致');

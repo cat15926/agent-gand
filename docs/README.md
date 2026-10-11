@@ -42,6 +42,9 @@
 - [编排入口 O7：整体验收与演示工具](./architecture/orchestration-entry-phase-o7.md)
 - [编排 API 迁移说明](./architecture/orchestration-api-migration.md)
 - [任务阶段与业务验收 v1](./architecture/business-acceptance-v1.md)
+- [逐阶段执行与用户验收门禁 v1](./architecture/business-stage-execution-v1.md)
+- [阶段续跑检查点与交付归档 v1](./architecture/business-stage-continuation-v1.md)
+- [公开只读阶段返工 v1](./architecture/business-stage-rework-v1.md)
 
 ### 实施计划
 
@@ -88,6 +91,11 @@
 - [长链路协作能力差距分析（真实混合后端测试）](./reports/platform-collaboration-gaps-2026-10-08.md)
 - [平台协作修复进度（第一批）](./reports/platform-collaboration-repair-progress-2026-10-08.md)
 - [平台协作修复进度（第二批：阶段与业务验收）](./reports/platform-collaboration-repair-progress-2026-10-09.md)
+- [平台协作修复进度（第三批：活动时限与失败诊断）](./reports/platform-collaboration-repair-progress-2026-10-10-batch3.md)
+- [平台协作修复进度（第四批：逐阶段执行与验收门禁）](./reports/platform-collaboration-repair-progress-2026-10-10-batch4.md)
+- [平台协作修复进度（第五批：阶段续跑与交付归档）](./reports/platform-collaboration-repair-progress-2026-10-11-batch5.md)
+- [平台协作修复进度（第六批：公开只读阶段返工）](./reports/platform-collaboration-repair-progress-2026-10-11-batch6.md)
+- [模型活动时限与失败诊断](./architecture/execution-activity-timeouts.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)
 - [并行辩手发言短暂出现后消失：缺少持久聊天消息](./reports/collaboration-fanout-output-disappears.md)

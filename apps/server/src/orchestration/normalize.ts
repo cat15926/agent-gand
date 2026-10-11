@@ -73,11 +73,11 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
   const constraints: OrchestrationConstraints = {};
   if (input.constraints !== undefined) {
     const raw = objectInput(input.constraints);
-    if (Object.keys(raw).some(key => !['readonly', 'maxTokens', 'deadlineMs', 'rounds'].includes(key))) throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'constraints 包含未知限制');
+    if (Object.keys(raw).some(key => !['readonly', 'maxTokens', 'deadlineMs', 'rounds', 'firstResponseTimeoutMs', 'idleTimeoutMs'].includes(key))) throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'constraints 包含未知限制');
     if (raw.readonly !== undefined) { if (typeof raw.readonly !== 'boolean') throw new OrchestrationError(400, 'INVALID_CONSTRAINT', 'readonly 必须为布尔值'); constraints.readonly = raw.readonly; }
-    for (const key of ['maxTokens', 'deadlineMs', 'rounds'] as const) if (raw[key] !== undefined) {
+    for (const key of ['maxTokens', 'deadlineMs', 'rounds', 'firstResponseTimeoutMs', 'idleTimeoutMs'] as const) if (raw[key] !== undefined) {
       const value = raw[key];
-      const maximum = key === 'rounds' ? 20 : key === 'deadlineMs' ? 86_400_000 : 1_000_000;
+      const maximum = key === 'rounds' ? 20 : key === 'maxTokens' ? 1_000_000 : 86_400_000;
       if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1 || value > maximum) throw new OrchestrationError(400, 'INVALID_CONSTRAINT', `${key} 必须为 1～${maximum} 的整数`);
       constraints[key] = value;
     }

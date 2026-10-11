@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BusinessAuditEntry, BusinessCommand, BusinessEvidenceChoice, BusinessOutcome, BusinessState } from '@agent-gand/shared';
 import * as api from '../services/api';
+import { BusinessStageReworkPanel } from './BusinessStageReworkPanel';
 
 export const BUSINESS_OUTCOME_LABEL: Record<BusinessOutcome, string> = {
   unverified: '目标未验收', in_progress: '目标进行中', awaiting_acceptance: '目标待验收', achieved: '目标已达成',
@@ -10,9 +11,10 @@ const STAGE_LABEL = { pending: '待交付', blocked: '待前置阶段验收', ac
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40';
 type Action = BusinessCommand extends infer C ? C extends BusinessCommand ? Omit<C, 'expectedVersion' | 'clientRequestId'> : never : never;
 
-function StageAcceptance({ item, index, choices, enabled, settled, priorAccepted, busy, execute, runId }: {
+function StageAcceptance({ item, index, choices, enabled, settled, priorAccepted, busy, execute, runId, gated, continues, members, version, onReworkCreated }: {
   item: BusinessState['stages'][number]; index: number; choices: BusinessEvidenceChoice[]; enabled: boolean; settled: boolean; busy: boolean;
-  execute: (command: Action) => Promise<void>; runId: string; priorAccepted: boolean;
+  execute: (command: Action) => Promise<void>; runId: string; priorAccepted: boolean; gated: boolean; continues: boolean; members: Array<{ id: string; name: string }>;
+  version: number; onReworkCreated: (runId: string) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<Record<string, BusinessEvidenceChoice>>({});
   const [paths, setPaths] = useState<Record<string, string>>({});
@@ -23,14 +25,19 @@ function StageAcceptance({ item, index, choices, enabled, settled, priorAccepted
   const canRegister = enabled && !openReport && item.status !== 'accepted';
   async function file(id: string) {
     setFileError(''); setFileBusy(true);
-    try { const choice = await api.createBusinessFileEvidence(runId, paths[id] ?? ''); setSelected(previous => ({ ...previous, [id]: choice })); }
+    try { const choice = await api.createBusinessFileEvidence(runId, paths[id] ?? '', gated ? item.stage.id : undefined); setSelected(previous => ({ ...previous, [id]: choice })); }
     catch (error) { setFileError(error instanceof Error ? error.message : String(error)); }
     finally { setFileBusy(false); }
   }
   const disabled = busy || fileBusy;
-  return <details className="rounded-lg border border-zinc-700 p-3" open={item.status === 'awaiting_acceptance' || index === 0 && item.status !== 'accepted'}>
-    <summary className="cursor-pointer">{index + 1}. {item.stage.title} · {STAGE_LABEL[item.status]}</summary>
+  return <details className="rounded-lg border border-zinc-700 p-3" open={item.execution?.canAccept || item.status === 'awaiting_acceptance' || index === 0 && item.status !== 'accepted'}>
+    <summary className="cursor-pointer">{index + 1}. {item.stage.title} · {item.execution?.canAccept && item.status === 'pending' ? '待关联交付证据' : STAGE_LABEL[item.status]}</summary>
     <div className="mt-3 space-y-3">
+      {item.execution && <div className="space-y-1 text-zinc-400"><p>执行：{{ pending: '待派发', running: '已派发，执行中', waiting_acceptance: '已交付，等待验收', accepted: '用户已验收', failed: '阶段执行失败' }[item.execution.status]}</p>
+        {item.execution.startedAt && <p>平台派发确认：{item.execution.startedAt}（不代表模型确认或业务完成）</p>}
+        {item.stage.execution?.assignments.map((task, at) => <p key={at}>{at + 1}. {members.find(a => a.id === task.agentId)?.name ?? task.agentId}：{task.objective}</p>)}
+        {item.stage.execution?.maxTokens && <p>阶段输出 Token：已计入／保留 {item.execution.chargedTokens} / {item.stage.execution.maxTokens}{item.execution.unknownCalls ? ` · ${item.execution.unknownCalls} 次消耗未知` : ''}</p>}
+      </div>}
       <ul className="space-y-1 text-zinc-400">{item.stage.deliverables.map(deliverable => <li key={deliverable.id}>必要交付：{deliverable.title}（{deliverable.kind === 'file' ? '文件' : '文本'}）</li>)}</ul>
       {report && <div className="space-y-2 rounded bg-zinc-950/60 p-2"><p>{report.kind === 'receipt' ? '确认记录' : '候选交付'} · {report.createdAt}</p>{report.note && <p className="whitespace-pre-wrap">{report.note}</p>}
         {report.evidence.map(e => <details key={e.deliverableId}><summary className="cursor-pointer">{item.stage.deliverables.find(d => d.id === e.deliverableId)?.title} · 查看登记证据</summary><pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere]">{e.resolution.excerpt}</pre><p className="mt-1 break-all text-zinc-500">登记哈希：{e.resolution.contentSha256}</p></details>)}
@@ -50,23 +57,38 @@ function StageAcceptance({ item, index, choices, enabled, settled, priorAccepted
           <button className={button} disabled={disabled || !note.trim()} onClick={() => void execute({ action: 'report', stageId: item.stage.id, kind: 'receipt', note, evidence: [] })}>仅记录确认收到</button></div>
       </div>}
       {enabled && openReport && <div className="flex flex-wrap gap-2">
-        {report?.kind === 'delivery' && <button className="rounded-lg bg-emerald-700 px-3 py-2 text-white disabled:opacity-40" disabled={disabled || !settled || !priorAccepted || checked.length !== item.stage.criteria.length} onClick={() => void execute({ action: 'decide', stageId: item.stage.id, reportId: report.id, verdict: 'accept', checkedCriteria: checked, reason: note })}>确认验收本阶段</button>}
+        {report?.kind === 'delivery' && <button className="rounded-lg bg-emerald-700 px-3 py-2 text-white disabled:opacity-40" disabled={disabled || !settled || !priorAccepted || checked.length !== item.stage.criteria.length} onClick={() => void execute({ action: 'decide', stageId: item.stage.id, reportId: report.id, verdict: 'accept', checkedCriteria: checked, reason: note })}>{continues ? '验收通过并继续执行' : '确认验收本阶段'}</button>}
         <button className={button} disabled={disabled || !note.trim()} onClick={() => void execute({ action: 'decide', stageId: item.stage.id, reportId: report!.id, verdict: 'reject', checkedCriteria: [], reason: note })}>{report?.kind === 'receipt' ? '关闭确认记录，等待交付' : '拒绝候选，重新登记'}</button>
       </div>}
       {report?.kind === 'receipt' && !item.decision && <p className="text-amber-200">确认收到不能通过验收。填写说明并关闭此记录后，可登记实质交付。</p>}
+      {enabled && gated && settled && priorAccepted && report?.kind === 'delivery' && item.decision?.verdict === 'reject'
+        && <BusinessStageReworkPanel runId={runId} version={version} item={item} members={members} disabled={disabled} onCreated={onReworkCreated} />}
     </div>
     {fileError && <p role="alert" className="mt-2 text-red-300">{fileError}</p>}
   </details>;
 }
 
-export function BusinessAcceptancePanel({ runId, version, executionStatus }: { runId: string; version?: number; executionStatus: string }) {
+export function BusinessAcceptancePanel({ runId, version, executionStatus, members = [], onNavigate }: { runId: string; version?: number; executionStatus: string; members?: Array<{ id: string; name: string }>; onNavigate?: (runId: string) => void | Promise<void> }) {
   const [state, setState] = useState<BusinessState | null>(null); const [choices, setChoices] = useState<BusinessEvidenceChoice[]>([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [reason, setReason] = useState('');
   const [resolution, setResolution] = useState<'not_achieved' | 'partial_accepted' | 'user_ended'>('not_achieved');
   const [history, setHistory] = useState<BusinessAuditEntry[] | null>(null);
   const alive = useRef(true); const requestId = useRef<{ digest: string; id: string } | null>(null);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { let live = true; void Promise.all([api.getBusinessState(runId), api.getBusinessEvidence(runId)]).then(([value, evidence]) => { if (live) { setState(previous => previous?.runId === value.runId && previous.version > value.version ? previous : value); setChoices(evidence.choices); } }).catch(error => { if (live) setError(error instanceof Error ? error.message : String(error)); }); return () => { live = false; }; }, [runId, version, executionStatus]);
+  useEffect(() => {
+    let live = true; let fetching = false;
+    const load = async () => {
+      if (fetching) return; fetching = true;
+      try {
+        const [value, evidence] = await Promise.all([api.getBusinessState(runId), api.getBusinessEvidence(runId)]);
+        if (live) { setState(previous => previous?.runId === value.runId && previous.version > value.version ? previous : value); setChoices(evidence.choices); }
+      } catch (error) { if (live) setError(error instanceof Error ? error.message : String(error)); }
+      finally { fetching = false; }
+    };
+    void load();
+    const timer = ['completed', 'failed', 'cancelled'].includes(executionStatus) ? null : window.setInterval(() => void load(), 2000);
+    return () => { live = false; if (timer) window.clearInterval(timer); };
+  }, [runId, version, executionStatus]);
   async function execute(command: Action) {
     if (!state) return;
     const digest = JSON.stringify({ ...command, expectedVersion: state.version });
@@ -78,13 +100,19 @@ export function BusinessAcceptancePanel({ runId, version, executionStatus }: { r
     } finally { if (alive.current) setBusy(false); }
   }
   if (!state) return <p className="text-zinc-400">{error || '正在读取阶段验收记录…'}</p>;
-  const enabled = Boolean(state.contract && !state.resolution && state.outcome !== 'achieved');
+  const enabled = Boolean(state.contract && !state.resolution && state.outcome !== 'achieved' && !state.successorRunId);
+  const gated = state.contract?.executionMode === 'stage_gated';
+  const continues = gated && !['completed', 'failed', 'cancelled'].includes(executionStatus);
   return <section aria-label="业务阶段验收" className="space-y-3 rounded-xl border border-violet-500/20 p-3">
     <h4 className="font-medium text-violet-200">业务目标 · {BUSINESS_OUTCOME_LABEL[state.outcome]}</h4>
+    {state.successorRunId && <p className="text-violet-200">原验收记录已封存，请在后续任务继续处理。{onNavigate && <button className="underline" onClick={() => void onNavigate(state.successorRunId!)}>查看后续任务</button>}</p>}
+    {state.checkpoint && <details className="rounded bg-violet-500/10 p-2"><summary>继承 {state.checkpoint.acceptedStageIds.length} 个已验收阶段 · 复用 {state.checkpoint.completedWorkers} 个成员结果</summary><p className="mt-2 break-all text-zinc-400">来源任务 {state.checkpoint.sourceRunId} · 原验收版本 {state.checkpoint.sourceVersion}。已验收结论保留原证据和决定，不重新调用成员。检查点 SHA256：{state.checkpoint.digest}</p>{state.checkpoint.files.map(file => <p key={file.path} className="mt-1 break-all text-zinc-400">已归档文件 {file.path} · SHA256 {file.sha256}</p>)}</details>}
+    {state.checkpoint?.rework && <details className="rounded bg-amber-500/10 p-2"><summary>查看本轮返工来源与修订要求</summary><p className="mt-2 whitespace-pre-wrap text-zinc-400">被拒绝候选 {state.checkpoint.rework.reportId} · 来源任务 {state.checkpoint.rework.sourceRunId}{'\n'}拒绝原因：{state.checkpoint.rework.reason}{'\n'}修订要求：{state.checkpoint.rework.instruction}</p></details>}
     {!state.contract ? <p className="text-zinc-400">本任务未定义阶段验收清单，执行状态不能证明业务目标达成。新任务可在执行设置中启用阶段验收。</p> : <>
-      <p className="text-zinc-400">证据与标准由你核对。全部阶段通过后，业务目标才显示为已达成；这里的决定不改写原执行终态，也不会调用模型。</p>
-      {!state.settled && <p className="text-amber-200">请等待执行结束；如需提前结束，先使用“取消此任务”。未知进程或工具结果收敛后才能登记交付和验收。</p>}
-      {state.stages.map((item, index) => <StageAcceptance key={`${item.stage.id}:${item.report?.id ?? 'new'}:${item.decision?.verdict ?? ''}`} item={item} index={index} choices={choices} enabled={enabled} settled={state.settled} priorAccepted={state.stages.slice(0, index).every(s => s.status === 'accepted')} busy={busy} execute={execute} runId={runId} />)}
+      <p className="text-zinc-400">{continues ? '确认验收后会继续执行下一阶段，可能消耗额度。拒绝候选会保持暂停；重新登记证据不会自动重跑，需要成员修订时请预览并确认阶段返工。全部阶段通过后，业务目标才显示为已达成。' : '证据与标准由你核对。全部阶段通过后，业务目标才显示为已达成；验收决定不改写原执行终态。阶段返工需单独预览并确认，可能消耗额度。'}</p>
+      {!state.settled && !state.stages.some(s => s.execution?.canAccept) && <p className="text-amber-200">{gated ? '当前阶段的执行或未知结果尚未收敛，后续阶段保持阻塞。' : '请等待执行结束；'}如需提前结束，先使用“取消此任务”。未知进程或工具结果收敛后才能登记交付和验收。</p>}
+      {state.stages.map((item, index) => <StageAcceptance key={`${item.stage.id}:${item.report?.id ?? 'new'}:${item.decision?.verdict ?? ''}`} item={item} index={index} choices={gated ? choices.filter(c => c.stageId === item.stage.id) : choices} enabled={enabled && (!gated || state.stages.slice(0, index).every(s => s.status === 'accepted'))} settled={gated ? Boolean(item.execution?.canAccept) : state.settled} priorAccepted={state.stages.slice(0, index).every(s => s.status === 'accepted')} busy={busy} execute={execute} runId={runId} gated={gated} continues={continues} members={members} version={state.version}
+        onReworkCreated={async id => { const value = await api.getBusinessState(runId); if (alive.current) { setState(value); setHistory(null); } await onNavigate?.(id); }} />)}
       {state.resolution && <p className="whitespace-pre-wrap text-zinc-400">用户决定：{state.resolution.reason} · {state.resolution.createdAt}</p>}
       {enabled && <details><summary className="cursor-pointer text-zinc-400">结束业务验收或接受部分结果</summary><div className="mt-2 space-y-2"><select aria-label="业务结束方式" className="input" disabled={busy || !state.settled} value={resolution} onChange={e => setResolution(e.target.value as typeof resolution)}><option value="not_achieved">明确目标未达成</option><option value="partial_accepted" disabled={!state.stages.some(s => s.status === 'accepted')}>接受已验收的部分结果</option><option value="user_ended">用户提前结束</option></select><textarea aria-label="业务结束原因" className="input min-h-16" maxLength={2000} value={reason} disabled={busy || !state.settled} onChange={e => setReason(e.target.value)} placeholder="请说明结束原因或接受范围，此决定会固定本轮业务结果" /><button className={button} disabled={busy || !state.settled || !reason.trim()} onClick={() => void execute({ action: 'resolve', outcome: resolution, reason })}>确认并固定业务结果</button></div></details>}
     </>}

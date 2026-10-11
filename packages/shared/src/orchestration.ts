@@ -16,6 +16,9 @@ export interface OrchestrationConstraints {
   /** Hard Run-wide generated output token ceiling; input tokens and billing are separate. */
   maxTokens?: number;
   deadlineMs?: number;
+  /** Optional per-model-request limits; queue, tools and approval waits are excluded. */
+  firstResponseTimeoutMs?: number;
+  idleTimeoutMs?: number;
   rounds?: number;
 }
 
@@ -160,6 +163,8 @@ export interface RunOrchestrationSnapshot extends OrchestrationPreview {
   createdAt: string;
   submissionDigest: string;
   executionAuthority: 'legacy' | 'orchestration';
+  /** Internal owner continuation binding; cannot be supplied through public request fields. */
+  businessCheckpointDigest?: string;
   execution?: {
     engine: 'collaboration' | 'coordination' | 'pipeline';
     planId: string | null;

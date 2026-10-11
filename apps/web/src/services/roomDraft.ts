@@ -36,7 +36,7 @@ export function readRoomDraft(): RoomDraft | null {
       defaultReviewerId: typeof parsed.defaultReviewerId === 'string' ? parsed.defaultReviewerId : null,
       aggregatorId: typeof parsed.aggregatorId === 'string' ? parsed.aggregatorId : null,
       constraints: { ...(typeof constraints.readonly === 'boolean' ? { readonly: constraints.readonly } : {}),
-        ...Object.fromEntries(['rounds','maxTokens','deadlineMs'].filter(k => typeof constraints[k] === 'number' && Number.isSafeInteger(constraints[k]) && (constraints[k] as number) > 0).map(k => [k,constraints[k]])) },
+        ...Object.fromEntries(['rounds','maxTokens','deadlineMs','firstResponseTimeoutMs','idleTimeoutMs'].filter(k => typeof constraints[k] === 'number' && Number.isSafeInteger(constraints[k]) && (constraints[k] as number) > 0).map(k => [k,constraints[k]])) },
       ...(legacyMode ? { legacyMode } : {}),
       ...(damaged ? { recoveryNotice: `草稿部分字段损坏，已恢复可识别的目标、团队和工作区；${preserved ? '原始内容已保留。' : '浏览器无法保存恢复副本。'}` } : !current ? { recoveryNotice: `已升级旧草稿，保留目标、成员与工作区；原偏好“${legacyMode ?? 'auto'}”已映射为本轮策略和工作流。` } : {}) };
     return result;
