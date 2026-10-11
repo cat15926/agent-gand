@@ -13,6 +13,7 @@ import { getRun } from '../runs/trace.ts';
 import { cancelDurableHolds } from './holds.ts';
 import { cancelRunObligations } from './obligations.ts';
 import { recordCompletionEvaluation } from './completionStore.ts';
+import { recordFailureBoundary } from './failureBoundary.ts';
 
 type TerminalStatus = 'completed' | 'failed' | 'cancelled';
 
@@ -104,6 +105,7 @@ export function commitRunTerminal(input: CommitRunTerminalInput): CommitRunTermi
       WHERE id=? AND status NOT IN ('completed','failed','cancelled')`,
     input.status, input.disposition, now, input.runId);
     if (changed === 0) return existingResult(input.runId)!;
+    if (input.status !== 'completed') recordFailureBoundary(input.runId, input.source, input.status);
 
     run("UPDATE coordination_plans SET status=?,payload=json_set(payload,'$.status',?,'$.updatedAt',?),updated_at=? WHERE run_id=? AND json_extract(payload,'$.executionAdapter')='collaboration'", input.status, input.status, now, now, input.runId);
     input.closeExecution?.();

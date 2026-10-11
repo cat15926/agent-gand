@@ -1,22 +1,34 @@
 import { BusinessAcceptancePanel, BUSINESS_OUTCOME_LABEL } from './BusinessAcceptancePanel';
 import { useEffect, useState } from 'react';
-import type { Run } from '@agent-gand/shared';
+import type { Run, RunFailureReport } from '@agent-gand/shared';
 import * as api from '../services/api';
 import { useStore } from '../store';
 import { ApprovalCard } from './ApprovalCard';
 import { displayStatus } from '../services/displayStatus';
 import { taskLabel } from './TaskComposer';
 import { executionFailureForRun } from '../services/executionFailure';
+import { FailureDetails } from './FailureDetails';
+import { SnapshotManifest } from './ArtifactSnapshotPanel';
 export const STATUS_LABEL: Record<string,string> = { pending: '已排队', running: '执行中', awaiting_approval: '等待审批', waiting_for_user: '等待你的处理', completed: '已完成', failed: '失败（保留已确认结果）', cancelled: '已取消' };
 export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; detail?: api.TaskState; onRevise: (task: api.TaskState) => void; onRetryDraft: (newRoom: boolean) => void }) {
   const { state, refreshConversation, setActiveRun } = useStore(); const [busy, setBusy] = useState(false); const [error,setError] = useState(''); const [expanded,setExpanded] = useState(false);
   const [coordination,setCoordination] = useState<api.CoordinationRunDetail | null>(null);
   const [continuation,setContinuation] = useState<api.ContinuationPreview | null>(null);
+  const [failureReport, setFailureReport] = useState<RunFailureReport | null>(null);
+  const [failureLoadError, setFailureLoadError] = useState('');
   const continuationPreview = continuation?.preview;
   const stageContinuation = detail?.recovery?.continuationKind === 'business_stages';
   const pending = state.approvals.filter(a => a.runId === run.id && a.status === 'pending');
   const waiting = state.collaborationDecisions.filter(d => d.runId === run.id && d.status === 'pending');
   const terminal = ['completed','failed','cancelled'].includes(run.status);
+  const failureStamp = state.executions.filter(item => item.runId === run.id).map(item => `${item.id}:${item.status}:${item.finishedAt}`).join('|');
+  useEffect(() => {
+    if (run.status !== 'failed' && !(expanded && run.status === 'cancelled')) return;
+    let live = true;
+    setFailureLoadError('');
+    void api.getRunFailures(run.id).then(value => { if (live) setFailureReport(value); }).catch(reason => { if (live) setFailureLoadError(reason instanceof Error ? reason.message : String(reason)); });
+    return () => { live = false; };
+  }, [run.id, run.status, expanded, failureStamp]);
   useEffect(() => {
     if (!expanded || !detail?.planStatus) return;
     let live = true; let fetching = false;
@@ -42,10 +54,12 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally { setBusy(false); }
   }
   const failedExecution = executionFailureForRun(state.executions, run.id);
-  const failure = failedExecution?.error ?? detail?.reason ?? state.messages.filter(m => m.runId === run.id && (m.kind === 'system' || m.deliveryStatus === 'failed')).at(-1)?.body ?? '';
+  const primaryFailure = failureReport?.nodes.find(node => node.id === failureReport.primaryNodeIds[0]);
+  const failure = primaryFailure?.message || failedExecution?.error || detail?.reason || state.messages.filter(m => m.runId === run.id && (m.kind === 'system' || m.deliveryStatus === 'failed')).at(-1)?.body || '';
+  const timeoutKind = primaryFailure ? primaryFailure.details?.timeoutKind : failedExecution?.failureDetails?.timeoutKind;
   const workspaceFailure = /workspace|工作区|Git.*仓库|git.*work/i.test(failure);
-  const advice = failedExecution?.failureDetails?.timeoutKind === 'first_response' ? '模型首响应超时。请核对账户连接，并根据模型的首次响应延迟调整首响应时限后准备新任务。'
-    : failedExecution?.failureDetails?.timeoutKind === 'idle' ? '模型响应停滞。请查看最后的执行活动，缩小任务范围或调整停滞时限后准备新任务。'
+  const advice = timeoutKind === 'first_response' ? '模型首响应超时。请核对账户连接，并根据模型的首次响应延迟调整首响应时限后准备新任务。'
+    : timeoutKind === 'idle' ? '模型响应停滞。请查看最后的执行活动，缩小任务范围或调整停滞时限后准备新任务。'
     : workspaceFailure ? '当前工作区无法执行此任务。请在新房间选择可用的 Git 工作区。' : /401|403|auth|密钥|登录/i.test(failure) ? '账户验证或模型权限未通过。请先在“账户与密钥”中检查账户并测试模型，再准备新任务。' : /timeout|超时/i.test(failure) ? '执行超时。可缩小任务范围，或调整执行时限后准备新任务。' : '查看本轮错误与已确认结果，调整目标或执行设置后准备新任务。';
   const compact = run.status === 'completed' && !expanded && !pending.length && !waiting.length;
   const label = `第 ${run.turnNo} 轮`;
@@ -64,11 +78,13 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
     {waiting.length > 0 && <p className="mt-2 text-violet-200">请在本任务的问题卡中处理原决定；回复问题会继续此任务。</p>}
     {pending.length > 0 && <details open className="mt-3"><summary>本任务待审批（{pending.length}）</summary><div className="mt-2 space-y-2">{pending.map(a => <ApprovalCard key={a.id} approval={a} />)}</div></details>}
     {run.status === 'failed' && <div className="mt-3 rounded-lg bg-red-500/10 p-3 text-sm"><p className="text-red-200">{advice}</p>{failure && <details className="mt-2 text-xs text-zinc-400"><summary>查看错误原文</summary><pre className="mt-2 whitespace-pre-wrap">{failure}</pre></details>}<button className={`${actionClass} mt-3`} onClick={() => onRetryDraft(workspaceFailure)}>{workspaceFailure ? '带入新房间配置工作区' : '准备新任务草稿'}</button><p className="mt-2 text-xs text-zinc-400">保留本轮已确认结果，草稿需要预览并确认后才会执行。</p></div>}
+    {failureReport && (run.status === 'failed' || expanded) && <FailureDetails report={failureReport} memberName={id => state.agents.find(agent => agent.id === id)?.name ?? id} />}
+    {failureLoadError && <p className="mt-2 text-amber-200">诊断读取失败：{failureLoadError}</p>}
     {run.status === 'failed' && detail?.recovery && !detail.recovery.continuationRunId && <div className="mt-3 rounded-lg border border-zinc-700 p-3">
       <p className="text-zinc-300">{detail.recovery.explanation}</p>
       {detail.recovery.continuationAllowed && <><p className="mt-1 text-zinc-400">携带 {detail.recovery.confirmedOutputs} 条已确认执行输出。原任务终态和证据保持不变。</p><button disabled={busy} className={`${actionClass} mt-2`} onClick={() => void previewContinuation()}>{stageContinuation ? '预览阶段续跑' : '预览只读续跑'}</button></>}
       {continuationPreview && <div aria-label="关联续跑预览" className="mt-3 space-y-2 border-t border-zinc-700 pt-3"><p>剩余事项由 {[...new Set(continuationPreview.plan ? continuationPreview.plan.plan.steps.flatMap(s => s.agentId ? [s.agentId] : []) : continuationPreview.decision.targetIds)].map(id => state.agents.find(agent => agent.id === id)?.name ?? id).join('、') || '平台等待阶段验收'} 执行 · 只读</p><pre className="max-h-32 overflow-y-auto whitespace-pre-wrap text-zinc-300">{continuation?.checkpoint.pendingObjective}</pre>
-        {continuation?.checkpoint.business && <div className="space-y-2 rounded bg-violet-500/10 p-2"><p>继承已验收阶段：{continuation.checkpoint.business.acceptedStages.map(s => s.title).join('、') || '无'}。已完成的成员步骤从执行图移除。</p><p>使用新的独立工作区，仅复制 {continuation.checkpoint.business.files.length} 个已验收文件。原目录和未验收文件不会带入。</p>{continuation.checkpoint.business.files.length > 0 && <details><summary>查看归档文件与哈希</summary>{continuation.checkpoint.business.files.map(file => <p key={file.path} className="mt-1 break-all">{file.path} · SHA256 {file.sha256}</p>)}</details>}<p>执行时限及阶段时限重新计算。已占用的输出 Token 预算结转：本轮 {continuation.checkpoint.business.carriedRunTokens}；阶段 {continuation.checkpoint.business.carriedStageTokens.reduce((n, s) => n + s.charged, 0)}，不会重新获得已消耗额度。</p></div>}
+        {continuation?.checkpoint.business && <div className="space-y-2 rounded bg-violet-500/10 p-2"><p>继承已验收阶段：{continuation.checkpoint.business.acceptedStages.map(s => s.title).join('、') || '无'}。已完成的成员步骤从执行图移除。</p><p>使用新的独立工作区，恢复声明交付与 Git 基线；受控文件按原公开版本迁移。</p>{continuation.checkpoint.business.files.length > 0 && <details><summary>查看归档文件与哈希</summary>{continuation.checkpoint.business.files.map(file => <p key={file.path} className="mt-1 break-all">{file.path} · SHA256 {file.sha256}</p>)}</details>}{continuation.checkpoint.business.archive && <SnapshotManifest snapshot={continuation.checkpoint.business.archive.manifest}/>}<p>执行时限及阶段时限重新计算。已占用的输出 Token 预算结转：本轮 {continuation.checkpoint.business.carriedRunTokens}；阶段 {continuation.checkpoint.business.carriedStageTokens.reduce((n, s) => n + s.charged, 0)}，不会重新获得已消耗额度。</p></div>}
         <details><summary className="cursor-pointer text-zinc-400">查看将复用的确认输出</summary>{continuation?.checkpoint.confirmedOutputs.map(item => <pre key={item.attemptId} className="mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap text-zinc-400">{state.agents.find(agent => agent.id === item.agentId)?.name ?? item.agentId}：{item.excerpt}{item.truncated ? '\n[预览摘录已截断]' : ''}</pre>)}</details><p className="text-zinc-400">使用当前角色与账户配置建立新会话。原执行及工具不会被平台重放；确认后会调用模型，可能消耗额度。</p>{continuationPreview.decision.issues.map((issue,index) => <p key={index} className={issue.severity === 'error' ? 'text-red-300' : 'text-amber-200'}>{issue.message}</p>)}<div className="flex gap-2"><button disabled={busy || continuationPreview.decision.issues.some(issue => issue.severity === 'error')} className="rounded-lg bg-violet-500 px-3 py-2 text-white disabled:opacity-40" onClick={() => void confirmContinuation()}>确认并续跑</button><button disabled={busy} className={actionClass} onClick={() => setContinuation(null)}>关闭预览</button></div></div>}
     </div>}
     <div className="mt-3 flex flex-wrap gap-2"><button aria-label={`查看${label}执行轨迹`} className={actionClass} onClick={() => setActiveRun(run.id)}>查看任务详情</button>{!terminal && !detail?.paused && !waiting.length && <button aria-label={`暂停${label}`} disabled={busy || detail?.pauseRequested || run.status === 'awaiting_approval'} className={actionClass} onClick={() => void action('pause')}>暂停此任务</button>}

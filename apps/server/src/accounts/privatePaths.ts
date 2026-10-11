@@ -8,6 +8,7 @@ export function isAccountPrivatePath(value: string): boolean {
   let physicalRoot = root; let physical = absolute;
   try { physicalRoot = realpathSync(root); } catch {}
   try { physical = realpathSync(absolute); } catch {}
-  return path.basename(absolute).toLowerCase() === 'account-master-key.json'
+  return [config.dbPath,config.dbPath + '-wal',config.dbPath + '-shm'].some(file => absolute === path.resolve(file) || physical === path.resolve(file))
+    || path.basename(absolute).toLowerCase() === 'account-master-key.json'
     || [absolute, physical].some((file) => [root, physicalRoot].some((dir) => file === dir || file.startsWith(dir + path.sep)));
 }

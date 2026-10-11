@@ -34,6 +34,8 @@ export type ExecutionErrorCode = 'missing_binary' | 'unsupported_cli' | 'auth_re
   | 'protocol_error' | 'nonzero_exit' | 'timeout' | 'cancelled' | 'interrupted' | 'policy_rejected';
 
 export interface ExecutionFailureDetails {
+  cause?: { kind: 'run_terminal'; id: string };
+  modelActivity?: { firstResponseAt?: string; lastActivityAt?: string };
   phase?: 'queue' | 'initialization' | 'before_session' | 'before_first_activity' | 'after_activity' | 'deadline';
   timeoutKind?: 'total' | 'first_response' | 'idle';
   limitMs?: number;

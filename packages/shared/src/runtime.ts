@@ -86,7 +86,7 @@ export type RuntimeEvidenceRef =
   | { kind: 'tool_execution'; id: string }
   | { kind: 'attempt_output'; id: string }
   | { kind: 'run_event'; id: string }
-  | { kind: 'workspace_file'; path: string; sha256: string; workspaceScope?: string };
+  | { kind: 'workspace_file'; path: string; sha256: string; workspaceScope?: string; artifactId?: string; artifactVersion?: number };
 
 export type RuntimeEvidenceBundleStatus = 'valid' | 'invalid' | 'drifted';
 export type RuntimeEvidenceBundleOwnerType = 'completion_candidate' | 'handoff_capsule' | 'coordination_step';

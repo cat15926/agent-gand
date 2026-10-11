@@ -1,9 +1,20 @@
 import { intersectMessageAccess, isMessageVisibleTo, type MessageAccess } from '@agent-gand/shared';
 import { all, get } from '../db/database.ts';
 
+/** Frozen owner scope for unified tasks. Historical per-message private dispatches remain independent. */
+export function runSourceAccess(runId: string): MessageAccess {
+  const row = get<{ snapshot: string }>('SELECT snapshot FROM orchestration_requests WHERE run_id=?', runId);
+  if (!row) return { visibility: 'public', audience: [] };
+  const snapshot = JSON.parse(row.snapshot);
+  return snapshot.request?.visibility === 'private'
+    ? { visibility: 'private', audience: snapshot.request.audience ?? ['user'] }
+    : { visibility: 'public', audience: [] };
+}
+
 const publicAccess = (): MessageAccess => ({ visibility: 'public', audience: [] });
 export function unboundRunAccess(runId: string): MessageAccess {
-  return get("SELECT 1 FROM messages WHERE run_id=? AND visibility='private' LIMIT 1", runId)
+  return (get("SELECT 1 FROM messages WHERE run_id=? AND visibility='private' LIMIT 1", runId)
+    || get("SELECT 1 FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.visibility')='private' LIMIT 1", runId))
     ? { visibility: 'private', audience: ['user'] } : publicAccess();
 }
 function access(row: { visibility?: string; audience?: string } | undefined): MessageAccess {
@@ -23,7 +34,10 @@ export function attemptAccess(id: string): MessageAccess {
   if (context) return access(context);
   const source = get<{ source_message_id: string }>(`SELECT d.source_message_id FROM collaboration_attempts a
     JOIN collaboration_dispatches d ON d.id=a.dispatch_id WHERE a.id=?`, id);
-  return source ? messageAccess(source.source_message_id) : publicAccess();
+  if (source) return messageAccess(source.source_message_id);
+  const other = get<{ run_id: string }>('SELECT run_id FROM coordination_step_attempts WHERE id=?', id)
+    ?? get<{ run_id: string }>('SELECT run_id FROM task_attempts WHERE id=?', id);
+  return other ? runSourceAccess(other.run_id) : { visibility: 'private', audience: ['user'] };
 }
 
 export function eventAccess(id: string): MessageAccess {
@@ -36,6 +50,10 @@ export function eventAccess(id: string): MessageAccess {
     const attributes = JSON.parse(row.attributes) as Record<string, unknown>;
     if (typeof attributes['collaboration.attempt.id'] === 'string') {
       const attempt = get<{ id: string }>('SELECT id FROM collaboration_attempts WHERE id=? AND run_id=?', attributes['collaboration.attempt.id'], row.run_id);
+      return attempt ? attemptAccess(attempt.id) : { visibility: 'private', audience: ['user'] };
+    }
+    if (typeof attributes['coordination.attempt.id'] === 'string') {
+      const attempt = get<{ id: string }>('SELECT id FROM coordination_step_attempts WHERE id=? AND run_id=?', attributes['coordination.attempt.id'], row.run_id);
       return attempt ? attemptAccess(attempt.id) : { visibility: 'private', audience: ['user'] };
     }
     if (typeof attributes['execution.id'] === 'string') {

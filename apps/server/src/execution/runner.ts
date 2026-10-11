@@ -32,7 +32,11 @@ const terminal = (runId: string) => { const run = getRun(runId); return !run || 
 /** All terminal paths, including existing collaboration/coordination Stop, revoke native work. */
 subscribe((event) => {
   if (event.type === 'run.updated' && ['completed', 'failed', 'cancelled'].includes(event.run.status)) {
-    for (const [id, entry] of active) if (entry.runId === event.run.id) { expireExecutionApprovals(id); entry.controller.abort(); }
+    for (const [id, entry] of active) if (entry.runId === event.run.id) {
+      expireExecutionApprovals(id);
+      entry.controller.abort(new ExecutionError('cancelled', event.run.status === 'failed' ? '原任务失败，后续执行已停止' : '原任务已结束，后续执行已停止',
+        { cause: { kind: 'run_terminal', id: event.run.id } }));
+    }
   }
   if (event.type === 'collaboration.attempt.updated' && event.attempt.status !== 'running') {
     for (const [id, entry] of active) if (getExecution(id)?.attemptId === event.attempt.id) { expireExecutionApprovals(id); entry.controller.abort(); }
@@ -216,7 +220,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     if (signal.aborted || terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已停止');
     const systems = opts.messages.filter((message) => message.role === 'system' && !message.content.startsWith('会话边界提示：')).map((message) => message.content);
     const instructions = [...systems, `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
-      opts.privateContext ? '本轮上下文含私密信息，仅允许文本回应和 Runtime 控制动作；禁止读取、写入共享工作区及普通业务工具。' : '',
+      opts.privateContext ? '本轮上下文含私密信息。文件仅通过平台 fs.read / search.files 受控桥读取；禁止原生文件、shell、网络和其他业务工具。回复与交接不得扩大授权。' : '',
       opts.controlTools?.length ? 'Runtime 工具通过 agent_gand MCP 提供。上下文中的 agent.complete/handoff/consult/hold 对应 agent_complete/agent_handoff/agent_consult/agent_hold。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。' : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
     let prompt = opts.messages.filter((message) => message.role !== 'system').map((message) => `[${message.role}]\n${message.content}`).join('\n\n');
     let result: AgentTurnResult;
@@ -229,7 +233,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         if (session) updateExecution(execution.id, { sessionBindingId: session.record.id, sessionMode: session.resume ? 'resume' : 'cold', sessionReason: session.record.reason });
       }
       const bridge = opts.controlTools?.length || (opts.agent.execution?.kind === 'external' && opts.agent.execution.platformTools?.length)
-        ? await createExecutionBridge(opts, execution, signal, correction > 0 || opts.privateContext === true) : undefined;
+        ? await createExecutionBridge(opts, execution, signal, correction > 0) : undefined;
       let content = ''; let retryCold = false; naturalTerminal = false;
       usage.set(correction, { tokensIn: null, tokensOut: null, costUsd: null });
       updateExecution(execution.id, { tokensIn: null, tokensOut: null, costUsd: null });

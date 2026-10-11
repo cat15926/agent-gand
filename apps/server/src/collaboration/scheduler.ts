@@ -361,7 +361,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: 'blocked', error: `CONTEXT_ASSEMBLY_FAILED: ${message}` });
-    postSystem(run.id, 'user', `协作上下文组装失败：${message}`);
+    postSystem(run.id, 'user', `协作上下文组装失败：${message}`,attemptId);
     finalizeRun(run.id);
     return;
   }
@@ -383,7 +383,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     const controlTools = collaborationControlTools(runtimePolicy.toolApiVersion, { externalWaitVersion, consultAnyVersion, messageVisibilityVersion });
     const privateContext = attemptAccess(attemptId).visibility === 'private';
     const turn = await runAgentTurn({ run, agent, parentSpanId: agentSpan.id, agentId: agent.id, attemptId,
-      privateContext, disableTools: privateContext,
+      privateContext,
       executionScopeId: `collaboration:${dispatch.id}`,
       messages: [{ role: 'system', content: agent.systemPrompt }, { role: 'system', content: SESSION_BOUNDARY_DIRECTIVE }, { role: 'user', content: inputContext }],
       controlTools,
@@ -437,7 +437,7 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
       tx(() => {
         if (!isActiveAttempt(attemptId, dispatch.id)) throw new StaleAttemptError('迟到的 Attempt 已失去提交权');
         finishAttempt({ attemptId, dispatchId: dispatch.id, status: 'failed', dispatchStatus: 'blocked', error: reason });
-        postSystem(run.id, 'user', `协作执行未完成：${exit.detail}`);
+        postSystem(run.id, 'user', `协作执行未完成：${exit.detail}`,attemptId);
         if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
         finalizeRun(run.id);
         observeTechnicalBlock(dispatch.id, attemptId, agent.id);
@@ -736,7 +736,7 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
     } else {
       const streak = pingPongCount(run.id, agent.id, action.targetAgentId);
       if (streak >= pingPongBlock) throw new CollaborationGuardError(`检测到 ${agent.id} 与 ${action.targetAgentId} 连续往返，已阻止继续交接`, 'ping_pong', preservedOutput);
-      if (streak >= pingPongWarn) postSystem(run.id, action.targetAgentId, '提示：检测到多次连续交接，请确认是否已有足够信息完成当前事项。');
+      if (streak >= pingPongWarn) postSystem(run.id, action.targetAgentId, '提示：检测到多次连续交接，请确认是否已有足够信息完成当前事项。',attemptId);
     }
     const message = post({ runId: run.id, from: agent.id, to: action.targetAgentId, kind: 'agent', messageType: 'collaboration_handoff',
       ...(inheritedAccess.visibility === 'private' ? inheritedAccess : { visibility: action.visibility ?? 'public' }),

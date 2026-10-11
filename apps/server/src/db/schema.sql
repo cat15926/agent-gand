@@ -547,3 +547,29 @@ CREATE TABLE IF NOT EXISTS business_stage_token_reservations (
   used INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_business_stage_token_scope ON business_stage_token_reservations(run_id,stage_id,status);
+
+-- R2: immutable, authenticated content and per-version access/provenance; never materialize private bytes in native cwd.
+CREATE TABLE IF NOT EXISTS managed_artifact_versions (
+  id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, run_id TEXT NOT NULL, path TEXT NOT NULL,
+  version INTEGER NOT NULL, record TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE(conversation_id,path,version)
+);
+CREATE INDEX IF NOT EXISTS idx_managed_artifacts_run ON managed_artifact_versions(run_id);
+CREATE TABLE IF NOT EXISTS artifact_authorization_audits (
+  id TEXT PRIMARY KEY, source_id TEXT NOT NULL, released_id TEXT NOT NULL, owner TEXT NOT NULL,
+  reason TEXT NOT NULL, created_at TEXT NOT NULL
+);
+
+-- R3: self-contained encrypted snapshots, with explicit retention references.
+CREATE TABLE IF NOT EXISTS artifact_snapshots (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, manifest TEXT NOT NULL, digest TEXT NOT NULL,
+  payload TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_artifact_snapshots_run ON artifact_snapshots(run_id);
+CREATE TABLE IF NOT EXISTS artifact_snapshot_refs (
+  snapshot_id TEXT NOT NULL, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(snapshot_id,owner_type,owner_id)
+);
+CREATE TABLE IF NOT EXISTS artifact_snapshot_restores (
+  owner_id TEXT PRIMARY KEY, snapshot_id TEXT NOT NULL, digest TEXT NOT NULL, path TEXT NOT NULL, created_at TEXT NOT NULL
+);

@@ -146,7 +146,10 @@ try {
   code(() => checkpoints.materializeBusinessCheckpoint(fileNext.run.id), 'CHECKPOINT_FILE_CHANGED');
   await rm(targetPath); await symlink(path.join(root, 'outside'), targetPath);
   code(() => checkpoints.materializeBusinessCheckpoint(fileNext.run.id), 'CHECKPOINT_FILE_CHANGED');
-  await rm(targetPath); checkpoints.materializeBusinessCheckpoint(fileNext.run.id);
+  await rm(targetPath);
+  code(() => checkpoints.materializeBusinessCheckpoint(fileNext.run.id), 'CHECKPOINT_FILE_CHANGED');
+  // R3 never silently repairs a drifted restore. Explicit owner reconciliation of this fixture restores the exact bytes.
+  await writeFile(targetPath, '已验收完整文件：有依据的分析结论和建议。\n', {mode:0o600}); checkpoints.materializeBusinessCheckpoint(fileNext.run.id);
   await coordination.runCoordinationPlan(trace.getRun(fileNext.run.id), fileNext.run.goal);
   assert.ok(business.getBusinessState(fileNext.run.id).stages[1].execution.canAccept);
   const frozenOutput = checkpoints.readBusinessCheckpoint(fileNext.run.id).outputs[0];

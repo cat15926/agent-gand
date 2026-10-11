@@ -45,9 +45,12 @@
 - [逐阶段执行与用户验收门禁 v1](./architecture/business-stage-execution-v1.md)
 - [阶段续跑检查点与交付归档 v1](./architecture/business-stage-continuation-v1.md)
 - [公开只读阶段返工 v1](./architecture/business-stage-rework-v1.md)
+- [私密交互与受控文件权限 v1](./architecture/private-interaction-artifact-acl-v1.md)
+- [Run 失败关系诊断 v1](./architecture/run-failure-diagnostics-v1.md)
 
 ### 实施计划
 
+- [平台协作剩余内容实施计划（R1/R2/R3 本地完成，R4–R8 待实施）](./plans/platform-collaboration-remaining-implementation-plan.md)
 - [P1 实施路线与验收状态](./plans/p1-implementation-roadmap.md)
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
 - [通用协作规划器与 Coordination Plan 设计](./plans/coordination-planner-design.md)
@@ -95,6 +98,10 @@
 - [平台协作修复进度（第四批：逐阶段执行与验收门禁）](./reports/platform-collaboration-repair-progress-2026-10-10-batch4.md)
 - [平台协作修复进度（第五批：阶段续跑与交付归档）](./reports/platform-collaboration-repair-progress-2026-10-11-batch5.md)
 - [平台协作修复进度（第六批：公开只读阶段返工）](./reports/platform-collaboration-repair-progress-2026-10-11-batch6.md)
+- [声明产物与独立工作树快照](./architecture/artifact-worktree-snapshots-v1.md)
+- [平台协作剩余计划 R3：完整产物与工作树快照](./reports/platform-collaboration-r3-acceptance-2026-10-11.md)
+- [平台协作剩余计划 R2：私密入口与受控文件权限](./reports/platform-collaboration-r2-acceptance-2026-10-11.md)
+- [平台协作剩余计划 R1：失败诊断与联合回归](./reports/platform-collaboration-r1-acceptance-2026-10-11.md)
 - [模型活动时限与失败诊断](./architecture/execution-activity-timeouts.md)
 
 - [Collaboration 阶段 F 验收报告](./reports/collaboration-stage-f-acceptance.md)

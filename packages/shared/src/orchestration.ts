@@ -2,6 +2,7 @@ import type { AgentCapability, PermissionMode } from './agent.ts';
 import type { CoordinationProtocolId, CoordinationPreview } from './coordination.ts';
 import type { ExternalDriverId } from './execution.ts';
 import type { RunMode } from './run.ts';
+import type { MessageVisibility } from './message.ts';
 import type { BusinessContract } from './business.ts';
 
 export const ORCHESTRATION_SCHEMA_VERSION = 1 as const;
@@ -24,11 +25,15 @@ export interface OrchestrationConstraints {
 
 /** Rules previews never call models. Detailed planning is an explicit pre-execution request. */
 export interface OrchestrationPreviewInput {
+  attachments?: Array<{ path: string; contentBase64: string; mimeType?: string }>;
   businessContract?: BusinessContract | null;
   goal: string;
   conversationId?: string;
   agentIds?: string[];
   recipientIds?: string[];
+  visibility?: MessageVisibility;
+  /** Authorized readers, separate from executors. Owner is always included. */
+  audience?: string[];
   strategy?: OrchestrationStrategy;
   workflow?: OrchestrationWorkflow;
   workspace?: string | null;
@@ -47,6 +52,7 @@ export interface OrchestrationPreviewInput {
 }
 
 export interface OrchestrationRequest {
+  attachments?: Array<{ path: string; sha256: string; size: number; mimeType: string }>;
   /** Absent on historical snapshots; never inferred from non-empty output. */
   businessContract?: BusinessContract | null;
   schemaVersion: 1;
@@ -56,6 +62,9 @@ export interface OrchestrationRequest {
   goal: string;
   agentIds: string[];
   recipientIds: string[];
+  /** Absent on historical requests means public, unless replying to private content. */
+  visibility?: MessageVisibility;
+  audience?: string[];
   strategy: OrchestrationStrategy;
   workflow: OrchestrationWorkflow;
   workspace: string | null;
@@ -89,7 +98,7 @@ export interface OrchestrationAgentCapability {
   /** Configured native exemptions/allowlist; readonly drivers also supply fixed read tools. */
   nativeTools: string[];
   deniedTools: string[];
-  supports: { control: boolean; resume: boolean; nativeWrite: boolean; hardTokenLimit: boolean; coordinationSteps: boolean };
+  supports: { control: boolean; resume: boolean; nativeWrite: boolean; hardTokenLimit: boolean; coordinationSteps: boolean; privateContext?: boolean; controlledFiles?: boolean };
   legacyModes: RunMode[];
   account: {
     id: string | null;

@@ -30,7 +30,7 @@
 
 工作区解析、账户解析以及准入前准备失败会形成持久执行记录，即使未启动进程。完成/失败的作用域不会被覆盖或自动重放。被成员准入拒绝的并发重复调用不能写入失败记录污染仍在准备中的有效调用。记录的未知 Token/费用沿用现有显示，不能当作 0。
 
-证据采集异常写入 `failureDetails.secondary`。当前主要错误选择覆盖失败执行与随后取消的执行，不表示任意多分支、跨引擎的完整因果图已实现。完整原生 SDK/Codex 联合故障、浏览器验收及真实供应商请求仍需另行验证。
+证据采集异常写入 `failureDetails.secondary`。R1 已增加[Run 失败关系诊断 v1](./run-failure-diagnostics-v1.md)，通过持久身份、前置依赖、关闭前快照和实际取消原因区分多分支失败；API Span 补触发时限与可信活动时间，HTTP 错误补已观测 Request ID。原生 SDK/Codex 联合夹具和真实本地 HTTP/WS/浏览器回归见[R1 验收记录](../reports/platform-collaboration-r1-acceptance-2026-10-11.md)；真实供应商长链路仍待 R8 验证。
 
 ## 验证
 

@@ -1,3 +1,4 @@
+import { createManagedArtifact } from '../artifacts/store.ts';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -24,8 +25,8 @@ import { getRun } from '../runs/trace.ts';
 import { assertOrchestrationAdmission, orchestrationAdmissionIssues } from './rollout.ts';
 import { checkpointDigest, type BusinessCheckpoint } from './businessCheckpointStore.ts';
 
-const fields = ['goal','conversationId','agentIds','recipientIds','strategy','workflow','workspace','supervisorId',
-  'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning','businessContract'];
+const fields = ['goal','conversationId','agentIds','recipientIds','visibility','audience','strategy','workflow','workspace','supervisorId',
+  'defaultReviewerId','aggregatorId','replyTo','taskId','clientRequestId','constraints','wholeTeam','planning','businessContract','attachments'];
 interface StoredPreview { preview: OrchestrationPreview; configurationFingerprint: string; decomposition?: DecomposedTask[] }
 function invalid(code: string, message: string, status = 409): never { throw new OrchestrationError(status, code, message); }
 const hasErrors = (preview: OrchestrationPreview) => preview.decision.issues.some(i => i.severity === 'error');
@@ -44,10 +45,34 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
   const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
   if (old.request.businessContract) decision.requiresConfirmation = true;
-  replyMessageAccess(old.request, decision.execution!.engine, decision.targetIds);
+  try {
+    const access = replyMessageAccess(old.request, decision.execution!.engine,
+      decision.execution!.engine === 'collaboration' ? decision.targetIds : decision.execution!.participantIds);
+    if (access.visibility === 'private') {
+      old.request.visibility = 'private'; old.request.audience = access.audience;
+      decision.requiresConfirmation = true;
+      if (decision.execution!.engine === 'collaboration') decision.execution!.participantIds = decision.execution!.participantIds.filter(id => access.audience.includes(id));
+      for (const id of decision.execution!.participantIds) {
+        const actor = old.capabilities.agents.find(a => a.id === id);
+        if (!actor?.supports.privateContext) decision.issues.push({ code: 'PRIVATE_BACKEND_UNSUPPORTED', severity: 'error', agentId: id, message: '该成员后端无法隔离私密上下文，请选择模型 API、Claude SDK 或 Codex app-server' });
+      }
+      if (!decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm')) {
+        decision.issues.push({ code: 'PRIVATE_NATIVE_WRITE_UNSUPPORTED', severity: 'error', message: '私密外部 Agent 当前仅支持只读任务与受控文件读取；原生写入隔离和自动恢复将在 R4 完成' });
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof OrchestrationError)) throw error;
+    decision.issues.push({ code: error.code, message: error.message, severity: 'error' });
+  }
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
   const add = (code: string, message: string) => decision.issues.push({ code, message, severity: 'error' });
+  if (old.request.attachments?.length) {
+    decision.requiresConfirmation = true;
+    for (const id of decision.execution!.participantIds) if (!old.capabilities.agents.find(a => a.id === id)?.supports.controlledFiles) add('ATTACHMENT_BACKEND_UNSUPPORTED','包含附件的任务要求每位执行成员开放平台 fs.read 或 search.files；请在角色工具配置中启用受控文件读取');
+  }
+  if(checkpoint?.archive?.manifest.files.some(f=>f.storage==='managed')) for(const id of decision.execution!.participantIds)
+    if(!old.capabilities.agents.find(a=>a.id===id)?.supports.controlledFiles) add('ATTACHMENT_BACKEND_UNSUPPORTED','续跑归档包含受控文件，执行成员需开放平台 fs.read 或 search.files');
   const nativeWriter = !decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm');
   const needsGit = nativeWriter || !decision.execution!.readonly && ['development_review','supervisor_decomposition'].includes(old.request.workflow);
   if (needsGit) {
@@ -79,6 +104,7 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
   if (body.revisionRunId !== undefined && (!revisionRun || revisionRun.conversationId !== body.conversationId
     || revisionRun.status !== 'waiting_for_user' || getRunCoordinationPlan(revisionRun.id)?.status !== 'paused'
     || getRunOrchestrationSnapshot(revisionRun.id)?.execution?.engine !== 'coordination')) invalid('REVISION_UNSUPPORTED','修订预览需要属于当前房间的已暂停步骤图');
+  if (revisionRun && Array.isArray(body.attachments) && body.attachments.length) invalid('REVISION_ATTACHMENTS_UNSUPPORTED','已暂停图的修订不能新增或替换附件；请创建新任务并重新确认文件范围',400);
   if (body.planning !== undefined && !['rules','detailed'].includes(String(body.planning))) invalid('INVALID_PLANNING','planning 必须为 rules 或 detailed',400);
   const stored = prepare(body, source, checkpoint), preview = stored.preview;
   if (revisionRun) {
@@ -88,6 +114,7 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
     if (preview.request.workflow !== original.request.workflow
       || preview.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
       || stableDigest(preview.request.constraints) !== stableDigest(original.request.constraints)
+      || stableDigest({visibility: preview.request.visibility ?? 'public', audience: preview.request.audience ?? []}) !== stableDigest({visibility: original.request.visibility ?? 'public', audience: original.request.audience ?? []})
       || stableDigest(preview.request.businessContract ?? null) !== stableDigest(original.request.businessContract ?? null)) {
       invalid('REVISION_POLICY_CONFLICT','修订预览必须保留原任务的工作流、工作区、预算和阶段验收清单；修改这些设置请创建新任务');
     }
@@ -178,7 +205,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       if (hasErrors(stored.preview)) invalid('PREVIEW_INVALID','当前预览存在阻断项，不能执行');
       prepared = stored.preview;
     } else if (prepared.decision.requiresConfirmation) invalid('PLAN_CONFIRMATION_REQUIRED','请先预览并确认本轮工作流；提交 previewId 与 orchestrationFingerprint');
-    if (hasErrors(prepared)) invalid(prepared.decision.issues.find(i => i.severity === 'error')!.code, prepared.decision.issues.filter(i => i.severity === 'error').map(i => i.message).join('；'));
+    if (hasErrors(prepared)) { const first = prepared.decision.issues.find(i => i.severity === 'error')!; invalid(first.code, prepared.decision.issues.filter(i => i.severity === 'error').map(i => i.message).join('；'), first.code.startsWith('PRIVATE_') ? 400 : 409); }
     if (prepared.decision.execution!.plannerRequired && !prepared.plan) invalid('DETAILED_PLAN_REQUIRED','请显式生成详细主管计划并确认后执行');
     const request = { ...prepared.request, source, clientRequestId: input.clientRequestId as string };
     const decision = prepared.decision;
@@ -188,11 +215,14 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       supervisorId: request.supervisorId, defaultReviewerId: request.defaultReviewerId });
     const currentRun = createRun(request.goal, decision.execution!.engine === 'collaboration' ? 'collaboration' : 'pipeline',
       decision.execution!.participantIds, checkpoint ? null : room.workspace, null, room.id, nextTurnNo(room.id), decision.execution!.participantIds.includes(request.defaultReviewerId ?? '') ? request.defaultReviewerId : null);
-    const messageAccess = replyMessageAccess(request, decision.execution!.engine, decision.targetIds);
+    const messageAccess = replyMessageAccess(request, decision.execution!.engine, decision.execution!.engine === 'collaboration' ? decision.targetIds : decision.execution!.participantIds);
     const message = post({ runId: currentRun.id, from: 'user', to: request.recipientIds.join(',') || 'all', kind: 'user', body: request.goal,
-      ...messageAccess, audience: messageAccess.audience.filter(id => id === 'user' || decision.execution!.participantIds.includes(id)),
+      ...messageAccess,
       replyTo: request.replyTo, taskId: request.taskId, clientMessageId: request.clientRequestId!, deliveryStatus: 'queued',
       meta: { orchestrationSource: source, entryVersion: 1 } });
+    for (const file of (input.attachments ?? []) as NonNullable<OrchestrationPreviewInput['attachments']>) createManagedArtifact({
+      runId: currentRun.id, path: file.path, content: Buffer.from(file.contentBase64,'base64'), access: messageAccess,
+      createdBy: 'user', mimeType: file.mimeType });
     let plan = null;
     if (prepared.plan) {
       const actors = listRunAgentSnapshots(currentRun.id);
@@ -219,7 +249,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
 }
 
 export function usesExecutionEntry(body: Record<string, unknown>): boolean {
-  return ['entryVersion','strategy','workflow','constraints','aggregatorId','previewId','planning','businessContract'].some(key => body[key] !== undefined);
+  return ['attachments','visibility','audience','entryVersion','strategy','workflow','constraints','aggregatorId','previewId','planning','businessContract'].some(key => body[key] !== undefined);
 }
 
 /** Confirmed graph revision, with the original Run policy and frozen actors retained. */
@@ -248,6 +278,7 @@ export function reviseExecutionOrchestration(runId: string, value: unknown) {
     if (candidate.fingerprint !== body.orchestrationFingerprint || hasErrors(candidate) || !candidate.plan) invalid('REVISION_PREVIEW_INVALID','修订预览未通过校验或未生成完整图');
     if (candidate.request.conversationId !== currentRun.conversationId || candidate.request.workspace !== (original.legacyExecution.workspace ?? original.request.workspace)
       || candidate.request.workflow !== original.request.workflow || candidate.decision.execution?.engine !== 'coordination'
+      || stableDigest({visibility:candidate.request.visibility ?? 'public',audience:candidate.request.audience ?? []}) !== stableDigest({visibility:original.request.visibility ?? 'public',audience:original.request.audience ?? []})
       || stableDigest(candidate.request.constraints) !== stableDigest(original.request.constraints)
       || stableDigest(candidate.request.businessContract ?? null) !== stableDigest(original.request.businessContract ?? null)
       || candidate.decision.execution.readonly !== original.execution.readonly) invalid('REVISION_POLICY_CONFLICT','本轮工作流、工作区、预算、读写政策和阶段验收清单已冻结；改变这些设置请创建新任务');

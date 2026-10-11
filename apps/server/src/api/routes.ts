@@ -1,5 +1,7 @@
+import { registerArtifactRoutes } from './artifactRoutes.ts';
 import { applyRunAction, cancelTaskExecution, retryTaskExecution } from '../orchestration/actions.ts';
 import { assessRunRecovery } from '../runtime/recovery.ts';
+import { runFailureReport } from '../runs/failures.ts';
 import { businessSummary } from '../orchestration/business.ts';
 import { registerBusinessRoutes } from './businessRoutes.ts';
 import { previewRunContinuation, submitRunContinuation } from '../orchestration/continuation.ts';
@@ -136,6 +138,7 @@ function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: un
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await registerBusinessRoutes(app);
+  await registerArtifactRoutes(app);
   const entryEndpoints = new Set(['/api/conversations','/api/conversations/empty','/api/conversations/:id/messages','/api/conversations/:id/requests','/api/runs','/api/orchestration/preview','/api/coordination/preview','/api/conversations/:id/followup-preview']);
   const format = (endpoint: string, body: unknown): 'legacy' | 'unified' => ['/api/coordination/preview','/api/conversations/:id/followup-preview'].includes(endpoint)
     || ['/api/conversations','/api/conversations/:id/messages','/api/runs'].includes(endpoint) && !usesExecutionEntry(body && typeof body === 'object' ? body as Record<string,unknown> : {}) ? 'legacy' : 'unified';
@@ -244,6 +247,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
   app.post<{ Params: { runId: string } }>('/api/runs/:runId/stop', async req => applyRunAction(req.params.runId, 'cancel'));
   app.get<{ Params: { runId: string } }>('/api/runs/:runId/recovery', async req => assessRunRecovery(req.params.runId));
+  app.get<{ Params: { runId: string } }>('/api/runs/:runId/failures', async req => runFailureReport(req.params.runId));
   app.post<{ Params: { runId: string } }>('/api/runs/:runId/continuation-preview', async req => previewRunContinuation(req.params.runId));
   app.post<{ Params: { runId: string }; Body: unknown }>('/api/runs/:runId/continuations', async (req, reply) => {
     const result = submitRunContinuation(req.params.runId, req.body);
@@ -260,14 +264,14 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 通用协作规划器：能力目录、任务预览与已编译计划 ----
 
   app.get('/api/coordination/protocols', async () => listProtocols().filter(p => !['consensus','vote','supervisor_dag'].includes(p.id)));
-  app.post<{ Body: unknown }>('/api/orchestration/preview', async (req) => previewExecutionOrchestration(req.body));
+  app.post<{ Body: unknown }>('/api/orchestration/preview', { bodyLimit: 2 * 1024 * 1024 }, async (req) => previewExecutionOrchestration(req.body));
   app.get('/api/orchestration/options', async () => ({ version: 'o4-workflows-v1', templateVersion: 'o4-workflows-v1', resolverVersion: 'o4-rules-v1',
     strategies: ['auto','parallel','serial'], workflows: ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'],
     admission: config.orchestrationRollout,
     verificationEnvironment: { fixture: process.env.NODE_ENV === 'test', claudeSdkWorker: config.externalAgents.sdkWorkerCommand ? 'custom' : 'bundled' },
     detailedPlanning: { explicitOnly: true, consumesQuota: true, maximumTasks: 5 }, maximumDebateRounds: 10 }));
   app.get('/api/orchestration/entry-statistics', async () => ({ statistics: entryStatistics(), containsRequestContent: false }));
-  app.post<{ Params: { id: string }; Body: unknown }>('/api/conversations/:id/requests', async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: unknown }>('/api/conversations/:id/requests', { bodyLimit: 2 * 1024 * 1024 }, async (req, reply) => {
     const result = submitExecutionOrchestration(req.body, req.params.id);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 202);
@@ -439,7 +443,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!updated) throw httpError(409,'房间设置已改变，请刷新后重试'); return updated;
   });
   app.get('/api/conversations', async () => listConversations());
-  app.post<{ Body: Record<string, unknown> }>('/api/conversations', async (req, reply) => {
+  app.post<{ Body: Record<string, unknown> }>('/api/conversations', { bodyLimit: 2 * 1024 * 1024 }, async (req, reply) => {
     const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body) : submitLegacyOrchestration('room_create', req.body);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 201);
@@ -547,7 +551,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     savePlanningResult(prepared.snapshot, prepared.draft, prepared.plan);
     return { kind, roomMode: conversation.mode, preview: prepared };
   });
-  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>('/api/conversations/:id/messages', async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>('/api/conversations/:id/messages', { bodyLimit: 2 * 1024 * 1024 }, async (req, reply) => {
     const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body, req.params.id) : submitLegacyOrchestration('conversation_message', req.body, req.params.id);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 202);
@@ -666,6 +670,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { runId?: string; from?: string; to?: string; kind?: string; body?: string } }>(
     '/api/messages',
     async (req) => {
+      if (Object.keys(req.body ?? {}).some(key => !['runId','from','to','kind','body'].includes(key))) throw httpError(400,'额外消息字段不能被忽略；私密消息请通过任务预览入口发送');
       const { runId, from, to, kind, body } = req.body ?? {};
       if (typeof runId !== 'string' || !runId) throw httpError(400, 'runId 必填');
       if (typeof from !== 'string' || !from) throw httpError(400, 'from 必填');
@@ -680,7 +685,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 运行（异步执行，立即返回）----
 
-  app.post<{ Body: Record<string, unknown> }>('/api/runs', async (req, reply) => {
+  app.post<{ Body: Record<string, unknown> }>('/api/runs', { bodyLimit: 2 * 1024 * 1024 }, async (req, reply) => {
     const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body, undefined, 'direct_run') : submitLegacyOrchestration('direct_run', req.body);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
     reply.code(result.deduplicated ? 200 : 201);

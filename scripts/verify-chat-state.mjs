@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { initialState, reducer } from '../apps/web/src/store.tsx';
 import { mentionedRecipients } from '../apps/web/src/services/recipientSelection.ts';
+const { readDraftAccess } = await import('../apps/web/src/services/roomDraft.ts');
+assert.deepEqual(readDraftAccess({visibility:'private',audience:['a']}),{visibility:'private',audience:['a'],scopeNotice:''});
+for(const damaged of [{visibility:'broken',audience:['a']},{visibility:'public',audience:['a']},{visibility:'private',audience:'a'}]) { const privacy=readDraftAccess(damaged); assert.equal(privacy.visibility,'private'); assert.deepEqual(privacy.audience,[]); assert.ok(privacy.scopeNotice); }
 const runs = [{ id:'first', conversationId:'room',turnNo:1 },{ id:'second',conversationId:'room',turnNo:2 }];
 const messages = [{id:'m1',runId:'first',seq:1},{id:'m2',runId:'second',seq:2}];
 let state = { ...initialState, runs, messages, activeConversationId:'room', activeRunId:'second', streams:{live:'in progress'}, events:[{id:'live',runId:'second'}], successorObligations:[{id:'old',runId:'second'}] };

@@ -34,6 +34,7 @@ import { freezeRunAccounts, listRunAccountBindings } from '../accounts/resolver.
 import type { RunAccountBinding } from '@agent-gand/shared';
 import { normalizeAgent } from '../agents/validation.ts';
 import { finishAdapterRun, taskAdapterEnabled } from '../runtime/taskAdapter.ts';
+import { recordFailureBoundary } from '../runtime/failureBoundary.ts';
 
 interface RunRow {
   id: string;
@@ -408,6 +409,7 @@ export function finishRun(runId: string, status: 'completed' | 'failed' | 'cance
       WHERE id=? AND status NOT IN ('completed','failed','cancelled')`, status, disposition, new Date().toISOString(), runId) > 0;
     if (!changed) return false;
     cancelDurableHolds(runId, `run_${status}`);
+    if (status !== 'completed') recordFailureBoundary(runId, 'compatibility:finishRun', status);
     afterCommit(() => {
       const row = get<RunRow>('SELECT * FROM runs WHERE id = ?', runId);
       if (row) emit({ type: 'run.updated', run: rowToRun(row) });

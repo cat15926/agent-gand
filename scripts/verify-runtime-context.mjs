@@ -89,7 +89,7 @@ try {
   const outside = path.join(root, 'outside.txt');
   await writeFile(outside, '不能读到');
   await symlink(outside, path.join(runRoot, 'escape.txt'));
-  assert.throws(() => createWorkspaceFileEvidence(runId, 'escape.txt'), /越出 Run 工作区/);
+  assert.throws(() => createWorkspaceFileEvidence(runId, 'escape.txt'), /越出.*工作区/);
   const revised = { ...minimal, version: 2, evidenceRefs: [...minimal.evidenceRefs, fileRef] };
   saveHandoffCapsule(revised);
   assert.equal(latestHandoffCapsule(child.id, runId)?.version, 2);

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import type { BusinessState } from '@agent-gand/shared';
 import * as api from '../services/api';
+import { SnapshotManifest } from './ArtifactSnapshotPanel';
 
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40';
 export function BusinessStageReworkPanel({ runId, version, item, members, disabled, onCreated }: {
@@ -43,7 +44,8 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
       <p>保留已验收阶段：{preview.checkpoint.acceptedStages.map(s => s.title).join('、') || '无'}。后续阶段须等待本次重新验收。</p>
       <p className="whitespace-pre-wrap text-zinc-400">拒绝原因：{preview.checkpoint.rework?.reason}</p>
       <p className="whitespace-pre-wrap text-zinc-300">修订要求：{preview.input.instruction}</p>
-      <p className="text-zinc-400">使用新的独立工作区及模型会话，仅复制 {preview.checkpoint.files.length} 个已验收文件。被拒绝的候选留存供参考，不能用于新任务验收。</p>
+      <p className="text-zinc-400">使用新的独立工作区及模型会话，恢复已验收产物与 Git 基线。被拒绝的候选留存供参考，不能用于新任务验收。</p>
+      {preview.checkpoint.archive&&<SnapshotManifest snapshot={preview.checkpoint.archive.manifest}/>}
       <p className="text-zinc-400">执行及阶段时限重新计算。已占用输出 Token 预算结转：本轮 {preview.checkpoint.carriedRunTokens}；返工阶段 {preview.checkpoint.carriedStageTokens.find(s => s.stageId === preview.stage.id)?.charged ?? 0}。</p>
       {preview.closesWaitingSource && <p className="text-amber-200">确认后会关闭原任务的等待执行，保留原拒绝及验收记录，并创建关联返工任务。</p>}
       {preview.preview.decision.issues.map((issue, i) => <p key={i} className={issue.severity === 'error' ? 'text-red-300' : 'text-amber-200'}>{issue.message}</p>)}

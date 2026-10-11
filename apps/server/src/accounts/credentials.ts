@@ -26,7 +26,7 @@ function masterKey(create = false): Buffer {
       let present = true;
       try { lstatSync(file); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') present = false; else throw error; }
       if (!present) {
-        if ((get<{ count: number }>('SELECT COUNT(*) count FROM account_credentials')?.count ?? 0) > 0) throw new AccountError(503, '账户主密钥缺失，请恢复原主密钥；现有密钥未被覆盖');
+        if (((get<{ count: number }>('SELECT COUNT(*) count FROM account_credentials')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM managed_artifact_versions')?.count ?? 0) + (get<{ count: number }>('SELECT COUNT(*) count FROM artifact_snapshots')?.count ?? 0)) > 0) throw new AccountError(503, '账户主密钥缺失，请恢复原主密钥；现有密钥未被覆盖');
         try { writeFileSync(file, JSON.stringify({ version: 1, key: randomBytes(32).toString('hex') }) + '\n', { flag: 'wx', mode: 0o600 }); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
       }
@@ -77,4 +77,22 @@ export function credentialSummary(accountId: string, version: number | null): { 
   if (!row) return { hasCredential: false, keySuffix: null, authentication: 'missing' };
   try { readCredential(accountId, version); return { hasCredential: true, keySuffix: row.suffix, authentication: 'configured' }; }
   catch { return { hasCredential: true, keySuffix: row.suffix, authentication: 'locked' }; }
+}
+
+/** Separate AAD namespace for immutable artifact metadata; content is not a credential or a log secret. */
+export function sealManagedContent(content: Buffer, record: string): string {
+  const key = masterKey(true), nonce = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, nonce);
+  cipher.setAAD(Buffer.from('agent-gand-artifact-v1:' + record));
+  return JSON.stringify({ keyId: keyId(key), nonce: nonce.toString('base64'),
+    content: Buffer.concat([cipher.update(content),cipher.final()]).toString('base64'), tag: cipher.getAuthTag().toString('base64') });
+}
+export function openManagedContent(encoded: string, record: string): Buffer {
+  try {
+    const data = JSON.parse(encoded), key = masterKey();
+    if (data.keyId !== keyId(key)) throw new Error();
+    const cipher = createDecipheriv('aes-256-gcm', key, Buffer.from(data.nonce,'base64'));
+    cipher.setAAD(Buffer.from('agent-gand-artifact-v1:' + record)); cipher.setAuthTag(Buffer.from(data.tag,'base64'));
+    return Buffer.concat([cipher.update(Buffer.from(data.content,'base64')),cipher.final()]);
+  } catch { throw new AccountError(503, '受控文件无法解密或权限校验失败，请恢复正确的主密钥和产物备份'); }
 }

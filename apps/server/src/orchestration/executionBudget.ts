@@ -19,10 +19,19 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
   const policy = executionPolicy(runId);
   const stageSignal = businessStageContext()?.signal;
   const signal = request.signal && stageSignal ? AbortSignal.any([request.signal, stageSignal]) : request.signal ?? stageSignal;
-  return withActivityTimeout({ ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt },
+  const modelActivity: { firstResponseAt?: string; lastActivityAt?: string } = {};
+  const trustedActivity = () => {
+    const at = new Date().toISOString();
+    modelActivity.firstResponseAt ??= at; modelActivity.lastActivityAt = at;
+  };
+  try { return await withActivityTimeout({ ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt },
     (signal, activity) => provider.chat({ ...request, signal, onActivity: kind => {
-      if (!signal.aborted) { activity(); request.onActivity?.(kind); }
-    } }, text => { if (!signal.aborted && text) { activity(); delta?.(text); } }));
+      if (!signal.aborted) { trustedActivity(); activity(); request.onActivity?.(kind); }
+    } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } })); }
+  catch (error) {
+    if (error instanceof ExecutionError) throw new ExecutionError(error.code, error.message, { ...error.details, modelActivity });
+    throw error;
+  }
 }
 
 /** Reserve before I/O so concurrent branches cannot spend the same allowance. Unknown calls retain their reservation. */

@@ -5,6 +5,7 @@ import { getRunCoordinationPlan, listCoordinationStepStates } from '../coordinat
 import { getRunOrchestrationSnapshot } from './store.ts';
 import { OrchestrationError } from './normalize.ts';
 import { checkpointOutput, readBusinessCheckpoint } from './businessCheckpointStore.ts';
+import { getManagedArtifact } from '../artifacts/store.ts';
 
 export function stageForStep(runId: string, step: CoordinationPlanStep): BusinessStage | undefined {
   const contract = getRunOrchestrationSnapshot(runId)?.request.businessContract;
@@ -52,6 +53,11 @@ export function assertStageEvidence(runId: string, stageId: string, ref: Runtime
   const invalid = () => { throw new OrchestrationError(409, 'STAGE_EVIDENCE_MISMATCH', '交付证据必须属于当前阶段已完成的成员步骤或当前计划工作区'); };
   if (!plan) return invalid();
   if (ref.kind === 'workspace_file') {
+    if (ref.artifactId) {
+      const file=getManagedArtifact(ref.artifactId);
+      if (file.runId!==runId || file.stageId!==stageId || file.version!==ref.artifactVersion || file.sha256!==ref.sha256) invalid();
+      return;
+    }
     if (ref.workspaceScope !== plan.id.slice(0, 8)) invalid();
     return;
   }

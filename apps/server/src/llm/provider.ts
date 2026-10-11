@@ -15,6 +15,7 @@ import { fetch as undiciFetch, ProxyAgent, type Response as UndiciResponse } fro
 import { config } from '../config.ts';
 import type { AccountConnection } from '@agent-gand/shared';
 import { anthropicAuthHeaders } from '../accounts/headers.ts';
+import { redactSecrets } from '../accounts/secrets.ts';
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant';
@@ -104,10 +105,11 @@ function llmFetch(url: string, init: LlmFetchInit, timeoutMs = config.llm.timeou
 }
 
 /** 非 2xx → 抛出含 status 与响应体的错误（便于排障与降级判定） */
-class LlmHttpError extends Error {
+export class LlmHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly requestId?: string,
   ) {
     super(message);
     this.name = 'LlmHttpError';
@@ -117,9 +119,11 @@ class LlmHttpError extends Error {
 async function assertOk(res: UndiciResponse, providerLabel: string): Promise<void> {
   if (res.ok) return;
   const body = await res.text().catch(() => '');
+  const requestId = res.headers.get('x-request-id') ?? res.headers.get('request-id');
   throw new LlmHttpError(
-    `${providerLabel} 请求失败 HTTP ${res.status}: ${body.slice(0, 300)}`,
+    redactSecrets(`${providerLabel} 请求失败 HTTP ${res.status}: ${redactSecrets(body).slice(0, 300)}`),
     res.status,
+    requestId && /^[A-Za-z0-9_.:-]{1,160}$/.test(requestId) && redactSecrets(requestId) === requestId ? requestId : undefined,
   );
 }
 

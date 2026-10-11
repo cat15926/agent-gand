@@ -51,4 +51,6 @@ Owner 路由：
 - `pnpm verify:business-stage-gates`：实际 SDK/Codex 驱动和本地 stdio 模拟进程，分别验证保留已验收 SDK 后返工 Codex、保留已验收 Codex 后返工 SDK，conversation 会话策略仍建立新绑定，随后 API 阶段及验收达成；无真实供应商调用。
 - `pnpm verify:business-stage-gates-ui`：实际浏览器桌面/390px，操作拒绝、必填要求、预览关闭/编辑、确认返工、新旧任务及证据选项、继承和重新验收。HTTP 与 WS 事件使用内存夹具；不是网络链路或真实模型验收。
 
-写入或私密阶段返工、部分成员返工、验收清单修改、多分支/跨引擎检查点、完整仓库恢复、文件 ACL、货币硬预算和真实供应商联合验收尚未实现。
+写入或私密阶段返工、部分成员返工、验收清单修改、多分支/跨引擎检查点、货币硬预算和真实供应商联合验收尚未实现。
+
+用户私密入口与受控文件 ACL 见[R2 权限契约](./private-interaction-artifact-acl-v1.md)。完整声明产物、Git 基线和独立恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付；公开只读阶段已接入受控文件检查点 v2，私密/写入自动承接仍由 R4 实施。

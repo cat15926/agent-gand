@@ -85,7 +85,7 @@ export function resolveOrchestration(request: OrchestrationRequest, snapshot: Or
 /** O4 decisions are execution authority. Candidate teams never imply unconditional fanout. */
 export function resolveExecutableOrchestration(request: OrchestrationRequest, snapshot: OrchestrationCapabilitySnapshot,
   replyAgentId?: string | null, explicitWorkflow = false): OrchestrationDecision {
-  const team = snapshot.agents;
+  const team = snapshot.agents.filter(a => request.visibility !== 'private' || request.audience?.includes(a.id));
   const ready = (id: string | null) => team.find(a => a.id === id && a.enabled && a.account.compatible
     && !['missing', 'unavailable'].includes(a.account.configuration));
   const executor = (id: string) => ready(id)?.capabilities.includes('execute');
@@ -110,7 +110,7 @@ export function resolveExecutableOrchestration(request: OrchestrationRequest, sn
   if (request.workflow === 'bounded_debate') request.constraints.rounds ??= Number(/(\d+)\s*轮/.exec(request.goal)?.[1]) || undefined;
   const readonly = request.constraints.readonly ?? (['analysis_summary','bounded_debate'].includes(request.workflow)
     || request.workflow !== 'development_review' && (!inferredWrite || readIntent && /仅分析|只读|不修改/.test(request.goal)));
-  const base = resolveOrchestration({ ...request, workflow: 'routine', legacy: { ...request.legacy, requestedProtocol: null } }, snapshot, replyAgentId);
+  const base = resolveOrchestration({ ...request, workflow: 'routine', legacy: { ...request.legacy, requestedProtocol: null } }, { ...snapshot, agents: team }, replyAgentId);
   const issues = base.issues.filter(i => ['UNRESOLVED_MENTION','AMBIGUOUS_MENTION','WHOLE_TEAM_CONFLICT'].includes(i.code));
   const error = (code: string, message: string, agentId?: string) => issues.push({ code, severity: 'error', message, ...(agentId ? { agentId } : {}) });
   if (request.businessContract?.executionMode === 'stage_gated') {

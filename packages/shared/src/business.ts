@@ -1,4 +1,5 @@
 import type { RuntimeEvidenceRef, RuntimeEvidenceResolution } from './runtime.ts';
+import type { ArtifactSnapshot } from './artifacts.ts';
 
 /** Owner-defined acceptance. Stage gating is explicitly opted into per task. */
 export interface BusinessContract {
@@ -45,6 +46,7 @@ export interface BusinessState {
   resolution: { outcome: 'not_achieved' | 'partial_accepted' | 'user_ended'; reason: string; createdAt: string } | null;
   checkpoint?: { sourceRunId: string; sourceVersion: number; digest: string; acceptedStageIds: string[];
     completedWorkers: number; files: Array<{ path: string; sha256: string }>;
+    archive?: {id:string;digest:string;manifest:ArtifactSnapshot};
     rework?: { sourceRunId: string; stageId: string; reportId: string; reason: string; instruction: string; rejectedWorkers: number } };
   /** A confirmed successor seals this Run's owner acceptance ledger. */
   successorRunId?: string;

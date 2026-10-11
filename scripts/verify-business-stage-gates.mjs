@@ -66,7 +66,17 @@ async function fixture(contract = contractFor(), extra = {}) {
   const admitted = entry.submitExecutionOrchestration({ ...input, entryVersion: 1, clientRequestId: randomUUID(), previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint });
   return { ...admitted, input, preview };
 }
-async function run(f) { await coordination.runCoordinationPlan(trace.getRun(f.run.id), f.run.goal); }
+async function run(f) {
+  try { await coordination.runCoordinationPlan(trace.getRun(f.run.id), f.run.goal); }
+  catch (error) {
+    const plan = store.getRunCoordinationPlan(f.run.id);
+    const failed = store.listCoordinationStepStates(plan.id).filter(s => s.status === 'failed').map(s => ({ stepId:s.stepId,error:s.error }));
+    const native = db.all('SELECT record FROM external_agent_executions WHERE run_id=?',f.run.id).map(r => {
+      const e = JSON.parse(r.record); return { agentId:e.agentId,status:e.status,errorCode:e.errorCode,error:e.error };
+    });
+    throw new Error(`${error.message}; fixture diagnostics ${JSON.stringify({ failed,native })}`, { cause:error });
+  }
+}
 async function waitFor(fn, label) { for (let n = 0; n < 600; n++) { if (fn()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timeout: ' + label); }
 const { default: Fastify } = await import('../apps/server/node_modules/fastify/fastify.js');
 const { registerRoutes } = await import('../apps/server/src/api/routes.ts');

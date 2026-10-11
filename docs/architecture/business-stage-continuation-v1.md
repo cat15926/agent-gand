@@ -8,7 +8,7 @@
 
 该入口仅支持 `stage_gated`、Coordination、已失败、公开、只读且进程/工具/调用消耗已收敛的 Run。模型 API、Claude SDK、Codex app-server 均可参与，沿用原冻结阶段分工，并重新验证当前角色和账户配置。不支持已取消、已完成、业务结果已固定的任务，不自动推断被拒绝交付的返工。旧的执行后验收清单没有阶段派发边界，仍须核对后新建任务。
 
-新 Run 使用 `workspace=null` 的独立目录。仅复制已验收、已登记哈希、普通且不超过 32 KiB 的必要文件；原注册目录、仓库基线、未验收产物和失败步骤的部分变更不会带入。预览明确说明此范围，依赖完整原仓库的后续事项应另行配置新任务。本入口不提供写入工作树恢复。完整检查点载荷上限 1 MiB；超限明确阻断，不能静默截断证据。
+新 Run 使用 `workspace=null` 的独立目录。R3 检查点 v2 带入完整声明文本、已验收物理文件、用户受控输入及可验证 Git 基线，见[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)；仅声明改动进入新目录，受控版本留在加密库。物理文件最多 1 MiB，归档 JSON 载荷最多 16 MiB；检查点输出/元数据上限仍为 1 MiB。保留历史 v1 小文件读取。本入口仍不执行私密或写入自动续跑。
 
 ## 确认与持久化
 
@@ -34,4 +34,6 @@ Owner 路由为 `POST /api/accounts/business/:runId/continuation-preview` 与 `P
 - `pnpm verify:business-stage-gates`：本地 stdio 模拟客户端验证保留已验收 Claude SDK 阶段、Codex 超时后的配置漂移拒绝、新 Run 仅执行 Codex 和后续 API，再验收达成目标；不请求真实供应商。
 - `pnpm verify:business-stage-gates-ui`：先构建 Web，沿用可选 `PLAYWRIGHT_MODULE` / `CHROMIUM_EXECUTABLE_PATH`。真实浏览器操作桌面和 390px 续跑预览、Owner 确认、继承展示、后续登记与验收；页面/API/WS 事件来自内存夹具，不监听端口，不代表真实网络或真实模型验收。
 
-被拒绝交付须通过[公开只读阶段返工](./business-stage-rework-v1.md)明确预览和确认。返工中途失败后，本续跑入口保留已冻结修订要求与拒绝归档，继续跳过已完成返工步骤。私密/写入返工、多分支/跨引擎检查点、写入工作树迁移、货币硬预算、文件 ACL 和完整归档仍未实现。
+被拒绝交付须通过[公开只读阶段返工](./business-stage-rework-v1.md)明确预览和确认。返工中途失败后，本续跑入口保留已冻结修订要求与拒绝归档，继续跳过已完成返工步骤。私密/写入返工、多分支/跨引擎检查点、写入工作树迁移、货币硬预算仍未实现。
+
+用户私密入口与受控文件 ACL 见[R2 权限契约](./private-interaction-artifact-acl-v1.md)。完整声明产物、Git 基线和独立恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付；公开只读阶段已接入受控文件检查点 v2，私密/写入自动承接仍由 R4 实施。

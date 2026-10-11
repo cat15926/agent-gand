@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -109,6 +110,49 @@ try {
   await page.screenshot({ path: path.join(output, 'desktop-completed.png') });
   assert.equal(environment.calls.length, 2); assert.deepEqual(pageErrors, []); assert.equal(environment.externalRequests, 0);
   checks.push('实际阶段编辑、分工/预算预览与任务级接收人交互', '390px 编辑器无横向溢出', 'Owner cookie/CSRF 与交付登记/勾选验收/自动继续', '普通恢复禁用、下一阶段自动展开、仅当前阶段证据可选', '两个模拟调用完成两阶段，无重复执行或真实供应商请求');
+
+  // R3: real browser owner flow, self-contained Git snapshot, binary/deletion and mobile review.
+  const {config}=await import('../apps/server/src/config.ts');
+  const {workspaceRootDir}=await import('../apps/server/src/tools/builtin/index.ts');
+  const completed=environment.database.get('SELECT * FROM runs WHERE conversation_id=?',roomId);
+  const completedPlan=environment.database.get('SELECT id FROM coordination_plans WHERE run_id=?',completed.id);
+  const artifactRoot=workspaceRootDir({runId:completed.id,workspace:completed.workspace,workspaceScope:completedPlan.id.slice(0,8)});
+  await mkdir(artifactRoot,{recursive:true});
+  const git=args=>execFileSync('git',['-c','core.hooksPath=/dev/null',...args],{cwd:artifactRoot,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+  await writeFile(path.join(artifactRoot,'demo.txt'),'BASE');await writeFile(path.join(artifactRoot,'deleted.txt'),'BASE DELETE');
+  git(['init','--template=','--quiet']);git(['add','demo.txt','deleted.txt']);git(['-c','user.name=R3 UI','-c','user.email=r3-ui@example.invalid','commit','--quiet','-m','UI baseline']);
+  const uiBaseline=git(['rev-parse','HEAD']);
+  await writeFile(path.join(artifactRoot,'demo.txt'),'UI DECLARED CHANGE');await (await import('node:fs/promises')).rm(path.join(artifactRoot,'deleted.txt'));
+  await writeFile(path.join(artifactRoot,'chart.bin'),Buffer.from([0,255,42]));await writeFile(path.join(artifactRoot,'.env'),'UI_EXCLUDED_KEY');
+  const snapshotsPanel=page.getByLabel('产物与工作树快照',{exact:true});await snapshotsPanel.locator('summary').first().click();
+  await snapshotsPanel.getByLabel('快照声明路径',{exact:true}).fill('demo.txt\nchart.bin\ndeleted.txt');
+  const snapshotCalls=environment.calls.length;await snapshotsPanel.getByRole('button',{name:'预览产物归档',exact:true}).click();
+  const snapshotPreview=snapshotsPanel.getByLabel('产物归档预览',{exact:true});await snapshotPreview.waitFor();
+  assert.ok(await snapshotPreview.getByText('本次声明产物完整 · 验收账本版本 4 · 3 个文件版本',{exact:true}).isVisible());
+  await snapshotPreview.getByText('查看文件版本、改动与权限',{exact:true}).click();
+  await snapshotPreview.screenshot({path:path.join(output,'desktop-artifact-snapshot.png')});
+  await page.setViewportSize({width:390,height:844});await snapshotPreview.getByRole('button',{name:'确认保存快照',exact:true}).scrollIntoViewIfNeeded();
+  assert.ok(await snapshotPreview.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'mobile artifact manifest cannot overflow');
+  await page.screenshot({path:path.join(output,'mobile-artifact-snapshot.png')});
+  await snapshotPreview.getByRole('button',{name:'确认保存快照',exact:true}).click();await snapshotsPanel.getByText('产物快照已保存',{exact:true}).waitFor();
+  const snapshotRow=snapshotsPanel.locator('details').filter({has:page.getByText('验收版本 4 · 3 个文件版本 · 可清理归档',{exact:true})}).first();await snapshotRow.locator('summary').first().click();
+  await snapshotRow.getByText('查看已归档文本（2 项）',{exact:true}).click();
+  const textDownloadPromise=page.waitForEvent('download');await snapshotRow.getByRole('button',{name:'下载归档文本',exact:true}).first().click();
+  const textDownload=await textDownloadPromise;assert.ok(textDownload.suggestedFilename().endsWith('.txt'));assert.ok((await readFile(await textDownload.path(),'utf8')).length>0);
+  await snapshotRow.getByText('查看文件版本、改动与权限',{exact:true}).click();
+  const binaryDownloadPromise=page.waitForEvent('download');await snapshotRow.getByRole('button',{name:'下载归档文件',exact:true}).first().click();
+  const binaryDownload=await binaryDownloadPromise;assert.equal(binaryDownload.suggestedFilename(),'chart.bin');assert.deepEqual(await readFile(await binaryDownload.path()),Buffer.from([0,255,42]));
+  await snapshotRow.getByRole('button',{name:'预览恢复到新目录',exact:true}).click();
+  const restorePreview=snapshotsPanel.getByLabel('快照恢复预览',{exact:true});await restorePreview.waitFor();
+  await restorePreview.getByRole('button',{name:'确认恢复产物',exact:true}).scrollIntoViewIfNeeded();
+  assert.ok(await restorePreview.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:path.join(output,'mobile-artifact-restore.png')});
+  await restorePreview.getByRole('button',{name:'确认恢复产物',exact:true}).click();await snapshotsPanel.getByRole('status').filter({hasText:'已恢复到 '}).waitFor();
+  const restoredPath=(await snapshotsPanel.getByRole('status').textContent()).replace('已恢复到 ','');
+  assert.equal(await readFile(path.join(restoredPath,'demo.txt'),'utf8'),'UI DECLARED CHANGE');assert.deepEqual(await readFile(path.join(restoredPath,'chart.bin')),Buffer.from([0,255,42]));
+  assert.equal(execFileSync('git',['-C',restoredPath,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),uiBaseline);
+  assert.equal(environment.calls.length,snapshotCalls,'archive and restore never call models');
+  checks.push('R3 桌面/390px 声明产物、Git 基线、新增/修改/删除/二进制及遗漏预览','真实浏览器 Owner 完整文本/二进制下载、归档与新目录恢复、保留原 commit、无模型副作用');
+  await snapshotsPanel.locator('summary').first().click();
 
   // Prepare a settled read-only failure. The actual browser must preview and confirm its owner checkpoint.
   const { previewExecutionOrchestration, submitExecutionOrchestration } = await import('../apps/server/src/orchestration/entry.ts');
@@ -245,6 +289,6 @@ try {
   await page.getByRole('navigation', { name: '消息阅读导航', exact: true }).waitFor({ state: 'detached' });
   assert.deepEqual(pageErrors, []); assert.equal(environment.externalRequests, 0);
   checks.push('实际 UI 拒绝不自动调用模型、返工必填要求、预览关闭/编辑无模型副作用', '桌面/390px 返工范围与原执行关闭说明、仅被拒绝阶段调用一次', '旧候选不可选、原验收记录封存、继承基础阶段并重新验收至达成', '独立消息导航不遮挡确认按钮、新消息不抢阅读位置、点击可回到最新并关闭导航');
-  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, checks, screenshots: ['desktop-editor.png','mobile-editor.png','mobile-preview.png','mobile-acceptance.png','desktop-completed.png','desktop-continuation-preview.png','mobile-continuation-preview.png','desktop-continuation-completed.png','desktop-rework-preview.png','mobile-rework-preview.png','mobile-rework-completed.png'] }, null, 2));
+  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, checks, screenshots: ['desktop-editor.png','mobile-editor.png','mobile-preview.png','mobile-acceptance.png','desktop-completed.png','desktop-artifact-snapshot.png','mobile-artifact-snapshot.png','mobile-artifact-restore.png','desktop-continuation-preview.png','mobile-continuation-preview.png','desktop-continuation-completed.png','desktop-rework-preview.png','mobile-rework-preview.png','mobile-rework-completed.png'] }, null, 2));
   console.log(JSON.stringify({ passed: true, checks, output, listeningPorts: 0, realProviderRequests: 0 }, null, 2));
 } finally { unsubscribe?.(); await relay; await browser?.close(); await environment?.close(); }

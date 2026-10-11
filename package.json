@@ -53,6 +53,8 @@
     "verify:runtime-context": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
     "verify:message-visibility": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-message-visibility.mjs",
     "verify:execution-diagnostics": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-diagnostics.mjs",
+    "verify:run-failures": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-failures.mjs",
+    "verify:platform-network": "node scripts/verify-platform-network.mjs",
     "verify:execution-timeouts": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-timeouts.mjs",
     "verify:run-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-continuation.mjs",
     "verify:runtime-capsule-context-v2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
@@ -109,7 +111,9 @@
     "verify:business-stage-gates": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-gates.mjs",
     "verify:business-stage-gates-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-gates-ui.mjs",
     "verify:business-stage-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-continuation.mjs",
-    "verify:business-stage-rework": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-rework.mjs"
+    "verify:business-stage-rework": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-business-stage-rework.mjs",
+    "verify:private-interaction": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-private-interaction.mjs",
+    "verify:artifact-snapshots": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-artifact-snapshots.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

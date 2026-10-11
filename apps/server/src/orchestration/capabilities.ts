@@ -64,7 +64,8 @@ export function orchestrationCapabilities(agentIds: string[], workspace: string 
       platformTools, nativeTools, deniedTools: [...agent.disallowedTools],
       supports: { control, resume: !!external && control && !!external.sessionPolicy && external.sessionPolicy !== 'turn',
         nativeWrite: !!external && control && agent.permissionMode !== 'readonly' && (agent.permissionMode === 'confirm' || driver === 'codex-app-server' || nativeTools.some(tool => ['Write', 'Edit', 'Bash'].includes(tool))),
-        hardTokenLimit: !external, coordinationSteps: !external || control },
+        hardTokenLimit: !external, coordinationSteps: !external || control, privateContext: !external || control,
+        controlledFiles: (!external || control) && platformTools.some(name => name === 'fs.read' || name === 'search.files') },
       legacyModes: readonlyCli ? ['pipeline'] : ['pipeline', 'collaboration', 'supervisor'],
       account: accountCapability(agent),
     };

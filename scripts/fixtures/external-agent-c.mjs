@@ -12,7 +12,7 @@ if (argv.includes('--help')) { console.log('--listen generate-ts'); process.exit
 const { Client } = await import(pathToFileURL(path.join(process.env.FAKE_C_SERVER_ROOT, 'node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js')));
 const { StdioClientTransport } = await import(pathToFileURL(path.join(process.env.FAKE_C_SERVER_ROOT, 'node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js')));
 const sdk = !argv.includes('app-server');
-const threadId = randomUUID(); const turnId = randomUUID(); let input; let prompt;
+let threadId = randomUUID(); const turnId = randomUUID(); let input; let prompt;
 const send = (message) => process.stdout.write(JSON.stringify(message) + '\n');
 const notify = (method, params) => send({ method, params });
 const log = (value) => appendFileSync(process.env.FAKE_C_LOG, JSON.stringify({ pid: process.pid, sdk, ...value }) + '\n');
@@ -29,7 +29,7 @@ rl.on('line', (line) => {
     prompt = message.params.input[0].text;
     send({ id: message.id, result: { turn: { id: turnId } } }); notify('turn/started', { threadId, turn: { id: turnId } }); void work();
   }
-  if (message.method === 'sdk/start') { input = message.params; prompt = input.prompt; void work(); }
+  if (message.method === 'sdk/start') { input = message.params; threadId = input.session?.id ?? threadId; prompt = input.prompt; void work(); }
   if (['sdk/interrupt', 'turn/interrupt'].includes(message.method)) log({ kind: 'interrupt' });
 });
 function finish(content) {
@@ -47,6 +47,10 @@ async function work() {
     const transport = new StdioClientTransport({ command: bridge.command, args: bridge.args, env: { ...process.env, ...env }, stderr: 'pipe' });
     transport.stderr?.on('data', () => {});
     await client.connect(transport); const { tools } = await client.listTools();
+    if (prompt.startsWith('【平台上下文投递】')) {
+      const delivery=JSON.parse(prompt.slice(prompt.indexOf('\n')+1));
+      prompt=delivery.documents.map(doc=>doc.blocks.map(id=>delivery.newBlocks[id] ?? '').join('')).join('\n');
+    }
     const current = JSON.parse(prompt.match(/__AGENT_GAND_CURRENT__=(.+)/)?.[1] ?? '{}');
     const mode = input.model ?? 'fixture-complete';
     log({ kind: 'start', model: mode, controlOnly, privateContext, tools: tools.map((tool) => tool.name), message: current.message, context: prompt });
@@ -54,16 +58,25 @@ async function work() {
     const call = async (name, args) => {
       log({ kind: 'call', name });
       const id = randomUUID();
-      if (sdk) event({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'mcp__agent_gand__' + name, input: args }] } });
+      if (sdk) event({ type: 'assistant', message: { id: randomUUID(), role: 'assistant', content: [{ type: 'tool_use', id, name: 'mcp__agent_gand__' + name, input: args }] } });
       else notify('item/started', { threadId, turnId, item: { id, type: 'mcpToolCall', server: 'agent_gand', tool: name } });
       const value = await client.callTool({ name, arguments: args });
       if (sdk) event({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: JSON.stringify(value), is_error: !!value.isError }] } });
       else notify('item/completed', { threadId, turnId, item: { id, type: 'mcpToolCall', server: 'agent_gand', tool: name, ...(value.isError ? { error: value } : { result: value }) } });
-      log({ kind: 'result', name, isError: !!value.isError }); return value;
+      log({ kind: 'result', name, isError: !!value.isError, ...(value.isError ? { error: JSON.stringify(value.content) } : {}) }); return value;
     };
     if (mode === 'fixture-wait') { setInterval(() => {}, 1000); return; }
     if (mode === 'fixture-private-consult' && !current.message?.startsWith('并行征询结果已汇总：')) {
-      await call('agent_consult', { targets: [current.memberIds.find(id => id !== current.agentId)], objective: 'VISIBILITY_SECRET_CARD', reason: '只对指定成员发牌', visibility: 'private' }); return;
+      const result = await call('agent_consult', { targets: [current.memberIds.find(id => id !== current.agentId)], objective: 'VISIBILITY_SECRET_CARD', reason: '只对指定成员发牌', join: 'all', visibility: 'private' });
+      if (result.isError) throw new Error('Private consultation rejected: ' + JSON.stringify(result.content)); return;
+    }
+    if (mode === 'fixture-private-file') {
+      const rel = /attachments\/[A-Za-z0-9_-]+\.txt/.exec(current.message ?? '')?.[0];
+      if (!rel) throw new Error('Missing requested managed file path');
+      const value = await call('platform_' + Buffer.from('fs.read').toString('hex'), { path: rel });
+      const content = value.content?.map(item => item.text ?? '').join('\n') ?? '';
+      log({ kind: 'managed-file', privateContext, rel, isError: !!value.isError, content });
+      await call('agent_complete', { summary: value.isError ? '已验证未授权文件访问被拒绝，检查完成。' : '已完成受控文件分析：' + content }); return;
     }
     if (mode === 'fixture-private-reader') {
       if (!prompt.includes('VISIBILITY_SECRET_CARD')) throw new Error('Private source not delivered to authorized member');

@@ -5,6 +5,7 @@ import { ApiError } from './apiError';
 import { managementRequest } from './accounts';
 export { ApiError } from './apiError';
 import type {
+  ArtifactSnapshot, SnapshotPreview, SnapshotRestorePreview,
   OrchestrationPreview, OrchestrationPreviewInput, RunOrchestrationSnapshot, RoomPreferences,
   AgentDefinition,
   AgentInput,
@@ -135,6 +136,13 @@ export const createEmptyRoom = (input: { title: string; agentIds: string[]; work
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 export const saveRoomPreferences = (id: string, preferences: RoomPreferences, expectedMembersVersion: number) => request<Conversation>(`/api/conversations/${encodeURIComponent(id)}/preferences`, { method: 'PATCH', body: JSON.stringify({ preferences, expectedMembersVersion }) });
 export const getRunOrchestration = (id: string) => request<{ snapshot: RunOrchestrationSnapshot | null }>(`/api/runs/${encodeURIComponent(id)}/orchestration`);
+export const getArtifactSnapshots=(runId:string)=>managementRequest<{snapshots:Array<{snapshot:ArtifactSnapshot;digest:string;retained:boolean}>}>(`/api/accounts/artifact-snapshots/runs/${encodeURIComponent(runId)}`,'GET');
+export const previewArtifactSnapshot=(runId:string,input:{paths:string[];stageIds:string[]})=>managementRequest<SnapshotPreview>(`/api/accounts/artifact-snapshots/runs/${encodeURIComponent(runId)}/preview`,'POST',input);
+export const saveArtifactSnapshot=(runId:string,input:{paths:string[];stageIds:string[];fingerprint:string})=>managementRequest<ArtifactSnapshot>(`/api/accounts/artifact-snapshots/runs/${encodeURIComponent(runId)}`,'POST',input);
+export const previewArtifactRestore=(id:string)=>managementRequest<SnapshotRestorePreview>(`/api/accounts/artifact-snapshots/${encodeURIComponent(id)}/restore-preview`,'POST',{});
+export const getSnapshotContent=(id:string,kind:'file'|'text',index:number)=>managementRequest<{name:string;contentBase64:string;sha256:string}>(`/api/accounts/artifact-snapshots/${encodeURIComponent(id)}/content/${kind}/${index}`,'GET');
+export const restoreArtifactSnapshot=(id:string,input:{fingerprint:string;clientRequestId:string})=>managementRequest<{snapshotId:string;path:string;encryptedFiles:number}>(`/api/accounts/artifact-snapshots/${encodeURIComponent(id)}/restores`,'POST',input);
+export const deleteArtifactSnapshot=(id:string,digest:string)=>managementRequest<{deleted:true}>(`/api/accounts/artifact-snapshots/${encodeURIComponent(id)}`,'DELETE',{digest});
 export async function getTaskStates(id: string, runIds?: string[]) {
   if (!runIds) return request<{ tasks: TaskState[] }>(`/api/conversations/${encodeURIComponent(id)}/task-state`);
   const pages = await Promise.all(runChunks(runIds).map(ids => request<{tasks:TaskState[]}>(`/api/conversations/${encodeURIComponent(id)}/task-state?runIds=${encodeURIComponent(ids.join(','))}`)));
@@ -145,7 +153,7 @@ export const getMemberReservations = () => request<{ reservations: MemberReserva
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
 export interface ContinuationPreview { assessment: RunRecoveryAssessment; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; excerpt: string; truncated: boolean }>;
   business?: { sourceRunId: string; sourceVersion: number; digest: string; acceptedStages: Array<{ id: string; title: string }>;
-    files: Array<{ path: string; sha256: string }>; carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }>; workspace: 'fresh_run'; timeLimitsReset: boolean } } }
+    files: Array<{ path: string; sha256: string }>; archive?:{id:string;digest:string;manifest:ArtifactSnapshot}; carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }>; workspace: 'fresh_run'; timeLimitsReset: boolean } } }
 export const previewRunContinuation = (id: string, stages = false) => stages
   ? managementRequest<ContinuationPreview>(`/api/accounts/business/${encodeURIComponent(id)}/continuation-preview`, 'POST', {})
   : request<ContinuationPreview>(`/api/runs/${encodeURIComponent(id)}/continuation-preview`, { method: 'POST' });
@@ -214,6 +222,7 @@ export const stopCollaborationAgent = (agentId: string, conversationId: string, 
 export const stopCollaborationRun = (runId: string) => request<Run>(`/api/collaboration/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 export const stopPipelineRun = (runId: string) => request<Run>(`/api/runs/${encodeURIComponent(runId)}/stop`, { method: 'POST' });
 export const getExternalExecutions = (runId: string) => request<import('@agent-gand/shared').ExternalAgentExecution[]>(`/api/runs/${encodeURIComponent(runId)}/executions`);
+export const getRunFailures = (runId: string) => request<import('@agent-gand/shared').RunFailureReport>(`/api/runs/${encodeURIComponent(runId)}/failures`);
 
 export const getAgents = (includeDisabled = false) => request<AgentDefinition[]>(`/api/agents${includeDisabled ? '?includeDisabled=1' : ''}`);
 export async function uploadAgentAvatar(file: File): Promise<{ avatar: string }> {
@@ -375,3 +384,8 @@ export function decideApproval(
     body: JSON.stringify(input),
   });
 }
+
+export interface ManagedArtifact { id: string; conversationId: string; runId: string; path: string; version: number; visibility: 'public' | 'private'; audience: string[]; size: number; sha256: string; stageId: string | null; mimeType: string; }
+export const getManagedArtifacts = (roomId: string) => managementRequest<{files:ManagedArtifact[]}>(`/api/accounts/artifacts/rooms/${encodeURIComponent(roomId)}`);
+export const getManagedArtifactContent = (id: string) => managementRequest<{file:ManagedArtifact;contentBase64:string}>(`/api/accounts/artifacts/${encodeURIComponent(id)}/content`);
+export const releaseManagedArtifact = (id: string, input: {expectedVersion:number;visibility:'public'|'private';audience:string[];reason:string}) => managementRequest<ManagedArtifact>(`/api/accounts/artifacts/${encodeURIComponent(id)}/release`,'POST',input);

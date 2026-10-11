@@ -31,7 +31,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
   const validator = new AjvJsonSchemaValidator();
   const control = (opts.controlTools ?? []).map((tool) => ({ name: tool.name.replace('.', '_'), original: tool.name,
     description: tool.description, inputSchema: tool.parameters, control: true }));
-  const exposed = !controlOnly && opts.agent.execution?.kind === 'external' ? opts.agent.execution.platformTools ?? [] : [];
+  const exposed = !controlOnly && opts.agent.execution?.kind === 'external' ? (opts.agent.execution.platformTools ?? []).filter(name => !opts.privateContext || ['fs.read','fs.write','search.files'].includes(name)) : [];
   const ordinary = exposed.flatMap((name) => {
     const tool = getTool(name);
     return tool && checkPermission(agent, name) !== 'deny' ? [{ name: 'platform_' + Buffer.from(name).toString('hex'), original: name,
@@ -87,7 +87,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
           const value = await executeToolOnce({ runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, taskId: opts.taskId,
             toolName: tool.original, input: JSON.stringify(body.arguments), idempotencyKey: `external:${execution.id}:${body.requestId}`,
             replayPolicy: nativeTool.replayPolicy ?? 'manual', spanId: span.id,
-            execute: () => { assertValid(); return nativeTool.run(body.arguments, { runId: execution.runId, agentId: execution.agentId, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot }); } });
+            execute: () => { assertValid(); return nativeTool.run(body.arguments, { runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot }); } });
           assertValid(); endSpan(span, { output: value.output });
           return { content: [{ type: 'text', text: value.output }] };
         } finally { ordinaryActive = false; }

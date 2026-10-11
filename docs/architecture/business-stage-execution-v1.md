@@ -59,4 +59,6 @@ Owner 验收仍通过 `/api/accounts/business/:runId` 的管理会话、CSRF 与
 
 `pnpm verify:business-stage-gates-ui` 验证完整任务编辑 → 预览 → 交付登记 → 勾选标准 → 接受后继续 → 两阶段完成的真实页面操作；包含 390px 布局检查和截图。先运行 Web 构建；沿用其他 UI 脚本的可选 `PLAYWRIGHT_MODULE` / `CHROMIUM_EXECUTABLE_PATH`。浏览器使用全新临时资料，页面及 API 请求由静态构建和 Fastify 内存注入响应，WS 事件由内存总线转交，不监听端口。此夹具验证页面交互，不替代真实网络、WebSocket 传输或真实模型验收。
 
-公开只读阶段的跨 Run 验收继承、确认输出归档和必要交付文件迁移见[阶段续跑检查点 v1](./business-stage-continuation-v1.md)。拒绝交付后的明确返工已通过[公开只读阶段返工 v1](./business-stage-rework-v1.md)接入。私密/写入阶段返工、多分支跨引擎续跑、写入工作树迁移、货币费用硬预算、文件 ACL 和完整产物归档仍是后续范围。
+公开只读阶段的跨 Run 验收继承、确认输出归档和必要交付文件迁移见[阶段续跑检查点 v1](./business-stage-continuation-v1.md)。拒绝交付后的明确返工已通过[公开只读阶段返工 v1](./business-stage-rework-v1.md)接入。私密/写入阶段返工、多分支跨引擎续跑、写入工作树迁移、货币费用硬预算仍是后续范围。
+
+用户私密入口与受控文件 ACL 见[R2 权限契约](./private-interaction-artifact-acl-v1.md)。完整声明产物、Git 基线和独立恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付；公开只读阶段已接入受控文件检查点 v2，私密/写入自动承接仍由 R4 实施。

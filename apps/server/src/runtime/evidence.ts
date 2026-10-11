@@ -1,3 +1,4 @@
+import { findManagedArtifact, getManagedArtifact, readManagedArtifact } from '../artifacts/store.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -11,7 +12,7 @@ import type {
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
-import { isMessageVisibleTo, type MessageAccess } from '@agent-gand/shared';
+import { isMessageWithinScope, isMessageVisibleTo, type MessageAccess } from '@agent-gand/shared';
 import { attemptAccess, eventAccess, messageAccess, unboundRunAccess } from '../messaging/access.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 import { resolveSandboxPath, workspaceRootDir } from '../tools/builtin/index.ts';
@@ -25,7 +26,7 @@ interface EvidenceBundleRow {
   status: RuntimeEvidenceBundle['status']; idempotency_key: string; created_at: string; validated_at: string;
 }
 
-const MAX_FILE_BYTES = 32_768;
+const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_EXCERPT = 2_000;
 
 export function redactSensitive(value: string): string {
@@ -38,7 +39,10 @@ export function redactSensitive(value: string): string {
 
 function accepted(ref: RuntimeEvidenceRef, source: string, content: string | Buffer): ResolvedEvidence {
   const bytes = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-  return { ref, trusted: true, source, excerpt: redactSensitive(bytes.toString('utf8')).slice(0, MAX_EXCERPT),
+  let text: string;
+  try { text = bytes.includes(0) ? `[二进制文件 · ${bytes.length} bytes]` : new TextDecoder('utf-8',{fatal:true}).decode(bytes); }
+  catch { text = `[二进制文件 · ${bytes.length} bytes]`; }
+  return { ref, trusted: true, source, excerpt: redactSensitive(text).slice(0, MAX_EXCERPT),
     contentSha256: createHash('sha256').update(bytes).digest('hex'), reason: null };
 }
 function rejected(ref: RuntimeEvidenceRef, reason: string): ResolvedEvidence {
@@ -63,6 +67,8 @@ function fileBytes(runId: string, relPath: string, workspaceScope?: string): Buf
 }
 
 export function createWorkspaceFileEvidence(runId: string, relPath: string, workspaceScope?: string): RuntimeEvidenceRef {
+  const artifact = findManagedArtifact({ runId, agentId: 'user' },relPath);
+  if (artifact) return { kind: 'workspace_file', path: artifact.path, sha256: artifact.sha256, artifactId: artifact.id, artifactVersion: artifact.version };
   const bytes = fileBytes(runId, relPath, workspaceScope);
   return { kind: 'workspace_file', path: relPath, sha256: createHash('sha256').update(bytes).digest('hex'),
     ...(workspaceScope ? { workspaceScope } : {}) };
@@ -76,12 +82,16 @@ export function evidenceAccess(ref: RuntimeEvidenceRef, runId?: string): Message
     const tool = get<{ attempt_id: string | null; run_id: string }>('SELECT attempt_id,run_id FROM tool_executions WHERE id=?', ref.id);
     return tool?.attempt_id ? attemptAccess(tool.attempt_id) : tool ? unboundRunAccess(tool.run_id) : { visibility: 'public', audience: [] };
   }
-  // 文件尚无独立 ACL；含私密消息的运行不得把未绑定来源的文件当作公开证据。
+  if (ref.kind === 'workspace_file' && ref.artifactId) {
+    try { return getManagedArtifact(ref.artifactId); } catch { return { visibility: 'private', audience: ['user'] }; }
+  }
+  // Legacy physical files use conservative Run provenance.
   return runId ? unboundRunAccess(runId) : { visibility: 'public', audience: [] };
 }
 
-export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId = 'user'): ResolvedEvidence {
-  if (!isMessageVisibleTo(evidenceAccess(ref, runId), viewerId)) return rejected(ref, '证据不在当前成员的可见范围内');
+export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId = 'user', scope?: MessageAccess): ResolvedEvidence {
+  const policy = evidenceAccess(ref,runId);
+  if (!isMessageVisibleTo(policy, viewerId) || viewerId !== 'user' && scope && !isMessageWithinScope(policy,scope)) return rejected(ref, '证据不在当前成员的可见范围内');
   if (ref.kind === 'message') {
     const row = get<{ run_id: string; kind: string; body: string }>('SELECT run_id,kind,body FROM messages WHERE id=?', ref.id);
     if (!row || row.run_id !== runId) return rejected(ref, '消息不属于当前 Run');
@@ -113,7 +123,17 @@ export function resolveEvidence(runId: string, ref: RuntimeEvidenceRef, viewerId
   }
   try {
     if (!/^[a-f0-9]{64}$/u.test(ref.sha256)) return rejected(ref, '文件哈希无效');
-    const bytes = fileBytes(runId, ref.path, ref.workspaceScope);
+    let bytes: Buffer;
+    if (ref.artifactId) {
+      const artifact = getManagedArtifact(ref.artifactId,viewerId);
+      const room = get<{ conversation_id: string }>('SELECT conversation_id FROM runs WHERE id=?', runId);
+      if (room?.conversation_id !== artifact.conversationId || artifact.path !== ref.path || artifact.version !== ref.artifactVersion) return rejected(ref,'文件引用的版本或来源不匹配');
+      bytes = readManagedArtifact(artifact.id,viewerId);
+    } else {
+      // A known managed path requires its immutable ID/version; never reopen a physical alias.
+      if (findManagedArtifact({runId,agentId:viewerId},ref.path)) return rejected(ref,'受控文件证据缺少版本绑定');
+      bytes = fileBytes(runId, ref.path, ref.workspaceScope);
+    }
     const digest = createHash('sha256').update(bytes).digest('hex');
     if (digest !== ref.sha256) return rejected(ref, '文件内容已变化');
     return accepted(ref, `workspace_file:${ref.path}@${digest.slice(0, 12)}`, bytes);

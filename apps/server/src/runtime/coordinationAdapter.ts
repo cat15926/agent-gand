@@ -1,3 +1,4 @@
+import { attemptAccess } from '../messaging/access.ts';
 import { randomUUID } from 'node:crypto';
 import type {
   CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run, RuntimeCompletionCandidate,
@@ -513,12 +514,13 @@ export function assembleCoordinationKernelContext(input: {
     try {
       if (row.bundle_id) {
         const validation = validateEvidenceBundle(row.bundle_id, input.run.id);
-        return validation.currentResolutions.map((item) => validation.valid && item.trusted
-          ? `[${item.source}] ${item.excerpt}`
-          : `[${item.source}] 不可用：${item.reason ?? 'EvidenceBundle 内容已漂移'}`);
+        return (JSON.parse(row.refs) as RuntimeEvidenceRef[]).map(ref => {
+          const item = resolveEvidence(input.run.id,ref,input.step.agentId!,attemptAccess(input.attemptId));
+          return validation.valid && item.trusted ? `[${item.source}] ${item.excerpt}` : `[${item.source}] 不可用：${item.reason ?? 'EvidenceBundle 内容已漂移'}`;
+        });
       }
       return (JSON.parse(row.refs) as RuntimeEvidenceRef[]).map((ref) => {
-        const resolved = resolveEvidence(input.run.id, ref);
+        const resolved = resolveEvidence(input.run.id, ref, input.step.agentId!, attemptAccess(input.attemptId));
         return resolved.trusted ? `[${resolved.source}] ${resolved.excerpt}` : `[${resolved.source}] 不可用：${resolved.reason}`;
       });
     } catch { return []; }

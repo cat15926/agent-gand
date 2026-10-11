@@ -1,3 +1,4 @@
+import { runSourceAccess } from '../messaging/access.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { intersectMessageAccess, isMessageVisibleTo, isMessageWithinScope, type MessageAccess } from '@agent-gand/shared';
 import type {
@@ -50,7 +51,7 @@ export function persistRuntimeContextAssembly(input: {
   tx(() => {
     const existing = get<{ context_sha256: string; visibility: string; audience: string }>('SELECT context_sha256,visibility,audience FROM runtime_context_assemblies WHERE attempt_id=?', input.attemptId);
     if (existing && existing.context_sha256 !== digest) throw new Error('同一 Attempt 的 Context 发生漂移');
-    const policy = input.access ?? { visibility: 'public', audience: [] };
+    const policy = intersectMessageAccess([runSourceAccess(input.runId), input.access ?? { visibility: 'public', audience: [] }]);
     const audience = JSON.stringify([...new Set(policy.audience)].sort());
     if (existing && (existing.visibility !== policy.visibility || JSON.stringify(JSON.parse(existing.audience).sort()) !== audience)) {
       throw new Error('同一 Attempt 的 Context 可见范围发生漂移');
@@ -225,7 +226,7 @@ export function assembleCollaborationContext(input: {
   const transcriptAccess = intersectMessageAccess(recent);
   const current = `当前目标（受保护）：\n${currentItem}\n\n请处理发给 ${agent.name} 的当前事项。`;
   const privacy = messageAccess(dispatch.sourceMessageId).visibility === 'private' || transcriptAccess.visibility === 'private'
-    ? '信息边界（受保护）：当前上下文含私密来源。仅允许文本回应与 Runtime 控制动作；普通文件和业务工具已关闭。回复、交接与汇总不得扩大来源的可见范围。'
+    ? '信息边界（受保护）：当前上下文含私密来源。允许文本、Runtime 控制及平台受控文件工具；私密文件只存入受控产物库，原生文件、shell、网络和其他业务工具已关闭。回复、交接与汇总不得扩大来源的可见范围。'
     : '';
   const conversation = transcript;
   const protocol = fanoutRule;

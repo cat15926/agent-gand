@@ -1,12 +1,8 @@
-import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
-import path from 'node:path';
 import { all, get } from '../db/database.ts';
 import { getRun } from '../runs/trace.ts';
 import { getRunCoordinationPlan } from '../coordination/store.ts';
 import { attemptAccess } from '../messaging/access.ts';
 import { resolveEvidence } from '../runtime/evidence.ts';
-import { resolveSandboxPath, workspaceRootDir } from '../tools/builtin/index.ts';
 import { getBusinessState } from './business.ts';
 import { businessQuiescent, canAcceptStage } from './businessGates.ts';
 import { listByRun } from '../messaging/inbox.ts';
@@ -14,7 +10,8 @@ import { listExecutions } from '../execution/store.ts';
 import { listToolExecutions } from '../tools/executions.ts';
 import { OrchestrationError, stableDigest } from './normalize.ts';
 import { getRunOrchestrationSnapshot } from './store.ts';
-import { readBusinessCheckpoint, safeCheckpointPath, type BusinessCheckpoint } from './businessCheckpointStore.ts';
+import { attachCheckpointArchive, readBusinessCheckpoint, type BusinessCheckpoint } from './businessCheckpointStore.ts';
+import { buildArtifactSnapshot } from '../artifacts/snapshots.ts';
 
 function fail(code: string, message: string): never { throw new OrchestrationError(409, code, message); }
 /** Recomputed at preview and confirmation. No filesystem/database mutation or model call. */
@@ -29,7 +26,8 @@ export function buildBusinessCheckpoint(runId: string, rework?: { stageId: strin
   if (!businessQuiescent(runId, true)) fail('RESULT_UNKNOWN', '仍有未收敛执行或未知调用消耗，不能迁移阶段进度');
   if (snapshot.execution.readonly !== true || listExecutions(runId).some(e => e.permissionMode !== 'readonly')
     || listToolExecutions(runId).some(t => t.replayPolicy !== 'safe')) fail('WRITE_RECONCILIATION_REQUIRED', '包含写入或幂等操作，需先核对工作区与产物；当前入口只支持公开只读阶段');
-  if (listByRun(runId).some(m => m.visibility === 'private')
+  if (get("SELECT 1 FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.visibility')='private' LIMIT 1", runId)
+    || listByRun(runId).some(m => m.visibility === 'private')
     || get("SELECT 1 FROM runtime_context_assemblies WHERE run_id=? AND visibility='private' LIMIT 1", runId)) fail('PRIVATE_CHECKPOINT_UNSUPPORTED', '私密阶段状态尚无跨 Run 迁移契约，不能自动汇入后续任务');
   const accepted = state.stages.filter(item => item.status === 'accepted');
   if (accepted.some((item, i) => item.stage.id !== state.stages[i]?.stage.id)) fail('CHECKPOINT_STAGE_ORDER_INVALID', '已验收阶段不是连续前缀，不能续跑');
@@ -64,33 +62,19 @@ export function buildBusinessCheckpoint(runId: string, rework?: { stageId: strin
     const retained = outputs.filter(o => accepted.some(a => a.stage.id === o.stageId));
     outputs.splice(0, outputs.length, ...retained);
   } else if (state.stages.some(s => s.status === 'rejected')) fail('STAGE_REWORK_REQUIRED', '存在已拒绝交付，需要明确返工任务；不能复用为确认完成');
-  const files: BusinessCheckpoint['files'] = inherited ? structuredClone(inherited.files) : [];
-  for (const item of accepted) for (const evidence of item.report!.evidence) {
-    const ref = evidence.resolution.ref;
-    if (ref.kind === 'workspace_file' && inherited?.accepted.some(a => a.stageId === item.stage.id)) continue;
-    const fresh = resolveEvidence(runId, ref, 'user');
-    if (!fresh.trusted || fresh.contentSha256 !== evidence.resolution.contentSha256) fail('DELIVERY_CHANGED', '已验收交付内容发生变化，不能迁移旧验收结论');
-    if (ref.kind !== 'workspace_file') continue;
-    if (!safeCheckpointPath(ref.path)) fail('CHECKPOINT_PATH_UNSAFE', '已验收文件路径不可迁移');
-    const context = { runId, workspace: source.workspace, workspaceScope: ref.workspaceScope };
-    resolveSandboxPath(ref.path, context); // Enforce the same file/private-path policy as the tools.
-    const absolute = path.resolve(realpathSync(workspaceRootDir(context)), ref.path);
-    if (lstatSync(absolute).isSymbolicLink() || realpathSync(absolute) !== absolute) fail('CHECKPOINT_PATH_UNSAFE', '文件证据包含链接，不能归档迁移');
-    const bytes = readFileSync(absolute);
-    if (bytes.length > 32768 || createHash('sha256').update(bytes).digest('hex') !== ref.sha256) fail('DELIVERY_CHANGED', '归档期间文件内容变化');
-    const same = files.find(file => file.path === ref.path);
-    if (same && same.sha256 !== ref.sha256) fail('CHECKPOINT_FILE_CONFLICT', '不同阶段同名文件内容不同，需要核对交付版本');
-    if (!same) files.push({ sourceRunId: runId, path: ref.path, ...(ref.workspaceScope ? { workspaceScope: ref.workspaceScope } : {}), sha256: ref.sha256, base64: bytes.toString('base64') });
-  }
+  const archive=buildArtifactSnapshot(runId,{stageIds:accepted.map(a=>a.stage.id),checkpoint:true});
+  if(!archive.manifest.complete) fail('CHECKPOINT_INCOMPLETE','已验收阶段仍缺少声明交付，不能标为完整检查点');
+  const files:BusinessCheckpoint['files']=archive.manifest.files.filter(f=>f.storage==='workspace'&&f.sha256).map(f=>({sourceRunId:f.sourceRunId,path:f.path,sha256:f.sha256!,...(f.workspaceScope?{workspaceScope:f.workspaceScope}:{})}));
   const charge = (table: string, stageId?: string) => all<{ charged: number }>(`SELECT CASE WHEN status='settled' THEN used ELSE reserved END charged FROM ${table} WHERE run_id=?${stageId ? ' AND stage_id=?' : ''}`, runId, ...(stageId ? [stageId] : [])).reduce((sum, item) => sum + item.charged, 0);
   const pendingStages = state.contract.stages.filter(s => !accepted.some(a => a.stage.id === s.id)
     && s.execution!.assignments.some((_, i) => !outputs.some(o => o.stepId === `stage-${state.contract!.stages.indexOf(s) + 1}-work-${i + 1}`)));
   if (pendingStages.length && snapshot.request.constraints.maxTokens && charge('orchestration_token_reservations') >= snapshot.request.constraints.maxTokens) fail('CHECKPOINT_BUDGET_EXHAUSTED', '本轮输出 Token 预算已耗尽，不能通过关联续跑重置额度；请核对后明确新任务预算');
   if (pendingStages.some(s => s.execution!.maxTokens && charge('business_stage_token_reservations', s.id) >= s.execution!.maxTokens)) fail('CHECKPOINT_BUDGET_EXHAUSTED', '待续阶段的输出 Token 预算已耗尽，需明确新任务预算，不能自动重放');
-  const checkpoint: BusinessCheckpoint = { version: 1, sourceRunId: runId, sourceVersion: state.version, contract: structuredClone(state.contract),
+  const checkpoint: BusinessCheckpoint = { version: 2, sourceRunId: runId, sourceVersion: state.version, contract: structuredClone(state.contract),
     accepted: accepted.map(item => ({ stageId: item.stage.id, report: structuredClone(item.report!), decision: structuredClone(item.decision!) })), outputs, files,
     runTokens: charge('orchestration_token_reservations'), stageTokens: state.contract.stages.map(s => ({ stageId: s.id, charged: charge('business_stage_token_reservations', s.id) })),
     ...(reworkArchive ? { rework: reworkArchive } : {}) };
+  attachCheckpointArchive(checkpoint,archive);
   if (Buffer.byteLength(JSON.stringify(checkpoint)) > 1024 * 1024) fail('CHECKPOINT_TOO_LARGE', '产物和返工记录归档超过 1 MiB，请核对后准备范围明确的新任务');
   return checkpoint;
 }

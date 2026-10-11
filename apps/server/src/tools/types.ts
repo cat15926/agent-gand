@@ -9,6 +9,8 @@ import type { AgentDefinition, ToolReplayPolicy } from '@agent-gand/shared';
 export interface ToolContext {
   runId: string;
   agentId: string;
+  /** Server-owned attempt binding; model arguments cannot select it. */
+  attemptId?: string;
   /** 命名工作区（§10.2）：非空时无前缀路径解析到 workspaces/<name>/；null = runId 专属 */
   workspace?: string | null;
   /** 外部工作区隔离（AG-COORD-03）：ext 工作区根下再映射 <extRoot>/<scope>/ 子目录；仅 Coordination 传入 */

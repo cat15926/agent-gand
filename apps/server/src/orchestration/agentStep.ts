@@ -1,3 +1,5 @@
+import { listManagedArtifacts } from '../artifacts/store.ts';
+import { attemptAccess, runSourceAccess, assertMessageAccess } from '../messaging/access.ts';
 import { businessContractInstructions } from './businessContract.ts';
 import { businessStageContext } from './businessStageExecution.ts';
 /**
@@ -24,7 +26,7 @@ import { budgetedChat, executionPolicy, assertExecutionDeadline } from './execut
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { providerForAgent } from '../llm/router.ts';
-import { lookupPricing, type DeltaHandler, type LlmMessage, type LlmToolCall, type LlmResponse, type LlmToolSchema } from '../llm/provider.ts';
+import { lookupPricing, LlmHttpError, type DeltaHandler, type LlmMessage, type LlmToolCall, type LlmResponse, type LlmToolSchema } from '../llm/provider.ts';
 import { post, postSystem } from '../messaging/inbox.ts';
 import { emit, subscribe } from '../messaging/bus.ts';
 import { endSpan, getRun, markSpanFirstToken, setRunStatus, startSpan, type EndSpanInput } from '../runs/trace.ts';
@@ -55,8 +57,11 @@ export function llmSpanInput(messages: LlmMessage[], toolNames: string[]): strin
 }
 
 function failureAttributes(error: unknown) {
+  if (error instanceof LlmHttpError) return { 'llm.http_status': error.status, 'llm.request_id': error.requestId };
   return error instanceof ExecutionError ? { 'execution.error_code': error.code,
-    'execution.failure_phase': error.details?.phase, 'execution.timeout_kind': error.details?.timeoutKind } : {};
+    'execution.failure_phase': error.details?.phase, 'execution.timeout_kind': error.details?.timeoutKind,
+    'execution.limit_ms': error.details?.limitMs, 'execution.first_response_at': error.details?.modelActivity?.firstResponseAt,
+    'execution.last_activity_at': error.details?.modelActivity?.lastActivityAt } : {};
 }
 
 /** nudge 文案（anthropic 协议不支持 mid-conversation system，用 user 轮实现同等效果） */
@@ -142,7 +147,7 @@ export interface AgentTurnOptions {
   executionBinding?: ExecutionBinding;
   /** Server-controlled narrowing for planning/summary calls. */
   disableTools?: boolean;
-  /** Private context is restricted to text and Runtime controls until artifact ACLs exist. */
+  /** Private context allows only scoped platform file tools and Runtime controls. */
   privateContext?: boolean;
   executionSignal?: AbortSignal;
   admissionTiming?: { queuedAt: string; memberAcquiredAt?: string; workspaceReadyAt?: string };
@@ -231,7 +236,16 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   }
 }
 
+function postTurnSystem(opts: AgentTurnOptions, body: string) {
+  return postSystem(opts.run.id, opts.agent.id, body, opts.attemptId);
+}
+
 async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  const sourceAccess = opts.attemptId ? attemptAccess(opts.attemptId) : runSourceAccess(opts.run.id);
+  assertMessageAccess(sourceAccess, opts.agent.id, '本回合上下文');
+  opts = { ...opts, privateContext: sourceAccess.visibility === 'private' || opts.privateContext };
+  const files = listManagedArtifacts(opts.run.conversationId,opts.agent.id,sourceAccess);
+  if (files.length) opts = { ...opts, messages: [{ role: 'system', content: '可读取的受控文件（内容仅通过平台 fs.read / search.files 获取，普通原生目录中没有这些文件）：\n' + [...new Map(files.map(file => [file.path, `${file.path} · v${file.version} · ${file.size} 字节`] as const).reverse()).values()].slice(0,40).join('\n') }, ...opts.messages] };
   const policy = executionPolicy(opts.run.id);
   const acceptance = businessContractInstructions(policy?.request.businessContract, businessStageContext()?.stageId);
   if (acceptance) opts = { ...opts, messages: [{ role: 'system', content: acceptance }, ...opts.messages] };
@@ -248,7 +262,7 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
           maxChars: 600, sensitivePolicy: 'redact', protected: true, provenance: [`task_attempt:${opts.attemptId}`] },
         { source: 'custody', text: JSON.stringify(snapshot?.custody), priority: 99, maxChars: 1000,
           sensitivePolicy: 'redact', protected: true, provenance: [`runtime_custody:${snapshot?.subjectId}`] },
-        { source: 'contract', text: JSON.stringify(loadRuntimeContract(opts.run.id)), priority: 90, maxChars: 6000,
+        { source: 'contract', access: sourceAccess, text: JSON.stringify(loadRuntimeContract(opts.run.id)), priority: 90, maxChars: 6000,
           sensitivePolicy: 'redact', provenance: [`runtime_contract:${opts.run.id}`] },
       ] });
     opts = { ...opts, messages: [{ role: 'system', content: authorityContext }, ...opts.messages] };
@@ -349,7 +363,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const { run, agent, parentSpanId } = opts;
   const provider = providerForAgent(agent, run.id);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
-  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent);
+  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent).filter(tool => !opts.privateContext || ['fs.read','fs.write','search.files'].includes(tool.name));
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set([
     ...(opts.controlTools ?? []).map((tool) => tool.name),
@@ -479,9 +493,8 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         continue;
       }
       endSpan(llmSpan, { ...usage, output: `${llmSpanOutput(res)}（重试后仍空）`, status: 'error', attributes: { 'llm.stop_reason': res.stopReason } });
-      await postSystem(
-        run.id,
-        agent.id,
+      await postTurnSystem(
+        opts,
         `LLM 返回空正文（已重试一次；可能 thinking 耗尽 token 预算，可调大 LLM_MAX_TOKENS）`,
       );
       return { content: '', toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
@@ -505,7 +518,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
           messages.push({ role: 'user', content: '一次只能调用一个协作控制工具，且不能与普通工具混合。请重新选择一个控制动作。' });
           continue;
         }
-        await postSystem(run.id, agent.id, exitCorrectionActive
+        await postTurnSystem(opts, exitCorrectionActive
           ? '退出纠偏阶段的协作控制工具格式不合法，本次执行失败'
           : '协作控制工具连续两次格式不合法，本次执行失败');
         return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
@@ -523,16 +536,16 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
           messages.push({ role: 'user', content: `协作控制动作无效：${message}。请修正后只调用一个控制工具。` });
           continue;
         }
-        await postSystem(run.id, agent.id, `协作控制动作失败：${message}`);
+        await postTurnSystem(opts, `协作控制动作失败：${message}`);
         return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
       }
     }
     if (exitCorrectionActive && ordinaryCalls.length > 0) {
-      await postSystem(run.id, agent.id, '退出纠偏阶段禁止调用普通工具，本次执行已阻断');
+      await postTurnSystem(opts, '退出纠偏阶段禁止调用普通工具，本次执行已阻断');
       return { content: res.content, toolRounds, emptyResponse: true, controlAction: null, exitCorrectionAttempts };
     }
     if (round >= maxRounds) {
-      await postSystem(run.id, agent.id, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
+      await postTurnSystem(opts, `已达工具轮数上限（${maxRounds}），停止继续调用工具`);
       // 无 tools 的收尾调用：基于已获工具结果给最终结论（保证结论完整性，比调大上限省 token）
       const closing = await closingCall(run, agent, parentSpanId, messages, opts);
       const result = finishCandidate({ content: closing.trim().length > 0 ? closing : res.content,
@@ -548,7 +561,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     const roundBody = res.content.trim();
     if (roundBody.length > 0 && !isPseudoToolCallText(res.content)) {
       await post({
-        runId: run.id, from: agent.id, to: 'all', kind: 'agent', body: res.content,
+        runId: run.id, attemptId: opts.attemptId, from: agent.id, to: 'all', kind: 'agent', body: res.content,
         messageType: 'informational', meta: { round, toolRounds },
         clientMessageId: `round:${scope}:${round}`,
       });
@@ -570,7 +583,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     // 不 checkpoint：轮次未完成，恢复时按新轮次重跑。
     approvalExpiries += gated.filter((g) => g.expired).length;
     if (approvalExpiries >= config.approvalMaxExpiries) {
-      await postSystem(run.id, agent.id, `连续 ${approvalExpiries} 次审批超时（上限 ${config.approvalMaxExpiries}），本轮执行已中止，等待人工处理`);
+      await postTurnSystem(opts, `连续 ${approvalExpiries} 次审批超时（上限 ${config.approvalMaxExpiries}），本轮执行已中止，等待人工处理`);
       return { content: '', toolRounds, emptyResponse: false, approvalStarved: true, controlAction: null, exitCorrectionAttempts };
     }
     const outcomes = await Promise.all(
@@ -673,13 +686,13 @@ async function gateToolCall(
   const tool = getTool(toolCall.name);
   if (!tool) {
     const note = `工具 ${toolCall.name} 不存在，已跳过`;
-    await postSystem(run.id, agent.id, note);
+    await postTurnSystem(opts, note);
     return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
-  const decision = checkPermission(agent, tool.name);
+  const decision = opts.privateContext && !['fs.read','fs.write','search.files'].includes(tool.name) ? 'deny' : checkPermission(agent, tool.name);
   if (decision === 'deny') {
     const note = `工具 ${tool.name} 被权限门控拒绝（模式 ${agent.permissionMode}${agent.disallowedTools.includes(tool.name) ? '，命中 disallowedTools' : ''}）`;
-    await postSystem(run.id, agent.id, note);
+    await postTurnSystem(opts, note);
     return { toolCall, tool, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
 
@@ -746,18 +759,18 @@ async function gateToolCall(
       endSpan(approvalSpan, { output: `decision: ${decided.status}`, status: 'ok' });
       if (decided.status === 'rejected') {
         const note = `人工已拒绝工具 ${tool.name} 的调用`;
-        await postSystem(run.id, agent.id, note);
+        await postTurnSystem(opts, note);
         return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, note, executionKey };
       }
       if (decided.status === 'expired') {
         const note = `等待审批超时（已置 expired），工具 ${tool.name} 按拒绝处理`;
-        await postSystem(run.id, agent.id, note);
+        await postTurnSystem(opts, note);
         return { toolCall, tool, input: inputRaw, allowed: false, hadApproval: true, expired: true, note, executionKey };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       endSpan(approvalSpan, { output: message, status: 'error' });
-      await postSystem(run.id, agent.id, `工具 ${tool.name} 审批流程异常：${message}`);
+      await postTurnSystem(opts, `工具 ${tool.name} 审批流程异常：${message}`);
       return {
         toolCall,
         tool,
@@ -802,7 +815,7 @@ async function runTool(
     const executed = await executeToolOnce({ runId: run.id, agentId: agent.id, taskId: opts.taskId,
       attemptId: opts.attemptId, toolName: tool.name, input: inputRaw, idempotencyKey: executionKey,
       replayPolicy, spanId: toolSpan.id, execute: () => { assertBindingAuthorized(opts.executionBinding); return tool.run(parsed, {
-        runId: run.id, agentId: agent.id, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null, workspaceRoot: opts.workspaceRoot,
+        runId: run.id, agentId: agent.id, attemptId: opts.attemptId, workspace: run.workspace ?? null, workspaceScope: opts.workspaceScope ?? null, workspaceRoot: opts.workspaceRoot,
       }); } });
     assertBindingAuthorized(opts.executionBinding);
     const output = executed.output;
@@ -811,7 +824,7 @@ async function runTool(
     // 短输出（fs.write 确认、错误提示）保持原文，避免每次读取把整份冻结文件刷进聊天室
     const collapsed = output.length > 200;
     await post({
-      runId: run.id,
+      runId: run.id, attemptId: opts.attemptId,
       from: agent.id,
       to: 'all',
       kind: 'tool',
@@ -822,7 +835,7 @@ async function runTool(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     endSpan(toolSpan, { output: message, status: 'error' });
-    await postSystem(run.id, agent.id, `工具 ${tool.name} 执行失败：${message}`);
+    await postTurnSystem(opts, `工具 ${tool.name} 执行失败：${message}`);
     return `工具执行失败：${message}`;
   }
 }

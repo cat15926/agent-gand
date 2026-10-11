@@ -9,6 +9,7 @@ import { objectInput, OrchestrationError, stableDigest } from './normalize.ts';
 import { assertStageEvidence, businessQuiescent, canAcceptStage, stageExecutionState } from './businessGates.ts';
 import { getRunCoordinationPlan } from '../coordination/store.ts';
 import { checkpointSummary, readBusinessCheckpoint } from './businessCheckpointStore.ts';
+import { buildArtifactSnapshot, saveArtifactSnapshot } from '../artifacts/snapshots.ts';
 
 interface LedgerEvent {
   action: 'report' | 'decide' | 'resolve'; stageId?: string;
@@ -60,8 +61,10 @@ function parseRef(value: unknown): RuntimeEvidenceRef {
     return { kind: raw.kind, id: raw.id };
   }
   if (raw.kind === 'workspace_file') {
-    if (Object.keys(raw).some(k => !['kind', 'path', 'sha256', 'workspaceScope'].includes(k)) || typeof raw.path !== 'string' || !raw.path || raw.path.length > 500
+    if (Object.keys(raw).some(k => !['kind', 'path', 'sha256', 'workspaceScope','artifactId','artifactVersion'].includes(k)) || typeof raw.path !== 'string' || !raw.path || raw.path.length > 500
       || typeof raw.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(raw.sha256)
+      || raw.artifactId !== undefined && (typeof raw.artifactId !== 'string' || raw.artifactId.length > 100 || !Number.isSafeInteger(raw.artifactVersion) || (raw.artifactVersion as number)<1)
+      || raw.artifactVersion !== undefined && raw.artifactId === undefined
       || raw.workspaceScope !== undefined && (typeof raw.workspaceScope !== 'string' || raw.workspaceScope.length > 100)) fail('INVALID_EVIDENCE', '文件证据无效', 400);
     return raw as unknown as RuntimeEvidenceRef;
   }
@@ -155,6 +158,10 @@ export function applyBusinessCommand(runId: string, value: unknown): BusinessSta
       }
     }
     run('INSERT INTO business_acceptance_events (id,run_id,version,client_request_id,command_digest,payload,created_at) VALUES (?,?,?,?,?,?,?)', randomUUID(), runId, state.version + 1, command.clientRequestId, digest, JSON.stringify(event), now);
+    if (event.action==='decide' && event.decision?.verdict==='accept') {
+      // Freeze acceptance and recoverable evidence atomically before the next stage can edit it.
+      saveArtifactSnapshot(buildArtifactSnapshot(runId,{stageIds:[event.stageId!]}),'acceptance',runId+':'+(state.version+1));
+    }
     afterCommit(() => { const source = getRun(runId); if (source) emit({ type: 'run.updated', run: source }); });
     return getBusinessState(runId);
   });

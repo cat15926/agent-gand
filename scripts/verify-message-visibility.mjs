@@ -100,6 +100,7 @@ try {
   assert.equal(replyMessageAccess(request, 'collaboration', ['alice']).visibility, 'private');
   assert.throws(() => replyMessageAccess(request, 'collaboration', ['bob']), /可见范围/);
   assert.throws(() => replyMessageAccess(request, 'pipeline', ['alice']), /共享上下文/);
+  assert.equal(replyMessageAccess(request,'coordination',['alice']).visibility,'private');
   const consult = { id: 'private-routing', name: 'agent.consult', input: JSON.stringify({ targets: ['bob'], objective: 'SECRET_ALICE', reason: 'invalid redistribution', visibility: 'private' }) };
   assert.throws(() => parseControlCall(consult, ['host','alice','bob'], 'host', 2,
     { messageVisibilityVersion: 1, messageAccess: { visibility: 'private', audience: ['user','host','alice'] } }), /不能扩大授权/);

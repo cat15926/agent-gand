@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { BusinessAuditEntry, BusinessCommand, BusinessEvidenceChoice, BusinessOutcome, BusinessState } from '@agent-gand/shared';
 import * as api from '../services/api';
 import { BusinessStageReworkPanel } from './BusinessStageReworkPanel';
+import { ArtifactSnapshotPanel } from './ArtifactSnapshotPanel';
 
 export const BUSINESS_OUTCOME_LABEL: Record<BusinessOutcome, string> = {
   unverified: '目标未验收', in_progress: '目标进行中', awaiting_acceptance: '目标待验收', achieved: '目标已达成',
@@ -52,7 +53,7 @@ function StageAcceptance({ item, index, choices, enabled, settled, priorAccepted
           : <div className="mt-1 flex min-w-0 gap-2"><input aria-label={`${deliverable.title} 文件路径`} className="input min-w-0 flex-1" placeholder="任务工作区相对路径，如 reports/result.md" disabled={disabled || !settled} value={paths[deliverable.id] ?? ''} onChange={e => { setPaths(p => ({ ...p, [deliverable.id]: e.target.value })); setSelected(previous => { const next = { ...previous }; delete next[deliverable.id]; return next; }); }} /><button className={button} disabled={disabled || !settled || !paths[deliverable.id]?.trim()} onClick={() => void file(deliverable.id)}>核对文件</button></div>}</label>
           {selected[deliverable.id] && <details className="mt-1 text-zinc-400"><summary>预览证据</summary><pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere]">{selected[deliverable.id]!.excerpt}</pre></details>}
         </div>)}
-        {item.stage.deliverables.some(d => d.kind === 'file') && <p className="text-zinc-500">仅支持当前任务绑定工作区内不超过 32 KiB 的普通文件；登记哈希后仍会在验收时重新核对，不会自动迁移产物。</p>}
+        {item.stage.deliverables.some(d => d.kind === 'file') && <p className="text-zinc-500">支持不超过 1 MiB 的普通文件及 256 KiB 的受控文件版本，含二进制；验收时重新核对哈希，并自动保留产物快照。</p>}
         <div className="flex flex-wrap gap-2"><button className={button} disabled={disabled || !settled || Object.keys(selected).length !== item.stage.deliverables.length} onClick={() => void execute({ action: 'report', stageId: item.stage.id, kind: 'delivery', note, evidence: Object.entries(selected).map(([deliverableId, choice]) => ({ deliverableId, ref: choice.ref })) })}>登记交付候选</button>
           <button className={button} disabled={disabled || !note.trim()} onClick={() => void execute({ action: 'report', stageId: item.stage.id, kind: 'receipt', note, evidence: [] })}>仅记录确认收到</button></div>
       </div>}
@@ -105,6 +106,7 @@ export function BusinessAcceptancePanel({ runId, version, executionStatus, membe
   const continues = gated && !['completed', 'failed', 'cancelled'].includes(executionStatus);
   return <section aria-label="业务阶段验收" className="space-y-3 rounded-xl border border-violet-500/20 p-3">
     <h4 className="font-medium text-violet-200">业务目标 · {BUSINESS_OUTCOME_LABEL[state.outcome]}</h4>
+    <ArtifactSnapshotPanel runId={runId} businessVersion={state.version} stages={state.stages}/>
     {state.successorRunId && <p className="text-violet-200">原验收记录已封存，请在后续任务继续处理。{onNavigate && <button className="underline" onClick={() => void onNavigate(state.successorRunId!)}>查看后续任务</button>}</p>}
     {state.checkpoint && <details className="rounded bg-violet-500/10 p-2"><summary>继承 {state.checkpoint.acceptedStageIds.length} 个已验收阶段 · 复用 {state.checkpoint.completedWorkers} 个成员结果</summary><p className="mt-2 break-all text-zinc-400">来源任务 {state.checkpoint.sourceRunId} · 原验收版本 {state.checkpoint.sourceVersion}。已验收结论保留原证据和决定，不重新调用成员。检查点 SHA256：{state.checkpoint.digest}</p>{state.checkpoint.files.map(file => <p key={file.path} className="mt-1 break-all text-zinc-400">已归档文件 {file.path} · SHA256 {file.sha256}</p>)}</details>}
     {state.checkpoint?.rework && <details className="rounded bg-amber-500/10 p-2"><summary>查看本轮返工来源与修订要求</summary><p className="mt-2 whitespace-pre-wrap text-zinc-400">被拒绝候选 {state.checkpoint.rework.reportId} · 来源任务 {state.checkpoint.rework.sourceRunId}{'\n'}拒绝原因：{state.checkpoint.rework.reason}{'\n'}修订要求：{state.checkpoint.rework.instruction}</p></details>}

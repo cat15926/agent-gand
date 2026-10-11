@@ -49,16 +49,23 @@ function verifyReferences(request: OrchestrationPreview['request']): string | nu
   return replied?.kind === 'agent' ? replied.from : null;
 }
 
-/** 私密追问只进入具备逐成员上下文隔离的执行入口。 */
+/** Owner-selected scope or a private reply. References never widen a source's authorization. */
 export function replyMessageAccess(request: OrchestrationPreview['request'], engine: string, targets: string[]): MessageAccess {
   const reply = request.replyTo && request.conversationId
     ? listByConversation(request.conversationId).find(message => message.id === request.replyTo) : undefined;
-  if (reply?.visibility !== 'private') return { visibility: 'public', audience: [] };
-  if (engine !== 'collaboration') throw new OrchestrationError(400, 'PRIVATE_REPLY_UNSUPPORTED', '私密追问请使用开放协作入口；当前工作流使用团队共享上下文');
-  if (!targets.length || targets.some(id => !isMessageVisibleTo(reply, id))) {
-    throw new OrchestrationError(400, 'PRIVATE_REPLY_TARGET', '追问成员不在原私密消息的可见范围内，请选择已授权成员');
+  const policy: MessageAccess = request.visibility === 'private'
+    ? { visibility: 'private', audience: request.audience ?? ['user'] }
+    : reply?.visibility === 'private' && request.visibility === undefined
+      ? { visibility: 'private', audience: (reply.audience ?? []).filter(id => id === 'user' || request.agentIds.includes(id)) }
+      : { visibility: 'public', audience: [] };
+  if (reply?.visibility === 'private' && (policy.visibility !== 'private' || policy.audience.some(id => !isMessageVisibleTo(reply, id)))) {
+    throw new OrchestrationError(400, 'PRIVATE_REPLY_SCOPE', '私密回复不能扩大原消息的可见范围；请保留获准成员');
   }
-  return { visibility: 'private', audience: (reply.audience ?? []).filter(id => id === 'user' || request.agentIds.includes(id)) };
+  if (policy.visibility === 'private') {
+    if (!['collaboration','coordination'].includes(engine)) throw new OrchestrationError(400, 'PRIVATE_ENGINE_UNSUPPORTED', '该引擎未具备逐成员隔离能力；私密任务支持开放协作和步骤图，暂不支持使用共享上下文的只读 CLI 流水线');
+    if (!targets.length || targets.some(id => !isMessageVisibleTo(policy, id))) throw new OrchestrationError(400, reply?.visibility === 'private' ? 'PRIVATE_REPLY_TARGET' : 'PRIVATE_PARTICIPANT_DENIED', '执行者、主管、评审者和汇总者必须属于私密消息的可见范围');
+  }
+  return policy;
 }
 
 /** Recomputed under the submission transaction. No planner, driver or dispatch is called. */

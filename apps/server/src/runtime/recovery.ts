@@ -20,7 +20,9 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
   const dispatches = listDispatches(runId), attempts = listAttempts(runId);
   const failed = dispatches.filter(item => item.status === 'failed');
   const executions = listExecutions(runId), tools = listToolExecutions(runId);
-  const lastExecution = executions.at(-1);
+  const failedAttempts = new Set(failed.map(dispatch => attempts.filter(attempt => attempt.dispatchId === dispatch.id).at(-1)?.id));
+  // A later sibling cancellation or an older retried failure cannot replace the current failed work item's diagnosis.
+  const lastExecution = executions.filter(item => item.status === 'failed' && (!item.attemptId || failedAttempts.has(item.attemptId))).at(-1);
   const result: RunRecoveryAssessment = { runId, category: 'unclassified_failure', continuationAllowed: false,
     reasonCodes: [], explanation: '', confirmedOutputs: attempts.filter(item => item.status === 'completed' && item.output?.trim()).length,
     targetAgentId: failed.length === 1 ? failed[0]!.targetAgentId : null,
@@ -49,6 +51,7 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
     || getRunOrchestrationSnapshot(runId)?.execution?.readonly === false) {
     return blocked('WRITE_RECONCILIATION_REQUIRED', '本轮包含写入或幂等操作，需核对产物与账本；仅复制文字不足以安全续跑。', 'result_unknown');
   }
+  if (get("SELECT 1 FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.visibility')='private' LIMIT 1", runId)) return blocked('PRIVATE_CHECKPOINT_UNSUPPORTED','本轮包含私密文件；跨 Run 的授权核对与自动恢复将在 R4 完成。');
   const contract = getRunOrchestrationSnapshot(runId)?.request.businessContract;
   if (contract) {
     result.continuationKind = 'business_stages';
@@ -70,6 +73,7 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
     || failed.some(item => attempts.filter(attempt => attempt.dispatchId === item.id).at(-1)?.status === 'interrupted')) {
     result.category = 'temporary_failure';
   }
+  if (get('SELECT 1 FROM managed_artifact_versions WHERE run_id=? LIMIT 1',runId)) return blocked('MANAGED_ARTIFACT_CHECKPOINT_UNSUPPORTED','受控文件的公开阶段检查点已支持归档；自由协作的跨引擎产物承接将在 R6 完成，请先保存产物快照。');
   if (source.mode !== 'collaboration' || getRunCoordinationPlan(runId)) {
     return blocked('ENGINE_CONTINUATION_UNSUPPORTED', '此入口当前支持只读自由协作；其他工作流请使用原有分支重试或新任务入口。');
   }

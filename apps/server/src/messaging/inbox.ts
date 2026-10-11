@@ -2,9 +2,10 @@
  * 收件箱（规格 §4.2 messaging/inbox.ts）
  * post：消息落库 + 广播 message 事件；listByRun：按运行取消息流
  */
-import { isMessageVisibleTo, type AgentMessageType, type Message, type MessageKind, type MessageVisibility } from '@agent-gand/shared';
+import { intersectMessageAccess, isMessageVisibleTo, type AgentMessageType, type Message, type MessageKind, type MessageVisibility } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
+import { runSourceAccess, messageAccess, attemptAccess } from './access.ts';
 import { emit } from './bus.ts';
 
 interface MessageRow {
@@ -53,6 +54,8 @@ function rowToMessage(row: MessageRow): Message {
 
 export interface PostMessageInput {
   runId: string;
+  /** Trusted execution binding; never accepted from message API bodies. */
+  attemptId?: string;
   from: string; // agent id | 'user' | 'system'
   to: string; // agent id | 'user' | 'system' | 'all'
   kind: MessageKind;
@@ -72,11 +75,15 @@ export function post(input: PostMessageInput): Message {
   return tx(() => {
   const runInfo = get<{ conversation_id: string; agent_ids: string }>('SELECT conversation_id,agent_ids FROM runs WHERE id = ?', input.runId);
   if (!runInfo?.conversation_id) throw new Error(`run 没有关联聊天室: ${input.runId}`);
-  const visibility = input.visibility ?? 'public';
+  const inherited = intersectMessageAccess([runSourceAccess(input.runId), ...(input.attemptId ? [attemptAccess(input.attemptId)] : []), ...(input.replyTo ? [messageAccess(input.replyTo)] : []),
+    { visibility: input.visibility ?? 'public', audience: input.audience ?? [...(input.from !== 'system' ? [input.from] : []), ...input.to.split(',')] }]);
+  const visibility = inherited.visibility;
+  if (input.visibility && !['public','private'].includes(input.visibility)) throw new Error('消息可见性必须为 public 或 private');
   if (visibility !== 'public' && visibility !== 'private') throw new Error('消息可见性必须为 public 或 private');
-  const members = new Set<string>(JSON.parse(runInfo.agent_ids));
+  const roomMembers = get<{ agent_ids: string }>('SELECT agent_ids FROM conversations WHERE id=?', runInfo.conversation_id);
+  const members = new Set<string>([...JSON.parse(runInfo.agent_ids), ...JSON.parse(roomMembers?.agent_ids ?? '[]')]);
   const audience = visibility === 'private'
-    ? [...new Set(['user', ...(input.audience ?? [...(input.from !== 'system' ? [input.from] : []), ...input.to.split(',')])])].sort()
+    ? [...new Set(['user', ...inherited.audience])].sort()
     : [];
   if (audience.some(id => id !== 'user' && !members.has(id))) throw new Error('私密消息 audience 必须为当前 Run 成员或房间所有者');
   if (visibility === 'private' && input.to.split(',').some(id => !['user', 'system', 'all'].includes(id) && !audience.includes(id))) {
@@ -234,8 +241,8 @@ export function listMessages(input: {
 export const sendAgentMessage = post;
 
 /** 编排过程中的系统提示（权限拒绝、审批结果等）走收件箱留痕 */
-export function postSystem(runId: string, to: string, body: string): Message {
-  return post({ runId, from: 'system', to, kind: 'system', body });
+export function postSystem(runId: string, to: string, body: string, attemptId?: string): Message {
+  return post({ runId, attemptId, from: 'system', to, kind: 'system', body });
 }
 
 /** 阅读分页复用原有消息序列化，保持 payload 与引用契约。 */

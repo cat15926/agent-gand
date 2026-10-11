@@ -34,6 +34,7 @@ const { listRuntimeActionCommands } = await import('../apps/server/src/runtime/a
 const { listToolExecutions } = await import('../apps/server/src/tools/executions.ts');
 const { listByRun, listByConversation } = await import('../apps/server/src/messaging/inbox.ts');
 const { resolveEvidence } = await import('../apps/server/src/runtime/evidence.ts');
+const { runFailureReport } = await import('../apps/server/src/runs/failures.ts');
 const { subscribe } = await import('../apps/server/src/messaging/bus.ts');
 const app = Fastify(); await registerRoutes(app); const registered = registerExternal({ path: workspace });
 const api = async (url, method = 'GET', body) => { const response = await app.inject({ url, method, ...(body ? { payload: body } : {}) }); return { status: response.statusCode, data: response.json() }; };
@@ -82,6 +83,25 @@ try {
     assert.equal(listRuntimeActionCommands(run.id).filter((item) => item.kind === 'consult_' + join).length, 1);
     assert.ok(listDispatches(run.id).some((item) => item.kind === 'aggregate'));
   }
+  // A timeout after a committed cross-driver handoff must remain attributed to the receiving member.
+  for (const [sender, receiver, driver] of [['sdk-handoff', 'codex-timeout', 'codex-app-server'], ['codex-handoff', 'sdk-timeout', 'claude-sdk']]) {
+    await agent(receiver, driver, 'fixture-wait');
+    const input = { goal: 'C-SCENARIO:handoff-timeout', agentIds: [sender, receiver], recipientIds: [sender], strategy: 'auto', workflow: 'routine',
+      workspace: 'ext:' + registered.id, constraints: { readonly: true, firstResponseTimeoutMs: 3000 } };
+    const preview = await api('/api/orchestration/preview', 'POST', input); assert.equal(preview.status, 200);
+    const created = await api('/api/conversations', 'POST', { ...input, entryVersion: 1, clientRequestId: 'timeout-' + receiver,
+      previewId: preview.data.previewId, orchestrationFingerprint: preview.data.fingerprint });
+    assert.equal(created.status, 201, JSON.stringify(created.data)); const runId = created.data.run.id;
+    await waitFor(() => getRun(runId)?.status === 'failed', 'mixed native timeout');
+    await waitFor(() => listExecutions(runId).every(record => record.status !== 'running'), 'mixed timeout cleanup');
+    const records = listExecutions(runId), failed = records.find(record => record.agentId === receiver);
+    assert.equal(failed.status, 'failed'); assert.equal(failed.failureDetails.timeoutKind, 'first_response');
+    assert.equal(records.find(record => record.agentId === sender).status, 'completed');
+    assert.deepEqual(listRuntimeActionCommands(runId).map(action => action.kind), ['handoff']);
+    const graph = runFailureReport(runId); assert.deepEqual(graph.primaryNodeIds, ['execution:' + failed.id]);
+    assert.ok(graph.links.some(edge => edge.relation === 'failed_at_terminal'));
+    assert.equal(db.prepare("SELECT COUNT(*) count FROM external_native_processes WHERE execution_id=? AND status='active'").get(failed.id).count, 0);
+  }
   // Real SDK/app-server MCP carriers must preserve private scopes through contribution, aggregation and follow-up.
   for (const [driver, peerDriver, suffix] of [['claude-sdk', 'codex-app-server', 'sdk'], ['codex-app-server', 'claude-sdk', 'codex']]) {
     const host = `private-host-${suffix}`, peer = `private-peer-${suffix}`, outsider = `private-outsider-${suffix}`;
@@ -128,6 +148,30 @@ try {
   await waitFor(() => { recoverDurableHolds(timed.run.id); return getRun(timed.run.id)?.status === 'completed'; }, 'timer wake');
   await complete(timed.run.id); assert.equal(listDispatches(timed.run.id).filter((item) => item.kind === 'resume').length, 1);
 
+  // R2 owner-created private attachments travel over the actual MCP carrier, never native cwd.
+  await agent('private-file-sdk','claude-sdk','fixture-private-file',{ execution: {kind:'external',driver:'claude-sdk',platformTools:['fs.read'],sessionPolicy:'conversation'} });
+  await agent('private-file-codex','codex-app-server','fixture-private-file',{ execution: {kind:'external',driver:'codex-app-server',platformTools:['fs.read'],sessionPolicy:'conversation'} });
+  const fileRoom = await api('/api/conversations/empty','POST',{title:'R2 native private files',agentIds:['private-file-sdk','private-file-codex'],workspace:'ext:'+registered.id});
+  assert.equal(fileRoom.status,201,JSON.stringify(fileRoom.data));
+  for (const [id,name] of [['private-file-sdk','sdk'],['private-file-codex','codex']]) {
+    const body={goal:`读取并分析 attachments/${name}.txt`,conversationId:fileRoom.data.conversation.id,recipientIds:[id],strategy:'auto',workflow:'routine',visibility:'private',audience:[id],constraints:{readonly:true},attachments:[{path:`attachments/${name}.txt`,contentBase64:Buffer.from(`NATIVE_PRIVATE_FILE_${name}`).toString('base64')}]};
+    const p=await api('/api/orchestration/preview','POST',body); assert.equal(p.status,200,JSON.stringify(p.data));
+    assert.ok(!p.data.decision.issues.some(issue=>issue.severity==='error'),JSON.stringify(p.data.decision.issues));
+    const submitted=await api(`/api/conversations/${body.conversationId}/requests`,'POST',{...body,entryVersion:1,clientRequestId:`r2-file-${name}`,previewId:p.data.previewId,orchestrationFingerprint:p.data.fingerprint});
+    assert.equal(submitted.status,202,JSON.stringify(submitted.data)); await complete(submitted.data.run.id);
+    assert.ok(listByRun(submitted.data.run.id).filter(message=>message.kind==='agent').some(message=>message.visibility==='private' && message.body.includes(`NATIVE_PRIVATE_FILE_${name}`)));
+    const publicBody={...body,goal:`验证权限：读取 attachments/${name}.txt`,visibility:'public',audience:[],attachments:[]};
+    const publicPreview=await api('/api/orchestration/preview','POST',publicBody);
+    const publicTask=await api(`/api/conversations/${body.conversationId}/requests`,'POST',{...publicBody,entryVersion:1,clientRequestId:`r2-file-public-${name}`,previewId:publicPreview.data.previewId,orchestrationFingerprint:publicPreview.data.fingerprint});
+    assert.equal(publicTask.status,202,JSON.stringify(publicTask.data)); await complete(publicTask.data.run.id);
+    assert.ok(!listByRun(publicTask.data.run.id).some(message=>message.body.includes('NATIVE_PRIVATE_FILE_')));
+    const privateExecution=listExecutions(submitted.data.run.id)[0],publicExecution=listExecutions(publicTask.data.run.id)[0];
+    const privateSession=db.prepare('SELECT binding_key FROM external_agent_sessions WHERE id=?').get(privateExecution.sessionBindingId),publicSession=db.prepare('SELECT binding_key FROM external_agent_sessions WHERE id=?').get(publicExecution.sessionBindingId);
+    assert.notEqual(privateSession.binding_key,publicSession.binding_key); assert.equal(publicExecution.sessionMode,'cold');
+  }
+  const fileReads=(await logs()).filter(item=>item.kind==='managed-file');
+  assert.deepEqual(fileReads.map(item=>item.isError),[false,true,false,true]);
+  assert.ok(fileReads.filter(item=>!item.isError).every(item=>item.privateContext));
   await agent('sdk-business', 'claude-sdk', 'fixture-business', { permissionMode: 'confirm', execution: { kind: 'external', driver: 'claude-sdk', platformTools: ['fs.write'] } });
   const business = await room(['sdk-business'], 'C-SCENARIO:business');
   const approval = await waitFor(async () => (await api('/api/approvals?status=pending')).data.find((item) => item.runId === business.run.id), 'business approval');
@@ -181,7 +225,7 @@ try {
   assert.equal(listToolExecutions(recoveryRun.id).length, 0);
   assert.equal(listDispatches(recoveryRun.id).find((item) => item.id === recoveryClaim.dispatch.id).status, 'failed', 'Uncertain native effects must not be requeued');
   cancelCollaborationRun(recoveryRun.id); finishRun(recoveryRun.id, 'cancelled'); updateExecution(uncertain.id, { status: 'interrupted' });
-  console.log('Phase C verified: real stdio MCP bridge, mixed handoff/consult, control-only correction, durable user/timer Holds, business approval/ledger, Stop, request deduplication and custody fences');
+  console.log('Phase C verified: real stdio MCP bridge, mixed handoff/consult, control-only correction, durable user/timer Holds, scoped private files and cold public sessions, business approval/ledger, Stop, request deduplication and custody fences');
 } catch (error) {
   console.error(db.prepare('SELECT record FROM external_agent_executions').all().map(({ record }) => { const r = JSON.parse(record); return { agent: r.agentId, status: r.status, error: r.error, action: r.controlAction, progress: r.progress, timeoutPolicy: r.timeoutPolicy }; }));
   console.error((await logs()).filter((item) => item.kind !== 'start').slice(-12));

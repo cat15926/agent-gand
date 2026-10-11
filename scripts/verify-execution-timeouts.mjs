@@ -30,7 +30,7 @@ const executions = await import('../apps/server/src/execution/store.ts');
 const { detectDriver } = await import('../apps/server/src/execution/drivers.ts');
 const { enterMember } = await import('../apps/server/src/execution/memberAdmission.ts');
 const { subscribe } = await import('../apps/server/src/messaging/bus.ts');
-const { mockProvider, AnthropicProvider, OpenAICompatibleProvider } = await import('../apps/server/src/llm/provider.ts');
+const { mockProvider, AnthropicProvider, OpenAICompatibleProvider, LlmHttpError } = await import('../apps/server/src/llm/provider.ts');
 const { executionFailureForRun } = await import('../apps/web/src/services/executionFailure.ts');
 const { NativeEventParser } = await import('../apps/server/src/execution/parsers.ts');
 const { normalizeOrchestrationRequest } = await import('../apps/server/src/orchestration/normalize.ts');
@@ -92,10 +92,31 @@ try {
   const supervisor = await fixture('worker', { firstResponseTimeoutMs: 30 });
   await assert.rejects(chatOnce(registry.getAnyAgent('worker'), supervisor.run.id, trace.startSpan(supervisor.run.id, { spanKind: 'agent', name: 'supervisor fixture' }).id, 'analyze'), timeout('first_response'));
   assert.equal(database.get("SELECT json_extract(attributes,'$.\"execution.timeout_kind\"') kind FROM run_events WHERE run_id=? AND span_kind='llm'", supervisor.run.id).kind, 'first_response');
+  assert.equal(database.get("SELECT json_extract(attributes,'$.\"execution.limit_ms\"') limit_ms FROM run_events WHERE run_id=? AND span_kind='llm'", supervisor.run.id).limit_ms, 30);
+  mockProvider.chat = req => { req.onActivity('reasoning'); return new Promise(() => {}); };
+  const builtinIdle = await fixture('worker', { idleTimeoutMs: 30 });
+  await assert.rejects(chatOnce(registry.getAnyAgent('worker'), builtinIdle.run.id, trace.startSpan(builtinIdle.run.id, { spanKind: 'agent', name: 'idle fixture' }).id, 'analyze'), timeout('idle'));
+  const idleAttrs = trace.listEvents(builtinIdle.run.id).find(event => event.spanKind === 'llm').attributes;
+  assert.equal(idleAttrs['execution.failure_phase'], 'after_activity'); assert.ok(idleAttrs['execution.last_activity_at']);
+  assert.equal(idleAttrs['execution.first_response_at'], idleAttrs['execution.last_activity_at']);
+  mockProvider.chat = () => { throw new LlmHttpError('HTTP 403', 403, 'req_fixture_error'); };
+  const httpFailure = await fixture('worker');
+  await assert.rejects(chatOnce(registry.getAnyAgent('worker'), httpFailure.run.id, trace.startSpan(httpFailure.run.id, { spanKind: 'agent', name: 'http fixture' }).id, 'analyze'), error => error instanceof LlmHttpError);
+  const httpAttrs = trace.listEvents(httpFailure.run.id).find(event => event.spanKind === 'llm').attributes;
+  assert.equal(httpAttrs['llm.http_status'], 403); assert.equal(httpAttrs['llm.request_id'], 'req_fixture_error');
 
   // Exercise both real stream parsers using an in-memory HTTP response, including discarded reasoning.
   const sse = frames => frames.map(frame => `data: ${JSON.stringify(frame)}\n\n`).join('');
   for (const protocol of ['anthropic', 'openai']) {
+    const route = protocol === 'anthropic' ? '/v1/messages' : '/chat/completions';
+    for (const requestId of ['req_fixture_403', 'Bearer fixture_secret_token_12345678']) {
+      dispatcher.get('https://fixture.invalid').intercept({ path: route, method: 'POST' }).reply(403, '{"error":"Authorization: Bearer fixture_secret_token_12345678"}', { headers: { 'x-request-id': requestId } });
+      const failedProvider = protocol === 'anthropic' ? new AnthropicProvider('fixture-never-used', 'https://fixture.invalid', 1000) : new OpenAICompatibleProvider('fixture-never-used', 'https://fixture.invalid', 1000);
+      await assert.rejects(failedProvider.chat({ model: `${protocol}:fixture`, messages: [] }), error => {
+        assert.equal(error.status, 403); assert.equal(error.requestId, requestId.startsWith('req_') ? requestId : undefined);
+        assert.doesNotMatch(error.message, /fixture_secret_token/); return true;
+      });
+    }
     const activity = [], visible = [];
     const frames = protocol === 'anthropic' ? [
       { type: 'content_block_start', index: 0, content_block: { type: 'thinking' } },

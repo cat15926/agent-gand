@@ -1,3 +1,4 @@
+import { artifactContext, findManagedArtifact, readManagedArtifact, listManagedArtifacts, writePrivateArtifact } from '../../artifacts/store.ts';
 /**
  * 内置工具（规格 §4.2 tools/builtin/index.ts + §7.1 工具 schema + §9 per-run 沙箱）
  * fs.read/fs.write/search.files/shell.run 统一走 §9.2 路径 resolver（三段语义）；
@@ -5,7 +6,7 @@
  * 根级遗留（archive/ 前缀只读访问，不移动不删除）。
  */
 import { execFile } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, realpathSync, lstatSync, statSync, writeFileSync } from 'node:fs';
 import { isAccountPrivatePath } from '../../accounts/privatePaths.ts';
 import path from 'node:path';
 import { config } from '../../config.ts';
@@ -126,6 +127,7 @@ export function resolveSandboxPath(
     if (absPath !== root && !absPath.startsWith(root + path.sep)) {
       throw new ToolError(`路径越出外部工作区目录（${root}）: ${relPath}`);
     }
+    try { if (lstatSync(absPath).isFile() && lstatSync(absPath).nlink > 1) throw new ToolError('文件硬链接不能作为受控工作区文件访问'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     const managed = !!getIsolatedWorkspace(ctx.runId);
     const metadata = managed && path.relative(root, absPath).split(path.sep).some((part) => part.toLowerCase() === '.git');
     return { area: 'run', absPath, readOnly: !!ctx.workspaceRoot || metadata };
@@ -156,7 +158,12 @@ export function resolveSandboxPath(
   if (absPath !== sandbox && !absPath.startsWith(sandbox + path.sep)) {
     throw new ToolError(`路径越出沙箱目录: ${relPath}`);
   }
-  return { area, absPath, readOnly: area === 'archive' };
+  const boundary = area === 'run' ? resolveReal(workspaceRootDir(ctx)) : area === 'shared' ? resolveReal(path.join(sandbox,'shared')) : resolveReal(sandbox);
+  const actual = resolveReal(absPath);
+  if (actual !== boundary && !actual.startsWith(boundary + path.sep)) throw new ToolError('文件链接越出当前工作区');
+  if (area === 'archive' && ['runs','workspaces','shared'].includes(path.relative(boundary,actual).split(path.sep)[0] ?? '')) throw new ToolError('归档链接不能绕过工作区隔离');
+  try { if (lstatSync(actual).isFile() && lstatSync(actual).nlink > 1) throw new ToolError('文件硬链接不能作为受控工作区文件访问'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  return { area, absPath: actual, readOnly: area === 'archive' };
 }
 
 /**
@@ -168,6 +175,8 @@ export function artifactStat(
   ctx: { runId: string; workspace?: string | null; workspaceScope?: string | null },
 ): { exists: boolean; size: number } {
   try {
+    const artifact = findManagedArtifact({ ...ctx, agentId: 'user' },relPath);
+    if (artifact) { readManagedArtifact(artifact.id, 'user', artifactContext({ ...ctx, agentId: 'user' }).access); return { exists: true, size: artifact.size }; }
     const { absPath } = resolveSandboxPath(relPath, ctx);
     const stat = statSync(absPath);
     return stat.isFile() ? { exists: true, size: stat.size } : { exists: false, size: 0 };
@@ -195,7 +204,10 @@ const fsRead: Tool = {
   },
   async run(input, ctx) {
     const obj = expectObject(input);
-    const { absPath } = resolveSandboxPath(expectString(obj, 'path'), ctx);
+    const rel = expectString(obj, 'path');
+    const artifact = findManagedArtifact(ctx, rel);
+    if (artifact) return readManagedArtifact(artifact.id, ctx.agentId, artifactContext(ctx).access).toString('utf8').slice(0, 10_000);
+    const { absPath } = resolveSandboxPath(rel, ctx);
     try {
       const content = readFileSync(absPath, 'utf-8');
       return content.slice(0, 10_000);
@@ -223,6 +235,9 @@ const fsWrite: Tool = {
   async run(input, ctx) {
     const obj = expectObject(input);
     const rel = expectString(obj, 'path');
+    const privateFile = writePrivateArtifact(ctx, rel, typeof obj.content === 'string' ? obj.content : '');
+    if (privateFile) return `已保存私密文件 ${rel} · v${privateFile.version} · ${privateFile.size} 字节（受控产物库）`;
+    if (findManagedArtifact(ctx, rel)) throw new ToolError('受控文件不能通过普通写入覆盖；请创建新的受控版本');
     const { absPath, readOnly, area } = resolveSandboxPath(rel, ctx);
     if (readOnly) {
       throw new ToolError(area === 'archive' ? `archive/ 是历史归档只读区，不可写入（跨 run 共享请用 shared/ 前缀）: ${rel}` : `固定审查快照或 Git 元数据不可写入: ${rel}`);
@@ -308,7 +323,8 @@ function walkFiles(dir: string, out: string[] = [], exclude: Set<string> = new S
     if (isAccountPrivatePath(full)) continue;
     let st;
     try {
-      st = statSync(full);
+      st = lstatSync(full);
+      if (st.isSymbolicLink() || st.isFile() && st.nlink > 1) continue;
     } catch {
       continue;
     }
@@ -350,6 +366,13 @@ const searchFiles: Tool = {
           { dir: sandbox, prefix: 'archive/' },
         ];
     const results: string[] = [];
+    const scope = artifactContext(ctx);
+    const visible = listManagedArtifacts(scope.conversationId, ctx.agentId, scope.access);
+    const latest = [...new Map(visible.map(item => [item.path,item] as const).reverse()).values()];
+    for (const item of latest) {
+      const content = readManagedArtifact(item.id,ctx.agentId,scope.access).toString('utf8');
+      for (const [i,line] of content.split('\n').entries()) if (results.length < maxResults && line.toLowerCase().includes(pattern)) results.push(`${item.path}:${i+1}: ${line.trim().slice(0,160)}`);
+    }
     for (const { dir, prefix } of scopes) {
       // 根级遍历时跳过 runs/ 与 shared/（已有各自范围，避免重复且不泄露其他 run）
       const files = dir === sandbox ? walkFiles(dir, [], new Set(['runs', 'workspaces', 'shared'])) : walkFiles(dir);
@@ -357,6 +380,9 @@ const searchFiles: Tool = {
         if (results.length >= maxResults) break;
         let content: string;
         try {
+          const rel = `${prefix}${path.relative(dir,file)}`;
+          if (findManagedArtifact(ctx,rel)) continue;
+          resolveSandboxPath(rel,ctx);
           content = readFileSync(file, 'utf-8');
         } catch {
           continue; // 非文本/不可读文件跳过

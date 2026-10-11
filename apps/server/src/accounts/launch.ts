@@ -9,7 +9,7 @@ import { createCredentialRelay } from './relay.ts';
 
 export function codexCredentialPolicy(): string[] {
   return ['-c', 'default_permissions="gand_accounts"', '-c', 'permissions.gand_accounts.extends=":read-only"',
-    '-c', `permissions.gand_accounts.filesystem={${JSON.stringify(config.accounts.privateDir)}="deny"}`,
+    '-c', `permissions.gand_accounts.filesystem={${[config.accounts.privateDir,config.dbPath,config.dbPath+'-wal',config.dbPath+'-shm'].map(file => `${JSON.stringify(file)}="deny"`).join(',')}}`,
     '-c', 'permissions.gand_accounts.network.enabled=false', '-c', 'allow_login_shell=false',
     '-c', 'shell_environment_policy.inherit="none"', '-c', 'shell_environment_policy.ignore_default_excludes=false',
     '-c', `shell_environment_policy.set={${Object.entries(cleanEnvironment()).filter(([key]) => /^(PATH|LANG|LC_.*|TMPDIR|TMP|TEMP|TZ)$/.test(key)).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(',')}}`];
