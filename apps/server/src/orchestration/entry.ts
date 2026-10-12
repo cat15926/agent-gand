@@ -45,6 +45,11 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
   const replied = input.replyTo && input.conversationId
     ? get<{ from_agent: string }>('SELECT from_agent FROM messages WHERE id=?', input.replyTo)?.from_agent : null;
   const decision = resolveExecutableOrchestration(old.request, old.capabilities, replied, value.workflow !== undefined || Boolean(defaults));
+  if(checkpoint?.graph) {
+    decision.execution={engine:'coordination',participantIds:[...old.request.agentIds],readonly:true,plannerRequired:false};
+    decision.requiresConfirmation=true;
+    decision.issues.push({code:'CHECKPOINT_GRAPH_HANDOVER',severity:'warning',message:`确认后由 Coordination 承接 ${checkpoint.graph.sourceEngine} 冻结依赖图，保留确认结果，只执行剩余分支及汇合；不重新调用主管规划。`});
+  }
   if (old.request.businessContract) decision.requiresConfirmation = true;
   try {
     const access = replyMessageAccess(old.request, decision.execution!.engine,
@@ -96,8 +101,9 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
   if (old.request.workflow === 'development_review' && old.request.constraints.readonly === true) add('WORKFLOW_READONLY_CONFLICT', '开发与评审包含实现写入，请移除只读限制或选择分析工作流');
   if (!hasErrors(preview) && decision.execution!.engine === 'coordination' && !decision.execution!.plannerRequired) {
     preview.plan = compileWorkflow(old.request, decision, decision.execution!.participantIds.map(id => getAnyAgent(id)!), undefined,
-      checkpoint ? { acceptedStageIds: checkpoint.accepted.map(a => a.stageId), completedStepIds: checkpoint.outputs.map(o => o.stepId) } : undefined);
+      checkpoint ? { acceptedStageIds: checkpoint.accepted.map(a => a.stageId), completedStepIds: checkpoint.outputs.map(o => o.stepId),graph:checkpoint.graph } : undefined);
     for (const issue of preview.plan.plan.validationIssues) decision.issues.push({ code: issue.code, message: issue.message, severity: issue.severity });
+    if(checkpoint?.graph&&checkpoint.archive?.manifest.files.some(f=>f.storage==='managed')&&preview.plan.plan.steps.some(s=>s.agentId&&!s.toolPolicy.allowedTools.some(t=>['fs.read','search.files'].includes(t))))add('ATTACHMENT_BACKEND_UNSUPPORTED','承接图的剩余成员缺少冻结范围内的文件读取工具，请配置角色工具后重新预览；不能扩大原步骤工具权限。');
   }
   const { legacy: _legacy, ...semantic } = semanticRequest(preview.request);
   const configurationFingerprint = stableDigest({ request: semantic, capabilities: preview.capabilities, decision,

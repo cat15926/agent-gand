@@ -3,7 +3,9 @@ import type { ArtifactSnapshot } from './artifacts.ts';
 
 /** Owner-defined acceptance. Stage gating is explicitly opted into per task. */
 export interface BusinessContract {
-  version: 1;
+  version: 1 | 2;
+  /** Immutable contract generation; v1 has generation 1. */
+  revision?: number;
   executionMode?: 'stage_gated';
   stages: BusinessStage[];
 }
@@ -13,7 +15,7 @@ export interface BusinessStage {
   criteria: string[];
   deliverables: Array<{ id: string; title: string; kind: 'text' | 'file' }>;
   execution?: {
-    assignments: Array<{ agentId: string; objective: string }>;
+    assignments: Array<{ agentId: string; objective: string; /** Missing means the original ordered chain. Empty means explicitly independent. */ dependsOn?: string[] }>;
     timeoutMs?: number;
     /** Total output tokens across this stage's API requests, including tool rounds. */
     maxTokens?: number;
@@ -52,11 +54,22 @@ export interface BusinessState {
     access?:import('./message.ts').MessageAccess;readonly?:boolean;
     recovery?:{reviewId:string|null;fingerprint:string;unknownUsage:number;runUnknownTokens:number;stageUnknownTokens:Array<{stageId:string;tokens:number}>};
     costBudget?: import('./cost.ts').CostBudgetState;
+    impact?: BusinessChangeImpact;
     rework?: { sourceRunId: string; stageId: string; reportId: string; reason: string; instruction: string; rejectedWorkers: number } };
   /** A confirmed successor seals this Run's owner acceptance ledger. */
   successorRunId?: string;
 }
-export interface BusinessReworkInput { stageId: string; reportId: string; expectedVersion: number; instruction: string }
+export interface BusinessReworkInput { stageId: string; reportId: string; expectedVersion: number; instruction: string; selectedAgentIds?: string[] }
+export interface BusinessRevisionInput { expectedVersion: number; contract: BusinessContract; instruction: string }
+export interface BusinessChangeImpact {
+  kind: 'rework' | 'contract_revision';
+  fromRevision: number; toRevision: number;
+  retained: Array<{ stageId: string; agentId: string; objective: string }>;
+  redo: Array<{ stageId: string; agentId: string; objective: string }>;
+  reacceptStageIds: string[];
+  invalidatedDeliverables: Array<{ stageId: string; deliverableId: string; title: string }>;
+  reasons: string[];
+}
 export interface BusinessEvidenceChoice { ref: RuntimeEvidenceRef; label: string; excerpt: string; stageId?: string }
 export interface BusinessAuditEntry {
   id: string; version: number; createdAt: string; action: 'report' | 'decide' | 'resolve'; stageId?: string;

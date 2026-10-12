@@ -36,7 +36,7 @@ Owner 先预览再确认，目标仅为平台生成的 `sandbox/restored-artifac
 
 公开只读 `stage_gated` 续跑/返工带入已验收声明及用户输入附件；未验收/被拒绝的受控产物明确遗漏，不能变成后续输入或完成证明。受控文件在新 Run 创建同权限不可变版本，并以 `restoredFrom` 记录原版本与快照来源；旧版本及原验收证据不改写。成员必须具备受控文件读取能力。原生工作目录只恢复物理声明与 Git 基线。
 
-R4 追加加密检查点 v3，私密/写入逐阶段续跑及整阶段返工须按[恢复契约](./private-write-stage-recovery-v1.md)核对；保留原验收归档，另恢复核对后的当前工作状态。自由协作受控文件的跨引擎承接仍明确拒绝，留给 R6；可先保存 Owner 产物快照。
+R4 追加加密检查点 v3，私密/写入逐阶段续跑及整阶段返工须按[恢复契约](./private-write-stage-recovery-v1.md)核对；保留原验收归档，另恢复核对后的当前工作状态。[R6](branch-rework-contract-revision-v1.md)追加加密图检查点 v4，适用公开只读图可承接受控文件及声明产物；通用私密/写入跨引擎图仍拒绝，兼容条件以 R6 矩阵为准。
 
 `artifact_snapshot_refs` 保留验收和检查点引用，`artifact_snapshot_restores` 保留恢复绑定。已验收、被后继引用或已恢复快照不能清理；原受控版本继续按 R2 不可变规则保存。未被引用且未恢复的手动归档可由 Owner 携带摘要明确清理。没有自动过期删除；软删除 Run、归档聊天室或移除旧临时目录不会删除证据。
 
@@ -56,4 +56,4 @@ R4 追加加密检查点 v3，私密/写入逐阶段续跑及整阶段返工须�
 
 任务卡展开“查看计划、结果与验收”后，“产物与工作树快照”可声明阶段和额外路径、查看版本/改动/权限、下载、预览和确认新目录恢复。阶段续跑与返工预览复用同一清单组件，说明 Git 基线、保留产物及遗漏。桌面和 390px 页面均有回归证据。
 
-验证与未覆盖事项见 [R3 验收报告](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)。R4 适用恢复验收见[R4 报告](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)。真实供应商、多分支及其他引擎承接和费用治理分别留给 R8、R6、R5。
+验证与未覆盖事项见 [R3 验收报告](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)。R4 适用恢复验收见[R4 报告](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)；费用治理与适用多分支图承接现分别见[R5](cost-budget-governance-v1.md)、[R6](branch-rework-contract-revision-v1.md)。真实供应商验收留给 R8。

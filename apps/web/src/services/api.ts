@@ -19,7 +19,7 @@ import type {
   ConversationHistoryPage, ConversationMessageSearch,
   Run,
   RunRecoveryAssessment,
-  BusinessCommand, BusinessState, BusinessOutcome, BusinessEvidenceChoice, BusinessAuditEntry, BusinessReworkInput,
+  BusinessCommand, BusinessState, BusinessOutcome, BusinessEvidenceChoice, BusinessAuditEntry, BusinessReworkInput, BusinessRevisionInput,
   RunEvent,
   Task,
   TaskAttempt,
@@ -135,6 +135,9 @@ export interface BusinessReworkPreview {
 export const previewBusinessRework = (id: string, input: BusinessReworkInput) => managementRequest<BusinessReworkPreview>(`/api/accounts/business/${encodeURIComponent(id)}/rework-preview`, 'POST', input);
 export const submitBusinessRework = (id: string, preview: BusinessReworkPreview) => managementRequest<{ run: Run; deduplicated: boolean }>(`/api/accounts/business/${encodeURIComponent(id)}/reworks`, 'POST',
   { ...preview.input, previewId: preview.preview.previewId, orchestrationFingerprint: preview.preview.fingerprint });
+export interface BusinessRevisionPreview {input:BusinessRevisionInput;preview:OrchestrationPreview;closesWaitingSource:boolean;checkpoint:NonNullable<BusinessState['checkpoint']>&{carriedRunTokens:number;carriedStageTokens:Array<{stageId:string;charged:number}>}}
+export const previewBusinessRevision=(id:string,input:BusinessRevisionInput)=>managementRequest<BusinessRevisionPreview>(`/api/accounts/business/${encodeURIComponent(id)}/revision-preview`,'POST',input);
+export const submitBusinessRevision=(id:string,p:BusinessRevisionPreview)=>managementRequest<{run:Run;deduplicated:boolean}>(`/api/accounts/business/${encodeURIComponent(id)}/revisions`,'POST',{...p.input,previewId:p.preview.previewId,orchestrationFingerprint:p.preview.fingerprint});
 export const previewOrchestration = (input: OrchestrationPreviewInput) => request<OrchestrationPreview>('/api/orchestration/preview', { method: 'POST', body: JSON.stringify(input) });
 export const createEmptyRoom = (input: { title: string; agentIds: string[]; workspace: string | null; preferences: RoomPreferences }) => request<{ conversation: Conversation }>('/api/conversations/empty', { method: 'POST', body: JSON.stringify(input) });
 export const submitTask = (input: OrchestrationPreviewInput & { entryVersion: 1; previewId?: string; orchestrationFingerprint?: string; roomTitle?: string; roomPreferences?: RoomPreferences }) => request<{ conversation: Conversation; run: Run }>(input.conversationId ? `/api/conversations/${encodeURIComponent(input.conversationId)}/requests` : '/api/conversations', { method: 'POST', body: JSON.stringify(input) });
@@ -155,7 +158,7 @@ export async function getTaskStates(id: string, runIds?: string[]) {
 function runChunks(ids: string[]): string[][] { return Array.from({length:Math.ceil(ids.length/100)},(_,i) => ids.slice(i*100,(i+1)*100)); }
 export const getMemberReservations = () => request<{ reservations: MemberReservation[] }>('/api/orchestration/members');
 export const runAction = (id: string, action: 'pause' | 'resume' | 'cancel') => request<Run>(`/api/runs/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) });
-export interface ContinuationPreview { assessment: RunRecoveryAssessment; costCarryDigest?:string; costBudget?:CostBudgetState; preview: OrchestrationPreview; checkpoint: { pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; origin?: 'member' | 'owner_reconciled'; excerpt: string; truncated: boolean }>;
+export interface ContinuationPreview { assessment: RunRecoveryAssessment; costCarryDigest?:string; costBudget?:CostBudgetState; preview: OrchestrationPreview; checkpoint: { graph?:{sourceEngine:string;targetEngine:'coordination';retainedStepIds:string[];redoStepIds:string[]}; pendingObjective: string; confirmedOutputs: Array<{ attemptId: string; agentId: string; origin?: 'member' | 'owner_reconciled'; excerpt: string; truncated: boolean }>;
   business?: Pick<NonNullable<BusinessState['checkpoint']>, 'access' | 'readonly' | 'recovery' | 'costBudget'> & { sourceRunId: string; sourceVersion: number; digest: string; acceptedStages: Array<{ id: string; title: string }>;
     files: Array<{ path: string; sha256: string }>; archive?:{id:string;digest:string;manifest:ArtifactSnapshot}; carriedRunTokens: number; carriedStageTokens: Array<{ stageId: string; charged: number }>; workspace: 'fresh_run'; timeLimitsReset: boolean } } }
 export const previewRunContinuation = (id: string, stages = false) => stages

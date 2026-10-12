@@ -46,6 +46,6 @@
 
 ## 保留边界
 
-私密/写入 `stage_gated` Coordination 续跑与整阶段返工已由[R4](./private-write-stage-recovery-v1.md)接入，使用加密检查点 v3、原授权范围与所有者副作用核对。更窄子范围继续由 `PRIVATE_CHECKPOINT_UNSUPPORTED` 阻断。完整受控产物、Git 基线与新隔离目录恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付。公开只读逐阶段检查点 v2 已支持受控文件；自由协作的受控文件承接仍由 `MANAGED_ARTIFACT_CHECKPOINT_UNSUPPORTED` 阻断，留给 R6。其他引擎的私密/写入检查点承接留给 R6，不能用 Owner 产物恢复替代 Agent 执行契约。
+私密/写入 `stage_gated` Coordination 续跑与整阶段返工已由[R4](./private-write-stage-recovery-v1.md)接入，使用加密检查点 v3、原授权范围与所有者副作用核对。更窄子范围继续由 `PRIVATE_CHECKPOINT_UNSUPPORTED` 阻断。完整受控产物、Git 基线与新隔离目录恢复已由[R3 产物与工作树快照](./artifact-worktree-snapshots-v1.md)交付。公开只读逐阶段检查点 v2 已支持受控文件；[R6](branch-rework-contract-revision-v1.md)现接入适用公开只读图的受控文件承接及明确兼容矩阵。私密/写入通用跨引擎图仍明确拒绝，不能用 Owner 产物恢复替代 Agent 执行契约。
 
 此权限契约约束平台投递、工具和上下文，不限制房间所有者审计，也不替代主机文件权限或可信供应商边界。真实账户、长链路、多阶段混合供应商验证仍由 R8 跟踪。

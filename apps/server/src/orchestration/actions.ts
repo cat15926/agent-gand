@@ -1,8 +1,10 @@
+import { assertReadonlyRecovery } from './graphCheckpoint.ts';
+import { businessQuiescent } from './businessGates.ts';
+import { taskAdapterEnabled } from '../runtime/taskAdapter.ts';
 import type { Run, Task } from '@agent-gand/shared';
 import { getRunOrchestrationSnapshot } from './store.ts';
 import { all, get, run, tx } from '../db/database.ts';
-import { createRun, getRun, setRunStatus } from '../runs/trace.ts';
-import { nextTurnNo } from '../conversations/service.ts';
+import { getRun, setRunStatus } from '../runs/trace.ts';
 import { enqueueConversationRun } from '../conversations/dispatcher.ts';
 import { wakeRun, recoverDurableHolds } from '../runs/recovery.ts';
 import { getRunCoordinationPlan } from '../coordination/store.ts';
@@ -13,15 +15,10 @@ import { stopExternalRun, stopExternalAttempt } from '../execution/runner.ts';
 import { expirePendingApprovalsForRun } from '../hitl/approvals.ts';
 import { commitRunTerminal } from '../runtime/terminal.ts';
 import { requestAdapterPause } from '../runtime/runControls.ts';
-import { admitTaskAdapter, admitTaskSubject, closeTaskAdapter, isAdapterTurnTask } from '../runtime/taskAdapter.ts';
-import { cancelTask, claimTask, completeTask, createTask, getTask, listTasks, retryTask } from '../messaging/tasks.ts';
-import { completeAttempt, createAttempt, failAttempt, listAttempts } from '../tasks/attempts.ts';
-import { listReviews, createReview } from '../tasks/reviews.ts';
+import { closeTaskAdapter, isAdapterTurnTask } from '../runtime/taskAdapter.ts';
+import { cancelTask, getTask, retryTask } from '../messaging/tasks.ts';
+import { failAttempt } from '../tasks/attempts.ts';
 import { resumeSupervisorRun } from './supervisor.ts';
-import { prepareAdapterTurns } from './admittedTurn.ts';
-import { config } from '../config.ts';
-import { post } from '../messaging/inbox.ts';
-import { assertLegacyAdmission } from './rollout.ts';
 
 const terminal = (item: Run) => ['completed','failed','cancelled'].includes(item.status);
 const reject = (message: string, status = 409): never => { throw Object.assign(new Error(message), { status }); };
@@ -48,6 +45,8 @@ export async function applyRunAction(runId: string, action: 'cancel' | 'pause' |
     else { requestAdapterPause(runId); if (item.mode === 'collaboration') settleCollaborationRun(runId); }
     return getRun(runId)!;
   }
+  if(get('SELECT 1 FROM orchestration_run_continuations WHERE source_run_id=?',runId)||!businessQuiescent(runId,true))return reject('原任务已承接或执行/工具/用量尚未收敛，不能直接恢复。');
+  if(!plan&&item.mode!=='collaboration'&&!taskAdapterEnabled(runId))return reject('检查点缺少兼容适配器契约，不能静默全量重跑。');
   const control = get<{ pause_requested: number; recovery_attention: number; reason: string | null }>('SELECT * FROM orchestration_run_controls WHERE run_id=?', runId);
   if (control?.recovery_attention) return reject(control.reason ?? '执行结果未知，不能直接恢复');
   if (plan) {
@@ -92,53 +91,10 @@ export function retryTaskExecution(taskId: string): Task {
   if (get(`SELECT id FROM external_agent_executions WHERE run_id=? AND status IN ('interrupted','running')`, source.id)
     || get("SELECT id FROM tool_executions WHERE run_id=? AND (status IN ('running','needs_attention') OR (replay_policy='manual' AND status IN ('failed','interrupted')))", source.id)) return reject('存在未确认的执行或写入，需先核对工作区并创建新任务');
   if (get("SELECT id FROM external_agent_executions WHERE run_id=? AND COALESCE(json_extract(record,'$.permissionMode'),'readonly')!='readonly'", source.id)) return reject('原生写入分支需要先核对并迁移已确认的工作区，不能只复用文字结果');
+  assertReadonlyRecovery(source.id);
+  if(!taskAdapterEnabled(source.id))return reject('旧主管缺少当前适配器契约，不能直接重试。');
+  if(get('SELECT 1 FROM orchestration_run_continuations WHERE source_run_id=?',source.id))return reject('原任务已有后继，不能再次重试。');
   if (!terminal(source)) { const retried = retryTask(taskId); void resumeSupervisorRun(source.id).catch(() => {}); return retried; }
   if (getRunOrchestrationSnapshot(source.id)?.request.businessContract) return reject('阶段验收账本尚不可跨 Run 迁移，请核对已验收结果后创建新任务');
-  assertLegacyAdmission(); // A terminal branch retry creates a new Run; an active branch stays admitted.
-  const result = tx(() => {
-    const duplicate = get<{ target_task_id: string }>('SELECT target_task_id FROM orchestration_task_retries WHERE source_task_id=?', taskId);
-    if (duplicate) return getTask(duplicate.target_task_id)!;
-    const next = createRun(source.goal, source.mode, source.agentIds, source.workspace ?? null, source.supervisorId ?? null,
-      source.conversationId, nextTurnNo(source.conversationId), source.defaultReviewerId ?? null);
-    admitTaskAdapter(next);
-    post({ runId: next.id, from: 'user', to: 'all', kind: 'user', body: `重试失败任务「${task.title}」`,
-      clientMessageId: `retry:${next.id}`, deliveryStatus: 'processing', meta: { retryOfRunId: source.id, retryOfTaskId: task.id } });
-    const originals = listTasks(source.id).filter(t => !isAdapterTurnTask(t.id));
-    if (originals.some(task => task.status === 'cancelled')) return reject('该 Run 含用户取消的分支，请创建新任务明确本轮目标');
-    const replacements = new Map<string, Task>();
-    for (const original of originals) {
-      const copy = createTask({ runId: next.id, title: original.title, body: original.body, createdBy: original.createdBy,
-        assignee: original.assignee, reviewerId: original.reviewerId, acceptanceCriteria: original.acceptanceCriteria,
-        maxAttempts: original.maxAttempts });
-      replacements.set(original.id, copy);
-      admitTaskSubject(copy.id, 'work'); if (copy.reviewerId) admitTaskSubject(copy.id, 'review');
-    }
-    prepareAdapterTurns(next, [{ scope: 'supervisor:summary', agentId: next.supervisorId ?? next.agentIds[0]! }]);
-    for (const original of originals) {
-      const copy = replacements.get(original.id)!;
-      run('UPDATE tasks SET blocked_by=? WHERE id=?', JSON.stringify(original.blockedBy.map(id => replacements.get(id)!.id)), copy.id);
-      if (original.status !== 'completed' || !original.result || !copy.assignee) continue;
-      const confirmed = listAttempts(original.id).filter(a => a.kind === 'work' && a.status === 'completed' && a.output === original.result).at(-1);
-      const acceptedReview = confirmed ? listReviews(original.id).find(review => review.attemptId === confirmed.id && review.verdict === 'PASS') : null;
-      if (!confirmed || (copy.reviewerId && !acceptedReview)) return reject('已完成分支缺少可信执行或审查记录，无法自动复用');
-      const claimed = claimTask(copy.id, copy.assignee);
-      const attempt = createAttempt({ taskId: copy.id, runId: next.id, agentId: copy.assignee, kind: 'work', attemptNo: claimed.attempt,
-        inputContext: `复用已确认的任务结果 ${original.id}；来源 Run ${source.id}`, leaseMs: config.taskLeaseMs });
-      completeAttempt(attempt.id, original.result);
-      if (copy.reviewerId) {
-        const review = createAttempt({ taskId: copy.id, runId: next.id, agentId: copy.reviewerId, kind: 'review', attemptNo: claimed.attempt,
-          inputContext: `复用已确认的审查 ${original.id}`, leaseMs: config.taskLeaseMs });
-        const verdict = { verdict: acceptedReview!.verdict, summary: acceptedReview!.summary, issues: acceptedReview!.issues };
-        completeAttempt(review.id, JSON.stringify(verdict));
-        createReview({ taskId: copy.id, attemptId: attempt.id, reviewerId: copy.reviewerId, ...verdict });
-      }
-      completeTask(copy.id, copy.assignee, original.result);
-    }
-    setRunStatus(next.id, 'running');
-    const target = replacements.get(taskId)!;
-    run('INSERT INTO orchestration_task_retries(source_task_id,target_task_id,target_run_id) VALUES (?,?,?)', taskId, target.id, next.id);
-    return target;
-  });
-  void resumeSupervisorRun(result.runId!).catch(() => {});
-  return getTask(result.id)!;
+  return reject('原任务已经失败，请在任务卡预览并确认依赖图承接；预算、完成证据和独立审查将一并保留。');
 }

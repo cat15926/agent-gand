@@ -13,14 +13,15 @@ function requireOwner(owner: boolean): void {
 }
 function parseInput(value: unknown, confirmation = false): BusinessReworkInput {
   const body = objectInput(value);
-  if (Object.keys(body).some(k => !['stageId', 'reportId', 'expectedVersion', 'instruction', ...(confirmation ? ['previewId', 'orchestrationFingerprint'] : [])].includes(k))
+  if (Object.keys(body).some(k => !['stageId', 'reportId', 'expectedVersion', 'instruction', 'selectedAgentIds', ...(confirmation ? ['previewId', 'orchestrationFingerprint'] : [])].includes(k))
     || typeof body.stageId !== 'string' || !body.stageId || body.stageId.length > 100
     || typeof body.reportId !== 'string' || !body.reportId || body.reportId.length > 100
     || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 0
-    || typeof body.instruction !== 'string' || !body.instruction.trim() || body.instruction.length > 2000) {
+    || typeof body.instruction !== 'string' || !body.instruction.trim() || body.instruction.length > 2000
+    || body.selectedAgentIds!==undefined&&(!Array.isArray(body.selectedAgentIds)||!body.selectedAgentIds.length||body.selectedAgentIds.length>12||body.selectedAgentIds.some(id=>typeof id!=='string'||!id||id.length>100))) {
     throw new OrchestrationError(400, 'INVALID_REWORK_INPUT', '返工需指定当前阶段、被拒绝候选和验收版本，并填写不超过 2000 字的修订要求');
   }
-  return { stageId: body.stageId, reportId: body.reportId, expectedVersion: body.expectedVersion as number, instruction: body.instruction.trim() };
+  return { stageId: body.stageId, reportId: body.reportId, expectedVersion: body.expectedVersion as number, instruction: body.instruction.trim(), ...(body.selectedAgentIds!==undefined?{selectedAgentIds:body.selectedAgentIds as string[]}:{}) };
 }
 
 /** No model calls or source changes. Rejected work is never added to the completed-worker whitelist. */
@@ -30,9 +31,9 @@ export async function previewBusinessRework(runId: string, value: unknown, owner
   const checkpoint = buildBusinessCheckpoint(runId, input);
   const request = businessCheckpointInput(runId, `business-rework:${runId}`);
   const preview = await previewExecutionOrchestration(request, 'unified_preview', checkpoint);
-  const stage = checkpoint.contract.stages.find(s => s.id === input.stageId)!;
+  const stage = checkpoint.contract!.stages.find(s => s.id === input.stageId)!;
   return { input, preview, checkpoint: { ...checkpointSummary(checkpoint),
-    acceptedStages: checkpoint.accepted.map(a => ({ id: a.stageId, title: checkpoint.contract.stages.find(s => s.id === a.stageId)!.title })),
+    acceptedStages: checkpoint.accepted.map(a => ({ id: a.stageId, title: checkpoint.contract!.stages.find(s => s.id === a.stageId)!.title })),
     carriedRunTokens: checkpoint.runTokens, carriedStageTokens: checkpoint.stageTokens },
     stage: { id: stage.id, title: stage.title, assignments: stage.execution!.assignments },
     closesWaitingSource: getRun(runId)!.status === 'waiting_for_user' };

@@ -148,6 +148,6 @@ try {
   const session=await environment.app.inject({method:'POST',url:'/api/accounts/session',headers:{...host,'x-gand-bootstrap':'1'}});const auth={...host,cookie:session.headers['set-cookie'].split(';')[0]};
   const audit=await environment.app.inject({method:'GET',url,headers:auth});assert.equal(audit.statusCode,200,audit.body);assert.equal(audit.headers['cache-control'],'no-store');assert.equal(audit.json().budget.run.charged,sourceFee);assert.equal(audit.json().records[0].pricing.version,'r5-fixture-v1');
   assert.equal((await environment.app.inject({method:'GET',url,headers:{...auth,origin:'https://bad.invalid'}})).statusCode,403);
-  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,9);assert.equal(environment.externalRequests,0);
+  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,10);assert.equal(environment.externalRequests,0);
   console.log(`R5 verified (${config.coordinationRuntime.kernelMode}): strict/unknown admission and runtime, atomic concurrent Run/stage fee reservations, complete/partial/missing/malformed usage and caching, failed/cancelled calls, SDK/Codex reported/unknown fees and no FX, immutable multi-generation continuation/rework carry, rollback/idempotency/cold read, owner budget audit. Mock inference and local stdio only; real supplier requests 0.`);
 } finally { setGlobalDispatcher(originalDispatcher);await dispatcher.close();await environment.close(); }

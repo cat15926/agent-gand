@@ -8,7 +8,7 @@ export function normalizeBusinessContract(value: unknown): BusinessContract | nu
   const text = (v: unknown, max: number): string => typeof v === 'string' && v.trim() && v.length <= max ? v.trim() : fail();
   const id = (v: unknown): string => { const result = text(v, 100); return /^[\w-]+$/u.test(result) && !['__proto__', 'prototype', 'constructor'].includes(result) ? result : fail(); };
   const raw = objectInput(value);
-  if (raw.version !== 1 || Object.keys(raw).some(k => !['version', 'executionMode', 'stages'].includes(k)) || raw.executionMode !== undefined && raw.executionMode !== 'stage_gated' || !Array.isArray(raw.stages) || raw.stages.length < 1 || raw.stages.length > 8) fail();
+  if ((raw.version!==1&&raw.version!==2) || Object.keys(raw).some(k => !['version', 'revision', 'executionMode', 'stages'].includes(k)) || raw.version===1&&raw.revision!==undefined || raw.version===2&&(!Number.isSafeInteger(raw.revision)||(raw.revision as number)<1) || raw.executionMode !== undefined && raw.executionMode !== 'stage_gated' || !Array.isArray(raw.stages) || raw.stages.length < 1 || raw.stages.length > 8) fail();
   const stages = (raw.stages as unknown[]).map((value): BusinessStage => {
     const stage = objectInput(value);
     if (Object.keys(stage).some(k => !['id', 'title', 'criteria', 'deliverables', 'execution'].includes(k))
@@ -29,10 +29,12 @@ export function normalizeBusinessContract(value: unknown): BusinessContract | nu
       if (Object.keys(input).some(k => !['assignments', 'timeoutMs', 'maxTokens', 'maxCost'].includes(k)) || !Array.isArray(input.assignments) || !input.assignments.length || input.assignments.length > 12) fail();
       const assignments = (input.assignments as unknown[]).map(value => {
         const task = objectInput(value);
-        if (Object.keys(task).some(k => !['agentId', 'objective'].includes(k))) fail();
-        return { agentId: id(task.agentId), objective: text(task.objective, 2000) };
+        if (Object.keys(task).some(k => !['agentId', 'objective', ...(raw.version===2?['dependsOn']:[])].includes(k))) fail();
+        if(task.dependsOn!==undefined&&(!Array.isArray(task.dependsOn)||task.dependsOn.length>12))fail();
+        return { agentId: id(task.agentId), objective: text(task.objective, 2000), ...(task.dependsOn!==undefined?{dependsOn:(task.dependsOn as unknown[]).map(id)}:{}) };
       });
       if (new Set(assignments.map(a => a.agentId)).size !== assignments.length) fail();
+      for(const [at,task] of assignments.entries())if(task.dependsOn&&(new Set(task.dependsOn).size!==task.dependsOn.length||task.dependsOn.some(d=>!assignments.slice(0,at).some(a=>a.agentId===d))))fail();
       const limits: { timeoutMs?: number; maxTokens?: number; maxCost?: number } = {};
       if (input.maxCost !== undefined) limits.maxCost = costAmount(input.maxCost);
       for (const key of ['timeoutMs', 'maxTokens'] as const) {
@@ -46,7 +48,7 @@ export function normalizeBusinessContract(value: unknown): BusinessContract | nu
   });
   if (new Set(stages.map(s => s.id)).size !== stages.length) fail();
   if (raw.executionMode === 'stage_gated' && stages.reduce((n, s) => n + s.execution!.assignments.length + 1, 1) > 64) fail();
-  return { version: 1, ...(raw.executionMode === 'stage_gated' ? { executionMode: 'stage_gated' as const } : {}), stages };
+  return { version: raw.version as 1|2, ...(raw.version===2?{revision:raw.revision as number}:{}), ...(raw.executionMode === 'stage_gated' ? { executionMode: 'stage_gated' as const } : {}), stages };
 }
 
 export function businessContractInstructions(contract: BusinessContract | null | undefined, stageId?: string): string | null {

@@ -201,8 +201,43 @@ try {
   const roomFiles=await managed('/api/accounts/artifacts/rooms/'+r4.data.conversation.id,null,'GET');const newFile=roomFiles.data.files.find(f=>f.runId===r4Next.data.run.id&&f.path==='reports/r4-private.txt');assert.ok(newFile);assert.equal(newFile.visibility,'private');
   const fileBytes=await managed('/api/accounts/artifacts/'+newFile.id+'/content',null,'GET');assert.match(Buffer.from(fileBytes.data.contentBase64,'base64').toString(),/R4_NETWORK_PRIVATE/);
   assert.equal((await api('/fixture/state')).data.runs.find(r=>r.id===r4.data.run.id).status,'failed');
+  // R6 real HTTP: partial rework after a cold preview, concurrent confirmation and immutable revision.
+  const r6Input={goal:'R6 两个独立成员分析',agentIds:['network-a','network-b'],strategy:'serial',workflow:'routine',constraints:{readonly:true},
+    businessContract:{version:2,revision:1,executionMode:'stage_gated',stages:[
+      {id:'base',title:'基础',criteria:['有依据'],deliverables:[{id:'result',title:'基础报告',kind:'text'}],execution:{assignments:[{agentId:'network-a',objective:'提供基础',dependsOn:[]}]}},
+      {id:'analysis',title:'独立分析',criteria:['完整'],deliverables:[{id:'result',title:'分析报告',kind:'text'}],execution:{assignments:[{agentId:'network-a',objective:'独立分析 A',dependsOn:[]},{agentId:'network-b',objective:'独立分析 B',dependsOn:[]}]}}
+    ]}};
+  const r6p=await api('/api/orchestration/preview','POST',r6Input);assert.equal(r6p.status,200);
+  const r6=await api('/api/conversations','POST',{...r6Input,entryVersion:1,clientRequestId:randomUUID(),previewId:r6p.data.previewId,orchestrationFingerprint:r6p.data.fingerprint,roomTitle:'R6 网络返工'});assert.equal(r6.status,201,JSON.stringify(r6.data));
+  await terminal(r6.data.run.id,'waiting_for_user');const r6Url='/api/accounts/business/'+r6.data.run.id;
+  async function r6Command(command){const state=await managed(r6Url,null,'GET');return managed(r6Url,{...command,expectedVersion:state.data.version,clientRequestId:randomUUID()});}
+  let r6Evidence=await managed(r6Url+'/evidence',null,'GET');
+  let r6Reported=await r6Command({action:'report',stageId:'base',kind:'delivery',note:'基础交付核对',evidence:[{deliverableId:'result',ref:r6Evidence.data.choices.find(c=>c.stageId==='base').ref}]});assert.equal(r6Reported.status,200);
+  assert.equal((await r6Command({action:'decide',stageId:'base',reportId:r6Reported.data.stages[0].report.id,verdict:'accept',checkedCriteria:[0],reason:'基础通过'})).status,200);
+  await waitFor(async()=>{const s=await managed(r6Url,null,'GET');return s.data.stages[1].execution.canAccept;},'R6 independent branches finish');
+  r6Evidence=await managed(r6Url+'/evidence',null,'GET');r6Reported=await r6Command({action:'report',stageId:'analysis',kind:'delivery',note:'独立分析交付',evidence:[{deliverableId:'result',ref:r6Evidence.data.choices.find(c=>c.stageId==='analysis').ref}]});assert.equal(r6Reported.status,200);
+  const rejected=await r6Command({action:'decide',stageId:'analysis',reportId:r6Reported.data.stages[1].report.id,verdict:'reject',checkedCriteria:[],reason:'成员 B 需要补充反例'});assert.equal(rejected.status,200);
+  const reworkInput={stageId:'analysis',reportId:r6Reported.data.stages[1].report.id,expectedVersion:rejected.data.version,instruction:'只补充独立成员 B 的反例依据，保留成员 A 的已确认分析。',selectedAgentIds:['network-b']};
+  const reworkPreview=await managed(r6Url+'/rework-preview',reworkInput);assert.equal(reworkPreview.status,200,JSON.stringify(reworkPreview.data));assert.equal(reworkPreview.data.checkpoint.impact.redo.length,1);
+  const r6Calls=(await api('/fixture/state')).data.calls.length;
+  await stop();await start();archiveAuth=await ownerSession();
+  const reworkBody={...reworkInput,previewId:reworkPreview.data.preview.previewId,orchestrationFingerprint:reworkPreview.data.preview.fingerprint};
+  const concurrent=await Promise.all([managed(r6Url+'/reworks',reworkBody),managed(r6Url+'/reworks',reworkBody)]);
+  assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,202]);assert.equal(concurrent[0].data.run.id,concurrent[1].data.run.id);
+  const r6Next=concurrent[0].data.run;await terminal(r6Next.id,'waiting_for_user');assert.equal((await api('/fixture/state')).data.calls.length,r6Calls+1,'only selected independent member runs');
+  const r6NextUrl='/api/accounts/business/'+r6Next.id,current=await managed(r6NextUrl,null,'GET'),newContract=structuredClone(current.data.contract);newContract.revision=2;newContract.stages[1].criteria=['必须提供完整反例'];
+  const revisionInput={expectedVersion:current.data.version,contract:newContract,instruction:'修订验收标准：两名成员都要提供明确反例，以新的验收标准核对交付。'};
+  const revisionPreview=await managed(r6NextUrl+'/revision-preview',revisionInput);assert.equal(revisionPreview.status,200,JSON.stringify(revisionPreview.data));
+  await stop();await start();archiveAuth=await ownerSession();
+  const revisionBody={...revisionInput,previewId:revisionPreview.data.preview.previewId,orchestrationFingerprint:revisionPreview.data.preview.fingerprint};
+  const revisedPair=await Promise.all([managed(r6NextUrl+'/revisions',revisionBody),managed(r6NextUrl+'/revisions',revisionBody)]);
+  assert.deepEqual(revisedPair.map(r=>r.status).sort(),[200,202]);assert.equal(revisedPair[0].data.run.id,revisedPair[1].data.run.id);
+  const revisedRun=revisedPair[0].data.run;await terminal(revisedRun.id,'waiting_for_user');assert.equal((await api('/fixture/state')).data.calls.length,r6Calls+3);
+  await stop();await start();archiveAuth=await ownerSession();
+  const revisionReplay=await managed(r6NextUrl+'/revisions',revisionBody);assert.equal(revisionReplay.status,200);assert.equal(revisionReplay.data.run.id,revisedRun.id);assert.equal((await api('/fixture/state')).data.calls.length,r6Calls+3);
+  assert.equal((await managed(r6NextUrl,null,'GET')).data.contract.revision,1);assert.equal((await managed('/api/accounts/business/'+revisedRun.id,null,'GET')).data.contract.revision,2);
   console.log(JSON.stringify({ status: 'passed', evidence: 'real loopback HTTP/WS and cold host restart; mocked inference only',
-    checks: ['concurrent deduplication', 'lost response retry', 'preview across restart', 'terminal retry after restart', 'WS disconnect/reconnect and history', 'idle timeout diagnostics and late callback fence', 'unknown-call restart fence','R3 owner archive, cold restart and idempotent isolated restore','R4 private write, owner review, cold preview, lost continuation response, exact retry and preserved ACL', ...(process.env.R1_VERIFY_UI === '1' ? ['desktop/mobile actual HTTP/WS UI','R2 private preview and attachment','owner download, explicit publication and immutable versions','R3 private versions archived, retained encrypted and owner downloaded after restart'] : [])], supplierRequests: 0 }));
+    checks: ['concurrent deduplication', 'lost response retry', 'preview across restart', 'terminal retry after restart', 'WS disconnect/reconnect and history', 'idle timeout diagnostics and late callback fence', 'unknown-call restart fence','R3 owner archive, cold restart and idempotent isolated restore','R4 private write, owner review, cold preview, lost continuation response, exact retry and preserved ACL','R6 partial rework, concurrent unique successor, contract revision and exact replay across cold restarts', ...(process.env.R1_VERIFY_UI === '1' ? ['desktop/mobile actual HTTP/WS UI','R2 private preview and attachment','owner download, explicit publication and immutable versions','R3 private versions archived, retained encrypted and owner downloaded after restart'] : [])], supplierRequests: 0 }));
 } finally {
   if (browser) await browser.close(); for (const socket of sockets) socket.close();
   await Promise.all([...children].map(worker => new Promise(resolve => {

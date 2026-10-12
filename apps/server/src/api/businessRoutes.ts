@@ -12,6 +12,7 @@ import { previewBusinessRework, submitBusinessRework } from '../orchestration/bu
 import { inspectBusinessRecovery, confirmBusinessRecovery, listBusinessRecoveryReviews } from '../orchestration/businessRecovery.ts';
 import { costBudgetState, costRows } from '../orchestration/costBudget.ts';
 import { getRun } from '../runs/trace.ts';
+import { previewBusinessRevision, submitBusinessRevision } from '../orchestration/businessRevision.ts';
 
 /** Existing owner management cookie is scoped to /api/accounts; reuse that boundary. */
 export async function registerBusinessRoutes(app: FastifyInstance): Promise<void> {
@@ -56,6 +57,12 @@ export async function registerBusinessRoutes(app: FastifyInstance): Promise<void
       const result = submitBusinessRework(req.params.runId, req.body, true);
       if (!result.deduplicated) enqueueConversationRun(result.run.id);
       reply.code(result.deduplicated ? 200 : 202); return result;
+    });
+    managed.post<{Params:{runId:string};Body:unknown}>('/api/accounts/business/:runId/revision-preview',async req=>previewBusinessRevision(req.params.runId,req.body,true));
+    managed.post<{Params:{runId:string};Body:unknown}>('/api/accounts/business/:runId/revisions',async(req,reply)=>{
+      const result=submitBusinessRevision(req.params.runId,req.body,true);
+      if(!result.deduplicated)enqueueConversationRun(result.run.id);
+      reply.code(result.deduplicated?200:202);return result;
     });
   });
 }

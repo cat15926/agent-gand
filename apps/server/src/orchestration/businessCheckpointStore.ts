@@ -12,7 +12,8 @@ import { OrchestrationError } from './normalize.ts';
 import { importSnapshotArtifacts, materializeArtifactSnapshot, readArtifactSnapshot, saveArtifactSnapshot, snapshotDigest, type SnapshotPackage } from '../artifacts/snapshots.ts';
 
 export interface BusinessCheckpoint {
-  version: 1 | 2 | 3; sourceRunId: string; sourceVersion: number; contract: BusinessContract;
+  version: 1 | 2 | 3 | 4; sourceRunId: string; sourceVersion: number; contract: BusinessContract | null;
+  graph?: { sourceEngine:'collaboration'|'coordination'|'pipeline'|'supervisor'; steps:import('@agent-gand/shared').CoordinationPlanStep[]; protocols:import('@agent-gand/shared').CoordinationProtocolSelection[]; terminalSteps:string[] };
   access?:MessageAccess; readonly?:boolean;
   acceptedArchives?:Array<{id:string;digest:string}>;
   recovery?:{reviewId:string|null;fingerprint:string;unknownUsage:number;runUnknownTokens:number;stageUnknownTokens:Array<{stageId:string;tokens:number}>};
@@ -23,6 +24,8 @@ export interface BusinessCheckpoint {
   runTokens: number; stageTokens: Array<{ stageId: string; charged: number }>;
   costs?: import('./costBudget.ts').CostReservationRow[];
   costBudget?: import('@agent-gand/shared').CostBudgetState;
+  impact?: import('@agent-gand/shared').BusinessChangeImpact;
+  revision?: { contract: BusinessContract; instruction: string };
   /** Rejected outputs are audit/context only, never a completed-worker or acceptance whitelist. */
   rework?: { sourceRunId: string; sourceStatus: string; stageId: string; report: BusinessReport; decision: BusinessDecision;
     instruction: string; rejectedOutputs: BusinessCheckpoint['outputs'] };
@@ -40,14 +43,15 @@ export function readBusinessCheckpoint(runId: string): BusinessCheckpoint | null
   if (!row && !expected) return null;
   if (!row || !expected || row.digest !== expected) throw new OrchestrationError(409, 'CHECKPOINT_CORRUPT', '续跑检查点校验失败，禁止执行');
   const envelope=JSON.parse(row.manifest);
-  const plaintext=envelope.encryptedCheckpointVersion===3?openManagedContent(envelope.content,`business-checkpoint-v3:${runId}:${row.digest}`).toString():row.manifest;
+  const encrypted=[3,4].includes(envelope.encryptedCheckpointVersion);
+  const plaintext=encrypted?openManagedContent(envelope.content,`business-checkpoint-v${envelope.encryptedCheckpointVersion}:${runId}:${row.digest}`).toString():row.manifest;
   if(createHash('sha256').update(plaintext).digest('hex')!==row.digest)throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','检查点摘要无效');
   const checkpoint=JSON.parse(plaintext) as BusinessCheckpoint;
-  if (checkpoint.version===3&&envelope.encryptedCheckpointVersion!==3)throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','私密或写入检查点必须加密保存');
-  if (![1,2,3].includes(checkpoint.version) || checkpoint.version>=2 && !checkpoint.archive) throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','检查点版本或归档缺失');
+  if (checkpoint.version>=3&&envelope.encryptedCheckpointVersion!==checkpoint.version)throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','新版本检查点必须加密保存');
+  if (![1,2,3,4].includes(checkpoint.version) || checkpoint.version>=2 && !checkpoint.archive || checkpoint.version===4&&(!checkpoint.graph||checkpoint.contract!==null||checkpoint.readonly!==true||checkpoint.access?.visibility!=='public')) throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','检查点版本或归档缺失/不兼容');
   if(checkpoint.archive && (snapshotDigest(readArtifactSnapshot(checkpoint.archive.id).manifest)!==checkpoint.archive.digest || snapshotDigest(checkpoint.archive.manifest)!==checkpoint.archive.digest)) throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','检查点产物摘要不一致');
   for(const archive of checkpoint.acceptedArchives??[])if(snapshotDigest(readArtifactSnapshot(archive.id).manifest)!==archive.digest)throw new OrchestrationError(409,'CHECKPOINT_CORRUPT','原验收产物摘要不一致');
-  if(checkpoint.version===3 && (!checkpoint.access||JSON.stringify(runSourceAccess(runId))!==JSON.stringify(checkpoint.access)
+  if(checkpoint.version>=3 && (!checkpoint.access||JSON.stringify(runSourceAccess(runId))!==JSON.stringify(checkpoint.access)
     ||[...checkpoint.outputs,...(checkpoint.rework?.rejectedOutputs??[])].some(o=>!isMessageWithinScope(attemptAccess(o.attemptId),checkpoint.access!)||!isMessageWithinScope(o.access??{visibility:'public',audience:[]},checkpoint.access!))))throw new OrchestrationError(409,'PRIVATE_CHECKPOINT_UNSUPPORTED','检查点授权或来源范围已变化');
   return checkpoint;
 }
@@ -63,15 +67,16 @@ export function saveBusinessCheckpoint(runId: string, checkpoint: BusinessCheckp
   for(const archive of checkpoint.acceptedArchives??[])saveArtifactSnapshot(readArtifactSnapshot(archive.id),'checkpoint',runId);
   const manifest=JSON.stringify(checkpoint),digest=checkpointDigest(checkpoint);
   run('INSERT INTO business_run_checkpoints(run_id,source_run_id,manifest,digest,created_at) VALUES (?,?,?,?,?)',
-    runId, checkpoint.sourceRunId, checkpoint.version===3?JSON.stringify({encryptedCheckpointVersion:3,content:sealManagedContent(Buffer.from(manifest),`business-checkpoint-v3:${runId}:${digest}`)}):manifest,digest,new Date().toISOString());
+    runId, checkpoint.sourceRunId, checkpoint.version>=3?JSON.stringify({encryptedCheckpointVersion:checkpoint.version,content:sealManagedContent(Buffer.from(manifest),`business-checkpoint-v${checkpoint.version}:${runId}:${digest}`)}):manifest,digest,new Date().toISOString());
 }
 export function checkpointSummary(checkpoint: BusinessCheckpoint) {
   return { sourceRunId: checkpoint.sourceRunId, sourceVersion: checkpoint.sourceVersion, digest: checkpointDigest(checkpoint),
     acceptedStageIds: checkpoint.accepted.map(item => item.stageId), completedWorkers: checkpoint.outputs.length,
     files: checkpoint.files.map(({ path, sha256 }) => ({ path, sha256 })),
     ...(checkpoint.costBudget ? { costBudget: checkpoint.costBudget } : {}),
+    ...(checkpoint.impact ? { impact: checkpoint.impact } : {}),
     ...(checkpoint.archive ? {archive:{id:checkpoint.archive.id,digest:checkpoint.archive.digest,manifest:checkpoint.archive.manifest}}:{}),
-    ...(checkpoint.version===3?{access:checkpoint.access,readonly:checkpoint.readonly,recovery:checkpoint.recovery}:{}),
+    ...(checkpoint.version>=3?{access:checkpoint.access,readonly:checkpoint.readonly,recovery:checkpoint.recovery}:{}),
     ...(checkpoint.rework ? { rework: { sourceRunId: checkpoint.rework.sourceRunId, stageId: checkpoint.rework.stageId,
       reportId: checkpoint.rework.report.id, reason: checkpoint.rework.decision.reason, instruction: checkpoint.rework.instruction,
       rejectedWorkers: checkpoint.rework.rejectedOutputs.length } } : {}) };

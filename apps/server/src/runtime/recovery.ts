@@ -11,9 +11,13 @@ import { loadRuntimeContract } from './runPolicy.ts';
 import { attemptAccess } from '../messaging/access.ts';
 import { buildBusinessCheckpoint } from '../orchestration/businessCheckpoint.ts';
 import { costCarry, costBudgetState } from '../orchestration/costBudget.ts';
+import { assertReadonlyRecovery, buildGraphCheckpoint } from '../orchestration/graphCheckpoint.ts';
+import { listBatches } from '../collaboration/store.ts';
+import { taskAdapterEnabled } from './taskAdapter.ts';
+import { businessQuiescent, stageAccepted, waitingBusinessGate } from '../orchestration/businessGates.ts';
 
 /** Common, read-only recovery eligibility. Never quiesces a process or replays work. */
-export function assessRunRecovery(runId: string): RunRecoveryAssessment {
+function assessRecovery(runId: string): RunRecoveryAssessment {
   const source = getRun(runId);
   if (!source) throw Object.assign(new Error('Run 不存在'), { status: 404 });
   const next = get<{ target_run_id: string }>('SELECT target_run_id FROM orchestration_run_continuations WHERE source_run_id=?', runId);
@@ -47,6 +51,11 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
       const failure=error as {code?:string;message?:string};
       return {...blocked(failure.code??'CHECKPOINT_INVALID',failure.message??'检查点无法校验'),reconciliationAvailable:failure.code==='WRITE_RECONCILIATION_REQUIRED'};
     }
+  }
+  if(getRunCoordinationPlan(runId)||source.mode!=='collaboration'||listBatches(runId).length||get('SELECT 1 FROM managed_artifact_versions WHERE run_id=? LIMIT 1',runId)) {
+    result.continuationKind='dependency_graph';
+    try {const checkpoint=buildGraphCheckpoint(runId);return {...result,confirmedOutputs:checkpoint.outputs.length,continuationAllowed:true,explanation:`可预览公开只读依赖图承接：保留 ${checkpoint.outputs.length} 个已确认结果，结转预算，在新的独立工作区执行剩余分支和必要汇合。确认后使用 Coordination 承接原图。`};}
+    catch(error) {const e=error as {code?:string;message?:string};return blocked(e.code??'GRAPH_CHECKPOINT_INCOMPATIBLE',e.message??'检查点不兼容');}
   }
   const control = get<{ recovery_attention: number }>('SELECT recovery_attention FROM orchestration_run_controls WHERE run_id=?', runId);
   if (control?.recovery_attention || executions.some(item => item.status === 'running' || item.recovery?.state === 'attention'
@@ -93,6 +102,26 @@ export function assessRunRecovery(runId: string): RunRecoveryAssessment {
   }
   catch(error) { const e=error as {code?:string;message?:string}; return blocked(e.code??'COST_RESULT_UNKNOWN',e.message??'费用无法核对'); }
   return { ...result, continuationKind: 'readonly_collaboration', continuationAllowed: true, explanation: '可预览只读关联续跑，携带已确认输出并只派发待续事项；新任务会重新冻结当前账户与角色。' };
+}
+
+/** The UI and existing actions use the same eligibility, with engine-specific algorithms. */
+export function assessRunRecovery(runId:string):RunRecoveryAssessment {
+  const assessment=assessRecovery(runId),source=getRun(runId)!,plan=getRunCoordinationPlan(runId);
+  const paused=source.status==='waiting_for_user'&&(plan?.status==='paused'||!!get<{pause_requested:number}>('SELECT pause_requested FROM orchestration_run_controls WHERE run_id=?',runId)?.pause_requested);
+  const gate=waitingBusinessGate(runId),acceptanceRequired=!!gate&&!stageAccepted(runId,String(gate.metadata.businessStageId));
+  const resume=paused&&!assessment.continuationRunId&&!acceptanceRequired&&businessQuiescent(runId,true)&&(!!plan||source.mode==='collaboration'||taskAdapterEnabled(runId));
+  let retryReasons=['BRANCH_RETRY_UNSUPPORTED'],retryExplanation='此引擎沿适用恢复或返工入口处理。';
+  if(source.mode==='supervisor'&&!plan) {
+    if(['failed','completed','cancelled'].includes(source.status)){retryReasons=['CHECKPOINT_PREVIEW_REQUIRED'];retryExplanation='终态分支通过所有者依赖图预览承接，统一保留证据与预算。';}
+    else if(!taskAdapterEnabled(runId)){retryReasons=['LEGACY_CONTEXT_UNVERIFIED'];retryExplanation='旧主管缺少当前适配器契约，不能直接重试。';}
+    else try{assertReadonlyRecovery(runId);retryReasons=[];retryExplanation='活动主管任务可使用既有失败分支重试，沿用原授权与预算。';}
+    catch(error){const failure=error as {code?:string;message?:string};retryReasons=[failure.code??'RESULT_UNKNOWN'];retryExplanation=failure.message??'执行结果尚未核对，不能重试。';}
+  }
+  return {...assessment,capabilities:{engine:plan?'coordination':source.mode,actions:[
+    {kind:'resume',available:resume,reasonCodes:resume?[]:acceptanceRequired?['BUSINESS_STAGE_ACCEPTANCE_REQUIRED']:['RESUME_BOUNDARY_REQUIRED'],explanation:resume?'沿原图恢复并沿用原授权与预算。':acceptanceRequired?'本阶段须先验收，普通恢复不能跳过门禁。':'恢复须处于已收敛的暂停边界并具备兼容执行契约。'},
+    {kind:'branch_retry',available:retryReasons.length===0,reasonCodes:retryReasons,explanation:retryExplanation},
+    {kind:'checkpoint',available:assessment.continuationAllowed,reasonCodes:assessment.reasonCodes,explanation:assessment.explanation},
+  ]}};
 }
 
 /** Reject exact re-dispatch of confirmed work in a linked continuation. Natural-language intent remains a business contract concern. */

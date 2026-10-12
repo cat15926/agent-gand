@@ -9,7 +9,7 @@ import type { DecomposedTask } from './supervisor.ts';
 
 /** Stable, inspectable templates. There is no planner invocation in compilation. */
 export function compileWorkflow(request: OrchestrationRequest, decision: OrchestrationDecision, agents: AgentDefinition[],
-  decomposition?: DecomposedTask[], checkpoint?: { acceptedStageIds: string[]; completedStepIds: string[] }): CoordinationPreview {
+  decomposition?: DecomposedTask[], checkpoint?: { acceptedStageIds: string[]; completedStepIds: string[]; graph?:import('./businessCheckpointStore.ts').BusinessCheckpoint['graph'] }): CoordinationPreview {
   const snapshot = createCapabilitySnapshot(decision.execution!.participantIds, agents);
   const protocol = decision.protocol;
   const steps: CoordinationPlanStep[] = [];
@@ -28,19 +28,34 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
         requiresApproval: !readonly }, metadata: { ...meta, readonly, templateVersion: 'o4-workflows-v1' } });
   };
   let tail: string[] = [];
-  if (request.businessContract?.executionMode === 'stage_gated') {
+  if(checkpoint?.graph) {
+    for(const original of checkpoint.graph.steps) {
+      const step=structuredClone(original),agent=agents.find(a=>a.id===step.agentId);
+      step.maxAttempts=1;step.onFailure='fail_plan';
+      step.metadata={...step.metadata,readonly:true};
+      step.toolPolicy={allowedTools:step.toolPolicy.allowedTools.filter(t=>agent?.tools.includes(t)&&snapshot.tools.some(s=>s.name===t)&&READONLY_TOOLS.has(t)),requiresApproval:false};
+      if(checkpoint.completedStepIds.includes(step.id)){step.type='completion_gate';step.metadata={...step.metadata,checkpointConfirmed:true};step.agentId=null;step.toolPolicy.allowedTools=[];}
+      else if(step.agentId)bindings[step.id]=step.agentId;
+      steps.push(step);
+    }
+    tail=[...checkpoint.graph.terminalSteps];
+  } else if (request.businessContract?.executionMode === 'stage_gated') {
     for (const [index, stage] of request.businessContract.stages.entries()) {
       if (checkpoint?.acceptedStageIds.includes(stage.id)) continue;
+      const stageTail=[...tail],workers:string[]=[];
+      const explicit=decision.execution!.readonly&&stage.deliverables.every(d=>d.kind==='text')&&stage.execution!.assignments.every(a=>a.dependsOn!==undefined);
       for (const [at, assignment] of stage.execution!.assignments.entries()) {
         const id = `stage-${index + 1}-work-${at + 1}`;
         if (checkpoint?.completedStepIds.includes(id)) continue;
-        add(id, assignment.agentId, tail, 'agent_turn', { businessStageId: stage.id, title: stage.title,
+        const deps=explicit?[...stageTail,...assignment.dependsOn!.map(agentId=>`stage-${index+1}-work-${stage.execution!.assignments.findIndex(a=>a.agentId===agentId)+1}`).filter(id=>!checkpoint?.completedStepIds.includes(id))]:tail;
+        add(id, assignment.agentId, deps, 'agent_turn', { businessStageId: stage.id, title: stage.title,
           objective: assignment.objective, acceptanceCriteria: stage.criteria }, 'sequential_pipeline');
         steps.at(-1)!.maxAttempts = 1; // Never replay a failed stage as an implicit revision.
         tail = [id];
+        workers.push(id);
       }
       const gate = `stage-${index + 1}-accept`;
-      add(gate, null, tail, 'completion_gate', { businessStageId: stage.id, businessAcceptanceGate: true, title: `验收：${stage.title}` }, 'sequential_pipeline');
+      add(gate, null, explicit?[...stageTail,...workers]:tail, 'completion_gate', { businessStageId: stage.id, businessAcceptanceGate: true, title: `验收：${stage.title}` }, 'sequential_pipeline');
       steps.at(-1)!.completion = '等待用户关联当前阶段交付并逐项验收';
       tail = [gate];
     }
@@ -85,25 +100,25 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
     }
     if (request.workflow === 'analysis_summary') { add('analysis-summary', request.aggregatorId!, tail, 'aggregate'); tail = ['analysis-summary']; }
   }
-  add('complete', null, tail, 'completion_gate');
+  if(!checkpoint?.graph)add('complete', null, tail, 'completion_gate');
   const now = new Date().toISOString();
   const draft: CoordinationDraft = { id: randomUUID(), capabilitySnapshotId: snapshot.id,
     taskBrief: { objective: request.goal, deliverable: null, participantIds: [...decision.execution!.participantIds],
       reviewerId: request.defaultReviewerId, hardConstraints: {}, inferredConstraints: {}, constraintEvidence: [],
       qualityRequirements: ['全部必要步骤完成', '独立评审门禁不得省略'], risk: decision.execution!.readonly ? 'low' : 'medium', missingInformation: [] },
-    protocols: request.workflow === 'analysis_summary' ? [{ protocol: 'parallel_fanout', version: 1 }, { protocol: 'supervisor_aggregation', version: 1 }] : [{ protocol, version: 1 }], displayName: request.workflow, summary: decision.reason, reasonCodes: ['O4_EXPLICIT_WORKFLOW'], evidence: [], alternatives: [],
+    protocols: checkpoint?.graph?.protocols??(request.workflow === 'analysis_summary' ? [{ protocol: 'parallel_fanout', version: 1 }, { protocol: 'supervisor_aggregation', version: 1 }] : [{ protocol, version: 1 }]), displayName: request.workflow, summary: decision.reason, reasonCodes: ['O4_EXPLICIT_WORKFLOW'], evidence: [], alternatives: [],
     planning: { source: decomposition ? 'model' : 'deterministic', model: null, attempts: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, fallbackReason: null },
     modelConfidence: null, platformConfidence: 1, risk: decision.execution!.readonly ? 'low' : 'medium',
     decision: decision.requiresConfirmation ? 'recommend' : 'auto_start', clarificationQuestion: null, clarificationOptions: [], validationIssues: [], validationErrors: [],
     runtimeMode: 'pipeline', createdAt: now };
   const plan: CoordinationPlan = { id: randomUUID(), runId: null, draftId: draft.id, capabilitySnapshotId: snapshot.id,
     executionVersion: 'o4-workflows-v1', revision: 1, status: 'draft', protocols: draft.protocols, protocolComposition: draft.protocols,
-    templateExpansions: request.workflow === 'analysis_summary' ? [
+    templateExpansions: checkpoint?.graph?draft.protocols.map((p,i)=>({protocolIndex:i,protocol:p.protocol,inputStepIds:[],stepIds:steps.filter(s=>s.protocol===p.protocol).map(s=>s.id),outputStepIds:steps.filter(s=>s.protocol===p.protocol).map(s=>s.id)})):request.workflow === 'analysis_summary' ? [
       { protocolIndex: 0, protocol: 'parallel_fanout', inputStepIds: [], stepIds: steps.filter(s=>s.protocol==='parallel_fanout').map(s=>s.id), outputStepIds: steps.filter(s=>s.protocol==='parallel_fanout').map(s=>s.id) },
       { protocolIndex: 1, protocol: 'supervisor_aggregation', inputStepIds: steps.filter(s=>s.protocol==='parallel_fanout').map(s=>s.id), stepIds: ['analysis-summary','complete'], outputStepIds: ['analysis-summary'] }
     ] : [{ protocolIndex: 0, protocol, inputStepIds: [], stepIds: steps.map(s => s.id), outputStepIds: tail }],
     runtimeMode: 'pipeline', actorBindings: bindings, hardConstraintBindings: [], steps,
-    completion: { requiredSteps: steps.map(s => s.id), terminalSteps: ['complete'] },
+    completion: { requiredSteps: steps.map(s => s.id), terminalSteps: checkpoint?.graph?tail:['complete'] },
     budget: { maximumSteps: 64, maximumAttemptsPerStep: 3, maximumTokensPerStep: Math.min(4000, request.constraints.maxTokens ?? 4000) },
     validationIssues: [], createdAt: now, updatedAt: now };
   plan.validationIssues = [...validateCoordinationPlan(plan, draft, snapshot), ...externalCoordinationIssues(plan, agents)];

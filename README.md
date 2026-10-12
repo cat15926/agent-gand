@@ -23,6 +23,8 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 
 任务“执行设置”可启用 USD/CNY 费用控制，配置 Run/阶段上限、成员计价来源与版本及未知调用预留；任务面板显示已知、进行中和未知占额，续跑/返工继承原预算。当前后端只支持估算控制，严格账单上限明确拒绝。见[费用契约](./docs/architecture/cost-budget-governance-v1.md)及[R5 验收记录](./docs/reports/platform-collaboration-r5-acceptance-2026-10-12.md)。验证入口：`pnpm verify:cost-budget`（可加 `--kernel-off`）。
 
+阶段分工可声明成员依赖；拒绝交付后选择部分成员返工，预览保留结果、依赖闭包和重新验收的阶段。公开只读文本且依赖完整时只重做受影响成员，其他情况整阶段回退。验收清单或分工修订创建新契约版本，原决定及消耗保留。适用的公开只读失败图可通过任务卡“预览依赖图承接”，明示转 Coordination 执行剩余分支。见[R6 契约与兼容矩阵](./docs/architecture/branch-rework-contract-revision-v1.md)及[验收记录](./docs/reports/platform-collaboration-r6-acceptance-2026-10-12.md)。验证入口：`pnpm verify:branch-recovery`（可加 `--kernel-off`）。
+
 其他命令：`pnpm typecheck`（全仓类型检查）、`pnpm verify:p0-tools`（验证 MCP 发现、审批、Trace、重连和模型计价）、`pnpm verify:agents`（验证角色 CRUD、版本与运行快照）、`pnpm verify:scheduler`（验证 Reviewer FAIL → Coder 返工 → Reviewer PASS）、`pnpm verify:collaboration`（验证动态交接、并行路由、等待用户、预算扩容和正式任务提议）、`pnpm verify:collaboration-reliability`（验证事务回滚、规范化去重、Agent 竞态与恢复安全）、`pnpm verify:collaboration-ui`（验证 Batch、Attempt 和 Run Stop 视图模型）、`pnpm verify:coordination-stage-e`（验证只读能力 MCP、协议组合、计划修订和阈值校准）、`pnpm verify:followup-stage3`（验证模型追问、显式优先与全队处理）、`pnpm db:reset`（清空 SQLite 重 seed）。
 
 自建角色保存在 SQLite，文件角色继续由 `agents/*.agent.md` 提供且在界面中只读，可复制为自建角色。角色通过“执行 / 审查 / 协调”能力参与调度，主管和默认评审者不再依赖固定 ID。每个 Run 创建时会保存成员配置快照，因此之后编辑或停用角色不会改变已经排队、执行中或历史 Run 的行为。

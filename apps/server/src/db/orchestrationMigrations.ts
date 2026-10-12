@@ -13,6 +13,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 7, name: 'artifact-worktree-snapshots-v1', descriptor: 'declared-delivery-manifest-v1;encrypted-self-contained-git-tree-pack;controlled-add-modify-delete-binary;fresh-isolated-restore;accepted-and-referenced-retention;public-managed-stage-checkpoint-v2' },
   { version: 8, name: 'private-write-recovery-v1', descriptor: 'owner-effect-reconciliation-v1;immutable-source;scope-bound-encrypted-stage-checkpoint-v3;exact-write-snapshot;fresh-run-native-home;no-unknown-effect-replay' },
   { version: 9, name: 'cost-budget-governance-v1', descriptor: 'versioned-owner-pricing-policy;atomic-run-stage-money-reservation;unknown-cost-not-zero;estimate-only-backend-admission;immutable-lineage-cost-carry' },
+  { version: 10, name: 'branch-rework-contract-revision-v1', descriptor: 'business-contract-v2;explicit-member-dependencies;validated-rework-closure;immutable-contract-successor;engine-recovery-matrix;lineage-budget-side-effect-guards' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));

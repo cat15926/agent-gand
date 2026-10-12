@@ -363,10 +363,49 @@ try {
   await feeSettings.getByLabel('费用币种',{exact:true}).selectOption('USD');assert.equal(await feeSettings.getByLabel('aa 计价来源',{exact:true}).count(),0);await feeSettings.getByLabel('费用币种',{exact:true}).selectOption('CNY');
   await page.getByRole('button',{name:'关闭执行设置',exact:true}).click();await page.getByRole('button',{name:'预览计划',exact:true}).click();await page.getByRole('status').filter({hasText:'每次调用预留 0.1 CNY'}).waitFor();assert.equal(environment.calls.length,feeCalls);
   await page.getByRole('button',{name:'确认并执行本任务',exact:true}).click();const feeBudget=page.getByLabel('任务费用预算',{exact:true});await feeBudget.getByText(/1 次费用未完整报告/).waitFor();assert.equal(environment.calls.length,feeCalls+1);
-  assert.ok(await feeBudget.getByText('已占用 0.1 / 1 · 可派发剩余 0.9',{exact:true}).isVisible());await feeBudget.getByText('查看费用记录与计价版本',{exact:true}).click();await feeBudget.getByText('预留 0.1 · 已知 未知',{exact:true}).waitFor();assert.ok(await feeBudget.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await feeBudget.screenshot({path:path.join(output,'mobile-r5-cost-budget.png')});
+  await feeBudget.getByText('已占用 0.1 / 1 · 可派发剩余 0.9',{exact:true}).waitFor();await feeBudget.getByText('查看费用记录与计价版本',{exact:true}).click();await feeBudget.getByText('预留 0.1 · 已知 未知',{exact:true}).waitFor();assert.ok(await feeBudget.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await feeBudget.screenshot({path:path.join(output,'mobile-r5-cost-budget.png')});
   const {costBudgetState}=await import('../apps/server/src/orchestration/costBudget.ts');const feeRun=environment.database.get('SELECT id FROM runs WHERE conversation_id=?',feeRoom.json().conversation.id);assert.equal(costBudgetState(feeRun.id).run.unknown,0.1);
   checks.push('R5 桌面/390px 费用设置、计价来源与版本、换币种清空价格；严格模式禁用确认且不调模型','估算政策显式未知预留、Owner 费用明细与剩余额度，未知费用不显示免费');
   assert.deepEqual(pageErrors,[]);assert.equal(environment.externalRequests,0);
-  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, checks, screenshots: ['desktop-editor.png','mobile-editor.png','mobile-preview.png','mobile-acceptance.png','desktop-completed.png','desktop-artifact-snapshot.png','mobile-artifact-snapshot.png','mobile-artifact-restore.png','desktop-continuation-preview.png','mobile-continuation-preview.png','desktop-continuation-completed.png','desktop-rework-preview.png','mobile-rework-preview.png','mobile-rework-completed.png','desktop-r4-reconciliation.png','mobile-r4-reconciliation.png','mobile-r4-reconciliation-confirm.png','mobile-r4-continuation.png','desktop-r5-cost-policy.png','mobile-r5-cost-policy.png','mobile-r5-cost-budget.png'] }, null, 2));
+  // R6: partial rework keeps an independent member; contract revisions preview invalidation.
+  const r6Contract=structuredClone(sourceInput.businessContract);r6Contract.version=2;r6Contract.revision=1;
+  for(const stage of r6Contract.stages)for(const task of stage.execution.assignments)task.dependsOn=[];
+  r6Contract.stages[1].execution.assignments.push({agentId:'aa',objective:'独立核对建议依据',dependsOn:[]});
+  async function r6Source(title) {
+    const input={...sourceInput,goal:'R6 只读独立分工',roomTitle:title,clientRequestId:crypto.randomUUID(),businessContract:r6Contract};
+    const p=await previewExecutionOrchestration(Object.fromEntries(Object.entries(input).filter(([k])=>k!=='roomTitle')));
+    const result=submitExecutionOrchestration({...input,entryVersion:1,previewId:p.previewId,orchestrationFingerprint:p.fingerprint});
+    await coordination.runCoordinationPlan(result.run,result.run.goal);
+    const cmd=c=>business.applyBusinessCommand(result.run.id,{...c,expectedVersion:business.getBusinessState(result.run.id).version,clientRequestId:crypto.randomUUID()});
+    cmd({action:'report',stageId:'foundation',kind:'delivery',note:'基础通过',evidence:[{deliverableId:'foundation-report',ref:business.listBusinessEvidence(result.run.id).find(c=>c.stageId==='foundation').ref}]});
+    cmd({action:'decide',stageId:'foundation',reportId:business.getBusinessState(result.run.id).stages[0].report.id,verdict:'accept',checkedCriteria:[0],reason:'通过'});
+    await coordination.resumeCoordinationRun(result.run.id);
+    const stage=r6Contract.stages[1];cmd({action:'report',stageId:stage.id,kind:'delivery',note:'当前建议交付',evidence:[{deliverableId:stage.deliverables[0].id,ref:business.listBusinessEvidence(result.run.id).find(c=>c.stageId===stage.id).ref}]});
+    cmd({action:'decide',stageId:stage.id,reportId:business.getBusinessState(result.run.id).stages[1].report.id,verdict:'reject',checkedCriteria:[],reason:'其中一个成员需要补充依据'});
+    return result;
+  }
+  const r6=await r6Source('部分成员返工 UI 回归');
+  navigating=true;await relay;await page.goto(`${origin}/?room=${r6.conversation.id}`);await page.getByRole('heading',{name:'部分成员返工 UI 回归',exact:true}).waitFor();navigating=false;
+  let r6Card=page.getByRole('region',{name:'第 1 轮任务',exact:true});await r6Card.getByRole('button',{name:'查看计划、结果与验收',exact:true}).click();
+  const r6Rework=r6Card.getByLabel('行动建议 阶段返工',{exact:true});await r6Rework.waitFor();
+  await r6Rework.getByRole('checkbox',{name:/分析员 A/}).uncheck();await r6Rework.getByLabel('行动建议 返工要求',{exact:true}).fill('只修订分析员 B 的独立结论，A 的核对结果保留。');
+  const r6Calls=environment.calls.length;await r6Rework.getByRole('button',{name:'预览阶段返工',exact:true}).click();
+  const impact=r6Rework.getByLabel('返工影响范围',{exact:true});await impact.getByText(/保留：.*独立核对建议依据/).waitFor();await impact.getByText(/必须重做：分析员 B/).waitFor();assert.equal(environment.calls.length,r6Calls);
+  await page.setViewportSize({width:1440,height:1000});await impact.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'desktop-r6-partial-rework.png')});
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'展开聊天室',exact:true}).waitFor();assert.ok(await r6Rework.evaluate(el=>el.clientWidth>200&&el.scrollWidth<=el.clientWidth+1));await impact.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'mobile-r6-partial-rework.png')});
+  await r6Rework.getByRole('button',{name:'确认并执行返工',exact:true}).click();await page.getByRole('dialog',{name:'任务详情',exact:true}).getByRole('button',{name:'关闭任务详情',exact:true}).click();
+  r6Card=page.getByRole('region',{name:'第 2 轮任务',exact:true});await r6Card.getByRole('button',{name:'查看计划、结果与验收',exact:true}).click();await r6Card.getByText('2. 行动建议 · 待关联交付证据',{exact:true}).waitFor();assert.equal(environment.calls.length,r6Calls+1);
+  const r6Revision=await r6Source('契约修订 UI 回归');
+  navigating=true;await relay;await page.goto(`${origin}/?room=${r6Revision.conversation.id}`);await page.getByRole('heading',{name:'契约修订 UI 回归',exact:true}).waitFor();navigating=false;
+  const revisionCard=page.getByRole('region',{name:'第 1 轮任务',exact:true});await revisionCard.getByRole('button',{name:'查看计划、结果与验收',exact:true}).click();
+  await revisionCard.getByText('修订验收清单或成员分工 · 创建新契约版本',{exact:true}).click();
+  await revisionCard.getByLabel('阶段 2 验收标准',{exact:true}).fill('增加反例和边界核验');await revisionCard.getByLabel('契约修订说明',{exact:true}).fill('新增验收标准，原决定留在来源版本。');
+  const revisionCalls=environment.calls.length;await revisionCard.getByRole('button',{name:'预览契约修订',exact:true}).click();const revisionPreview=revisionCard.getByLabel('契约修订预览',{exact:true});await revisionPreview.getByText('契约版本：1 → 2',{exact:true}).waitFor();assert.equal(environment.calls.length,revisionCalls);
+  assert.ok(await revisionPreview.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await revisionPreview.scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'mobile-r6-contract-revision.png')});
+  await revisionPreview.getByRole('button',{name:'确认修订并执行',exact:true}).click();await page.getByRole('dialog',{name:'任务详情',exact:true}).getByRole('button',{name:'关闭任务详情',exact:true}).click();
+  const r6RevisedCard=page.getByRole('region',{name:'第 2 轮任务',exact:true});await r6RevisedCard.getByRole('button',{name:'查看计划、结果与验收',exact:true}).click();await r6RevisedCard.getByText('2. 行动建议 · 待关联交付证据',{exact:true}).waitFor();assert.equal(environment.calls.length,revisionCalls+2);assert.equal(business.getBusinessState(r6Revision.run.id).contract.revision,1);
+  checks.push('R6 实际浏览器选择单一成员、依赖影响保留/重做/重新验收、预览零调用、独立成员不重放；1440px/390px 无横向溢出','契约标准修订 v1→v2、原标准/决定保留、确认仅执行受影响阶段并重新等待验收');
+  assert.deepEqual(pageErrors,[]);assert.equal(environment.externalRequests,0);
+  await writeFile(path.join(output, 'result.json'), JSON.stringify({ passed: true, checks, screenshots: ['desktop-editor.png','mobile-editor.png','mobile-preview.png','mobile-acceptance.png','desktop-completed.png','desktop-artifact-snapshot.png','mobile-artifact-snapshot.png','mobile-artifact-restore.png','desktop-continuation-preview.png','mobile-continuation-preview.png','desktop-continuation-completed.png','desktop-rework-preview.png','mobile-rework-preview.png','mobile-rework-completed.png','desktop-r4-reconciliation.png','mobile-r4-reconciliation.png','mobile-r4-reconciliation-confirm.png','mobile-r4-continuation.png','desktop-r5-cost-policy.png','mobile-r5-cost-policy.png','mobile-r5-cost-budget.png','desktop-r6-partial-rework.png','mobile-r6-partial-rework.png','mobile-r6-contract-revision.png'] }, null, 2));
   console.log(JSON.stringify({ passed: true, checks, output, listeningPorts: 0, realProviderRequests: 0 }, null, 2));
 } finally { unsubscribe?.(); await relay; await browser?.close(); await environment?.close(); }

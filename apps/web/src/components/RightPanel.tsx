@@ -227,8 +227,9 @@ export function RightPanel() {
                       </div>
                     )}
                     {task.lastError && <div className="text-red-300">{task.lastError}</div>}
+                    {task.status==='failed'&&activeRun?.status==='failed'&&<p>原任务已失败，请在任务卡“预览依赖图承接”中确认剩余工作。</p>}
                     <div className="flex gap-2 pt-1">
-                      {task.status === 'failed' && activeRun?.mode === 'supervisor' && task.createdBy !== 'system' && (
+                      {task.status === 'failed' && activeRun?.mode === 'supervisor' && activeRun.status !== 'failed'&&activeRun.status !== 'cancelled'&&activeRun.status !== 'completed'&&task.createdBy !== 'system' && (
                         <button disabled={actingTask === task.id} onClick={() => void taskAction(task.id, 'retry')} className="rounded bg-violet-500/20 px-2 py-1 text-violet-200 disabled:opacity-40">
                           人工重试
                         </button>

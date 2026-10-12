@@ -14,6 +14,8 @@ import { checkpointDigest, checkpointSummary, saveBusinessCheckpoint, type Busin
 import { redactSensitive } from '../runtime/evidence.ts';
 import { runSourceAccess } from '../messaging/access.ts';
 import { costCarry, carryCosts, costBudgetState } from './costBudget.ts';
+import { buildGraphCheckpoint } from './graphCheckpoint.ts';
+import { getAnyAgent } from '../agents/registry.ts';
 
 function continuationInput(runId: string): OrchestrationPreviewInput {
   const assessment = assessRunRecovery(runId);
@@ -21,13 +23,18 @@ function continuationInput(runId: string): OrchestrationPreviewInput {
   const source = getRun(runId)!;
   const room = getConversation(source.conversationId);
   if (!room || room.archivedAt) throw new OrchestrationError(409, 'CONTINUATION_ROOM_UNAVAILABLE', '原聊天室不存在或已归档');
-  if (source.agentIds.some(id => !room.agentIds.includes(id))) throw new OrchestrationError(409, 'CONTINUATION_TEAM_CHANGED', '原成员已不在聊天室，请准备新任务并选择团队');
   const snapshot = getRunOrchestrationSnapshot(runId);
+  const team=snapshot?.request.agentIds??source.agentIds;
+  if(JSON.stringify(team)!==JSON.stringify(room.agentIds))throw new OrchestrationError(409,'CONTINUATION_TEAM_CHANGED','聊天室成员或顺序与原冻结团队不一致，请恢复原团队后预览，或明确创建新任务。');
   if (assessment.continuationKind === 'business_stages') return businessCheckpointInput(runId, `continuation:${source.id}`);
+  if(assessment.continuationKind==='dependency_graph') {
+    const executor=source.agentIds.find(id=>getAnyAgent(id)?.capabilities.includes('execute'))??source.agentIds[0]!;
+    return {conversationId:source.conversationId,goal:source.goal,agentIds:[...team],recipientIds:[executor],strategy:'serial',workflow:'routine',workspace:room.workspace,wholeTeam:false,supervisorId:null,defaultReviewerId:null,aggregatorId:null,replyTo:null,taskId:null,...runSourceAccess(runId),constraints:{...snapshot?.request.constraints,readonly:true},clientRequestId:`continuation:${source.id}`};
+  }
   const failed = listDispatches(runId).find(item => item.status === 'failed')!;
   const pendingMessage = listByRun(runId).find(message => message.id === failed.sourceMessageId);
   if (!pendingMessage) throw new OrchestrationError(409, 'CONTINUATION_SOURCE_MISSING', '待续事项的来源消息不存在');
-  return { conversationId: source.conversationId, goal: `继续未交付事项：\n${pendingMessage.body}`, agentIds: source.agentIds,
+  return { conversationId: source.conversationId, goal: `继续未交付事项：\n${pendingMessage.body}`, agentIds: [...team],
     recipientIds: [assessment.targetAgentId!], strategy: 'auto', workflow: 'routine', workspace: source.workspace ?? null,
     wholeTeam: false, supervisorId: null, defaultReviewerId: null, aggregatorId: null, replyTo: null, taskId: null,
     constraints: { ...snapshot?.request.constraints, readonly: true, ...(snapshot?.request.constraints.deadlineMs ? { deadlineMs: snapshot.request.constraints.deadlineMs } : {}),
@@ -41,23 +48,25 @@ export function businessCheckpointInput(runId: string, clientRequestId: string):
   const source = getRun(runId)!;
   const room = getConversation(source.conversationId);
   if (!room || room.archivedAt) throw new OrchestrationError(409, 'CONTINUATION_ROOM_UNAVAILABLE', '原聊天室不存在或已归档');
-  if (source.agentIds.some(id => !room.agentIds.includes(id))) throw new OrchestrationError(409, 'CONTINUATION_TEAM_CHANGED', '原成员已不在聊天室，请准备新任务并选择团队');
   const snapshot = getRunOrchestrationSnapshot(runId)!;
-  return { conversationId: source.conversationId, goal: source.goal, agentIds: room.agentIds, recipientIds: [], strategy: 'serial', workflow: 'routine',
+  const team=snapshot.request.agentIds;
+  if(JSON.stringify(team)!==JSON.stringify(room.agentIds))throw new OrchestrationError(409,'CONTINUATION_TEAM_CHANGED','聊天室成员或顺序与原冻结团队不一致，请恢复原团队后预览，或明确创建新任务。');
+  return { conversationId: source.conversationId, goal: source.goal, agentIds: [...team], recipientIds: [], strategy: 'serial', workflow: 'routine',
     workspace: room.workspace, wholeTeam: false, supervisorId: null, defaultReviewerId: null, aggregatorId: null, replyTo: null, taskId: null,
     ...runSourceAccess(runId),businessContract: snapshot.request.businessContract, constraints: { ...snapshot.request.constraints, readonly: snapshot.execution?.readonly!==false }, clientRequestId };
 }
 
 /** Model-free preview; admission freezes the current role/account configuration again. */
 export async function previewRunContinuation(runId: string, owner = false) {
-  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy) && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段或费用续跑需通过所有者账户管理入口预览和确认');
+  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy||assessRunRecovery(runId).continuationKind==='dependency_graph') && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段、依赖图或费用续跑需通过所有者账户管理入口预览和确认');
   const input = continuationInput(runId);
-  const checkpoint = input.businessContract ? buildBusinessCheckpoint(runId) : undefined;
+  const checkpoint = input.businessContract ? buildBusinessCheckpoint(runId) : assessRunRecovery(runId).continuationKind==='dependency_graph'?buildGraphCheckpoint(runId):undefined;
   const preview = await previewExecutionOrchestration(input, 'unified_preview', checkpoint);
+  if(checkpoint?.graph)return {assessment:assessRunRecovery(runId),preview,checkpoint:{pendingObjective:checkpoint.graph.steps.filter(s=>s.agentId&&!checkpoint.outputs.some(o=>o.stepId===s.id)).map(s=>String(s.metadata.objective??s.completion)).join('\n'),confirmedOutputs:checkpoint.outputs.map(o=>({attemptId:o.attemptId,agentId:o.agentId,excerpt:redactSensitive(o.output).slice(0,800),truncated:o.output.length>800})),graph:{sourceEngine:checkpoint.graph.sourceEngine,targetEngine:'coordination' as const,retainedStepIds:checkpoint.outputs.map(o=>o.stepId),redoStepIds:checkpoint.graph.steps.filter(s=>s.agentId&&!checkpoint.outputs.some(o=>o.stepId===s.id)).map(s=>s.id)},business:{...checkpointSummary(checkpoint),acceptedStages:[],carriedRunTokens:checkpoint.runTokens,carriedStageTokens:[],workspace:'fresh_run' as const,timeLimitsReset:true}}};
   if (checkpoint) return { assessment: assessRunRecovery(runId), preview, checkpoint: {
-    pendingObjective: checkpoint.contract.stages.filter(s => !checkpoint.accepted.some(a => a.stageId === s.id)).map(s => `${s.title}：${s.execution!.assignments.filter((_, i) => !checkpoint.outputs.some(o => o.stepId === `stage-${checkpoint.contract.stages.indexOf(s) + 1}-work-${i + 1}`)).map(a => a.objective).join('；') || '成员步骤已完成，等待验收'}`).join('\n'),
+    pendingObjective: checkpoint.contract!.stages.filter(s => !checkpoint.accepted.some(a => a.stageId === s.id)).map(s => `${s.title}：${s.execution!.assignments.filter((_, i) => !checkpoint.outputs.some(o => o.stepId === `stage-${checkpoint.contract!.stages.indexOf(s) + 1}-work-${i + 1}`)).map(a => a.objective).join('；') || '成员步骤已完成，等待验收'}`).join('\n'),
     confirmedOutputs: checkpoint.outputs.map(o => ({ attemptId: o.attemptId, agentId: o.agentId, origin:o.origin, excerpt: redactSensitive(o.output).slice(0,800), truncated: o.output.length > 800 })),
-    business: { ...checkpointSummary(checkpoint), acceptedStages: checkpoint.accepted.map(a => ({ id: a.stageId, title: checkpoint.contract.stages.find(s => s.id === a.stageId)!.title })),
+    business: { ...checkpointSummary(checkpoint), acceptedStages: checkpoint.accepted.map(a => ({ id: a.stageId, title: checkpoint.contract!.stages.find(s => s.id === a.stageId)!.title })),
       carriedRunTokens: checkpoint.runTokens, carriedStageTokens: checkpoint.stageTokens, workspace: 'fresh_run' as const, timeLimitsReset: true } } };
   const outputs = listAttempts(runId).filter(attempt => attempt.status === 'completed' && attempt.output?.trim());
   const costs = costCarry(runId), fees = costBudgetState(runId);
@@ -69,7 +78,8 @@ export async function previewRunContinuation(runId: string, owner = false) {
 
 /** One linked Run per terminal source; source records and confirmed attempts are never updated. */
 export function submitRunContinuation(runId: string, value: unknown, owner = false) {
-  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy) && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段或费用续跑需通过所有者账户管理入口预览和确认');
+  const linked=get('SELECT 1 FROM orchestration_run_continuations WHERE source_run_id=?',runId);
+  if ((getRunOrchestrationSnapshot(runId)?.request.businessContract || getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy||!linked&&assessRunRecovery(runId).continuationKind==='dependency_graph'||linked&&get("SELECT 1 FROM orchestration_run_continuations WHERE source_run_id=? AND json_extract(manifest,'$.kind')='dependency_graph'",runId)) && !owner) throw new OrchestrationError(403, 'OWNER_REQUIRED', '阶段、依赖图或费用续跑需通过所有者账户管理入口预览和确认');
   const body = objectInput(value);
   if (Object.keys(body).some(key => !['previewId','orchestrationFingerprint','costCarryDigest'].includes(key))
     || typeof body.previewId !== 'string' || typeof body.orchestrationFingerprint !== 'string') {
@@ -83,12 +93,12 @@ export function submitRunContinuation(runId: string, value: unknown, owner = fal
       return { run: getRun(existing.target_run_id)!, deduplicated: true };
     }
     const input = continuationInput(runId);
-    if (input.businessContract) {
-      const checkpoint = buildBusinessCheckpoint(runId);
+    if (input.businessContract||assessRunRecovery(runId).continuationKind==='dependency_graph') {
+      const checkpoint = input.businessContract?buildBusinessCheckpoint(runId):buildGraphCheckpoint(runId);
       const result = submitExecutionOrchestration({ ...input, entryVersion: 1, previewId: body.previewId, orchestrationFingerprint: body.orchestrationFingerprint }, input.conversationId!, 'conversation_message', checkpoint);
       saveBusinessCheckpoint(result.run.id, checkpoint);
       carryTokenCharges(result.run.id, checkpoint);
-      const manifest = { version: 2, kind: 'business_stages', sourceRunId: runId, checkpointDigest: checkpointDigest(checkpoint),
+      const manifest = { version: checkpoint.graph?4:2, kind: checkpoint.graph?'dependency_graph':'business_stages', sourceRunId: runId, checkpointDigest: checkpointDigest(checkpoint),
         confirmation: stableDigest(body), outputs: checkpoint.outputs.map(o => ({ agentId: o.agentId, objective: o.objective, actionKind: 'answer' })) };
       run('INSERT INTO orchestration_run_continuations(source_run_id,target_run_id,source_dispatch_id,manifest,created_at) VALUES (?,?,?,?,?)',
         runId, result.run.id, 'business-stages', JSON.stringify(manifest), new Date().toISOString());

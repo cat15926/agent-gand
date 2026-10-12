@@ -4,6 +4,7 @@ import * as api from '../services/api';
 import { CostBudgetSummary } from './CostBudgetPanel';
 import { BusinessRecoveryPanel, CheckpointRecoveryScope } from './BusinessRecoveryPanel';
 import { SnapshotManifest } from './ArtifactSnapshotPanel';
+import { BusinessChangeImpact } from './BusinessChangeImpact';
 
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40';
 export function BusinessStageReworkPanel({ runId, version, item, members, disabled, onCreated }: {
@@ -11,6 +12,7 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
   disabled: boolean; onCreated: (runId: string) => Promise<void>;
 }) {
   const [instruction, setInstruction] = useState('');
+  const [selected,setSelected]=useState(item.stage.execution!.assignments.map(t=>t.agentId));
   const [preview, setPreview] = useState<api.BusinessReworkPreview | null>(null);
   const [working, setWorking] = useState(false); const [error, setError] = useState('');
   const alive = useRef(true);
@@ -18,7 +20,7 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
   async function prepare() {
     setWorking(true); setError(''); setPreview(null);
     try {
-      const value = await api.previewBusinessRework(runId, { stageId: item.stage.id, reportId: item.report!.id, expectedVersion: version, instruction });
+      const value = await api.previewBusinessRework(runId, { stageId: item.stage.id, reportId: item.report!.id, expectedVersion: version, instruction,selectedAgentIds:selected });
       if (alive.current) setPreview(value);
     } catch (error) { if (alive.current) setError(error instanceof Error ? error.message : String(error)); }
     finally { if (alive.current) setWorking(false); }
@@ -38,12 +40,13 @@ export function BusinessStageReworkPanel({ runId, version, item, members, disabl
   return <div aria-label={`${item.stage.title} 阶段返工`} className="space-y-3 rounded-lg border border-amber-500/30 p-3">
     <p className="text-amber-200">需要成员修订交付时，可明确发起阶段返工。私密及写入任务须先核对授权和副作用。</p>
     <BusinessRecoveryPanel runId={runId} members={members} onReviewed={() => setPreview(null)} />
+    <fieldset disabled={busy} className="space-y-2"><legend>选择需要返工的成员</legend>{item.stage.execution!.assignments.map(t=><label key={t.agentId} className="flex gap-2"><input type="checkbox" checked={selected.includes(t.agentId)} onChange={e=>{setSelected(ids=>e.target.checked?[...ids,t.agentId]:ids.filter(id=>id!==t.agentId));setPreview(null);}}/>{members.find(m=>m.id===t.agentId)?.name??t.agentId} · {t.objective}</label>)}</fieldset>
     <label className="block text-zinc-400">补充修订要求<textarea aria-label={`${item.stage.title} 返工要求`} className="input mt-1 min-h-20" maxLength={2000} disabled={busy} value={instruction}
       onChange={e => { setInstruction(e.target.value); setPreview(null); setError(''); }} placeholder="说明需要补充或改正的内容；原验收标准和交付清单保持不变" /></label>
-    <button className={button} disabled={busy || !instruction.trim()} onClick={() => void prepare()}>预览阶段返工</button>
+    <button className={button} disabled={busy || !instruction.trim()||!selected.length} onClick={() => void prepare()}>预览阶段返工</button>
     {preview && <div aria-label="阶段返工预览" className="space-y-3 border-t border-zinc-700 pt-3">
-      <p>返工阶段：{preview.stage.title}。本阶段全部 {preview.stage.assignments.length} 个成员任务将重新执行。</p>
-      {preview.stage.assignments.map((a, i) => <p key={i} className="whitespace-pre-wrap text-zinc-300">{i + 1}. {members.find(m => m.id === a.agentId)?.name ?? a.agentId}：{a.objective}</p>)}
+      <p>返工阶段：{preview.stage.title}。执行集合由依赖校验确定。</p>
+      {preview.checkpoint.impact&&<BusinessChangeImpact impact={preview.checkpoint.impact} members={members}/>}
       <p>保留已验收阶段：{preview.checkpoint.acceptedStages.map(s => s.title).join('、') || '无'}。后续阶段须等待本次重新验收。</p>
       <p className="whitespace-pre-wrap text-zinc-400">拒绝原因：{preview.checkpoint.rework?.reason}</p>
       <p className="whitespace-pre-wrap text-zinc-300">修订要求：{preview.input.instruction}</p>

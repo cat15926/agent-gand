@@ -25,7 +25,8 @@ export interface RunRecoveryAssessment {
   targetAgentId: string | null;
   continuationRunId: string | null;
   sourceRunId: string | null;
-  continuationKind?: 'readonly_collaboration' | 'business_stages';
+  continuationKind?: 'readonly_collaboration' | 'business_stages' | 'dependency_graph';
+  capabilities?: { engine: 'collaboration'|'coordination'|'pipeline'|'supervisor'; actions:Array<{kind:'resume'|'branch_retry'|'checkpoint';available:boolean;reasonCodes:string[];explanation:string}> };
   reconciliationAvailable?:boolean;
 }
 
