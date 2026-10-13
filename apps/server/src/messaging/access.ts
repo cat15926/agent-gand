@@ -35,8 +35,9 @@ export function attemptAccess(id: string): MessageAccess {
   const source = get<{ source_message_id: string }>(`SELECT d.source_message_id FROM collaboration_attempts a
     JOIN collaboration_dispatches d ON d.id=a.dispatch_id WHERE a.id=?`, id);
   if (source) return messageAccess(source.source_message_id);
-  const other = get<{ run_id: string }>('SELECT run_id FROM coordination_step_attempts WHERE id=?', id)
-    ?? get<{ run_id: string }>('SELECT run_id FROM task_attempts WHERE id=?', id);
+  const coordination=get<{run_id:string;step_id:string;plan:string}>('SELECT a.run_id,a.step_id,p.payload plan FROM coordination_step_attempts a JOIN coordination_plans p ON p.id=a.plan_id WHERE a.id=?',id);
+  if(coordination){const step=JSON.parse(coordination.plan).steps.find((s:{id:string})=>s.id===coordination.step_id);return intersectMessageAccess([runSourceAccess(coordination.run_id),step?.metadata?.stageBatchVersion===1&&step.metadata.scopeVisibility==='private'?{visibility:'private',audience:step.metadata.scopeAudience}:publicAccess()]);}
+  const other = get<{ run_id: string }>('SELECT run_id FROM task_attempts WHERE id=?', id);
   return other ? runSourceAccess(other.run_id) : { visibility: 'private', audience: ['user'] };
 }
 

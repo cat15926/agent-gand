@@ -116,7 +116,10 @@
     "verify:artifact-snapshots": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-artifact-snapshots.mjs",
     "verify:private-write-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-private-write-recovery.mjs",
     "verify:cost-budget": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-cost-budget.mjs",
-    "verify:branch-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-branch-recovery.mjs"
+    "verify:branch-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-branch-recovery.mjs",
+    "verify:stage-scheduling": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-stage-scheduling.mjs",
+    "verify:platform-real-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-platform-real-acceptance.mjs",
+    "collaboration:acceptance-real": "node scripts/platform-collaboration-real-acceptance.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

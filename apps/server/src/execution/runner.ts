@@ -1,7 +1,9 @@
 import { mkdirSync, realpathSync } from 'node:fs';
 import { get } from '../db/database.ts';
 import { readBusinessCheckpoint } from '../orchestration/businessCheckpointStore.ts';
-import { reserveCost, settleCost, type CostReservationRow } from '../orchestration/costBudget.ts';
+import { settleCost, type CostReservationRow } from '../orchestration/costBudget.ts';
+import { reserveCostWhenReady,ModelAdmissionPausedError } from '../orchestration/executionBudget.ts';
+import { queueModelCall,startModelCall,finishModelCall } from '../orchestration/modelCalls.ts';
 import type { ExternalAgentExecution, NativeAgentEvent, RunEvent } from '@agent-gand/shared';
 import { assertExternalPolicy } from '../agents/validation.ts';
 import { config } from '../config.ts';
@@ -67,11 +69,23 @@ function asResult(content: string, toolRounds: number): AgentTurnResult {
 }
 
 export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
-  try { return await runExternalAgentTurnImpl(opts); }
-  catch (error) { throw recordExternalPreparationFailure(opts, error); }
+  let admission:{callId:string;cost:CostReservationRow|null}|undefined;
+  try {
+    const policy=executionPolicy(opts.run.id);
+    if(opts.agent.execution?.kind==='external'&&policy?.request.businessContract?.version===3&&policy.request.constraints.costPolicy&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
+      admission={callId:queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,opts.attemptId),cost:null};
+      admission.cost=await reserveCostWhenReady(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,undefined,opts.executionSignal,admission.callId,opts.modelAdmissionHooks?.onWaiting);
+      opts.modelAdmissionHooks?.onFinished?.();
+    }
+    return await runExternalAgentTurnImpl(opts,admission);
+  } catch (error) {
+    if(admission){finishModelCall(admission.callId,false);settleCost(admission.cost,undefined,true);}
+    if(error instanceof ModelAdmissionPausedError)throw error;
+    throw recordExternalPreparationFailure(opts, error);
+  }
 }
 
-async function runExternalAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callId:string;cost:CostReservationRow|null}): Promise<AgentTurnResult> {
   assertExternalPolicy(opts.agent);
   if (opts.agent.execution?.kind !== 'external') throw new ExecutionError('policy_rejected', '缺少外部执行配置');
   const duplex = bidirectional(opts.agent.execution.driver);
@@ -134,12 +148,12 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTu
     if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效'));
     try { if (account?.managed) assertNotRevoked(account.accountId); } catch { controller.abort(new ExecutionError('cancelled', '账户已立即撤销')); }
   }, 100);
-  const done = invokeTurn(opts, execution, controller, account);
+  const done = invokeTurn(opts, execution, controller, account,admission);
   active.set(execution.id, { runId: opts.run.id, controller, done });
   try { return await done; } finally { clearTimeout(timer); clearInterval(authorityTimer); opts.executionSignal?.removeEventListener('abort', abortFromTurn); active.delete(execution.id); }
 }
 
-async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, controller: AbortController, account: ResolvedAccount | null): Promise<AgentTurnResult> {
+async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecution, controller: AbortController, account: ResolvedAccount | null,firstAdmission?:{callId:string;cost:CostReservationRow|null}): Promise<AgentTurnResult> {
   const signal = controller.signal;
   const activity = new ActivityTimeout(execution.timeoutPolicy ?? {}, error => controller.abort(error));
   const mode = execution.permissionMode ?? 'readonly';
@@ -243,11 +257,14 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       usage.set(correction, { tokensIn: null, tokensOut: null, costUsd: null });
       updateExecution(execution.id, { tokensIn: null, tokensOut: null, costUsd: null });
       let cost: CostReservationRow | null = null;
+      const admitted=firstAdmission;firstAdmission=undefined;
+      const callId=admitted?.callId??queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,execution.driver,opts.attemptId);
       try {
-        cost = reserveCost(opts.run.id, opts.agent.id, opts.agent.model, execution.driver);
+        cost = admitted?admitted.cost:await reserveCostWhenReady(opts.run.id, opts.agent.id, opts.agent.model, execution.driver,undefined,signal,callId);
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
         activity.start();
+        startModelCall(callId);
         content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           authorized: () => executionAuthorized(execution),
           permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
@@ -266,8 +283,10 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
           onProcessStopped: markNativeProcessStopped }));
         const part = usage.get(correction)!;
+        finishModelCall(callId,true);
         settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' });
       } catch (error) {
+        finishModelCall(callId,false);
         const part = usage.get(correction)!;
         settleCost(cost, { costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }, true);
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {

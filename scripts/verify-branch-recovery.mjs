@@ -261,6 +261,6 @@ try {
   assert.equal(JSON.parse(cold.trim()).sourceEngine,'coordination');
   const legacyRun=trace.createRun('旧契约拒绝','pipeline',room.agentIds,null,null,room.id);trace.setRunStatus(legacyRun.id,'failed');code(()=>buildGraphCheckpoint(legacyRun.id),'LEGACY_CONTEXT_UNVERIFIED');
   await assert.rejects(()=>applyRunAction(legacyRun.id,'resume'),/终态任务/);
-  assert.equal(db.get('SELECT MAX(version)n FROM orchestration_schema_migrations').n,10);
+  assert.equal(db.get('SELECT MAX(version)n FROM orchestration_schema_migrations').n,11);
   console.log(`通过 R6：独立分支保留、依赖闭包/整阶段回退、契约版本及验收失效、预算限制/CAS/原子回滚、Collaboration/Coordination/Pipeline/Supervisor 图承接和二次续跑、Owner HTTP/幂等、加密 v4 冷读取、不兼容明确拒绝（kernel=${process.env.COORDINATION_RUNTIME_KERNEL}）。临时数据库和模拟模型，无真实模型调用。`);
 } finally {await app.close();db.db.close();await rm(root,{recursive:true,force:true});}

@@ -21,6 +21,7 @@ function persist() {
 }
 async function execute(prompt) {
   log({ kind: 'turn', cwd: input.cwd, thread, resume: !!input.session?.resume, model: input.model, prompt });
+  if(prompt.includes('R7_NATIVE_QUEUE_DELAY'))await new Promise(resolve=>setTimeout(resolve,200));
   const target = path.join(input.cwd, 'work.txt');
   if (input.model.includes('wait')) {
     const child = spawn(process.execPath, ['-e', "process.on('SIGTERM',()=>{});process.send({type:'ready'});setTimeout(()=>require('fs').writeFileSync(process.argv[1],'late'),1600);setInterval(()=>{},1000)", path.join(input.cwd, 'late-orphan.txt')], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
@@ -67,7 +68,7 @@ createInterface({ input: process.stdin }).on('line', (line) => { void (async () 
       if (existsSync(path.join(input.cwd, 'reject-resume')) || !existsSync(file)) { log({ kind: 'resume-rejected' }); send({ method: 'sdk/resumeUnavailable', params: {} }); return; }
       state = JSON.parse(readFileSync(file, 'utf8'));
     }
-    sdk({ type: 'system', subtype: 'init', session_id: thread, tools: input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'], mcp_servers: [] });
+    sdk({ type: 'system', subtype: 'init', session_id: thread, tools: input.controlOnly || input.privateContext ? [] : input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash'], mcp_servers: [] });
     await execute(input.prompt); return;
   }
   if (message.method === 'initialize') send({ id: message.id, result: { userAgent: 'fixture-d' } });

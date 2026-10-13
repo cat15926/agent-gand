@@ -501,12 +501,16 @@ export function closeCoordinationKernelPlan(plan: CoordinationPlan, states: Coor
 export function assembleCoordinationKernelContext(input: {
   run: Run; plan: CoordinationPlan; step: CoordinationPlanStep; attemptId: string; baseInput: string;
 }): string {
-  if (!coordinationKernelMode(input.run.id) || !input.step.agentId) return input.baseInput;
+  if (!input.step.agentId) return input.baseInput;
+  if(!coordinationKernelMode(input.run.id)){
+    if(input.step.metadata.stageBatchVersion===1)return assembleRuntimeContext({runId:input.run.id,workItemId:`coordination:${input.plan.id}:${input.plan.revision}:${input.step.id}`,attemptId:input.attemptId,contributors:[{source:'current',text:input.baseInput,priority:100,maxChars:24000,sensitivePolicy:'redact',provenance:[`coordination_step:${input.step.id}`],access:attemptAccess(input.attemptId)}]});
+    return input.baseInput;
+  }
   const contract = loadRuntimeContract(input.run.id);
   const custody = get<{ state: string; holder_agent_id: string | null; generation: number }>(`SELECT c.state,c.holder_agent_id,c.generation
     FROM runtime_coordination_subjects m JOIN runtime_custody c ON c.subject_id=m.subject_id
     WHERE m.plan_id=? AND m.revision=? AND m.step_id=?`, input.plan.id, input.plan.revision, input.step.id);
-  const dependencyEvidence = input.step.dependsOn.flatMap((stepId) => {
+  const dependencyEvidence = input.step.dependsOn.filter(stepId=>input.step.metadata.businessStageJoin!==true||(input.step.metadata.joinSourceAgentIds as string[]).includes(input.plan.steps.find(s=>s.id===stepId)?.agentId??'')).flatMap((stepId) => {
     const row = get<{ refs: string; bundle_id: string | null }>(`SELECT e.refs,e.bundle_id FROM runtime_coordination_subjects m
       JOIN runtime_coordination_evidence e ON e.subject_id=m.subject_id
       WHERE m.plan_id=? AND m.revision=? AND m.step_id=? ORDER BY e.created_at DESC LIMIT 1`, input.plan.id, input.plan.revision, stepId);
@@ -557,7 +561,7 @@ export function assembleCoordinationKernelContext(input: {
   ];
   return assembleRuntimeContext({ runId: input.run.id,
     workItemId: `coordination:${input.plan.id}:${input.plan.revision}:${input.step.id}`,
-    attemptId: input.attemptId, contributors });
+    attemptId: input.attemptId, contributors:contributors.map(c=>({...c,access:attemptAccess(input.attemptId)})) });
 }
 
 function reviewPassed(plan: CoordinationPlan, states: CoordinationStepState[]): boolean {

@@ -88,7 +88,9 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     enabled_tools: input.bridge.launch.toolNames, default_tools_approval_mode: 'approve', tool_timeout_sec: Math.ceil(input.timeoutMs / 1000) + 5 } : null;
   const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY,
     '-c', 'web_search="disabled"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
-    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'code_mode_host', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly || input.privateContext || input.recoveryFilesOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
+    // Codex 0.159.2 needs the host for deferred MCP discovery; code execution remains disabled.
+    '-c', 'features.code_mode_host=true',
+    ...['goals', 'hooks', 'plugins', 'apps', 'multi_agent', 'skill_mcp_dependency_install', 'browser_use', 'computer_use', 'code_mode', 'workspace_dependencies', 'shell_snapshot', 'daemon_auto_start', ...(input.controlOnly || input.privateContext || input.recoveryFilesOnly ? ['shell_tool', 'view_image', 'image_generation', 'sleep_tool'] : [])].flatMap((name) => ['-c', `features.${name}=false`]), ...input.credentialArgs ?? []];
   if (input.account?.managed) args.splice(args.indexOf('sandbox_mode="read-only"') - 1, 2);
   return withRpcProcess({ command: config.externalAgents.codexCommand, args, cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, env: { ...input.environment, CODEX_HOME: nativeHome, ...input.bridge?.launch.env }, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped }, async (peer) => {
     let threadId = ''; let turnId = ''; let final = ''; let ended = false;

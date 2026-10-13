@@ -14,6 +14,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 8, name: 'private-write-recovery-v1', descriptor: 'owner-effect-reconciliation-v1;immutable-source;scope-bound-encrypted-stage-checkpoint-v3;exact-write-snapshot;fresh-run-native-home;no-unknown-effect-replay' },
   { version: 9, name: 'cost-budget-governance-v1', descriptor: 'versioned-owner-pricing-policy;atomic-run-stage-money-reservation;unknown-cost-not-zero;estimate-only-backend-admission;immutable-lineage-cost-carry' },
   { version: 10, name: 'branch-rework-contract-revision-v1', descriptor: 'business-contract-v2;explicit-member-dependencies;validated-rework-closure;immutable-contract-successor;engine-recovery-matrix;lineage-budget-side-effect-guards' },
+  { version: 11, name: 'scoped-stage-batch-scheduling-v1', descriptor: 'business-contract-v3;assignment-scope-and-explicit-join;frozen-concurrency;deterministic-receipts;model-call-admission-ledger-v1;owner-scheduling-projection' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
@@ -32,6 +33,11 @@ export function assertOrchestrationSchemaCompatible(db: Database.Database): void
 /** The pre-O6 idempotent schema is retained; explicitly adopt its verified baseline. */
 export function applyOrchestrationSchemaMigrations(db: Database.Database): void {
   db.transaction(() => {
+    db.exec(`CREATE TABLE IF NOT EXISTS orchestration_model_calls (
+      id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), attempt_id TEXT, agent_id TEXT NOT NULL,
+      backend TEXT NOT NULL, model TEXT NOT NULL, status TEXT NOT NULL, waiting_reason TEXT,
+      queued_at TEXT NOT NULL, started_at TEXT, finished_at TEXT);
+      CREATE INDEX IF NOT EXISTS orchestration_model_calls_run ON orchestration_model_calls(run_id,attempt_id)`);
     for (const name of ['orchestration_requests','orchestration_previews','execution_bindings','execution_member_tickets','orchestration_run_controls','orchestration_token_reservations','business_stage_executions','business_stage_token_reservations','business_run_checkpoints']) {
       if (!tables(db).has(name)) throw new Error(`编排迁移基线缺少 ${name}`);
     }

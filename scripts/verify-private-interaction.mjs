@@ -173,8 +173,10 @@ try {
   assert.equal(trace.getRun(failure.run.id).status,'failed'); assert.ok(assessRunRecovery(failure.run.id).reasonCodes.includes('PRIVATE_CHECKPOINT_UNSUPPORTED'));
   const uploadBody={...base,goal:'公开文件待恢复',recipientIds:['alice'],visibility:'public',attachments:[attachment('public-pending.txt','PUBLIC_PENDING')]};
   const pu=await preview(uploadBody),upload=submit(uploadBody,pu); trace.setRunStatus(upload.run.id,'failed');
-  assert.ok(assessRunRecovery(upload.run.id).reasonCodes.includes('MANAGED_ARTIFACT_CHECKPOINT_UNSUPPORTED'));
+  const pendingRecovery=assessRunRecovery(upload.run.id);
+  assert.equal(pendingRecovery.continuationAllowed,false);
+  assert.ok(pendingRecovery.reasonCodes.includes('LEGACY_CONTEXT_UNVERIFIED'),JSON.stringify(pendingRecovery));
   const models=calls.filter(call=>call.model==='mock:observer'); assert.equal(models.length,0);
-  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,10);
+  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,11);
   console.log(`R2 private interaction (${mode}) verified: owner preview, common-scope graph, alternating public/private context, files/read/search/evidence ACL, ciphertext, links, explicit publication, immutable versions and blocked private continuation.`);
 } finally { await app.close(); db.closeDatabase(); await rm(root,{recursive:true,force:true}); }

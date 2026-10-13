@@ -5,6 +5,8 @@ import { realpathSync } from 'node:fs';
 import type { OrchestrationPreview, OrchestrationPreviewInput, OrchestrationSource, RunOrchestrationSnapshot } from '@agent-gand/shared';
 import { validateRoomPreferences } from '../conversations/entry.ts';
 import { getAnyAgent } from '../agents/registry.ts';
+import { schedulingAccessIssues } from './businessScheduling.ts';
+import { schedulingPreview } from './schedulingProjection.ts';
 import { get, run, tx } from '../db/database.ts';
 import { createConversation, getConversation, nextTurnNo, touchConversation } from '../conversations/service.ts';
 import { createRun, listRunAgentSnapshots } from '../runs/trace.ts';
@@ -76,6 +78,9 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
   }
   const preview: OrchestrationPreview = { ...old, decision, comparisonOnly: false, plan: null,
     planning: { kind: 'rules', model: null, tokensIn: 0, tokensOut: 0, calls: 0 } };
+  decision.issues.push(...schedulingAccessIssues(old.request,decision.execution?.readonly===true));
+  if(old.request.businessContract?.version===3&&old.request.businessContract.stages.some(s=>[...s.execution!.assignments,...(s.execution!.join?[s.execution!.join]:[])].some(t=>t.visibility==='private')))decision.issues.push({code:'SCOPED_BATCH_FILES_ONLY',severity:'warning',message:'包含逐成员私密分工时，整轮成员仅使用获准的平台文件工具；原生文件、命令和网络工具关闭。任务与结果分别遵守已声明范围。'});
+  if(old.request.businessContract?.version===3)for(const stage of old.request.businessContract.stages)for(const task of [...stage.execution!.assignments,...(stage.execution!.join?[stage.execution!.join]:[])])if(task.visibility==='private'&&!old.capabilities.agents.find(a=>a.id===task.agentId)?.supports.privateContext)decision.issues.push({code:'PRIVATE_BACKEND_UNSUPPORTED',severity:'error',agentId:task.agentId,message:'逐成员私密任务要求支持隔离上下文的模型 API、Claude SDK 或 Codex app-server。'});
   if(checkpoint?.version===3)decision.issues.push({code:'RECOVERY_FILES_ONLY',severity:'warning',message:'关联恢复只开放获准的文件读取、检索和写入，命令及外部副作用工具保持禁用；使用新隔离目录和新模型会话'});
   const add = (code: string, message: string) => decision.issues.push({ code, message, severity: 'error' });
   decision.issues.push(...costAdmissionIssues(preview));
@@ -103,10 +108,13 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
     preview.plan = compileWorkflow(old.request, decision, decision.execution!.participantIds.map(id => getAnyAgent(id)!), undefined,
       checkpoint ? { acceptedStageIds: checkpoint.accepted.map(a => a.stageId), completedStepIds: checkpoint.outputs.map(o => o.stepId),graph:checkpoint.graph } : undefined);
     for (const issue of preview.plan.plan.validationIssues) decision.issues.push({ code: issue.code, message: issue.message, severity: issue.severity });
+    preview.scheduling=schedulingPreview(old.request,preview.plan.plan);
+    if(old.request.businessContract?.version===3&&(old.request.attachments?.length||checkpoint?.archive?.manifest.files.some(f=>f.storage==='managed'))&&preview.plan.plan.steps.some(s=>s.agentId&&!s.toolPolicy.allowedTools.some(t=>['fs.read','search.files'].includes(t))))add('ATTACHMENT_BACKEND_UNSUPPORTED','批量任务包含受控文件，实际派发成员需具备冻结范围内的文件读取工具，请配置角色后重新预览。');
     if(checkpoint?.graph&&checkpoint.archive?.manifest.files.some(f=>f.storage==='managed')&&preview.plan.plan.steps.some(s=>s.agentId&&!s.toolPolicy.allowedTools.some(t=>['fs.read','search.files'].includes(t))))add('ATTACHMENT_BACKEND_UNSUPPORTED','承接图的剩余成员缺少冻结范围内的文件读取工具，请配置角色工具后重新预览；不能扩大原步骤工具权限。');
   }
   const { legacy: _legacy, ...semantic } = semanticRequest(preview.request);
   const configurationFingerprint = stableDigest({ request: semantic, capabilities: preview.capabilities, decision,
+    scheduling:preview.scheduling,
     ...(checkpoint ? { checkpoint: checkpointDigest(checkpoint) } : {}) });
   preview.fingerprint = stableDigest({ configurationFingerprint, steps: shape(preview) });
   return { preview, configurationFingerprint };

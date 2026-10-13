@@ -19,6 +19,7 @@ import { readArtifactSnapshot, snapshotDigest } from '../artifacts/snapshots.ts'
 import { costCarry, costBudgetState } from './costBudget.ts';
 import type { BusinessReworkInput, BusinessRevisionInput } from '@agent-gand/shared';
 import { affectedMembers, changeImpact, revisionImpact } from './businessImpact.ts';
+import { stageTasks } from './businessScheduling.ts';
 
 function fail(code: string, message: string): never { throw new OrchestrationError(409, code, message); }
 const stableDigestText=(value:string)=>createHash('sha256').update(value).digest('hex');
@@ -83,7 +84,7 @@ export function buildBusinessCheckpoint(runId: string, rework?: BusinessReworkIn
     if(revision.contract.stages.some(s=>s.execution!.assignments.some(t=>!snapshot.request.agentIds.includes(t.agentId))))fail('CONTRACT_MEMBER_CHANGED','修订只能使用原冻结成员，不能扩大授权或改变费用计价集合。');
     const retained=outputs.filter(o=>impact!.retained.some(t=>t.stageId===o.stageId&&t.agentId===o.agentId));
     for(const output of retained) {
-      const index=revision.contract.stages.findIndex(s=>s.id===output.stageId),at=revision.contract.stages[index]!.execution!.assignments.findIndex(t=>t.agentId===output.agentId);
+      const index=revision.contract.stages.findIndex(s=>s.id===output.stageId),at=stageTasks(revision.contract.stages[index]!).findIndex(t=>t.agentId===output.agentId);
       output.stepId=`stage-${index+1}-work-${at+1}`;
     }
     outputs.splice(0,outputs.length,...retained);
@@ -97,10 +98,10 @@ export function buildBusinessCheckpoint(runId: string, rework?: BusinessReworkIn
   const contract=revision?.contract??state.contract;
   if(impact&&(rework||revision)) {
     impact.retained=impact.retained.filter(t=>outputs.some(o=>o.stageId===t.stageId&&o.agentId===t.agentId));
-    impact.redo=contract.stages.filter(s=>!accepted.some(a=>a.stage.id===s.id)).flatMap(s=>s.execution!.assignments.filter(t=>!outputs.some(o=>o.stageId===s.id&&o.agentId===t.agentId)).map(t=>({stageId:s.id,agentId:t.agentId,objective:t.objective})));
+    impact.redo=contract.stages.filter(s=>!accepted.some(a=>a.stage.id===s.id)).flatMap(s=>stageTasks(s).filter(t=>!outputs.some(o=>o.stageId===s.id&&o.agentId===t.agentId)).map(t=>({stageId:s.id,agentId:t.agentId,objective:t.objective})));
   }
   const pendingStages = contract.stages.filter(s => !accepted.some(a => a.stage.id === s.id)
-    && s.execution!.assignments.some((_, i) => !outputs.some(o => o.stepId === `stage-${contract.stages.indexOf(s) + 1}-work-${i + 1}`)));
+    && stageTasks(s).some((_, i) => !outputs.some(o => o.stepId === `stage-${contract.stages.indexOf(s) + 1}-work-${i + 1}`)));
   if (pendingStages.length && snapshot.request.constraints.maxTokens && charge('orchestration_token_reservations') >= snapshot.request.constraints.maxTokens) fail('CHECKPOINT_BUDGET_EXHAUSTED', '本轮输出 Token 预算已耗尽，不能通过关联续跑重置额度；请核对后明确新任务预算');
   if (pendingStages.some(s => s.execution!.maxTokens && charge('business_stage_token_reservations', s.id) >= s.execution!.maxTokens)) fail('CHECKPOINT_BUDGET_EXHAUSTED', '待续阶段的输出 Token 预算已耗尽，需明确新任务预算，不能自动重放');
   const costs = costCarry(runId), fees = costBudgetState(runId);

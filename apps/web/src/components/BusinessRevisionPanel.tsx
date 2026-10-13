@@ -7,9 +7,10 @@ import { BusinessRecoveryPanel } from './BusinessRecoveryPanel';
 import { CostBudgetSummary } from './CostBudgetPanel';
 
 export function BusinessRevisionPanel({state,members,onCreated}:{state:BusinessState;members:Array<{id:string;name:string}>;onCreated:(id:string)=>Promise<void>}) {
-  const [contract,setContract]=useState<BusinessContract>({...structuredClone(state.contract!),version:2,revision:(state.contract!.revision??1)+1});
+  const schema=state.contract!.version===3?3:2;
+  const [contract,setContract]=useState<BusinessContract>({...structuredClone(state.contract!),version:schema,revision:(state.contract!.revision??1)+1});
   const [instruction,setInstruction]=useState(''),[preview,setPreview]=useState<api.BusinessRevisionPreview|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const update=(value:BusinessContract|null)=>{if(value)setContract({...value,version:2,revision:(state.contract!.revision??1)+1});setPreview(null);};
+  const update=(value:BusinessContract|null)=>{if(value)setContract({...value,version:schema,revision:(state.contract!.revision??1)+1});setPreview(null);};
   async function prepare(){setBusy(true);setError('');setPreview(null);try{setPreview(await api.previewBusinessRevision(state.runId,{expectedVersion:state.version,contract,instruction}));}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
   async function confirm(){if(!preview)return;setBusy(true);setError('');try{const result=await api.submitBusinessRevision(state.runId,preview);await onCreated(result.run.id);}catch(e){setError(e instanceof Error?e.message:String(e));setPreview(null);}finally{setBusy(false);}}
   return <details className="rounded-lg border border-violet-500/30 p-3"><summary className="cursor-pointer">修订验收清单或成员分工 · 创建新契约版本</summary><div className="mt-3 space-y-3">

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { queueModelCall, startModelCall, finishModelCall, modelCallWaiting } from './modelCalls.ts';
 import { get, run, tx } from '../db/database.ts';
 import type { LlmRequest, LlmResponse, DeltaHandler, LLMProvider } from '../llm/provider.ts';
 import { getRunOrchestrationSnapshot } from './store.ts';
@@ -6,6 +8,19 @@ import { withActivityTimeout } from '../execution/activityTimeout.ts';
 import { ExecutionError } from '../execution/errors.ts';
 import { assertBusinessStageDeadline, businessStageContext } from './businessStageExecution.ts';
 import { reserveCost, settleCost, type CostReservationRow } from './costBudget.ts';
+const modelCallContext=new AsyncLocalStorage<string>();
+const modelCallHooks=new AsyncLocalStorage<{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}>();
+export class ModelAdmissionPausedError extends Error {constructor(){super('用户请求暂停，尚未发出的模型请求保留在队列。');}}
+function throwIfStopped(runId:string,signal?:AbortSignal):void {
+  if(signal?.aborted)throw signal.reason??new Error('执行已停止');
+  const status=get<{status:string}>('SELECT status FROM runs WHERE id=?',runId)?.status;
+  if(status&&['completed','failed','cancelled'].includes(status))throw new Error('任务已结束，停止后续模型调用');
+  if(executionPolicy(runId)?.request.businessContract?.version===3&&get("SELECT 1 FROM coordination_plans WHERE run_id=? AND status='pause_requested'",runId))throw new ModelAdmissionPausedError();
+  assertExecutionDeadline(runId);assertBusinessStageDeadline();
+}
+export async function reserveCostWhenReady(runId:string,agentId:string,model:string,backend:string,request?:LlmRequest,signal?:AbortSignal,callId?:string,onWaiting?:()=>void):Promise<CostReservationRow|null> {
+  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||executionPolicy(runId)?.request.businessContract?.version!==3)throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
+}
 
 export function executionPolicy(runId: string) {
   const frozen = getRunOrchestrationSnapshot(runId);
@@ -26,9 +41,9 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
     modelActivity.firstResponseAt ??= at; modelActivity.lastActivityAt = at;
   };
   try { return await withActivityTimeout({ ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt },
-    (signal, activity) => provider.chat({ ...request, signal, onActivity: kind => {
+    (signal, activity) => {throwIfStopped(runId,signal);const callId=modelCallContext.getStore();modelCallHooks.getStore()?.onStarted?.();if(callId)startModelCall(callId);return provider.chat({ ...request, signal, onActivity: kind => {
       if (!signal.aborted) { trustedActivity(); activity(); request.onActivity?.(kind); }
-    } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } })); }
+    } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } });}); }
   catch (error) {
     if (error instanceof ExecutionError) throw new ExecutionError(error.code, error.message, { ...error.details, modelActivity });
     throw error;
@@ -36,7 +51,11 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
 }
 
 /** Reserve before I/O so concurrent branches cannot spend the same allowance. Unknown calls retain their reservation. */
-export async function budgetedChat(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = ''): Promise<LlmResponse> {
+export async function budgetedChat(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = '',attemptId?:string,hooks?:{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}): Promise<LlmResponse> {
+  const id=queueModelCall(runId,agentId,request.model,'builtin-llm',attemptId);
+  try{const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,delta,agentId)));finishModelCall(id,true);return response;}catch(error){finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
+}
+async function budgetedChatImpl(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = ''): Promise<LlmResponse> {
   const limit = executionPolicy(runId)?.request.constraints.maxTokens;
   const stage = businessStageContext();
   if (stage && stage.runId !== runId) throw new Error('阶段预算与 Run 不一致');
@@ -47,16 +66,15 @@ export async function budgetedChat(runId: string, provider: LLMProvider, request
   ];
   if (!scopes.length) {
     if (request.signal?.aborted) throw request.signal.reason ?? new Error('执行已停止');
-    const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', request);
+    const cost = await reserveCostWhenReady(runId, agentId, request.model, 'builtin-llm', request,request.signal,modelCallContext.getStore());
     try { const response = await modelChat(runId, provider, request, delta); settleCost(cost, response.usage); return response; }
     catch (error) { settleCost(cost, undefined, true); throw error; }
   }
   const desired = Math.max(1, Math.min(...scopes.map(s => s.limit), request.maxTokens ?? 4000));
   let reservation: { id: string; tokens: number; cost: CostReservationRow | null } | undefined;
   while (!reservation) {
-    if (request.signal?.aborted) throw request.signal.reason ?? new Error('执行已停止');
-    assertExecutionDeadline(runId); assertBusinessStageDeadline();
-    reservation = tx(() => {
+    throwIfStopped(runId,request.signal);
+    try{reservation = tx(() => {
       let available = desired;
       let waiting = false;
       for (const scope of scopes) {
@@ -68,7 +86,7 @@ export async function budgetedChat(runId: string, provider: LLMProvider, request
         if (remaining <= 0) { if (budget.pending) waiting = true; else throw new Error(`${scope.label}输出 Token 预算已耗尽`); }
         available = Math.min(available, remaining);
       }
-      if (waiting) return undefined;
+      if (waiting) {const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'tokens');modelCallHooks.getStore()?.onWaiting?.();return undefined;}
       const id = randomUUID(), tokens = available, now = new Date().toISOString();
       for (const scope of scopes) {
         if (scope.table === 'business_stage_token_reservations') run('INSERT INTO business_stage_token_reservations(id,run_id,stage_id,reserved,status,created_at) VALUES (?,?,?,?,?,?)', id, runId, stage!.stageId, tokens, 'pending', now);
@@ -76,7 +94,7 @@ export async function budgetedChat(runId: string, provider: LLMProvider, request
       }
       const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', { ...request, maxTokens: tokens });
       return { id, tokens, cost };
-    });
+    });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||executionPolicy(runId)?.request.businessContract?.version!==3)throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
     if (!reservation) await new Promise(resolve => setTimeout(resolve, 25));
   }
   try {

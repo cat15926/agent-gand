@@ -22,7 +22,7 @@ import { businessStageContext } from './businessStageExecution.ts';
 import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, Run } from '@agent-gand/shared';
 import { ExecutionError } from '../execution/errors.ts';
 import { recordExternalPreparationFailure } from '../execution/preparationFailure.ts';
-import { budgetedChat, executionPolicy, assertExecutionDeadline } from './executionBudget.ts';
+import { budgetedChat, executionPolicy, assertExecutionDeadline, ModelAdmissionPausedError } from './executionBudget.ts';
 import { config } from '../config.ts';
 import { createApproval, waitForDecision } from '../hitl/approvals.ts';
 import { providerForAgent } from '../llm/router.ts';
@@ -148,6 +148,9 @@ export interface AgentTurnOptions {
   executionBinding?: ExecutionBinding;
   /** Server-controlled narrowing for planning/summary calls. */
   disableTools?: boolean;
+  /** Internal frozen per-step policy, including readonly roles. */
+  allowedToolNames?: string[];
+  modelAdmissionHooks?: {onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void};
   /** Private context allows only scoped platform file tools and Runtime controls. */
   privateContext?: boolean;
   recoveryFilesOnly?:boolean;
@@ -235,6 +238,7 @@ export async function chatOnce(
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
   try { return await runAgentTurnImpl(opts); }
   catch (error) {
+    if(error instanceof ModelAdmissionPausedError)throw error;
     if (opts.agent.execution?.kind === 'external') throw recordExternalPreparationFailure(opts, error);
     throw error;
   }
@@ -254,7 +258,7 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
   const files = listManagedArtifacts(opts.run.conversationId,opts.agent.id,sourceAccess);
   if (files.length) opts = { ...opts, messages: [{ role: 'system', content: '可读取的受控文件（内容仅通过平台 fs.read / search.files 获取，普通原生目录中没有这些文件）：\n' + [...new Map(files.map(file => [file.path, `${file.path} · v${file.version} · ${file.size} 字节`] as const).reverse()).values()].slice(0,40).join('\n') }, ...opts.messages] };
   const policy = executionPolicy(opts.run.id);
-  const acceptance = businessContractInstructions(policy?.request.businessContract, businessStageContext()?.stageId);
+  const acceptance = businessContractInstructions(policy?.request.businessContract, businessStageContext()?.stageId,opts.agent.id,sourceAccess,runSourceAccess(opts.run.id));
   if (acceptance) opts = { ...opts, messages: [{ role: 'system', content: acceptance }, ...opts.messages] };
   assertExecutionDeadline(opts.run.id);
   if (policy?.execution?.readonly) opts = { ...opts, agent: asReadonlyAgent(opts.agent) };
@@ -300,6 +304,7 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
     stageTimer = setTimeout(() => controller.abort(new ExecutionError('timeout', message, { phase })), config.externalAgents.timeoutMs);
     stageTimer.unref();
   };
+  if(policy?.request.businessContract?.version===3){let waiting=false;opts={...opts,modelAdmissionHooks:{onWaiting:()=>{if(!waiting){waiting=true;stageTimeout('queue','等待预算准入超时，尚未发出模型请求');}},onStarted:()=>{waiting=false;stageTimeout('after_activity','本轮模型执行超时');},onFinished:()=>{waiting=false;clearTimeout(stageTimer);}}};}
   const queuedAt = new Date().toISOString();
   opts = { ...opts, admissionTiming: { queuedAt } };
   stageTimeout('queue', '成员排队超时，尚未开始模型执行');
@@ -335,7 +340,7 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
       if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
     }
-    stageTimeout('after_activity', '本轮模型执行超时');
+    if(policy?.request.businessContract?.version===3)clearTimeout(stageTimer);else stageTimeout('after_activity', '本轮模型执行超时');
     const managed = getIsolatedWorkspace(opts.run.id);
     const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot });
     mkdirSync(root, { recursive: true });
@@ -361,6 +366,8 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
     } finally { releaseShared?.(); release(); }
   } catch (error) {
     const failure = controller.signal.aborted && controller.signal.reason instanceof ExecutionError ? controller.signal.reason : error;
+    if(failure instanceof ModelAdmissionPausedError)approvalPaused=true;
+    if(failure instanceof ModelAdmissionPausedError)throw failure;
     if (opts.agent.execution?.kind === 'external') throw recordExternalPreparationFailure(opts, failure, 'workspace', Boolean(releaseMember));
     throw failure;
   } finally { releaseMember?.(approvalPaused ? 'waiting' : 'done'); clearTimeout(stageTimer); clearTimeout(deadlineTimer); clearInterval(authorityTimer); unsubscribe(); upstreamSignal?.removeEventListener('abort', forwardAbort); }
@@ -370,7 +377,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
   const { run, agent, parentSpanId } = opts;
   const provider = providerForAgent(agent, run.id);
   // 按权限三档决定下发集合（confirm 全量 / auto 白名单 / readonly 只读集），执行时仍走门控
-  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent).filter(tool => !(opts.privateContext || opts.recoveryFilesOnly) || ['fs.read','fs.write','search.files'].includes(tool.name));
+  const ordinaryTools = opts.disableTools ? [] : toolsForAgent(agent).filter(tool => (opts.allowedToolNames===undefined||opts.allowedToolNames.includes(tool.name))&&(!(opts.privateContext || opts.recoveryFilesOnly) || ['fs.read','fs.write','search.files'].includes(tool.name)));
   const tools = [...ordinaryTools, ...(opts.controlTools ?? [])];
   const controlNames = new Set([
     ...(opts.controlTools ?? []).map((tool) => tool.name),
@@ -459,7 +466,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         const forward = deltaForwarder(run.id, llmSpan.id, {
           agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
         });
-        res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id);
+        res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id,opts.attemptId,opts.modelAdmissionHooks);
       }
       assertBindingAuthorized(opts.executionBinding);
     } catch (err) {
@@ -645,7 +652,7 @@ async function closingCall(
     // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
     assertBindingAuthorized(opts.executionBinding);
     const forward = deltaForwarder(run.id, llmSpan.id);
-    res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id);
+    res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id,opts.attemptId,opts.modelAdmissionHooks);
     assertBindingAuthorized(opts.executionBinding);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -700,7 +707,7 @@ async function gateToolCall(
     await postTurnSystem(opts, note);
     return { toolCall, tool: null, input: toolCall.input, allowed: false, hadApproval: false, note, executionKey };
   }
-  const decision = (opts.privateContext || opts.recoveryFilesOnly) && !['fs.read','fs.write','search.files'].includes(tool.name) ? 'deny' : checkPermission(agent, tool.name);
+  const decision = opts.allowedToolNames!==undefined&&!opts.allowedToolNames.includes(tool.name)||(opts.privateContext || opts.recoveryFilesOnly) && !['fs.read','fs.write','search.files'].includes(tool.name) ? 'deny' : checkPermission(agent, tool.name);
   if (decision === 'deny') {
     const note = `工具 ${tool.name} 被权限门控拒绝（模式 ${agent.permissionMode}${agent.disallowedTools.includes(tool.name) ? '，命中 disallowedTools' : ''}）`;
     await postTurnSystem(opts, note);

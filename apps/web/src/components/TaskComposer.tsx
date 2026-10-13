@@ -1,5 +1,6 @@
 import { CostPolicyEditor } from './CostPolicyEditor';
 import { BusinessContractEditor } from './BusinessContractEditor';
+import { SchedulingPreviewView } from './SchedulingPanel';
 import { readBusinessContractDraft } from '../services/businessContract';
 import { blockedCostPolicyDraft, readCostPolicyDraft } from '../services/costPolicy';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -14,7 +15,7 @@ import { WorkspacePanel } from './WorkspacePanel';
 
 export const STRATEGY_LABEL = { auto: '自动', parallel: '并行分析', serial: '顺序接力', single: '单成员协作' };
 export const WORKFLOW_LABEL = { routine: '常规协作', analysis_summary: '分析与汇总', development_review: '开发与评审', supervisor_decomposition: '主管拆解', bounded_debate: '固定轮次辩论' };
-export const taskLabel = (snapshot: api.TaskState['snapshot'], legacy: string) => snapshot?.executionAuthority === 'orchestration' ? `${STRATEGY_LABEL[snapshot.decision.effectiveStrategy]} · ${WORKFLOW_LABEL[snapshot.decision.workflow]}` : `历史任务 · ${{ collaboration: '自由协作', pipeline: '顺序流水线', supervisor: '主管委派' }[legacy] ?? legacy}`;
+export const taskLabel = (snapshot: api.TaskState['snapshot'], legacy: string) => snapshot?.executionAuthority === 'orchestration' ? snapshot.request.businessContract?.version===3?'逐阶段协作 · 差异化批量':`${STRATEGY_LABEL[snapshot.decision.effectiveStrategy]} · ${WORKFLOW_LABEL[snapshot.decision.workflow]}` : `历史任务 · ${{ collaboration: '自由协作', pipeline: '顺序流水线', supervisor: '主管委派' }[legacy] ?? legacy}`;
 const button = 'rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-40';
 const primary = 'rounded-lg bg-violet-500 px-4 py-2 text-xs text-white disabled:opacity-40';
 
@@ -25,13 +26,14 @@ export function PlanPreview({ preview, children }: { preview: OrchestrationPrevi
   useEffect(() => { const frame = requestAnimationFrame(() => { heading.current?.scrollIntoView({ block: 'nearest' }); heading.current?.focus({ preventScroll: true }); }); return () => cancelAnimationFrame(frame); }, [preview.previewId]);
   const names = (ids: string[]) => ids.map(id => state.agents.find(a => a.id === id)?.name ?? id).join('、');
   return <section aria-label="本轮计划" className="mt-3 min-w-0 rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 text-xs [overflow-wrap:anywhere]">
-    <h3 ref={heading} tabIndex={-1} className="font-medium text-violet-200">{STRATEGY_LABEL[preview.decision.effectiveStrategy]} · {WORKFLOW_LABEL[preview.decision.workflow]}</h3>
-    <p className="mt-2 text-violet-100">谁能看到：{preview.request.visibility === 'private' ? `仅你与 ${names((preview.request.audience ?? []).filter(id => id !== 'user'))}` : '房间所有成员（公开定向指派仍公开）'}</p>
+    <h3 ref={heading} tabIndex={-1} className="font-medium text-violet-200">{preview.scheduling?'逐阶段协作 · 差异化批量':`${STRATEGY_LABEL[preview.decision.effectiveStrategy]} · ${WORKFLOW_LABEL[preview.decision.workflow]}`}</h3>
+    <p className="mt-2 text-violet-100">{preview.scheduling?'共同目标与附件范围':'谁能看到'}：{preview.request.visibility === 'private' ? `仅你与 ${names((preview.request.audience ?? []).filter(id => id !== 'user'))}` : '房间所有成员（公开定向指派仍公开）'}{preview.scheduling?'；成员任务与汇合范围见调度预览。':''}</p>
     {preview.request.attachments?.length ? <p className="mt-1 text-zinc-400">附件继承任务范围：{preview.request.attachments.map(file => `${file.path} · ${file.size} 字节`).join('、')}</p> : null}
     <button aria-expanded={expanded} className="mt-2 rounded-lg bg-zinc-800 px-3 py-2 text-violet-200" onClick={() => setExpanded(v => !v)}>{expanded ? '收起计划详情' : '展开计划详情'}</button>
     <div hidden={!expanded}><p className="mt-2 text-zinc-400">{preview.decision.reason}</p>
     <p className="mt-2">执行：{names(preview.decision.targetIds)} · {preview.decision.execution?.readonly ? '只读' : '按角色权限执行写入'}</p>
     <p className="mt-1 text-zinc-400">{preview.planning?.kind === 'detailed' ? `详细规划 · ${preview.planning.calls} 次模型请求 · 输入/输出 ${preview.planning.tokensIn}/${preview.planning.tokensOut} tokens` : '规则预览 · 未调用模型'} · 工作区：{preview.request.workspace ?? '自动工作区'}</p>
+    {preview.scheduling&&<SchedulingPreviewView preview={preview.scheduling} members={state.agents}/>}
     <details className="mt-2 text-zinc-400"><summary className="cursor-pointer">成员能力与账户配置</summary><ul className="mt-2 space-y-1">{preview.capabilities.agents.map(a => <li key={a.id}>{a.name} · {a.capabilities.map(c => ({ execute: '执行', review: '评审', coordinate: '协调' }[c] ?? c)).join(' / ')} · {a.driver} · 配置：{a.account.configuration} · 模型测试：{a.account.modelTest}</li>)}</ul><p className="mt-1">配置预检不代表模型已测试成功。</p></details>
     {preview.request.constraints.maxTokens && <p className="mt-1">本任务输出 tokens 硬上限：{preview.request.constraints.maxTokens}（输入和费用另计）</p>}
     {preview.request.constraints.costPolicy && <p className="mt-1">费用：{preview.request.constraints.costPolicy.maxCost} {preview.request.constraints.costPolicy.currency} · {preview.request.constraints.costPolicy.mode === 'strict' ? '严格账单上限' : '估算控制'} · 未知费用{preview.request.constraints.costPolicy.unknownAction === 'stop' ? '停止派发' : `每次预留 ${preview.request.constraints.costPolicy.unknownReserve}`}；计价版本随任务冻结。</p>}
@@ -132,7 +134,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   const mentionQuery = goal.match(/(?:^|\s)@([^\s@]*)$/)?.[1];
   const suggestions = mentionQuery === undefined ? [] : executors.filter(a => a.name.toLowerCase().includes(mentionQuery.toLowerCase()) || a.id.toLowerCase().includes(mentionQuery.toLowerCase()));
   function chooseMention(id: string) { invalidate(); const agent = executors.find(a => a.id === id); if (!agent) return; setGoal(value => value.replace(/@[^\s@]*$/, `@${executors.filter(a => a.name === agent.name).length > 1 ? agent.id : agent.name} `)); setRecipientsOpen(true); requestAnimationFrame(() => document.getElementById('goal-input')?.focus()); }
-  const input = (): OrchestrationPreviewInput => ({ businessContract, ...(!revisionTask ? {attachments} : {}), visibility, audience: visibility === 'private' ? audience : [], goal: goal.trim(), agentIds: teamIds, recipientIds: gated ? [...new Set(businessContract!.stages.flatMap(s => s.execution?.assignments.map(a => a.agentId) ?? []))] : targets, strategy: prefs.strategy, workflow: prefs.workflow,
+  const input = (): OrchestrationPreviewInput => ({ businessContract, ...(!revisionTask ? {attachments} : {}), visibility, audience: visibility === 'private' ? audience : [], goal: goal.trim(), agentIds: teamIds, recipientIds: gated ? [...new Set(businessContract!.stages.flatMap(s => [...(s.execution?.assignments.map(a => a.agentId) ?? []),...(s.execution?.join?[s.execution.join.agentId]:[])]))] : targets, strategy: prefs.strategy, workflow: prefs.workflow,
     constraints: { ...prefs.constraints, ...(['analysis_summary','bounded_debate'].includes(prefs.workflow) ? { readonly: true } : {}), ...(prefs.workflow === 'bounded_debate' ? { rounds: prefs.constraints.rounds ?? 2 } : {}) },
     workspace: workspace || null, supervisorId: prefs.supervisorId, defaultReviewerId: prefs.defaultReviewerId, aggregatorId: prefs.aggregatorId,
     ...(room ? { conversationId: room.id } : {}), ...(revisionTask ? { revisionRunId: revisionTask.runId } : {}), ...(reply && !revisionTask ? { replyTo: reply.id, taskId: reply.taskId } : {}) });

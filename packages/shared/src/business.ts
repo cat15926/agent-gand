@@ -3,11 +3,30 @@ import type { ArtifactSnapshot } from './artifacts.ts';
 
 /** Owner-defined acceptance. Stage gating is explicitly opted into per task. */
 export interface BusinessContract {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   /** Immutable contract generation; v1 has generation 1. */
   revision?: number;
   executionMode?: 'stage_gated';
   stages: BusinessStage[];
+}
+export interface BusinessAssignment {
+  agentId: string; objective: string;
+  /** Missing preserves ordered dispatch; [] explicitly declares independence. */
+  dependsOn?: string[];
+  /** v3 only. Public inherits the Run scope; private narrows input and output together. */
+  visibility?: 'public' | 'private'; audience?: string[];
+}
+export interface BusinessJoin extends Omit<BusinessAssignment,'dependsOn'> {
+  /** Explicitly authorized inputs; execution waits for every stage member. */
+  sourceAgentIds: string[];
+}
+export interface SchedulingPreview {
+  version:1; minimumModelCalls:number; platformTransitions:number;
+  stages:Array<{stageId:string;title:string;concurrency:number;waves:string[][];joinAgentId:string|null;joinSourceAgentIds:string[];tasks:Array<{agentId:string;objective:string;visibility:'public'|'private';audience:string[]}>}>;
+}
+export interface SchedulingState {
+  runId:string;coverage:'current'|'legacy_partial';apiRequests:number;nativeInvocations:number;unknownCalls:number;waitingCalls:number;blockedCalls:number;dispatchReceipts:number;platformTransitions:number;
+  steps:Array<{stepId:string;agentId:string;stageId:string|null;kind:'work'|'join';status:string;waitingReason:string|null;calls:number;waitingMs:number;visibility:'public'|'private';audience:string[]}>;
 }
 export interface BusinessStage {
   id: string;
@@ -15,7 +34,10 @@ export interface BusinessStage {
   criteria: string[];
   deliverables: Array<{ id: string; title: string; kind: 'text' | 'file' }>;
   execution?: {
-    assignments: Array<{ agentId: string; objective: string; /** Missing means the original ordered chain. Empty means explicitly independent. */ dependsOn?: string[] }>;
+    assignments: BusinessAssignment[];
+    /** v3 only, capped by the server limit. Writes stay serial. */
+    concurrency?: number;
+    join?: BusinessJoin;
     timeoutMs?: number;
     /** Total output tokens across this stage's API requests, including tool rounds. */
     maxTokens?: number;

@@ -13,6 +13,7 @@ import { inspectBusinessRecovery, confirmBusinessRecovery, listBusinessRecoveryR
 import { costBudgetState, costRows } from '../orchestration/costBudget.ts';
 import { getRun } from '../runs/trace.ts';
 import { previewBusinessRevision, submitBusinessRevision } from '../orchestration/businessRevision.ts';
+import { schedulingState } from '../orchestration/schedulingProjection.ts';
 
 /** Existing owner management cookie is scoped to /api/accounts; reuse that boundary. */
 export async function registerBusinessRoutes(app: FastifyInstance): Promise<void> {
@@ -30,6 +31,7 @@ export async function registerBusinessRoutes(app: FastifyInstance): Promise<void
     managed.get<{ Params: { runId: string } }>('/api/accounts/business/:runId', async req => getBusinessState(req.params.runId));
     managed.get<{ Params: { runId: string } }>('/api/accounts/business/:runId/evidence', async req => ({ choices: listBusinessEvidence(req.params.runId) }));
     managed.get<{ Params: { runId: string } }>('/api/accounts/business/:runId/history', async req => ({ events: businessHistory(req.params.runId) }));
+    managed.get<{Params:{runId:string}}>('/api/accounts/business/:runId/scheduling',async req=>schedulingState(req.params.runId));
     managed.get<{ Params: { runId: string } }>('/api/accounts/business/:runId/cost-budget', async req => {
       if (!getRun(req.params.runId)) throw new OrchestrationError(404,'RUN_NOT_FOUND','任务不存在');
       return { budget: costBudgetState(req.params.runId), records: costRows(req.params.runId).slice(-100).map(r => ({ id: r.id, stageId: r.stage_id, agentId: r.agent_id, model: r.model, backend: r.backend, currency: r.currency, reserved: r.reserved / 1e6, known: r.known === null ? null : r.known / 1e6, status: r.status, costSource: r.cost_source, pricing: r.pricing ? JSON.parse(r.pricing) : null, sourceReservationId: r.source_reservation_id })) };

@@ -6,6 +6,8 @@ import { validateCoordinationPlan } from '../coordination/validator.ts';
 import { externalCoordinationIssues } from '../coordination/externalAdmission.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import type { DecomposedTask } from './supervisor.ts';
+import { assignmentScopeMetadata } from './businessScheduling.ts';
+import { config } from '../config.ts';
 
 /** Stable, inspectable templates. There is no planner invocation in compilation. */
 export function compileWorkflow(request: OrchestrationRequest, decision: OrchestrationDecision, agents: AgentDefinition[],
@@ -40,19 +42,27 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
     }
     tail=[...checkpoint.graph.terminalSteps];
   } else if (request.businessContract?.executionMode === 'stage_gated') {
+    const scopedBatch=request.businessContract.version===3&&(request.visibility==='private'||request.businessContract.stages.some(s=>[...s.execution!.assignments,...(s.execution!.join?[s.execution!.join]:[])].some(t=>t.visibility==='private')));
     for (const [index, stage] of request.businessContract.stages.entries()) {
       if (checkpoint?.acceptedStageIds.includes(stage.id)) continue;
       const stageTail=[...tail],workers:string[]=[];
-      const explicit=decision.execution!.readonly&&stage.deliverables.every(d=>d.kind==='text')&&stage.execution!.assignments.every(a=>a.dependsOn!==undefined);
+      const batch=request.businessContract.version===3;
+      const explicit=decision.execution!.readonly&&(batch||stage.deliverables.every(d=>d.kind==='text'))&&stage.execution!.assignments.every(a=>a.dependsOn!==undefined);
+      const parent={visibility:request.visibility??'public' as const,audience:request.audience??[]};
+      const concurrency=batch?Math.min(stage.execution!.concurrency??config.orchestratorConcurrency,config.orchestratorConcurrency):config.orchestratorConcurrency;
       for (const [at, assignment] of stage.execution!.assignments.entries()) {
         const id = `stage-${index + 1}-work-${at + 1}`;
         if (checkpoint?.completedStepIds.includes(id)) continue;
         const deps=explicit?[...stageTail,...assignment.dependsOn!.map(agentId=>`stage-${index+1}-work-${stage.execution!.assignments.findIndex(a=>a.agentId===agentId)+1}`).filter(id=>!checkpoint?.completedStepIds.includes(id))]:tail;
         add(id, assignment.agentId, deps, 'agent_turn', { businessStageId: stage.id, title: stage.title,
-          objective: assignment.objective, acceptanceCriteria: stage.criteria }, 'sequential_pipeline');
+          objective: assignment.objective, acceptanceCriteria: stage.criteria,...(batch?{stageBatchVersion:1,stageContextIsolation:scopedBatch,concurrencyLimit:decision.execution!.readonly?concurrency:1,...assignmentScopeMetadata(assignment,parent)}:{}) }, 'sequential_pipeline');
         steps.at(-1)!.maxAttempts = 1; // Never replay a failed stage as an implicit revision.
         tail = [id];
         workers.push(id);
+      }
+      const join=stage.execution!.join;
+      if(join){const id=`stage-${index+1}-work-${stage.execution!.assignments.length+1}`;
+        if(!checkpoint?.completedStepIds.includes(id)){add(id,join.agentId,[...stageTail,...workers],'aggregate',{businessStageId:stage.id,businessStageJoin:true,joinSourceAgentIds:join.sourceAgentIds,title:stage.title,objective:join.objective,acceptanceCriteria:stage.criteria,stageBatchVersion:1,stageContextIsolation:scopedBatch,concurrencyLimit:1,...assignmentScopeMetadata(join,parent)},'sequential_pipeline');steps.at(-1)!.maxAttempts=1;workers.push(id);tail=[id];}
       }
       const gate = `stage-${index + 1}-accept`;
       add(gate, null, explicit?[...stageTail,...workers]:tail, 'completion_gate', { businessStageId: stage.id, businessAcceptanceGate: true, title: `验收：${stage.title}` }, 'sequential_pipeline');

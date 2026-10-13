@@ -153,6 +153,7 @@ export interface OrchestrationDecision {
 }
 
 export interface OrchestrationPreview {
+  scheduling?: import('./business.ts').SchedulingPreview;
   request: OrchestrationRequest;
   capabilities: OrchestrationCapabilitySnapshot;
   decision: OrchestrationDecision;

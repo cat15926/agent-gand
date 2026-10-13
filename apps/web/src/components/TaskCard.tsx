@@ -11,6 +11,7 @@ import { FailureDetails } from './FailureDetails';
 import { CostBudgetPanel, CostBudgetSummary } from './CostBudgetPanel';
 import { BusinessRecoveryPanel, CheckpointRecoveryScope } from './BusinessRecoveryPanel';
 import { SnapshotManifest } from './ArtifactSnapshotPanel';
+import { SchedulingPanel } from './SchedulingPanel';
 export const STATUS_LABEL: Record<string,string> = { pending: '已排队', running: '执行中', awaiting_approval: '等待审批', waiting_for_user: '等待你的处理', completed: '已完成', failed: '失败（保留已确认结果）', cancelled: '已取消' };
 export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; detail?: api.TaskState; onRevise: (task: api.TaskState) => void; onRetryDraft: (newRoom: boolean) => void }) {
   const { state, refreshConversation, setActiveRun } = useStore(); const [busy, setBusy] = useState(false); const [error,setError] = useState(''); const [expanded,setExpanded] = useState(false);
@@ -98,6 +99,7 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
       {!terminal && <button aria-label={`取消${label}`} disabled={busy} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs text-red-300 disabled:opacity-40" onClick={() => void action('cancel')}>取消此任务</button>}
       <button className={actionClass} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收起详情' : '查看计划、结果与验收'}</button>
     </div>
+    {expanded&&detail?.snapshot?.request.businessContract?.version===3&&<SchedulingPanel runId={run.id} terminal={terminal} members={state.agents}/>}
     {expanded&&detail?.recovery?.capabilities&&<details className="mt-3"><summary>恢复能力与阻断原因 · {detail.recovery.capabilities.engine}</summary>{detail.recovery.capabilities.actions.map(a=><p key={a.kind} className="mt-2 text-zinc-400">{{resume:'原图恢复',branch_retry:'分支重试',checkpoint:'检查点承接'}[a.kind]}：{a.available?'可用':'不可用'} · {a.explanation}</p>)}</details>}
     {expanded && <div className="mt-3 space-y-2 border-t border-zinc-800 pt-3"><p className="text-zinc-400">任务 {run.id} · 工作区 {run.workspace ?? '自动工作区'}</p>{coordination?.plan.steps.map(step => {
       const current = coordination.steps.find(s => s.stepId === step.id && s.revision === coordination.plan.revision);

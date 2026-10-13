@@ -1,10 +1,10 @@
 # 平台协作剩余内容实施计划（实施中）
 
-更新日期：2026-10-12。R1–R3 提交基线：`3f40a8ea365804c6fb7b1909fcd9d5766bf53960`；R4/R5 基线：`3320e4eeb4bcea0f79a47ecda2ec6fbbc8d757d9`，均已推送至 `origin/main`。R6 本地实现与适用范围验收已完成，实现与验收文档一并纳入 R6 变更，提交及推送状态以 Git 历史为准。
+更新日期：2026-10-13。R1–R3 提交基线：`3f40a8ea365804c6fb7b1909fcd9d5766bf53960`；R4/R5 基线：`3320e4eeb4bcea0f79a47ecda2ec6fbbc8d757d9`，均已推送至 `origin/main`。R6 基线 `bcc6cde184ba55b8bfd861a070bcd581558c4cc9` 已推送。R7/R8 实现与适用范围验收已完成，提交及发布状态以 Git 历史为准。
 
 关联：[Issue #14：完善长链路多 Agent 协作](https://github.com/cat15926/agent-gand/issues/14)、[原始差距分析](../reports/platform-collaboration-gaps-2026-10-08.md)、[第六批修复进度](../reports/platform-collaboration-repair-progress-2026-10-11-batch6.md)。
 
-本计划汇总第一至第六批修复后的剩余开发与验收工作，已按用户指令开始实施。R1–R6 已完成本地实现与适用范围验收，见[R1 验收记录](../reports/platform-collaboration-r1-acceptance-2026-10-11.md)、[R2 验收记录](../reports/platform-collaboration-r2-acceptance-2026-10-11.md)、[R3 验收记录](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)、[R4 验收记录](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)、[R5 验收记录](../reports/platform-collaboration-r5-acceptance-2026-10-12.md)和[R6 验收记录](../reports/platform-collaboration-r6-acceptance-2026-10-12.md)；R7/R8 尚未完成。提交与推送状态以 Git 历史为准。未交付的扩展契约仍属于拟实施方案，当前行为以代码和生效架构文档为准。
+本计划汇总第一至第六批修复后的剩余开发与验收工作，已按用户指令开始实施。R1–R8 已完成本地实现与适用范围验收，见[R1 验收记录](../reports/platform-collaboration-r1-acceptance-2026-10-11.md)、[R2 验收记录](../reports/platform-collaboration-r2-acceptance-2026-10-11.md)、[R3 验收记录](../reports/platform-collaboration-r3-acceptance-2026-10-11.md)、[R4 验收记录](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)、[R5 验收记录](../reports/platform-collaboration-r5-acceptance-2026-10-12.md)、[R6 验收记录](../reports/platform-collaboration-r6-acceptance-2026-10-12.md)、[R7 验收记录](../reports/platform-collaboration-r7-acceptance-2026-10-12.md)和[R8 真实验收记录](../reports/platform-collaboration-r8-acceptance-2026-10-13.md)。提交与推送状态以 Git 历史为准。未交付的扩展契约仍属于拟实施方案，当前行为以代码和生效架构文档为准。
 
 ## 1. 已完成基线
 
@@ -19,6 +19,7 @@
 | 完整声明产物与工作树快照 | Owner 预览、归档、下载完整文本与文件、恢复到新隔离目录；自包含 Git 基线及声明新增/修改/删除/二进制，验收/后继/恢复引用保留。[R3](../architecture/artifact-worktree-snapshots-v1.md) |
 | 费用预算治理 | USD/CNY Run/阶段上限、版本计价、未知预留、原子准入和现有后继结转；全部后端估算控制，严格账单上限拒绝。[R5](../architecture/cost-budget-governance-v1.md) |
 | 多分支与跨引擎承接 | 适用 Collaboration all 批次、Coordination 冻结图、当前 Pipeline/主管 adapter 的公开只读失败图，Owner 明示转 Coordination；保留证据、文件、预算及必要审查。[R6](../architecture/branch-rework-contract-revision-v1.md) |
+| 差异化批量调度 | 成员范围、显式汇合、即时补位、冻结并发、原子预算等待、零模型回执与调用面板；写入串行，窄私密跨 Run 迁移拒绝。[R7](../architecture/scoped-stage-batch-scheduling-v1.md) |
 
 以下边界仍需保留：
 
@@ -40,8 +41,8 @@ P0 表示扩展私密或写入能力前必须完成的正确性与安全基础�
 | R4 私密及写入恢复 | P0 | 本地完成 | 私密/写入续跑与返工、副作用核对、隔离工作树承接 | R1、R2、R3 |
 | R5 费用预算治理 | P1 | 本地完成 | 未知费用预留、费用限制、预算结转和后端能力声明 | 现有预算账本；与 R2–R4 可独立推进 |
 | R6 多分支与精细返工 | P1 | 本地完成 | 适用公开只读图承接、部分成员返工、验收清单版本化修订及保守拒绝 | R1、R3；涉及私密/写入时还需 R4 |
-| R7 调度效率优化 | P1 | 开发 | 差异化任务批量派发、并行汇合、确定性状态迁移 | R2、R5；复用 R6 的分支依赖规则 |
-| R8 真实长链路验收 | P1，收尾门禁 | 补验收 | 经授权的真实混合后端、多阶段与故障恢复验收报告 | R1 通过；各场景对应功能完成 |
+| R7 调度效率优化 | P1 | 本地完成 | 逐成员范围、冻结并发、授权汇合、确定性回执与调用/预算等待面板 | R2、R5；复用 R6 的分支依赖规则 |
+| R8 真实长链路验收 | P1，收尾门禁 | 本地完成 | 真实 SDK/Codex/API、多阶段返工/续跑、私密文件恢复及桌面/手机流程；报告保留边界 | R1–R7 |
 
 建议主线为 **R1 → R2 → R3 → R4 → R6 → R7 → R8**，R5 在 R1 后独立推进，并在 R7 前完成。R8 可先验收已有公开只读能力，新增场景随对应阶段交付补充，不能提前将未覆盖场景标为通过。
 
@@ -146,7 +147,7 @@ P0 表示扩展私密或写入能力前必须完成的正确性与安全基础�
 
 ### R6：多分支与精细返工
 
-状态：**本地实现与适用范围验收完成**（2026-10-12），[生效契约与兼容矩阵](../architecture/branch-rework-contract-revision-v1.md)、[验收证据](../reports/platform-collaboration-r6-acceptance-2026-10-12.md)。追加迁移 v10、业务契约 v2 与加密图检查点 v4；适用公开只读图在 Owner 预览明示后转 Coordination。部分成员返工限定公开只读文本且依赖完整，其他情况整阶段回退；私密/写入通用跨引擎图、动态/嵌套咨询等明确拒绝，逐阶段任务仍走 R4。R7 效率优化与 R8 真实供应商验收尚未实施。
+状态：**本地实现与适用范围验收完成**（2026-10-12），[生效契约与兼容矩阵](../architecture/branch-rework-contract-revision-v1.md)、[验收证据](../reports/platform-collaboration-r6-acceptance-2026-10-12.md)。追加迁移 v10、业务契约 v2 与加密图检查点 v4；适用公开只读图在 Owner 预览明示后转 Coordination。部分成员返工限定公开只读文本且依赖完整，其他情况整阶段回退；私密/写入通用跨引擎图、动态/嵌套咨询等明确拒绝，逐阶段任务仍走 R4。R7 已接入适用差异化阶段调度，R8 已补齐适用真实供应商场景，见其验收记录。
 
 **目标：** 保留正确分支，只重做受到影响的工作；将恢复资格一致接入各引擎的既有恢复入口。
 
@@ -165,6 +166,8 @@ P0 表示扩展私密或写入能力前必须完成的正确性与安全基础�
 
 ### R7：调度效率优化
 
+状态：**本地实现与适用范围验收完成**（2026-10-12），[生效契约](../architecture/scoped-stage-batch-scheduling-v1.md)、[验收证据](../reports/platform-collaboration-r7-acceptance-2026-10-12.md)。业务契约 schema v3 与迁移 v11；逐成员范围、显式汇合输入、即时补位、预算队列暂停恢复和调用账本已接入。模拟两成员分析/汇合控制流程从 5 次调用到 3 次；不据此承诺真实任务的费用节省。写入串行，窄私密跨 Run 检查点仍明确拒绝。R8 已完成适用真实场景验收。
+
 **目标：** 平台处理可确定的确认和状态迁移，将模型调用用于需要判断与表达的工作。
 
 实施内容：
@@ -181,6 +184,8 @@ P0 表示扩展私密或写入能力前必须完成的正确性与安全基础�
 主要落点：[阶段执行](../../apps/server/src/orchestration/businessStageExecution.ts)、[预算](../../apps/server/src/orchestration/executionBudget.ts)、[Runtime 上下文](../../apps/server/src/runtime/context.ts)、[任务编辑](../../apps/web/src/components/TaskComposer.tsx)。
 
 ### R8：真实长链路验收
+
+状态：**本地实现与适用范围验收完成**（2026-10-12～13），[入口契约](../architecture/real-collaboration-acceptance-v1.md)、[实际 Run 与验收记录](../reports/platform-collaboration-r8-acceptance-2026-10-13.md)。三后端实质任务、混合阶段、选择性返工、确认结果继承、实际上游响应丢失和冷重启、SDK/Codex 私密写入核对与零重放、HTTP/WS、业务结果分离及真实浏览器流程已验证。修复 Codex MCP 发现宿主及验收副本的同身份令牌刷新同步。原生内部请求/供应商发票、实体手机、跨主机和高负载扩展不宣称通过；本计划适用矩阵已验收，远程 Issue 关闭与代码发布未执行。
 
 **目标：** 在可控夹具通过后，用少量经授权的真实账户任务验证实际集成与长期协作。
 
@@ -215,7 +220,7 @@ P0 表示扩展私密或写入能力前必须完成的正确性与安全基础�
 
 证据分层记录：单元/内存夹具、实际驱动 stdio 模拟、真实本地 HTTP/WS、真实供应商四层分别标记。任一层通过都不自动推导后一层通过。
 
-复用现有验证入口：`pnpm verify:execution-diagnostics`、`pnpm verify:execution-timeouts`、`pnpm verify:external-agents-c`、`pnpm verify:message-visibility`、`pnpm verify:run-continuation`、`pnpm verify:business-acceptance`、`pnpm verify:business-stage-gates`、`pnpm verify:business-stage-continuation`、`pnpm verify:business-stage-rework`。R3 增加 `pnpm verify:artifact-snapshots`，并扩展 `verify:business-stage-gates-ui` 与 `verify:platform-network`。R4 增加 `pnpm verify:private-write-recovery`，在上述浏览器与真实本地网络夹具中覆盖核对、私密写入续跑及冷重启/丢失响应。R6 增加 `pnpm verify:branch-recovery` 的 execute/off 路径，扩展实际浏览器和真实本地 HTTP/WS 的部分返工、修订、并发唯一后继及冷重试。新增场景应补相应夹具；上述现有命令不代表剩余场景已经覆盖。变更覆盖适用的 Runtime execute/off 路径，私密或写入场景不支持时也需验证明确拒绝。
+复用现有验证入口：`pnpm verify:execution-diagnostics`、`pnpm verify:execution-timeouts`、`pnpm verify:external-agents-c`、`pnpm verify:message-visibility`、`pnpm verify:run-continuation`、`pnpm verify:business-acceptance`、`pnpm verify:business-stage-gates`、`pnpm verify:business-stage-continuation`、`pnpm verify:business-stage-rework`。R3 增加 `pnpm verify:artifact-snapshots`，并扩展 `verify:business-stage-gates-ui` 与 `verify:platform-network`。R4 增加 `pnpm verify:private-write-recovery`，在上述浏览器与真实本地网络夹具中覆盖核对、私密写入续跑及冷重启/丢失响应。R6 增加 `pnpm verify:branch-recovery` 的 execute/off 路径，扩展实际浏览器和真实本地 HTTP/WS 的部分返工、修订、并发唯一后继及冷重试。R7 增加 `pnpm verify:stage-scheduling` 的 execute/off、调用对照、逐成员隔离、即时补位、预算等待及本地 SDK/Codex 会话验证，当前浏览器专项新增批量编辑和运行面板。新增场景应补相应夹具；上述现有命令不代表剩余场景已经覆盖。变更覆盖适用的 Runtime execute/off 路径，私密或写入场景不支持时也需验证明确拒绝。
 
 ## 5. 迁移、发布与完成条件
 
@@ -235,7 +240,7 @@ Issue #14 的完成条件：R1–R7 的适用实现与拒绝边界交付，R8 �
 - [x] R4：私密/写入逐阶段续跑与整阶段返工、所有者副作用核对/审计、加密检查点 v3、隔离工作树及未知 Token 上限结转；[本地验收记录](../reports/platform-collaboration-r4-acceptance-2026-10-11.md)。范围限定冻结阶段图；R6 已交付公开只读图及精细返工，私密/写入部分选择回退整阶段、通用图明确拒绝，真实供应商场景留给 R8。
 - [x] R5：Run/阶段费用政策、版本计价、未知预留、原子预约、后端估算能力和现有单后继预算结转；[本地验收记录](../reports/platform-collaboration-r5-acceptance-2026-10-12.md)。多分支/跨引擎承接由 R6 接入，严格供应商账单上限与真实计费验证不宣称完成。
 - [x] R6：适用公开只读跨引擎冻结图/多分支承接、依赖闭包与整阶段回退、不可变验收清单修订、恢复能力矩阵及预算结转；[本地验收记录](../reports/platform-collaboration-r6-acceptance-2026-10-12.md)。私密/写入通用图、动态/嵌套或不兼容历史图明确拒绝；逐阶段私密写入仍走 R4，实际模型验收留给 R8。
-- [ ] R7：差异化批量派发、并行汇合、确定性状态迁移。
-- [ ] R8：经授权的真实混合后端长链路验收。
+- [x] R7：逐成员授权与依赖、冻结并发即时补位、显式获准输入汇合、平台回执/门禁、预算等待/暂停恢复和调用可视化；[本地验收记录](../reports/platform-collaboration-r7-acceptance-2026-10-12.md)。写入顺序、窄私密跨 Run 迁移明确拒绝；真实供应商验收留给 R8。
+- [x] R8：经授权的实际 SDK/Codex/API 阶段、返工/失败续跑、私密写入响应丢失核对、网络重启及真实桌面/手机视口流程；[真实验收记录](../reports/platform-collaboration-r8-acceptance-2026-10-13.md)。保留账单与原生内部请求计量等能力边界；Issue 远程关闭和代码发布未执行。
 
 更新时逐项注明实现提交、验证方式、验收报告及未覆盖范围；“已实现”和“已验收”分别判断。
