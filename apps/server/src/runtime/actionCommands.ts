@@ -1,6 +1,9 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { RuntimeActionCommandKind, RuntimeActionCommandRecord } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
+import { loadRuntimeContract } from './runPolicy.ts';
+import { commitScopedOutput, ScopedCollaborationError, type ScopedAttemptBinding } from './scopedCollaboration.ts';
+import type { MessageAccess } from '@agent-gand/shared';
 import { emit } from '../messaging/bus.ts';
 
 interface CommandRow {
@@ -13,6 +16,7 @@ interface CommandRow {
   result: string;
   created_at: string;
   committed_at: string;
+  boundary_fingerprint: string | null;
 }
 
 export interface RuntimeActionCommandInput<T> {
@@ -20,6 +24,7 @@ export interface RuntimeActionCommandInput<T> {
   commandKey: string;
   attemptId?: string | null;
   dispatchId?: string | null;
+  scope?: ScopedAttemptBinding & { ledgerRevision: number; outputAccess: MessageAccess };
   execute: () => T;
 }
 
@@ -46,11 +51,18 @@ function toCommand(row: CommandRow): RuntimeActionCommandRecord {
 function assertSameCommand<T>(row: CommandRow, kind: RuntimeActionCommandKind,
   input: RuntimeActionCommandInput<T>): RuntimeActionCommandResult<T> {
   if (row.run_id !== input.runId || row.kind !== kind
-    || row.attempt_id !== (input.attemptId ?? null) || row.dispatch_id !== (input.dispatchId ?? null)) {
+    || row.attempt_id !== (input.attemptId ?? null) || row.dispatch_id !== (input.dispatchId ?? null)
+    || (row.boundary_fingerprint ?? null) !== boundaryFingerprint(input)) {
     throw new Error(`Runtime 动作命令幂等键冲突：${input.commandKey}`);
   }
   const command = toCommand(row);
   return { committed: false, command, result: command.result as T };
+}
+
+function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | null {
+  const s = input.scope;
+  return s ? createHash('sha256').update(JSON.stringify([s.runId, s.scopeId, s.attemptId, s.agentId,
+    s.ledgerRevision, s.outputAccess.visibility, [...s.outputAccess.audience].sort()])).digest('hex') : null;
 }
 
 function commitAction<T>(kind: RuntimeActionCommandKind,
@@ -64,14 +76,20 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
     if (['completed', 'failed', 'cancelled'].includes(runRow.status)) {
       throw new Error(`Runtime 动作命令不能提交到终态 Run：${runRow.status}`);
     }
-    const result = input.execute();
+    const scoped = loadRuntimeContract(input.runId)?.features?.scopedCollaboration;
+    if (scoped && (!input.scope || input.scope.runId !== input.runId || input.scope.attemptId !== input.attemptId
+      || !get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?', input.attemptId, input.dispatchId))) {
+      throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    }
+    if (!scoped && input.scope) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    const result = input.scope ? commitScopedOutput(input.scope, input.execute) : input.execute();
     const encoded = JSON.stringify(result ?? null);
     const now = new Date().toISOString();
     const id = randomUUID();
     run(`INSERT INTO runtime_action_commands
-      (id,run_id,kind,command_key,attempt_id,dispatch_id,result,created_at,committed_at)
-      VALUES (?,?,?,?,?,?,?,?,?)`, id, input.runId, kind, input.commandKey,
-    input.attemptId ?? null, input.dispatchId ?? null, encoded, now, now);
+      (id,run_id,kind,command_key,attempt_id,dispatch_id,result,created_at,committed_at,boundary_fingerprint)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`, id, input.runId, kind, input.commandKey,
+    input.attemptId ?? null, input.dispatchId ?? null, encoded, now, now, boundaryFingerprint(input));
     const command = toCommand(get<CommandRow>('SELECT * FROM runtime_action_commands WHERE id=?', id)!);
     afterCommit(() => emit({ type: 'runtime.action_command.committed', command }));
     return { committed: true, command, result };

@@ -52,6 +52,8 @@
     "verify:tool-execution-ledger": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-tool-execution-ledger.mjs",
     "verify:runtime-context": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
     "verify:message-visibility": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-message-visibility.mjs",
+    "verify:scoped-collaboration-baseline": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-collaboration-baseline.mjs",
+    "verify:scoped-collaboration": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-collaboration.mjs",
     "verify:execution-diagnostics": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-diagnostics.mjs",
     "verify:run-failures": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-failures.mjs",
     "verify:platform-network": "node scripts/verify-platform-network.mjs",

@@ -19,3 +19,4 @@ export * from './business.ts';
 export * from './artifacts.ts';
 export * from './recovery.ts';
 export * from './cost.ts';
+export * from './scopedCollaboration.ts';

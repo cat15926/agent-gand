@@ -11,7 +11,8 @@ export type RuntimePolicyErrorCode =
   | 'RUNTIME_POLICY_UNKNOWN_VERSION'
   | 'RUNTIME_POLICY_INVALID'
   | 'RUNTIME_POLICY_AMBIGUOUS_HISTORY'
-  | 'RUNTIME_POLICY_RETIRED';
+  | 'RUNTIME_POLICY_RETIRED'
+  | 'RUNTIME_CAPABILITY_UNAVAILABLE';
 
 export class RuntimePolicyError extends Error {
   constructor(readonly code: RuntimePolicyErrorCode, message: string) {
@@ -22,7 +23,7 @@ export class RuntimePolicyError extends Error {
 export function executionPolicyForProfile(
   profile: RuntimeAdmissionProfile,
   options: {
-    toolApiVersion?: 1 | 2;
+    toolApiVersion?: 1 | 2 | 3;
     implicitAnswerPolicy?: RuntimeExecutionPolicyV1['implicitAnswerPolicy'];
   } = {},
 ): RuntimeExecutionPolicyV1 {
@@ -48,7 +49,7 @@ function isExecutionPolicy(value: unknown): value is RuntimeExecutionPolicyV1 {
     || !['legacy', 'runtime'].includes(policy.authority ?? '')
     || !['off', 'shadow', 'authoritative'].includes(policy.runtimeStateMode ?? '')
     || !['legacy', 'custody_v1', 'commands_v1'].includes(policy.atomicity ?? '')
-    || ![1, 2].includes(policy.toolApiVersion ?? 0)
+    || ![1, 2, 3].includes(policy.toolApiVersion ?? 0)
     || !['initial_and_consultation', 'explicit_only'].includes(policy.implicitAnswerPolicy ?? '')) return false;
   const expected = executionPolicyForProfile(policy.profile!, {
     toolApiVersion: policy.toolApiVersion,
@@ -82,6 +83,26 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
   if (contract.features?.messageVisibilityVersion !== undefined && contract.features.messageVisibilityVersion !== 1) {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', `Run ${runId} 的消息可见性版本不受支持`);
   }
+  const f = contract.features;
+  if (f?.controlActionVersion !== undefined && ![1, 2, 3].includes(f.controlActionVersion)) {
+    throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown control action version');
+  }
+  if (contract.executionPolicy && ![1, 2, 3].includes(contract.executionPolicy.toolApiVersion)) {
+    throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
+  }
+  const scoped = f?.scopedCollaboration;
+  if (scoped !== undefined || f?.controlActionVersion === 3 || contract.executionPolicy?.toolApiVersion === 3) {
+    if (!scoped || scoped.boundaryVersion !== 2 || scoped.manifestVersion !== 1 || scoped.provenanceVersion !== 1
+      || !['scoped-control-v1', 'scoped-release-v1'].includes(scoped.capabilityPackage)) {
+      throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown or missing scoped capability contract');
+    }
+    if (!Number.isSafeInteger(scoped.policyRevision) || scoped.policyRevision < 1 || f?.controlActionVersion !== 3
+      || contract.executionPolicy?.toolApiVersion !== 3 || contract.executionPolicy.profile !== 'execute'
+      || contract.executionPolicy.implicitAnswerPolicy !== 'explicit_only' || f.messageVisibilityVersion !== 1
+      || f.coordinationKernel) {
+      throw new RuntimePolicyError('RUNTIME_POLICY_INVALID', 'Scoped contract must explicitly freeze v3 execute boundaries');
+    }
+  }
   return contract;
 }
 
@@ -103,8 +124,8 @@ function assertPolicyCapabilities(runId: string, contract: RuntimeRunContract, p
   const invalid = (reason: string): never => {
     throw new RuntimePolicyError('RUNTIME_POLICY_INVALID', `Run ${runId} ${reason}`);
   };
-  if (policy.toolApiVersion === 2 && features?.controlActionVersion !== 2) {
-    invalid('声明 toolApiVersion=2，但缺少 controlActionVersion=2');
+  if (policy.toolApiVersion >= 2 && features?.controlActionVersion !== policy.toolApiVersion) {
+    invalid(`声明 toolApiVersion=${policy.toolApiVersion}，但 controlActionVersion 不匹配`);
   }
   if (features?.coordinationKernel) {
     const expected = features.coordinationKernel === 'execute' ? 'execute' : 'shadow';
@@ -184,6 +205,9 @@ export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean
 /** 历史 Profile 仍可读取，但 Collaboration worker 只执行已冻结的 execute Run。 */
 export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
   const policy = resolveRunPolicy(runId);
+  if (policy.toolApiVersion === 3) {
+    throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE', 'Scoped delivery/resume capability package is not implemented');
+  }
   if (policy.profile !== 'execute' || policy.authority !== 'runtime'
     || policy.atomicity !== 'commands_v1' || policy.toolApiVersion !== 2) {
     throw new RuntimePolicyError('RUNTIME_POLICY_RETIRED',

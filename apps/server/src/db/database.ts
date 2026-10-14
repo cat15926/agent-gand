@@ -68,6 +68,7 @@ ensureColumns('runtime_context_assemblies', [
   { name: 'visibility', sql: "visibility TEXT NOT NULL DEFAULT 'public'" },
   { name: 'audience', sql: "audience TEXT NOT NULL DEFAULT '[]'" },
 ]);
+ensureColumns('runtime_action_commands', [{ name: 'boundary_fingerprint', sql: 'boundary_fingerprint TEXT' }]);
 ensureColumns('runs', [
   { name: 'supervisor_id', sql: 'supervisor_id TEXT' },
   { name: 'conversation_id', sql: 'conversation_id TEXT' },

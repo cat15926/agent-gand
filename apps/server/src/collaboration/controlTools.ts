@@ -77,8 +77,9 @@ const CONSULT_TOOL_V2_ANY: LlmToolSchema = {
   } },
 };
 
-export function collaborationControlTools(toolApiVersion: 1 | 2,
+export function collaborationControlTools(toolApiVersion: 1 | 2 | 3,
   options: { externalWaitVersion?: 1 | null; consultAnyVersion?: 1 | null; messageVisibilityVersion?: 1 | null } = {}): LlmToolSchema[] {
+  if (toolApiVersion === 3) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped tools are not enabled');
   if (toolApiVersion !== 2) throw new Error('Tool API v1 的模型工具暴露已退役');
   return COLLABORATION_CONTROL_TOOLS_V2.map((tool) => {
     const selected = tool.name === 'agent.hold' && options.externalWaitVersion === 1 ? HOLD_TOOL_V2_EXTERNAL_WAIT
@@ -128,6 +129,7 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
     historicalAlias?: boolean } = {}): CollaborationStoredControlAction {
   if (version === 2 && ['agent.send_message', 'agent.ask_many', 'agent.wait_for_user'].includes(call.name)
     && !options.historicalAlias) throw new Error(`旧协作工具别名已退役: ${call.name}`);
+  if (version !== 1 && version !== 2) throw new Error('Unsupported control action version');
   const input = objectInput(call); const members = new Set(memberIds);
   if (input.visibility !== undefined && (!options.messageVisibilityVersion || !['public', 'private'].includes(String(input.visibility)))) {
     throw new Error('当前 Run 的消息可见性参数无效或尚未启用');

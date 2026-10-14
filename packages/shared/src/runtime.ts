@@ -18,7 +18,7 @@ export interface RuntimeExecutionPolicyV1 {
   authority: RuntimeAuthority;
   runtimeStateMode: RuntimeStateMode;
   atomicity: RuntimeAtomicity;
-  toolApiVersion: 1 | 2;
+  toolApiVersion: 1 | 2 | 3;
   implicitAnswerPolicy: 'initial_and_consultation' | 'explicit_only';
 }
 
@@ -39,8 +39,9 @@ export interface RuntimeRunContract {
     orchestrationAdapter?: 1;
     completionEngine?: boolean;
     coordinationKernel?: 'shadow' | 'execute';
-    /** 1 表示历史 Collaboration 动作，2 表示规范 RuntimeControlAction。 */
-    controlActionVersion?: 1 | 2;
+    /** 1 为历史动作，2 为当前规范动作；3 为尚未开放执行的 ScopedControlActionV3。 */
+    controlActionVersion?: 1 | 2 | 3;
+    scopedCollaboration?: import('./scopedCollaboration.ts').ScopedCollaborationContract;
     /** 缺失表示历史兼容路径；存在时冻结 ExitGuard 行为和纠偏预算。 */
     exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
     /** 缺失表示历史 Attempt 推断路径；1 表示必须经持久化 Candidate 验收。 */

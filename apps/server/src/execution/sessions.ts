@@ -50,6 +50,7 @@ async function accountBinding(execution: ExternalAgentExecution): Promise<string
   } catch { return null; }
 }
 export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false, connection?: ResolvedAccount | null): Promise<SessionHandle | undefined> {
+  if (loadRuntimeContract(opts.run.id)?.features?.scopedCollaboration) throw new Error('BACKEND_SCOPE_UNSUPPORTED: scoped native history requires provenance-aware integration');
   assertBindingAuthorized(opts.executionBinding);
   const policy = opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn';
   if (policy === 'turn') return undefined;

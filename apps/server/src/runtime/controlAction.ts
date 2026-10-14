@@ -6,7 +6,7 @@ import type {
   RuntimeRunContract,
   SupervisorTaskProposal,
 } from '@agent-gand/shared';
-import { run } from '../db/database.ts';
+import { run, tx } from '../db/database.ts';
 import { loadRuntimeContract } from './runPolicy.ts';
 
 export type RuntimeActionSource = 'native_v2' | 'legacy_v1' | 'answer_candidate';
@@ -119,6 +119,7 @@ export function normalizeRuntimeControlAction(
 ): RuntimeActionNormalization {
   const parsed = object(value);
   if (!parsed) return { ok: false, code: 'INVALID_CONTROL_ACTION', reason: '控制动作必须是对象' };
+  if (parsed.version !== undefined && parsed.version !== 1 && parsed.version !== 2) return { ok: false, code: 'ACTION_VERSION_MISMATCH', reason: 'Unsupported control action version; no legacy fallback' };
   if (parsed.version === 2) {
     if (options.expectedVersion === 1) {
       return { ok: false, code: 'ACTION_VERSION_MISMATCH', reason: '历史 Run 只接受 v1 控制动作' };
@@ -145,7 +146,9 @@ export function answerCandidateControlAction(version: RuntimeControlActionVersio
 
 /** 无冻结标记的历史 Run 固定解释为 v1；不受部署后默认值变化影响。 */
 export function runtimeControlActionVersion(runId: string): RuntimeControlActionVersion {
-  return loadRuntimeContract(runId)?.features?.controlActionVersion === 2 ? 2 : 1;
+  const version = loadRuntimeContract(runId)?.features?.controlActionVersion;
+  if (version === 3) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped actions are not executable in G1');
+  return version ?? 1;
 }
 
 /** 历史 Contract 未冻结该能力时只能使用 consult(all)。 */
@@ -155,9 +158,11 @@ export function runtimeConsultAnyVersion(runId: string): 1 | null {
 
 /** 只插入不覆盖，确保 Run 入场时选定的动作版本永久冻结。 */
 export function freezeRuntimeContract(contract: RuntimeRunContract): RuntimeRunContract {
-  run('INSERT OR IGNORE INTO runtime_contracts (run_id,version,payload,created_at) VALUES (?,?,?,?)',
-    contract.runId, contract.version, JSON.stringify(contract), new Date().toISOString());
-  const frozen = loadRuntimeContract(contract.runId);
-  if (!frozen) throw new Error(`Run ${contract.runId} 的 Runtime Contract 冻结失败`);
-  return frozen;
+  return tx(() => {
+    run('INSERT OR IGNORE INTO runtime_contracts (run_id,version,payload,created_at) VALUES (?,?,?,?)',
+      contract.runId, contract.version, JSON.stringify(contract), new Date().toISOString());
+    const frozen = loadRuntimeContract(contract.runId);
+    if (!frozen) throw new Error(`Run ${contract.runId} 的 Runtime Contract 冻结失败`);
+    return frozen;
+  });
 }

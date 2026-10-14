@@ -1,3 +1,5 @@
+import { scopedCollaborationCapabilities } from '../runtime/scopedCapabilities.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { registerArtifactRoutes } from './artifactRoutes.ts';
 import { applyRunAction, cancelTaskExecution, retryTaskExecution } from '../orchestration/actions.ts';
 import { assessRunRecovery } from '../runtime/recovery.ts';
@@ -219,6 +221,15 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   });
   app.get('/api/tools/mcp/status', async () => getMcpStatus());
   app.get('/api/execution/drivers', async () => listDrivers(true));
+  app.get<{ Params: { id: string } }>('/api/runs/:id/collaboration-capabilities', async (req) => {
+    if (!getRun(req.params.id)) throw httpError(404, 'Run 不存在');
+    const contract = loadRuntimeContract(req.params.id);
+    return { frozen: contract?.features?.scopedCollaboration ?? null,
+      toolApiVersion: contract?.executionPolicy?.toolApiVersion ?? contract?.features?.controlActionVersion ?? 1,
+      backends: ['builtin-llm', 'claude-sdk', 'codex-app-server', 'claude-cli', 'codex-exec'].map(backend => ({
+        backend, capabilities: scopedCollaborationCapabilities(backend),
+      })), allowedRecovery: [] };
+  });
   app.get<{ Params: { runId: string } }>('/api/runs/:runId/executions', async (req) => {
     if (!getRun(req.params.runId)) throw httpError(404, 'Run 不存在');
     return listExecutions(req.params.runId);

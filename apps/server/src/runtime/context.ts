@@ -144,6 +144,7 @@ export function assembleCollaborationContext(input: {
   run: Run; dispatch: CollaborationDispatch; agent: AgentDefinition; attemptId: string;
 }): string {
   const { run, dispatch, agent, attemptId } = input;
+  if (loadRuntimeContract(run.id)?.features?.scopedCollaboration) throw new Error('SCOPE_BINDING_INVALID: use the manifest context assembler');
   const sourceAccess = messageAccess(dispatch.sourceMessageId);
   assertMessageAccess(sourceAccess, agent.id, '当前任务');
   const visibleMessages = listByConversation(run.conversationId, agent.id).filter(message => message.seq > 0 && isMessageWithinScope(message, sourceAccess));

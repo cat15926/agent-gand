@@ -357,7 +357,8 @@ CREATE TABLE IF NOT EXISTS runtime_run_terminals (
 CREATE TABLE IF NOT EXISTS runtime_action_commands (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, kind TEXT NOT NULL,
   command_key TEXT NOT NULL UNIQUE, attempt_id TEXT, dispatch_id TEXT,
-  result TEXT NOT NULL, created_at TEXT NOT NULL, committed_at TEXT NOT NULL
+  result TEXT NOT NULL, created_at TEXT NOT NULL, committed_at TEXT NOT NULL,
+  boundary_fingerprint TEXT
 );
 CREATE TABLE IF NOT EXISTS runtime_shadow_comparisons (
   id TEXT PRIMARY KEY, version INTEGER NOT NULL, run_id TEXT NOT NULL,
@@ -592,3 +593,31 @@ CREATE TABLE IF NOT EXISTS artifact_snapshot_refs (
 CREATE TABLE IF NOT EXISTS artifact_snapshot_restores (
   owner_id TEXT PRIMARY KEY, snapshot_id TEXT NOT NULL, digest TEXT NOT NULL, path TEXT NOT NULL, created_at TEXT NOT NULL
 );
+
+-- G1 foundation: immutable scopes/manifests, one scope per Attempt, append-only exposure ledger.
+CREATE TABLE IF NOT EXISTS runtime_execution_scopes (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL, subject_id TEXT NOT NULL,
+  manifest_id TEXT NOT NULL UNIQUE, record TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_context_manifests (
+  id TEXT PRIMARY KEY, scope_id TEXT NOT NULL UNIQUE REFERENCES runtime_execution_scopes(id),
+  record TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_scope_attempts (
+  attempt_id TEXT PRIMARY KEY REFERENCES collaboration_attempts(id),
+  scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id), context_sha256 TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runtime_input_provenance (
+  attempt_id TEXT NOT NULL REFERENCES runtime_scope_attempts(attempt_id), sequence INTEGER NOT NULL,
+  scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id), record TEXT NOT NULL,
+  PRIMARY KEY(attempt_id, sequence)
+);
+CREATE TRIGGER IF NOT EXISTS runtime_execution_scopes_no_update BEFORE UPDATE ON runtime_execution_scopes BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_execution_scopes_no_delete BEFORE DELETE ON runtime_execution_scopes BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_context_manifests_no_update BEFORE UPDATE ON runtime_context_manifests BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_context_manifests_no_delete BEFORE DELETE ON runtime_context_manifests BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_update BEFORE UPDATE ON runtime_scope_attempts BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_delete BEFORE DELETE ON runtime_scope_attempts BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_update BEFORE UPDATE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_delete BEFORE DELETE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;

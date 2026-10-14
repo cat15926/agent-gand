@@ -1,3 +1,4 @@
+import { scopedCollaborationCapabilities } from '../runtime/scopedCapabilities.ts';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import type { ExecutionDriverInfo, ExternalDriverId, NativeAgentEvent } from '@agent-gand/shared';
@@ -67,7 +68,7 @@ export function detectDriver(id: ExternalDriverId, refresh = false): Promise<Exe
     let version: string | null = null;
     try {
       if (process.platform === 'win32') throw new ExecutionError('unsupported_cli', '阶段 A 仅支持 macOS/Linux');
-      if (id === 'claude-sdk') return { id, available: true, version: 'claude-agent-sdk 0.3.288', error: null, readonly: true, permissionModes: ['readonly', 'confirm', 'auto'], nativeApprovals: true, runtimeControl: true };
+      if (id === 'claude-sdk') return { id, available: true, version: 'claude-agent-sdk 0.3.288', error: null, readonly: true, scopedCollaboration: scopedCollaborationCapabilities(id), permissionModes: ['readonly', 'confirm', 'auto'], nativeApprovals: true, runtimeControl: true };
       version = (await probe(commands[id], ['--version'])).slice(0, 200);
       if (id === 'codex-app-server' && !/^codex-cli 0\.159\.2$/.test(version)) throw new ExecutionError('unsupported_cli', 'Codex app-server 阶段 B 只准入已验证的 0.159.2 协议版本');
       const help = await probe(commands[id], id === 'claude-cli' ? ['--help'] : id === 'codex-app-server' ? ['app-server', '--help'] : ['exec', '--help']);
@@ -75,9 +76,9 @@ export function detectDriver(id: ExternalDriverId, refresh = false): Promise<Exe
         ? ['--safe-mode', '--tools', '--permission-mode', '--strict-mcp-config', '--mcp-config', '--setting-sources', '--settings', '--include-partial-messages', '--output-format', '--disable-slash-commands', '--no-chrome']
         : id === 'codex-app-server' ? ['--listen', 'generate-ts'] : ['--sandbox', '--ignore-user-config', '--ignore-rules', '--json'];
       if (required.some((flag) => !help.includes(flag))) throw new ExecutionError('unsupported_cli', 'CLI 缺少阶段 A 必需的只读/隔离选项，请升级');
-      return { id, available: true, version, error: null, readonly: true, permissionModes: id === 'codex-app-server' ? ['readonly', 'confirm'] : ['readonly'], nativeApprovals: id === 'codex-app-server', runtimeControl: id === 'codex-app-server' };
+      return { id, available: true, version, error: null, readonly: true, scopedCollaboration: scopedCollaborationCapabilities(id), permissionModes: id === 'codex-app-server' ? ['readonly', 'confirm'] : ['readonly'], nativeApprovals: id === 'codex-app-server', runtimeControl: id === 'codex-app-server' };
     } catch (error) {
-      return { id, available: false, version, error: error instanceof Error ? error.message : String(error), errorCode: error instanceof ExecutionError ? error.code : 'unsupported_cli', readonly: true };
+      return { id, scopedCollaboration: scopedCollaborationCapabilities(id), available: false, version, error: error instanceof Error ? error.message : String(error), errorCode: error instanceof ExecutionError ? error.code : 'unsupported_cli', readonly: true };
     }
   })();
   probes.set(id, { expires: Date.now() + 30_000, result });

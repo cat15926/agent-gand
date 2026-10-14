@@ -52,7 +52,8 @@
 
 ### 实施计划
 
-- [平台协作剩余内容实施计划（R1–R5 本地完成，R6–R8 待实施）](./plans/platform-collaboration-remaining-implementation-plan.md)
+- [通用私密协作与受控信息发布实施指导（Issue #15，G0/G1 完成，G2–G6 待实施）](./plans/scoped-collaboration-implementation-guide.md)
+- [平台协作剩余内容实施计划（R1–R8 已完成适用范围实现与验收）](./plans/platform-collaboration-remaining-implementation-plan.md)
 - [P1 实施路线与验收状态](./plans/p1-implementation-roadmap.md)
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
 - [通用协作规划器与 Coordination Plan 设计](./plans/coordination-planner-design.md)
@@ -77,6 +78,9 @@
 
 ### 测试与评估报告
 
+- [Issue #15 私密咨询后连续调度阻断分析](./reports/issue-15-private-consultation-analysis-2026-10-13.md)
+- [G0 基线与私密协作阻断验收记录](./reports/scoped-collaboration-g0-acceptance-2026-10-13.md)
+- [G1 Scope、输入来源与版本边界验收](./reports/scoped-collaboration-g1-acceptance-2026-10-14.md)
 - [外部 Code Agent 阶段 A 验收记录](./reports/external-code-agent-phase-a-acceptance.md)
 - [外部 Code Agent 阶段 B 验收记录](./reports/external-code-agent-phase-b-acceptance.md)
 - [外部 Code Agent 阶段 C 验收记录](./reports/external-code-agent-phase-c-acceptance.md)

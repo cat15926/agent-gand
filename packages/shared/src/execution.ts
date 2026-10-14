@@ -19,6 +19,7 @@ export type AgentExecutionConfig =
   | { kind: 'external'; driver: ExternalDriverId; nativeTools?: string[]; platformTools?: string[]; sessionPolicy?: 'turn' | 'run' | 'conversation' };
 
 export interface ExecutionDriverInfo {
+  scopedCollaboration?: import('./scopedCollaboration.ts').ScopedCollaborationCapability[];
   id: ExternalDriverId;
   available: boolean;
   version: string | null;
