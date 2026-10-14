@@ -7,12 +7,35 @@ export interface ScopedCollaborationContract {
   provenanceVersion: 1;
   policyRevision: number;
   capabilityPackage: CollaborationCapabilityPackage;
+  /** G1 fixtures omit this; only the complete G2 delivery package is executable. */
+  deliveryVersion?: 1;
 }
 /** material only delivers bytes; acknowledged only satisfies receipt; result requires completion acceptance. */
 export type DeliveryExpectation = 'material' | 'acknowledged' | 'result';
 export type ScopedControlActionV3 =
   | { version: 3; type: 'consult_batch'; items: Array<{ key: string; target: string; payloadRef: string; expectation: DeliveryExpectation }>; join: 'all'; returnProfile: string }
-  | { version: 3; type: 'acknowledge'; envelopeId: string };
+  | { version: 3; type: 'acknowledge'; envelopeId: string }
+  | { version: 3; type: 'complete'; summary: string };
+
+export interface ScopedDeliveryDraft {
+  conversationId: string;
+  coordinatorId: string;
+  goal: string;
+  join: 'all';
+  returnProfile: 'status-only-v1';
+  maxTokens: number;
+  items: Array<{ key: string; target: string; batch: number; material: string; expectation: DeliveryExpectation }>;
+}
+export interface ScopedDeliveryPreview {
+  id: string; fingerprint: string; expiresAt: string; draft: ScopedDeliveryDraft;
+  maxBatchItems: number; maxDispatches: number; costPolicy: import('./cost.ts').CostPolicy | null;
+  disclosure: string;
+}
+export interface ScopedDeliveryStatus {
+  runId: string; goal: string; status: string; maxTokens: number; chargedTokens: number; unknownCalls: number;
+  costBudget: import('./cost.ts').CostBudgetState | null;
+  items: Array<{ key: string; target: string; batch: number; expectation: DeliveryExpectation; status: string; output: string | null }>;
+}
 
 export interface ScopedSourceRef {
   kind: 'message' | 'artifact' | 'tool_execution';

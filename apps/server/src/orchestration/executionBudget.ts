@@ -19,7 +19,7 @@ function throwIfStopped(runId:string,signal?:AbortSignal):void {
   assertExecutionDeadline(runId);assertBusinessStageDeadline();
 }
 export async function reserveCostWhenReady(runId:string,agentId:string,model:string,backend:string,request?:LlmRequest,signal?:AbortSignal,callId?:string,onWaiting?:()=>void):Promise<CostReservationRow|null> {
-  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||executionPolicy(runId)?.request.businessContract?.version!==3)throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
+  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
 }
 
 export function executionPolicy(runId: string) {
@@ -27,7 +27,7 @@ export function executionPolicy(runId: string) {
   return frozen?.executionAuthority === 'orchestration' ? frozen : null;
 }
 export function assertExecutionDeadline(runId: string): void {
-  const deadline = executionPolicy(runId)?.execution?.deadlineAt;
+  const deadline = executionPolicy(runId)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline;
   if (deadline && Date.now() >= Date.parse(deadline)) throw new ExecutionError('timeout', '本轮任务已超过截止时间', { phase: 'deadline', timeoutKind: 'total' });
 }
 
@@ -40,7 +40,8 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
     const at = new Date().toISOString();
     modelActivity.firstResponseAt ??= at; modelActivity.lastActivityAt = at;
   };
-  try { return await withActivityTimeout({ ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt },
+  const scopedLimits=get<{limits:string}>("SELECT json_extract(record,'$.requestLimits') limits FROM scoped_delivery_plans WHERE run_id=?",runId);
+  try { return await withActivityTimeout({ ...(scopedLimits ? JSON.parse(scopedLimits.limits) : {}), ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline },
     (signal, activity) => {throwIfStopped(runId,signal);const callId=modelCallContext.getStore();modelCallHooks.getStore()?.onStarted?.();if(callId)startModelCall(callId);return provider.chat({ ...request, signal, onActivity: kind => {
       if (!signal.aborted) { trustedActivity(); activity(); request.onActivity?.(kind); }
     } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } });}); }
@@ -56,7 +57,8 @@ export async function budgetedChat(runId: string, provider: LLMProvider, request
   try{const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,delta,agentId)));finishModelCall(id,true);return response;}catch(error){finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
 }
 async function budgetedChatImpl(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = ''): Promise<LlmResponse> {
-  const limit = executionPolicy(runId)?.request.constraints.maxTokens;
+  const limit = executionPolicy(runId)?.request.constraints.maxTokens
+    ?? get<{ max_tokens: number }>('SELECT max_tokens FROM scoped_delivery_plans WHERE run_id=?',runId)?.max_tokens;
   const stage = businessStageContext();
   if (stage && stage.runId !== runId) throw new Error('阶段预算与 Run 不一致');
   assertExecutionDeadline(runId); assertBusinessStageDeadline();
@@ -94,7 +96,7 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
       }
       const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', { ...request, maxTokens: tokens });
       return { id, tokens, cost };
-    });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||executionPolicy(runId)?.request.businessContract?.version!==3)throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
+    });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
     if (!reservation) await new Promise(resolve => setTimeout(resolve, 25));
   }
   try {

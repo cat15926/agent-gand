@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createDemoEnvironment } from './helpers/orchestration-demo-environment.mjs';
+const output=path.resolve('apps/server/data/scoped-g2-ui-qa');await mkdir(output,{recursive:true});
+let env,web,browser,page;const errors=[],calls=[];const checks=[];
+try {
+  process.env.ACCOUNT_TRUSTED_ORIGINS='http://127.0.0.1:5174';
+  env=await createDemoEnvironment();
+  const {registerAccountRoutes}=await import('../apps/server/src/api/accountRoutes.ts');await registerAccountRoutes(env.app);
+  const {mockProvider}=await import('../apps/server/src/llm/provider.ts');
+  mockProvider.chat=async req=>{
+    const body=req.messages.map(m=>m.content).join('\n');calls.push({model:req.model,body});
+    if(body.includes('STOP_UI'))await new Promise(resolve=>setTimeout(resolve,1200));
+    let name=req.tools[0].name,input;
+    if(name==='agent.consult_batch'){const action=JSON.parse(body.slice(body.lastIndexOf('{"version":3')));const {version,type,...args}=action;input=args;}
+    else if(name==='agent.acknowledge')input={envelopeId:req.tools[0].parameters.properties.envelopeId.enum[0]};
+    else input={summary:req.model==='mock:aa'?'PRIVATE_UI_RESULT：审查完成，材料和依据充分，事项已完成。':'全部固定状态已核对，独立材料交付完成。'};
+    return {content:'',toolCalls:[{name,input:JSON.stringify(input)}],usage:{tokensIn:3,tokensOut:8,costUsd:0},stopReason:'tool_use',truncated:false};
+  };
+  const {createConversation}=await import('../apps/server/src/conversations/service.ts');
+  const room=createConversation({title:'G2 独立材料验收',mode:'collaboration',agentIds:['planner','aa','bb','summary','sdk'],supervisorId:null,workspace:null,preferences:{strategy:'auto',workflow:'routine',supervisorId:null,defaultReviewerId:null,aggregatorId:null,constraints:{costPolicy:{version:1,currency:'USD',mode:'estimate',maxCost:1,unknownAction:'stop',prices:['planner','aa','bb','summary'].map(id=>({agentId:id,model:'mock:'+id,source:'UI fixture',version:'1',inputPerMillion:1,outputPerMillion:2,otherCharges:'none'}))}}}});
+  await env.app.listen({host:'127.0.0.1',port:0});const base=`http://127.0.0.1:${env.app.server.address().port}`;
+  const {createServer}=await import('../apps/web/node_modules/vite/dist/node/index.js');
+  web=await createServer({root:path.resolve('apps/web'),configFile:path.resolve('apps/web/vite.config.ts'),cacheDir:path.join(env.root,'vite-cache'),logLevel:'error',server:{host:'127.0.0.1',port:5174,strictPort:true,proxy:{'/api':{target:base,changeOrigin:false},'/ws':{target:base.replace('http:','ws:'),ws:true}}}});await web.listen();
+  const ui=`http://127.0.0.1:${web.httpServer.address().port}`;
+  const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(path.resolve(process.env.PLAYWRIGHT_MODULE)).href:'playwright');
+  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{})});
+  page=await browser.newPage({viewport:{width:1440,height:960}});page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(`${ui}/?room=${room.id}`);await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
+  const dialog=page.getByRole('dialog',{name:'独立材料协作',exact:true});await dialog.waitFor();
+  assert.equal(await dialog.locator('option[value="sdk"]').count(),0);
+  await dialog.getByLabel('独立材料组织目标',{exact:true}).fill('按确认计划完成独立审阅与送达');
+  await dialog.getByLabel('独立材料组织者',{exact:true}).selectOption('planner');
+  await dialog.getByLabel('材料 1 接收者',{exact:true}).selectOption('aa');
+  await dialog.getByLabel('材料 1 正文',{exact:true}).fill('PRIVATE_UI_A：独立检查方案，提交实质结果。');
+  await dialog.getByRole('button',{name:'＋ 添加材料',exact:true}).click();
+  await dialog.getByLabel('材料 2 接收者',{exact:true}).selectOption('bb');await dialog.getByLabel('材料 2 批次',{exact:true}).selectOption('2');
+  await dialog.getByLabel('材料 2 交付要求',{exact:true}).selectOption('acknowledged');await dialog.getByLabel('材料 2 正文',{exact:true}).fill('PRIVATE_UI_B：请明确确认收到本通知。');
+  await dialog.getByRole('button',{name:'＋ 添加材料',exact:true}).click();await dialog.getByLabel('材料 3 接收者',{exact:true}).selectOption('summary');await dialog.getByLabel('材料 3 批次',{exact:true}).selectOption('2');await dialog.getByLabel('材料 3 交付要求',{exact:true}).selectOption('material');await dialog.getByLabel('材料 3 正文',{exact:true}).fill('PRIVATE_UI_C：只需送达，无须模型处理。');
+  await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();
+  await dialog.getByText(/继承房间费用政策/).waitFor();
+  await page.screenshot({path:path.join(output,'desktop-preview.png')});
+  await dialog.getByLabel('独立材料输出预算',{exact:true}).fill('8000');assert.equal(await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();
+  checks.push('正常聊天室打开；外部 SDK 不可选；逐项材料和批次可编辑；编辑后旧预览失效');
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'mobile-preview.png')});
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();await dialog.getByRole('status').filter({hasText:'已启动'}).waitFor();
+  const panel=dialog.getByRole('region',{name:'独立材料运行面板'});
+  await panel.getByText(/费用已计入/).waitFor();
+  await panel.getByText(/已完成 · 已计入输出/).waitFor();assert.ok((await panel.innerText()).includes('已确认收到'));assert.ok((await panel.innerText()).includes('已投递'));
+  await panel.getByText('查看该项私密结果',{exact:true}).first().click();await panel.getByText(/PRIVATE_UI_RESULT/).waitFor();await page.screenshot({path:path.join(output,'mobile-result.png')});
+  assert.equal(calls.filter(c=>c.model==='mock:summary').length,0);
+  for(const call of calls){if(call.model==='mock:planner')assert.doesNotMatch(call.body,/PRIVATE_UI_/);if(call.model==='mock:aa')assert.doesNotMatch(call.body,/PRIVATE_UI_B|PRIVATE_UI_C/);if(call.model==='mock:bb')assert.doesNotMatch(call.body,/PRIVATE_UI_A|PRIVATE_UI_C|PRIVATE_UI_RESULT/);}
+  checks.push('390px 无水平溢出；预览确认后连续两批完成；Owner 可查看私密结果');
+  await page.reload();await page.getByRole('button',{name:'独立材料协作',exact:true}).click();await dialog.getByRole('region',{name:'独立材料运行面板'}).getByText(/已完成 · 已计入输出/).waitFor();
+  assert.equal(await dialog.getByLabel('材料 1 正文',{exact:true}).inputValue(),'');await page.setViewportSize({width:1440,height:960});await page.screenshot({path:path.join(output,'desktop-result.png')});checks.push('刷新保留运行记录；私密表单草稿不进入浏览器存储');
+  await dialog.getByLabel('独立材料组织目标',{exact:true}).fill('停止进行中的独立材料任务');await dialog.getByLabel('独立材料组织者',{exact:true}).selectOption('planner');await dialog.getByLabel('材料 1 接收者',{exact:true}).selectOption('aa');await dialog.getByLabel('材料 1 正文',{exact:true}).fill('STOP_UI：等待期间验证用户停止。');await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();await panel.getByRole('button',{name:'停止此任务',exact:true}).waitFor();await panel.getByRole('button',{name:'停止此任务',exact:true}).click();await panel.getByText(/已停止 · 已计入输出/).waitFor();await new Promise(resolve=>setTimeout(resolve,1400));checks.push('运行面板可停止任务，迟到模型响应不恢复执行');
+  assert.deepEqual(errors,[]);assert.equal(env.externalRequests,0);assert.equal((await env.nativeCalls()).length,0);
+  const report={checks,modelCalls:calls.length,externalRequests:env.externalRequests,pageErrors:errors};await writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
+} catch(error) {if(page){console.error('UI alerts:',await page.getByRole('alert').allTextContents());await page.screenshot({path:path.join(output,'failure.png')});}throw error;} finally {await browser?.close();await web?.close();await env?.close();}

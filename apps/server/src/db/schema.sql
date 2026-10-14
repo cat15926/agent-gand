@@ -621,3 +621,28 @@ CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_update BEFORE UPDATE ON r
 CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_delete BEFORE DELETE ON runtime_scope_attempts BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_update BEFORE UPDATE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_delete BEFORE DELETE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+
+-- G2: immutable authorization and envelopes; existing runtime tables own execution state.
+CREATE TABLE IF NOT EXISTS scoped_delivery_previews (
+  id TEXT PRIMARY KEY, owner TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL,
+  expires_at TEXT NOT NULL, run_id TEXT REFERENCES runs(id), client_key TEXT UNIQUE
+);
+CREATE TABLE IF NOT EXISTS scoped_delivery_plans (
+  run_id TEXT PRIMARY KEY REFERENCES runs(id), fingerprint TEXT NOT NULL, record TEXT NOT NULL,
+  max_tokens INTEGER NOT NULL CHECK(max_tokens > 0)
+);
+CREATE TABLE IF NOT EXISTS scoped_delivery_batches (
+  run_id TEXT NOT NULL REFERENCES runs(id), ordinal INTEGER NOT NULL,
+  batch_id TEXT NOT NULL UNIQUE REFERENCES collaboration_batches(id), PRIMARY KEY(run_id,ordinal)
+);
+CREATE TABLE IF NOT EXISTS scoped_delivery_envelopes (
+  run_id TEXT NOT NULL REFERENCES runs(id), item_key TEXT NOT NULL,
+  dispatch_id TEXT NOT NULL UNIQUE REFERENCES collaboration_dispatches(id), record TEXT NOT NULL,
+  PRIMARY KEY(run_id,item_key)
+);
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_plans_immutable BEFORE UPDATE ON scoped_delivery_plans BEGIN SELECT RAISE(ABORT,'immutable delivery plan'); END;
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_plans_no_delete BEFORE DELETE ON scoped_delivery_plans BEGIN SELECT RAISE(ABORT,'immutable delivery plan'); END;
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_batches_immutable BEFORE UPDATE ON scoped_delivery_batches BEGIN SELECT RAISE(ABORT,'immutable delivery batch'); END;
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_batches_no_delete BEFORE DELETE ON scoped_delivery_batches BEGIN SELECT RAISE(ABORT,'immutable delivery batch'); END;
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_envelopes_immutable BEFORE UPDATE ON scoped_delivery_envelopes BEGIN SELECT RAISE(ABORT,'immutable envelope'); END;
+CREATE TRIGGER IF NOT EXISTS scoped_delivery_envelopes_no_delete BEFORE DELETE ON scoped_delivery_envelopes BEGIN SELECT RAISE(ABORT,'immutable envelope'); END;

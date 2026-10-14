@@ -1,11 +1,11 @@
 # 通用私密协作与受控信息发布实施指导
 
-状态：**实施中（正式实施指导 v1.2，G0/G1 已完成，新增契约在对应阶段冻结）**。
+状态：**实施中（正式实施指导 v1.3，G0–G2 已完成，新增契约在对应阶段冻结）**。
 编制日期：2026-10-13。关联：[Issue #15](https://github.com/cat15926/agent-gand/issues/15)。
-已提交代码基线：`main@d6abb7abba6cfa789d127ab4372160e56bcb3fda`；G1 工作区迁移清单至 **v13**。
-阶段状态：**G0/G1 已完成，G2–G6 待实施**；详见 [G0 验收记录](../reports/scoped-collaboration-g0-acceptance-2026-10-13.md)。当前私密协作阻断尚未修复。
+G2 开发基线：`main@2129b6f`；本报告随 G2 实现提交，迁移清单至 **v14**。
+阶段状态：**G0–G2 已完成，G3–G6 待实施**；详见 [G2 验收记录](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)。新入口支持独立文字材料连续协作；旧 v2 私密正文汇总的阻断行为仍保留，历史故障任务未迁移，Issue #15 未关闭。
 
-本文规定实施范围、契约、改造位置、交付顺序和验收门槛。阶段交付、真实账户验收、现有故障任务迁移及发布分别记录实际执行结果。文中的新类型、工具、路由、能力包和表名均为拟定设计，不能作为当前已可用 API 使用。
+本文规定实施范围、契约、改造位置、交付顺序和验收门槛。阶段交付、真实账户验收、现有故障任务迁移及发布分别记录实际执行结果。未完成阶段中的类型、工具、路由、能力包和表名仍为拟定设计；G2 已实现接口以[独立材料协作契约](../architecture/scoped-collaboration-control-v1.md)为准。
 
 ## 1. 实施结论与首版目标
 
@@ -112,9 +112,9 @@ Owner 确认材料、执行成员、进度接收者与发布规则
 
 ### 4.2 契约演进
 
-G1 已冻结 Tool API / Control Action v3 和 `features.scopedCollaboration.boundaryVersion=2`；新增动作使用独立 `ScopedControlActionV3`，已有 v2 动作保持原语义。版本读取及能力接口已更新，v3 解析和执行明确阻断，待 G2 整包开放。
+G1 已冻结 Tool API / Control Action v3 和 `features.scopedCollaboration.boundaryVersion=2`；新增动作使用独立 `ScopedControlActionV3`，已有 v2 动作保持原语义。G2 开放模型 API 的 `scoped-control-v1`，要求额外冻结 `deliveryVersion=1` 和已确认的不可变投递计划。
 
-继续使用现有 Runtime `execute` 与命令事务机制，不新增顶层协作模式。G1 读取器能验证完整的 v3 冻结声明；`assertExecutableCollaborationPolicy` 对其返回能力包不可用。旧版本兼容保持，未知版本明确拒绝，禁止把 v3 降格为 v2。
+继续使用现有 Runtime `execute` 与命令事务机制，不新增顶层协作模式。没有 G2 投递计划的 G1 基础契约仍不可执行；未知版本明确拒绝。v3 动作经过独立解析和计划核验后，显式适配到现有责任引擎的内部动作类型，不提供 v2 协议回退。
 
 新能力按完整能力包准入，拟定：
 
@@ -424,11 +424,13 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### G2：独立信封与干净父恢复
 
+**已完成（2026-10-14）**：[G2 验收报告](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)、[实际契约](../architecture/scoped-collaboration-control-v1.md)。已交付正常聊天室入口、预览/确认、独立上下文、唯一状态恢复、共享 Token/费用账本与停止处理。17 项隔离集成用例及桌面/390px UI 验证通过；未调用真实供应商。
+
 建议拆分：`feat: create isolated consultation items`、`feat: resume control tasks from authorized receipts`。
 
 交付：模型 API 的 consult_batch/all、逐项信封和 ACK/结果义务、返回契约、固定状态投影、父级唯一恢复、最小材料表单/预览/运行面板。
 
-- 支持预先授权材料，最多三项及冻结的分批计划；返回契约不满足时创建前拒绝。
+- 支持预先授权的 1–6 份文字材料、最多两批；每批最多三项（同时服从全局上限），同一成员在同批只能接收一项，可在后批接收独立事项；返回契约不满足时创建前拒绝。
 - 创建批次、责任、预算关联和命令结果同事务；执行前再验权。
 - 覆盖重复提交、第二项无权、Stop 与迟到结果、提交后未派发的恢复。
 - 显式拒绝新范围 any、外部后端、任意私密正文发布；既有 v2 能力按原契约执行。

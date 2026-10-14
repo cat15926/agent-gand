@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-subject-completion-'));
 process.env.DB_PATH = path.join(root, 'test.sqlite');
+process.env.AGENT_GAND_ISOLATED_WORKER = '1';
 process.env.COLLAB_MAX_ATTEMPTS = '2';
 
 const db = await import('../apps/server/src/db/database.ts');
@@ -127,6 +128,9 @@ try {
   assert.equal(db.get('SELECT state FROM runtime_custody WHERE subject_id=?', staleSubject.subject_id).state, 'owned',
     '旧 generation Candidate 不得改变当前 Custody');
 
+  // The stale-generation case intentionally leaves a running Attempt. Release its member
+  // before the independent retry fixture uses the same actor; production admission is global.
+  store.cancelCollaborationRun(stale.runId);
   const retry = fixture('retry');
   const retryClaim1 = store.claimNextDispatch(retry.conversationId, 'owner');
   const rejected = db.tx(() => {
@@ -149,6 +153,7 @@ try {
   assert.match(retryContext, /上一完成候选未通过/u);
   assert.match(retryContext, /MISSING_OUTPUT/u);
 
+  store.cancelCollaborationRun(retry.runId);
   const rollback = fixture('rollback');
   const rollbackClaim = store.claimNextDispatch(rollback.conversationId, 'owner');
   assert.throws(() => db.tx(() => {

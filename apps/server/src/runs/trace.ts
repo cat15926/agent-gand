@@ -178,7 +178,7 @@ export function createRun(
       record.id, agent.id, agent.version, JSON.stringify(agent), record.createdAt,
     );
   });
-  emit({ type: 'run.updated', run: record });
+  afterCommit(() => emit({ type: 'run.updated', run: record }));
   return record;
 }
 

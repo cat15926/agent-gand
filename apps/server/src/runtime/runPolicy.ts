@@ -91,6 +91,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
   }
   const scoped = f?.scopedCollaboration;
+  if (scoped?.deliveryVersion !== undefined && scoped.deliveryVersion !== 1) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped delivery version');
   if (scoped !== undefined || f?.controlActionVersion === 3 || contract.executionPolicy?.toolApiVersion === 3) {
     if (!scoped || scoped.boundaryVersion !== 2 || scoped.manifestVersion !== 1 || scoped.provenanceVersion !== 1
       || !['scoped-control-v1', 'scoped-release-v1'].includes(scoped.capabilityPackage)) {
@@ -206,7 +207,10 @@ export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean
 export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
   const policy = resolveRunPolicy(runId);
   if (policy.toolApiVersion === 3) {
-    throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE', 'Scoped delivery/resume capability package is not implemented');
+    const c = loadRuntimeContract(runId)?.features?.scopedCollaboration;
+    if (c?.capabilityPackage === 'scoped-control-v1' && c.deliveryVersion === 1
+      && get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?', runId)) return policy;
+    throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE', 'Scoped delivery/resume requires a confirmed G2 plan');
   }
   if (policy.profile !== 'execute' || policy.authority !== 'runtime'
     || policy.atomicity !== 'commands_v1' || policy.toolApiVersion !== 2) {

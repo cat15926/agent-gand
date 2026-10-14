@@ -64,7 +64,7 @@ function fixture(privateRoot = false) {
   return { runId, roomId, subjectId, dispatchId, contract, message, create, binding };
 }
 try {
-  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 13);
+  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 14);
   assert.equal(db.get('SELECT boundary_fingerprint FROM runtime_action_commands WHERE id=?', 'historical').boundary_fingerprint, null);
   assert.equal(db.get('SELECT checksum FROM orchestration_schema_migrations WHERE version=12').checksum, '41db07fd6801da02da567691dc328cf771bd8728cdc643f2147ba1b4961d2207');
   const f = fixture(), a = f.message('ONLY_TASK_A'), b = f.message('ONLY_TASK_B'), extra = f.message('APPROVED_SUPPLEMENT');
@@ -164,7 +164,8 @@ try {
   }
   for (const backend of ['builtin-llm', 'claude-sdk', 'codex-app-server', 'claude-cli', 'codex-exec']) {
     for (const cap of scopedCollaborationCapabilities(backend)) {
-      assert.equal(cap.implementationSupported, false); assert.equal(cap.configuredAvailable, false);
+      const g2 = backend === 'builtin-llm' && cap.package === 'scoped-control-v1';
+      assert.equal(cap.implementationSupported, g2); assert.equal(cap.configuredAvailable, g2);
       assert.equal(cap.connectionVerified, false); assert.equal(cap.verifiedAt, null);
     }
   }
@@ -179,10 +180,10 @@ try {
     assert.equal(body.toolApiVersion, 3);
     assert.equal(body.backends.length, 5);
     assert.deepEqual(body.allowedRecovery, []);
-    assert.ok(body.backends.every(b => b.capabilities.every(c => !c.configuredAvailable && !c.connectionVerified)));
+    assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === (b.backend === 'builtin-llm' && c.package === 'scoped-control-v1') && !c.connectionVerified)));
     assert.doesNotMatch(response.body, /ONLY_TASK|APPROVED_SUPPLEMENT|ROOT_MUST_NOT|UNLISTED/);
   } finally { await app.close(); }
-  db.run("INSERT INTO orchestration_schema_migrations VALUES(14,'future','unknown',?)", now);
-  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /14/);
+  db.run("INSERT INTO orchestration_schema_migrations VALUES(15,'future','unknown',?)", now);
+  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /15/);
   console.log('G1 verified: immutable manifests, separate same-audience scopes, whitelist context, dynamic provenance, atomic output guards, stale/cross-run/lease rejection, cold sessions, closed v3 admission and unknown-version rejection.');
 } finally { db.closeDatabase(); await rm(root, { recursive: true, force: true }); }

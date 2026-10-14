@@ -34,6 +34,7 @@ function assessRecovery(runId: string): RunRecoveryAssessment {
     continuationRunId: next?.target_run_id ?? null, sourceRunId: previous?.source_run_id ?? null };
   const blocked = (code: string, message: string, category = result.category): RunRecoveryAssessment =>
     ({ ...result, category, reasonCodes: [code], explanation: message });
+  if (loadRuntimeContract(runId)?.features?.scopedCollaboration?.deliveryVersion === 1) return blocked('SCOPED_CONTINUATION_NOT_SUPPORTED', '独立材料任务当前不支持跨 Run 续跑；请核对已完成结果后重新预览所需事项。');
   if (next) return blocked('CONTINUATION_EXISTS', '已创建关联续跑，请查看后续任务。');
   if (source.status === 'cancelled') return blocked('USER_CANCELLED', '用户已取消；如需继续，请重新明确目标。', 'user_cancelled');
   if (source.status === 'completed') return blocked('ALREADY_COMPLETED', '本轮已结束；补充工作请创建新任务。', 'completed');

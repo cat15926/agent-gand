@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { executeScopedDispatch, reconcileScopedBatch } from './scopedRunner.ts';
 import { intersectMessageAccess } from '@agent-gand/shared';
 import { assertMessageAccess, attemptAccess, messageAccess } from '../messaging/access.ts';
 import type {
@@ -355,6 +356,13 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     return;
   }
   const runtimePolicy = assertExecutableCollaborationPolicy(run.id);
+  if (runtimePolicy.toolApiVersion === 3) {
+    const batchId = await executeScopedDispatch(dispatch, attemptId, agent);
+    if (batchId) { const batch = getBatch(batchId); if (batch) scheduleBatchTimeout(batchId, batch.timeoutAt); }
+    if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
+    finalizeRun(run.id);
+    return;
+  }
   let inputContext: string;
   try {
     inputContext = assembleCollaborationContext({ run, dispatch, agent, attemptId });
@@ -817,6 +825,7 @@ function applyAction(run: Run, dispatch: CollaborationDispatch, attemptId: strin
 }
 
 function maybeCompleteBatch(batchId: string): void {
+  if (reconcileScopedBatch(batchId)) return;
   tx(() => {
     const batch = getBatch(batchId);
     if (!batch || batch.resultDispatchId || batch.status === 'cancelled') return;

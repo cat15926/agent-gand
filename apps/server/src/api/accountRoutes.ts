@@ -8,6 +8,9 @@ import { compatibleBackends } from '../accounts/compatibility.ts';
 import { AccountError } from '../accounts/errors.ts';
 import { accessMode, assertManagementBoundary, createManagementSession, deleteManagementSession, requireManagementSession, managementOwner } from '../accounts/access.ts';
 import { checkAccount, clearCredential, createAccount, deleteAccount, getAccount, listAccounts, references, replaceCredential, updateAccount } from '../accounts/store.ts';
+import { previewScopedDelivery, confirmScopedDelivery, scopedDeliveryStatus, roomScopedDeliveries } from '../collaboration/scopedDelivery.ts';
+import { kickCollaboration } from '../collaboration/scheduler.ts';
+import { getRun } from '../runs/trace.ts';
 
 /** Encapsulated hooks and error handler cover every credential request, including parse failures. */
 export async function registerAccountRoutes(app: FastifyInstance): Promise<void> {
@@ -30,6 +33,14 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.get('/api/accounts/access', async () => accessMode());
     accounts.post('/api/accounts/session', { bodyLimit: 1024 }, async (request, reply) => createManagementSession(request, reply));
     accounts.delete('/api/accounts/session', async (request, reply) => { await cancelSessionLogins(managementOwner(request)); return deleteManagementSession(request, reply); });
+    accounts.post('/api/accounts/scoped-delivery/preview', { bodyLimit: 100_000 }, async request => previewScopedDelivery(request.body,managementOwner(request)));
+    accounts.post('/api/accounts/scoped-delivery/confirm', { bodyLimit: 1024 }, async request => {
+      const runId=confirmScopedDelivery(request.body,managementOwner(request));
+      kickCollaboration(getRun(runId)!.conversationId);
+      return {runId};
+    });
+    accounts.get<{Params:{runId:string}}>('/api/accounts/scoped-delivery/runs/:runId', async request=>scopedDeliveryStatus(request.params.runId));
+    accounts.get<{Params:{roomId:string}}>('/api/accounts/scoped-delivery/rooms/:roomId', async request=>roomScopedDeliveries(request.params.roomId));
     accounts.get<{ Querystring: { includeArchived?: string } }>('/api/accounts', async (request) => ({
       accounts: listAccounts(request.query.includeArchived === '1'), features: { roleBinding: true, nativeLogin: true, liveTest: true },
     }));

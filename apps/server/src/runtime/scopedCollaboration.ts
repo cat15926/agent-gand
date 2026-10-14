@@ -58,6 +58,14 @@ export function compileScopedSource(runId: string, kind: ScopedSourceRef['kind']
   contract(runId);
   return source(runId, kind, id, 'user').ref;
 }
+/** Validate opaque forwarding authority without exposing its bytes to the coordinator. */
+export function assertScopedSourceForRecipient(runId: string, ref: ScopedSourceRef, recipient: string): void {
+  const c = contract(runId);
+  if (!c.participantIds.includes(recipient)) fail('SCOPE_NOT_READABLE');
+  const value = source(runId, ref.kind, ref.id, recipient);
+  if (JSON.stringify(value.ref) !== JSON.stringify(ref)) fail('SOURCE_VERSION_CHANGED');
+  if (!isMessageWithinScope(value.policy, { visibility: 'private', audience: ['user', recipient] })) fail('SCOPE_NOT_READABLE');
+}
 const key = (ref: ScopedSourceRef) => JSON.stringify([ref.kind, ref.id, ref.version, ref.sha256]);
 function checkedSource(scope: ExecutionScopeV1, ref: ScopedSourceRef) {
   const value = source(scope.runId, ref.kind, ref.id, scope.agentId);
@@ -81,6 +89,10 @@ function assertScope(scope: ExecutionScopeV1) {
   if (!subject || subject.status !== 'active' || custody?.holder_agent_id !== scope.agentId
     || custody.generation !== scope.recoveryGeneration || custody.state !== 'owned') fail('SCOPE_BINDING_INVALID');
   if (c.features!.scopedCollaboration!.policyRevision !== scope.policyRevision) fail('SCOPE_BINDING_INVALID');
+  if (c.features!.scopedCollaboration!.deliveryVersion === 1) {
+    const deadline = get<{ deadline: string }>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",scope.runId)?.deadline;
+    if (!deadline || Date.now() >= Date.parse(deadline)) fail('SCOPE_BINDING_INVALID');
+  }
 }
 export function createExecutionScope(input: {
   runId: string; subjectId: string; agentId: string; kind: 'control' | 'content';
@@ -116,8 +128,12 @@ function bound(input: ScopedAttemptBinding, requireBound = true) {
   const scope = JSON.parse(row.record) as ExecutionScopeV1;
   if (scope.agentId !== input.agentId) return fail('SCOPE_BINDING_INVALID');
   assertScope(scope);
-  const attempt = get<{ subject_id: string; expected_generation: number; status: string; lease_expires_at: string }>(`SELECT s.subject_id,s.expected_generation,a.status,a.lease_expires_at
+  const attempt = get<{ subject_id: string; expected_generation: number; status: string; lease_expires_at: string }>(`SELECT s.subject_id,
+    CASE WHEN json_extract(c.payload,'$.features.scopedCollaboration.deliveryVersion')=1
+      THEN (SELECT generation FROM runtime_custody_events WHERE source_event_id='claim:' || a.id)
+      ELSE s.expected_generation END expected_generation,a.status,a.lease_expires_at
     FROM collaboration_attempts a JOIN runtime_dispatch_subjects s ON s.dispatch_id=a.dispatch_id
+    JOIN runtime_contracts c ON c.run_id=a.run_id
     WHERE a.id=? AND a.run_id=? AND a.agent_id=?`, input.attemptId, input.runId, input.agentId);
   if (!attempt || attempt.subject_id !== scope.subjectId || attempt.expected_generation !== scope.recoveryGeneration
     || attempt.status !== 'running' || !attempt.lease_expires_at || !Number.isFinite(Date.parse(attempt.lease_expires_at))

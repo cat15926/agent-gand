@@ -436,7 +436,8 @@ export function resolveDecision(id: string, status: CollaborationDecisionStatus,
   });
 }
 
-export function initialBudgetLimits(): CollaborationBudgetLimits {
+export function initialBudgetLimits(runId?: string): CollaborationBudgetLimits {
+  if (runId) { const frozen = get<{limits:string}>("SELECT json_extract(record,'$.limits') limits FROM scoped_delivery_plans WHERE run_id=?",runId); if(frozen) return JSON.parse(frozen.limits); }
   return { maxDispatches: config.collaboration.maxDispatches, maxTokens: config.collaboration.maxTokens,
     maxCostUsd: config.collaboration.maxCostUsd, maxDurationMs: config.collaboration.runTimeoutMs };
 }
@@ -444,14 +445,15 @@ export function listBudgetRevisions(runId: string): CollaborationBudgetRevision[
   return all<BudgetRevisionRow>('SELECT * FROM collaboration_budget_revisions WHERE run_id=? ORDER BY created_at,rowid', runId).map(toRevision);
 }
 export function currentBudgetLimits(runId: string): CollaborationBudgetLimits {
-  return listBudgetRevisions(runId).at(-1)?.newLimits ?? initialBudgetLimits();
+  return listBudgetRevisions(runId).at(-1)?.newLimits ?? initialBudgetLimits(runId);
 }
 export function createBudgetRevision(runId: string, decisionId: string, increasePercent: number): CollaborationBudgetRevision {
+  if (get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)) throw new Error('独立材料计划预算已冻结，请重新预览新任务');
   const existing = get<BudgetRevisionRow>('SELECT * FROM collaboration_budget_revisions WHERE decision_id=?', decisionId);
   if (existing) return toRevision(existing);
   const previous = currentBudgetLimits(runId);
   const factor = 1 + increasePercent / 100;
-  const initial = initialBudgetLimits();
+  const initial = initialBudgetLimits(runId);
   const cap = config.collaboration.maxBudgetMultiplier;
   const next: CollaborationBudgetLimits = {
     maxDispatches: Math.min(Math.ceil(previous.maxDispatches * factor), Math.ceil(initial.maxDispatches * cap)),
@@ -466,7 +468,7 @@ export function createBudgetRevision(runId: string, decisionId: string, increase
 }
 
 export function budgetSnapshot(runId: string): CollaborationBudgetSnapshot {
-  const initial = initialBudgetLimits(); const current = currentBudgetLimits(runId);
+  const initial = initialBudgetLimits(runId); const current = currentBudgetLimits(runId);
   const usage = get<{ tokens: number; cost: number }>(`SELECT COALESCE(SUM(tokens_in+tokens_out),0) tokens,COALESCE(SUM(cost_usd),0) cost FROM run_events WHERE run_id=?`, runId) ?? { tokens: 0, cost: 0 };
   const dispatches = get<{ n: number }>('SELECT COUNT(*) n FROM collaboration_dispatches WHERE run_id=?', runId)?.n ?? 0;
   const coverage = get<{ unknown_tokens: number; unknown_cost: number; pending: number }>(`SELECT

@@ -7,6 +7,13 @@ import { businessStageContext } from './businessStageExecution.ts';
 import { OrchestrationError, stableDigest } from './normalize.ts';
 import type { LlmRequest, LlmUsage } from '../llm/provider.ts';
 
+/** Both schedulers consume the same money reservation ledger and frozen policy. */
+export function runCostPolicy(runId: string): CostPolicy | undefined {
+  const unified=getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy;
+  if(unified)return unified;
+  const scoped=get<{policy:string|null}>("SELECT json_extract(record,'$.costPolicy') policy FROM scoped_delivery_plans WHERE run_id=?",runId);
+  return scoped?.policy ? JSON.parse(scoped.policy) as CostPolicy : undefined;
+}
 const SCALE = 1_000_000;
 const money = (units: number) => units / SCALE;
 function units(amount: number): number {
@@ -51,14 +58,14 @@ function scopeSummary(rows: CostReservationRow[], stageId: string | null, limit:
     pendingCalls: selected.filter(r => r.status === 'pending').length, unknownCalls: selected.filter(r => ['unknown','carried_unknown'].includes(r.status)).length };
 }
 export function costBudgetState(runId: string): CostBudgetState | null {
-  const frozen = getRunOrchestrationSnapshot(runId), policy = frozen?.request.constraints.costPolicy;
+  const frozen = getRunOrchestrationSnapshot(runId), policy = runCostPolicy(runId);
   if (!policy) return null;
   const rows = costRows(runId);
   return { runId, currency: policy.currency, mode: policy.mode, unknownAction: policy.unknownAction, run: scopeSummary(rows, null, policy.maxCost),
     stages: (frozen?.request.businessContract?.stages ?? []).map(s => scopeSummary(rows, s.id, s.execution?.maxCost ?? null)), inheritedCalls: rows.filter(r => r.source_reservation_id).length };
 }
 export function reserveCost(runId: string, agentId: string, model: string, backend: string, request?: LlmRequest): CostReservationRow | null {
-  const frozen = getRunOrchestrationSnapshot(runId), policy = frozen?.request.constraints.costPolicy;
+  const frozen = getRunOrchestrationSnapshot(runId), policy = runCostPolicy(runId);
   if (!policy) return null;
   if (policy.mode === 'strict') fail('HARD_COST_LIMIT_UNSUPPORTED', '当前后端不能落实供应商账单硬上限');
   const stage = businessStageContext();
@@ -106,14 +113,14 @@ export function settleCost(row: CostReservationRow | null, usage?: Parameters<ty
 /** A host restart cannot prove a pending supplier call was free or unissued. */
 export function recoverCostReservations(): void { run("UPDATE execution_cost_reservations SET status='unknown' WHERE status='pending'"); }
 export function costCarry(runId: string): CostReservationRow[] {
-  const rows = costRows(runId), policy = getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy;
+  const rows = costRows(runId), policy = runCostPolicy(runId);
   if (!policy && rows.length) fail('COST_POLICY_MISSING', '费用账本缺少冻结政策');
   if (rows.some(r => r.status === 'pending')) fail('COST_RESULT_UNKNOWN', '存在进行中的费用调用，请等待进程收敛并恢复账本');
   if (policy?.unknownAction === 'stop' && rows.some(r => ['unknown','carried_unknown'].includes(r.status))) fail('COST_RESULT_UNKNOWN', '历史费用未知，停止政策不允许通过后继绕过');
   return rows;
 }
 export function carryCosts(targetRunId: string, sourceRows: CostReservationRow[]): void {
-  const policy = getRunOrchestrationSnapshot(targetRunId)?.request.constraints.costPolicy;
+  const policy = runCostPolicy(targetRunId);
   if (sourceRows.length && (!policy || sourceRows.some(r => r.currency !== policy.currency || r.policy_digest !== stableDigest(policy)))) fail('COST_CURRENCY_MISMATCH', '后继不能更换费用政策、计价版本或币种');
   for (const row of sourceRows) run(`INSERT INTO execution_cost_reservations(id,run_id,stage_id,agent_id,model,backend,currency,reserved,known,status,cost_source,pricing,policy_digest,source_reservation_id,created_at,settled_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     randomUUID(),targetRunId,row.stage_id,row.agent_id,row.model,row.backend,row.currency,charged(row),row.known,['settled','carried_known'].includes(row.status)?'carried_known':'carried_unknown',row.cost_source,row.pricing,row.policy_digest,row.source_reservation_id ?? row.id,row.created_at,row.settled_at);

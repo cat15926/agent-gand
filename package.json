@@ -121,7 +121,9 @@
     "verify:branch-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-branch-recovery.mjs",
     "verify:stage-scheduling": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-stage-scheduling.mjs",
     "verify:platform-real-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-platform-real-acceptance.mjs",
-    "collaboration:acceptance-real": "node scripts/platform-collaboration-real-acceptance.mjs"
+    "collaboration:acceptance-real": "node scripts/platform-collaboration-real-acceptance.mjs",
+    "verify:scoped-delivery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery.mjs",
+    "verify:scoped-delivery-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery-ui.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

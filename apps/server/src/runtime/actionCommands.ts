@@ -25,6 +25,9 @@ export interface RuntimeActionCommandInput<T> {
   attemptId?: string | null;
   dispatchId?: string | null;
   scope?: ScopedAttemptBinding & { ledgerRevision: number; outputAccess: MessageAccess };
+  /** Server-only status projection; no model text may be published through this command. */
+  projection?: { batchId: string; planFingerprint: string };
+  intentFingerprint?: string;
   execute: () => T;
 }
 
@@ -61,8 +64,10 @@ function assertSameCommand<T>(row: CommandRow, kind: RuntimeActionCommandKind,
 
 function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | null {
   const s = input.scope;
+  if (input.projection) return createHash('sha256').update(JSON.stringify(['scoped-return-v1',input.runId,input.projection.batchId,input.projection.planFingerprint])).digest('hex');
   return s ? createHash('sha256').update(JSON.stringify([s.runId, s.scopeId, s.attemptId, s.agentId,
-    s.ledgerRevision, s.outputAccess.visibility, [...s.outputAccess.audience].sort()])).digest('hex') : null;
+    s.ledgerRevision, s.outputAccess.visibility, [...s.outputAccess.audience].sort(),
+    ...(input.intentFingerprint ? [input.intentFingerprint] : [])])).digest('hex') : null;
 }
 
 function commitAction<T>(kind: RuntimeActionCommandKind,
@@ -77,7 +82,14 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
       throw new Error(`Runtime 动作命令不能提交到终态 Run：${runRow.status}`);
     }
     const scoped = loadRuntimeContract(input.runId)?.features?.scopedCollaboration;
-    if (scoped && (!input.scope || input.scope.runId !== input.runId || input.scope.attemptId !== input.attemptId
+    const projection = input.projection;
+    if (projection && (kind !== 'wake' || input.scope || input.attemptId || input.dispatchId
+      || scoped?.deliveryVersion !== 1 || !get(`SELECT 1 FROM scoped_delivery_plans p
+        JOIN scoped_delivery_batches s ON s.run_id=p.run_id JOIN collaboration_batches b ON b.id=s.batch_id
+        WHERE p.run_id=? AND p.fingerprint=? AND b.id=? AND b.result_dispatch_id IS NULL AND b.status<>'cancelled'
+        AND NOT EXISTS (SELECT 1 FROM collaboration_dispatches d WHERE d.batch_id=b.id AND d.kind='fanout' AND d.status IN ('queued','running'))`,
+        input.runId,projection.planFingerprint,projection.batchId))) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if (scoped && !projection && (!input.scope || input.scope.runId !== input.runId || input.scope.attemptId !== input.attemptId
       || !get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?', input.attemptId, input.dispatchId))) {
       throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     }

@@ -1,3 +1,4 @@
+import { readCostPolicy } from './cost.ts';
 import type { RoomPreferences } from './conversation.ts';
 import type { RunMode } from './run.ts';
 
@@ -10,7 +11,8 @@ export function isRoomPreferences(value: unknown): value is RoomPreferences {
     || !constraints || typeof constraints !== 'object' || Array.isArray(constraints)) return false;
   if (['supervisorId','defaultReviewerId','aggregatorId'].some(k => item[k] !== null && typeof item[k] !== 'string')) return false;
   for (const [key,entry] of Object.entries(constraints)) {
-    if (key === 'readonly') { if (typeof entry !== 'boolean') return false; }
+    if (key === 'costPolicy') { if (!readCostPolicy(entry)) return false; }
+    else if (key === 'readonly') { if (typeof entry !== 'boolean') return false; }
     else if (!['rounds','maxTokens','deadlineMs','firstResponseTimeoutMs','idleTimeoutMs'].includes(key) || typeof entry !== 'number' || !Number.isSafeInteger(entry) || entry < 1
       || entry > (key === 'rounds' ? 10 : key === 'maxTokens' ? 1000000 : 86400000)) return false;
   }

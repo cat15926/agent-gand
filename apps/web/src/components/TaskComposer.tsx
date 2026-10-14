@@ -1,3 +1,4 @@
+import { ScopedDeliveryComposer } from './ScopedDeliveryComposer';
 import { CostPolicyEditor } from './CostPolicyEditor';
 import { BusinessContractEditor } from './BusinessContractEditor';
 import { SchedulingPreviewView } from './SchedulingPanel';
@@ -181,6 +182,7 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
   const roleSelect = (label: string, field: 'supervisorId' | 'defaultReviewerId' | 'aggregatorId', roles = candidates) => <label className="min-w-0 text-xs text-zinc-400">{label}<select disabled={busy || Boolean(revisionTask)} aria-label={label} className="input mt-1 text-xs" value={prefs[field] ?? ''} onChange={e => changePrefs({ [field]: e.target.value || null })}><option value="">{field === 'supervisorId' ? '自动选可用主管' : '不选择'}</option>{roles.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>;
   return <div data-testid="task-composer" className={`mx-auto w-full min-w-0 max-w-3xl ${room ? 'p-3' : 'px-4 py-6 sm:px-6'}`}>
     {!room && <div className="mb-5"><h2 className="text-lg font-semibold">创建聊天室</h2><p className="mt-1 text-xs text-zinc-400">房间保存成员与工作区。成员是候选团队，发送任务时按接收人和执行设置选择实际参与者。</p>{onManageRoles && <button type="button" className="mt-2 text-xs text-violet-300" onClick={onManageRoles}>＋ 创建或管理角色</button>}</div>}
+    {room && !revisionTask && !decision && <ScopedDeliveryComposer key={room.id} room={room} agents={state.agents} onCreated={refreshConversation} />}
     {notice && <div role="status" className="mb-3 rounded-lg bg-sky-500/10 p-2 text-xs text-sky-200">{notice}{draft?.recoveryNotice && recoveryDraftText() && <details className="mt-2"><summary>查看保留的草稿内容</summary><pre className="max-h-32 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere]">{recoveryDraftText()}</pre></details>}</div>}
     {room?.preferencesOrigin === 'legacy_mapping' && !revisionTask && <p role="status" className="mb-3 text-xs text-sky-200">已将原房间偏好转换为「{STRATEGY_LABEL[room.preferences?.strategy ?? 'auto']} · {WORKFLOW_LABEL[room.preferences?.workflow ?? 'routine']}」，只影响新任务。{room.preferences?.workflow === 'supervisor_decomposition' && '主管拆解需要可用的模型 API 主管，请先预览检查配置。'}</p>}
     {room?.preferencesIssue && <p role="alert" className="mb-3 text-xs text-amber-200">{room.preferencesIssue}</p>}
