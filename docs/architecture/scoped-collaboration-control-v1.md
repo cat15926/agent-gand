@@ -2,6 +2,8 @@
 
 状态：已实现，2026-10-14；数据库迁移 v14。对应[实施指导](../plans/scoped-collaboration-implementation-guide.md)与[G2 验收报告](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)。
 
+G3 已在独立 Owner 授权入口开放文字汇总与发布，详见[发布契约](scoped-information-release-v1.md)。下文 G2 Run 的范围与限制仍保持。
+
 ## 1. 产品入口与适用范围
 
 在已有聊天室的任务输入区打开“独立材料协作”。Owner 选择模型 API 组织者，填写目标、逐项文字材料、接收者、批次及交付要求，预览后确认执行。在同一面板查看逐项状态、私密结果和预算，也可停止任务。刷新保留服务端运行记录，未提交的私密表单不写浏览器持久存储。

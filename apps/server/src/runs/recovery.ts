@@ -55,7 +55,8 @@ export function recoverDurableHolds(runId?: string): number {
   for (const claim of claims) {
     try {
       commitWakeActionCommand({ runId: claim.runId, commandKey: `runtime-wake:${claim.id}:g${claim.generation}`,
-        attemptId: claim.sourceAttemptId, dispatchId: claim.sourceDispatchId, execute: () => {
+        attemptId: claim.sourceAttemptId, dispatchId: claim.sourceDispatchId,
+        ...(claim.condition.kind==='event' && claim.condition.receiverId==='information-release-v1'?{releaseWake:{holdId:claim.id,claimToken:claim.claimToken!}}:{}), execute: () => {
         const hold = assertDurableHoldClaim(claim.id, claim.claimToken!);
         const wakeEvent = hold.wakeEventId ? getRuntimeWakeEvent(hold.wakeEventId) : null;
         let resumedDispatchId: string | null = null;

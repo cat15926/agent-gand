@@ -103,7 +103,7 @@ export function previewScopedDelivery(value: unknown, owner: string): ScopedDeli
     disclosure: '组织者只收到已授权的事项编号与固定状态（delivered、acknowledged、completed、failed、cancelled）。各项材料和结果仅 Owner 与该接收者可见；按批次顺序推进，失败后停止。仅处理表单文字，不读取房间历史、文件或原生会话。' };
 }
 /** Confirm is pure durable admission. The route kicks the existing scheduler AFTER this commits. */
-export function confirmScopedDelivery(value: unknown, owner: string): string {
+export function confirmScopedDelivery(value: unknown, owner: string, releaseVersion?: 1): string {
   const v = object(value); assertFields(v, ['previewId','fingerprint','clientKey']);
   const id = text(v.previewId,100,'预览'), fp = text(v.fingerprint,64,'指纹'), key = text(v.clientKey,100,'提交编号');
   return tx(() => {
@@ -115,6 +115,7 @@ export function confirmScopedDelivery(value: unknown, owner: string): string {
     if (Date.parse(row.expires_at) <= Date.now()) throw new AccountError(409,'预览已过期，请重新预览');
     const draft = validateDeliveryDraft(JSON.parse(openManagedContent(row.payload,`scoped-preview:${id}:${fp}`).toString()));
     if (fingerprint(draft) !== fp) throw new AccountError(409,'成员、账户或配置已改变，请重新预览');
+    if(releaseVersion && draft.items.length+new Set(draft.items.map(i=>i.batch)).size+2>config.collaboration.maxDispatches) throw new AccountError(400,'私密汇总与发布恢复超出派发上限');
     const agentIds = [...new Set([draft.coordinatorId,...draft.items.map(i => i.target)])];
     const task = createRun(draft.goal, 'collaboration', agentIds, null, null, draft.conversationId, nextTurnNo(draft.conversationId));
     setRunStatus(task.id,'running');
@@ -123,7 +124,7 @@ export function confirmScopedDelivery(value: unknown, owner: string): string {
       evidenceBundleVersion:1,contextContributorVersion:1,durableHoldVersion:2,exitGuard:{version:1,maxCorrections:0,correctionMaxTokens:512},
       executionPolicy:{...executionPolicyForProfile('execute'),toolApiVersion:3,implicitAnswerPolicy:'explicit_only'} });
     planned.contract.features!.controlActionVersion=3;
-    planned.contract.features!.scopedCollaboration={boundaryVersion:2,manifestVersion:1,provenanceVersion:1,policyRevision:1,capabilityPackage:'scoped-control-v1',deliveryVersion:1};
+    planned.contract.features!.scopedCollaboration={boundaryVersion:2,manifestVersion:1,provenanceVersion:1,policyRevision:1,capabilityPackage:releaseVersion?'scoped-release-v1':'scoped-control-v1',deliveryVersion:1,...(releaseVersion?{releaseVersion}: {})};
     freezeRuntimeContract(planned.contract);
     post({runId:task.id,from:'user',to:'all',kind:'user',body:'独立材料协作：按已确认计划逐批交付。',visibility:'private',audience:['user',...agentIds],deliveryStatus:'processing'});
     const source = post({runId:task.id,from:'user',to:draft.coordinatorId,kind:'system',body:draft.goal,visibility:'private',audience:['user',draft.coordinatorId]});
@@ -140,7 +141,7 @@ export function confirmScopedDelivery(value: unknown, owner: string): string {
     const constraints=getConversation(draft.conversationId)!.preferences?.constraints;
     const duration=Math.min(constraints?.deadlineMs??config.collaboration.runTimeoutMs,config.collaboration.runTimeoutMs);
     const plan: DeliveryPlan={requestLimits:{firstResponseTimeoutMs:constraints?.firstResponseTimeoutMs,idleTimeoutMs:constraints?.idleTimeoutMs},costPolicy:roomCostPolicy(draft.conversationId),limits:{maxDispatches:config.collaboration.maxDispatches,maxTokens:config.collaboration.maxTokens,maxCostUsd:config.collaboration.maxCostUsd,maxDurationMs:duration},deadlineAt:new Date(Date.now()+duration).toISOString(),version:1,runId:task.id,coordinatorId:draft.coordinatorId,fingerprint:fp,goal:draft.goal,maxTokens:draft.maxTokens,
-      maxBatchItems:Math.min(3,config.collaboration.maxTargets),maxDispatches:items.length+new Set(items.map(i=>i.batch)).size+1,
+      maxBatchItems:Math.min(3,config.collaboration.maxTargets),maxDispatches:items.length+new Set(items.map(i=>i.batch)).size+1+(releaseVersion?1:0),
       items,roleSources,returnProfile:'status-only-v1',join:'all'};
     run('INSERT INTO scoped_delivery_plans VALUES (?,?,?,?)',task.id,fp,JSON.stringify(plan),draft.maxTokens);
     const dispatch=createDispatch({runId:task.id,conversationId:task.conversationId,sourceMessageId:source.id,kind:'initial',from:'user',targetAgentId:draft.coordinatorId,depth:0,idempotencyKey:`scoped:initial:${id}`});

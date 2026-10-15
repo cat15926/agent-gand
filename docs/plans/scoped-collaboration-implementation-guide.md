@@ -1,11 +1,11 @@
 # 通用私密协作与受控信息发布实施指导
 
-状态：**实施中（正式实施指导 v1.3，G0–G2 已完成，新增契约在对应阶段冻结）**。
+状态：**实施中（正式实施指导 v1.4，G0–G3 已完成，新增契约在对应阶段冻结）**。
 编制日期：2026-10-13。关联：[Issue #15](https://github.com/cat15926/agent-gand/issues/15)。
-G2 开发基线：`main@2129b6f`；本报告随 G2 实现提交，迁移清单至 **v14**。
-阶段状态：**G0–G2 已完成，G3–G6 待实施**；详见 [G2 验收记录](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)。新入口支持独立文字材料连续协作；旧 v2 私密正文汇总的阻断行为仍保留，历史故障任务未迁移，Issue #15 未关闭。
+G3 开发基线：`main@cbb13e1`；本报告随 G3 实现提交，迁移清单至 **v15**。
+阶段状态：**G0–G3 已完成，G4–G6 待实施**；详见 [G3 验收记录](../reports/scoped-collaboration-g3-acceptance-2026-10-15.md)。新入口支持独立文字材料连续协作、私密汇总与单次受控发布；旧 v2 私密正文汇总的阻断行为仍保留，历史故障任务未迁移，Issue #15 未关闭。
 
-本文规定实施范围、契约、改造位置、交付顺序和验收门槛。阶段交付、真实账户验收、现有故障任务迁移及发布分别记录实际执行结果。未完成阶段中的类型、工具、路由、能力包和表名仍为拟定设计；G2 已实现接口以[独立材料协作契约](../architecture/scoped-collaboration-control-v1.md)为准。
+本文规定实施范围、契约、改造位置、交付顺序和验收门槛。阶段交付、真实账户验收、现有故障任务迁移及发布分别记录实际执行结果。未完成阶段中的类型、工具、路由、能力包和表名仍为拟定设计；G2/G3 已实现接口以[独立材料协作契约](../architecture/scoped-collaboration-control-v1.md)及[私密汇总与发布契约](../architecture/scoped-information-release-v1.md)为准。
 
 ## 1. 实施结论与首版目标
 
@@ -112,7 +112,7 @@ Owner 确认材料、执行成员、进度接收者与发布规则
 
 ### 4.2 契约演进
 
-G1 已冻结 Tool API / Control Action v3 和 `features.scopedCollaboration.boundaryVersion=2`；新增动作使用独立 `ScopedControlActionV3`，已有 v2 动作保持原语义。G2 开放模型 API 的 `scoped-control-v1`，要求额外冻结 `deliveryVersion=1` 和已确认的不可变投递计划。
+G1 已冻结 Tool API / Control Action v3 和 `features.scopedCollaboration.boundaryVersion=2`；新增动作使用独立 `ScopedControlActionV3`，已有 v2 动作保持原语义。G2 开放模型 API 的 `scoped-control-v1`，要求额外冻结 `deliveryVersion=1` 和已确认的不可变投递计划。G3 的独立汇总入口进一步冻结 `releaseVersion=1`、`scoped-release-v1` 与读取授权工作流，不自动升级已有 Run。
 
 继续使用现有 Runtime `execute` 与命令事务机制，不新增顶层协作模式。没有 G2 投递计划的 G1 基础契约仍不可执行；未知版本明确拒绝。v3 动作经过独立解析和计划核验后，显式适配到现有责任引擎的内部动作类型，不提供 v2 协议回退。
 
@@ -232,7 +232,7 @@ G2 只处理 Owner 预先准备或已明确授权的材料。需要模型生成�
 | 工具 | 最早阶段 | 语义 |
 |---|---|---|
 | `agent.consult_batch` | G2 | 提交独立内容引用、逐项 expectation 和已批准 returnProfile；原子创建后结束本回合 |
-| `agent.acknowledge`（G1 冻结名称，尚未开放） | G2 | 仅确认指定信封；服务端绑定接收成员和义务 |
+| `agent.acknowledge`（G2 已开放） | G2 | 仅确认指定信封；服务端绑定接收成员和义务 |
 | `agent.request_release` | G3 | 提交私密草稿引用、目标和用途，创建专用审批/等待；不由模型签发授权 |
 | `agent.notify` | G3 后按需 | 只投递或要求明确 ACK；不隐式转移业务责任，采用冻结 continuation |
 
@@ -317,7 +317,7 @@ clean_control 从批准的模板、根目标和投影编译新 manifest，并使
 
 | 引擎/后端 | 新能力启用门槛 | 当前计划状态 |
 |---|---|---|
-| Collaboration＋模型 API | G1/G2 输入白名单、回执回流和工具来源验证 | 待实施 |
+| Collaboration＋模型 API | G1/G2 输入白名单、状态回流；G3 专用文字发布授权 | G2/G3 已实现；真实连接未验证 |
 | Collaboration＋Claude SDK/Codex app-server | G5 会话、home、目录、记忆、桥工具与真实连接验证 | 待实施；已有私密文本能力不等于新范围能力 |
 | Coordination | G5 对接共同 Scope/Return/Release 服务，保留 R7 图与 Owner 门禁 | 待实施；已有静态逐成员范围继续按现契约 |
 | 兼容 Pipeline/Supervisor | 无可靠独立上下文时拒绝新能力 | 本计划不承诺支持 |
@@ -440,6 +440,10 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 **第一批可交付版本在此结束。** 产品承诺为连续组织隔离子任务。
 
 ### G3：正文汇总与授权发布
+
+**已完成（2026-10-15）**：[G3 验收报告](../reports/scoped-collaboration-g3-acceptance-2026-10-15.md)、[实际契约](../architecture/scoped-information-release-v1.md)。已交付独立汇总 Subject、私密草稿、exact_content、固定注册状态投影、单次 Policy/Grant/Record、专用 Hold、撤销/过期和发布卡。15 类集成用例及正常 UI 桌面/手机流程通过，未调用真实供应商。
+
+实际入口由 Owner 选择已完成 G2 报告，确认读取授权后创建独立汇总任务；不改写旧 Run，新的费用预算在预览中说明。首版仅文字，固定投影针对当前已完成结果快照，最多一次；未来未知内容循环预授权、附件及任意模型自动脱密未开放。
 
 建议拆分：`feat: approve exact content releases`、`feat: apply deterministic release policies`。
 

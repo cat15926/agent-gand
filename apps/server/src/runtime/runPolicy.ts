@@ -91,6 +91,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
   }
   const scoped = f?.scopedCollaboration;
+  if (scoped?.releaseVersion !== undefined && (scoped.releaseVersion !== 1 || scoped.capabilityPackage !== 'scoped-release-v1' || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped release version');
   if (scoped?.deliveryVersion !== undefined && scoped.deliveryVersion !== 1) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped delivery version');
   if (scoped !== undefined || f?.controlActionVersion === 3 || contract.executionPolicy?.toolApiVersion === 3) {
     if (!scoped || scoped.boundaryVersion !== 2 || scoped.manifestVersion !== 1 || scoped.provenanceVersion !== 1
@@ -208,7 +209,7 @@ export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecu
   const policy = resolveRunPolicy(runId);
   if (policy.toolApiVersion === 3) {
     const c = loadRuntimeContract(runId)?.features?.scopedCollaboration;
-    if (c?.capabilityPackage === 'scoped-control-v1' && c.deliveryVersion === 1
+    if ((c?.capabilityPackage === 'scoped-control-v1' || (c?.capabilityPackage === 'scoped-release-v1' && c.releaseVersion === 1 && get('SELECT 1 FROM information_release_workflows WHERE run_id=?',runId))) && c.deliveryVersion === 1
       && get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?', runId)) return policy;
     throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE', 'Scoped delivery/resume requires a confirmed G2 plan');
   }

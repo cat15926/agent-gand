@@ -1,3 +1,5 @@
+import { InformationReleaseError, previewPrivateAggregate, confirmPrivateAggregate, previewInformationRelease, confirmInformationRelease, publishInformationRelease, revokeInformationRelease, editReleaseDraft, releaseState, roomReleaseStates } from '../collaboration/informationRelease.ts';
+import { recoverDurableHolds } from '../runs/recovery.ts';
 import type { AccountBackend } from '@agent-gand/shared';
 import type { FastifyInstance } from 'fastify';
 import { testAccount, revokeAccount } from '../accounts/actions.ts';
@@ -24,6 +26,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     });
     accounts.setErrorHandler((error, request, reply) => {
       // Never log error objects, request bodies or native credential material in this module.
+      if (error instanceof InformationReleaseError) return reply.code(error.status).send({error:error.message,code:error.code,retryable:error.retryable,allowedRecovery:error.allowedRecovery,diagnosticRef:null});
       if (error instanceof AccountError) return reply.code(error.status).send({ error: error.message, fieldErrors: error.fieldErrors });
       const statusCode = (error as { statusCode?: number }).statusCode;
       const status = statusCode && statusCode >= 400 && statusCode < 500 ? statusCode : 500;
@@ -41,6 +44,15 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     });
     accounts.get<{Params:{runId:string}}>('/api/accounts/scoped-delivery/runs/:runId', async request=>scopedDeliveryStatus(request.params.runId));
     accounts.get<{Params:{roomId:string}}>('/api/accounts/scoped-delivery/rooms/:roomId', async request=>roomScopedDeliveries(request.params.roomId));
+    accounts.post('/api/accounts/information-releases/aggregate/preview', {bodyLimit:4096}, async request=>previewPrivateAggregate(request.body,managementOwner(request)));
+    accounts.post('/api/accounts/information-releases/aggregate/confirm', {bodyLimit:1024}, async request=>{const result=confirmPrivateAggregate(request.body,managementOwner(request));kickCollaboration(getRun(result.runId)!.conversationId);return result;});
+    accounts.get<{Params:{roomId:string}}>('/api/accounts/information-releases/rooms/:roomId', async request=>roomReleaseStates(request.params.roomId));
+    accounts.get<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId', async request=>releaseState(request.params.runId));
+    accounts.patch<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId/draft', {bodyLimit:100_000}, async request=>editReleaseDraft(request.params.runId,request.body));
+    accounts.post<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId/preview', {bodyLimit:4096}, async request=>previewInformationRelease(request.params.runId,request.body,managementOwner(request)));
+    accounts.post('/api/accounts/information-releases/confirm', {bodyLimit:1024}, async request=>confirmInformationRelease(request.body,managementOwner(request)));
+    accounts.post<{Params:{id:string}}>('/api/accounts/information-release-policies/:id/revoke', async request=>revokeInformationRelease(request.params.id));
+    accounts.post<{Params:{id:string}}>('/api/accounts/information-releases/grants/:id/publish', async request=>{const result=publishInformationRelease(request.params.id);recoverDurableHolds(result.runId);kickCollaboration(getRun(result.runId)!.conversationId);return result;});
     accounts.get<{ Querystring: { includeArchived?: string } }>('/api/accounts', async (request) => ({
       accounts: listAccounts(request.query.includeArchived === '1'), features: { roleBinding: true, nativeLogin: true, liveTest: true },
     }));

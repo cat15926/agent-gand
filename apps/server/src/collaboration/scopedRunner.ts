@@ -1,3 +1,6 @@
+import { assertReleaseInputs, releaseWorkflow, hasPublishedRelease, storeReleaseDraft, releaseHoldCondition } from './informationRelease.ts';
+import { createDurableHold } from '../runtime/holds.ts';
+import { setRunStatus } from '../runs/trace.ts';
 import { createHash } from 'node:crypto';
 import type { AgentDefinition, CollaborationDispatch, MessageAccess, RuntimeControlAction, ScopedControlActionV3 } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
@@ -11,7 +14,7 @@ import { enterMember } from '../execution/memberAdmission.ts';
 import { captureExecutionBinding, assertBindingAuthorized, bindingAuthorized } from '../execution/authority.ts';
 import { createExecutionScope, assembleScopedContext, compileScopedSource, inputLedgerRevision,
   assertScopedSourceForRecipient, assertScopedOutput, ScopedCollaborationError, type ScopedAttemptBinding } from '../runtime/scopedCollaboration.ts';
-import { commitCompleteActionCommand, commitConsultAllActionCommand, commitWakeActionCommand } from '../runtime/actionCommands.ts';
+import { commitCompleteActionCommand, commitConsultAllActionCommand, commitWakeActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
 import { observeAction, observeAggregateLink, observeTechnicalBlock } from '../runtime/shadow.ts';
 import { submitCompletionCandidate } from '../runtime/subjectCompletion.ts';
 import { isAcknowledgementOutput } from '../runtime/exitGuard.ts';
@@ -50,13 +53,13 @@ export function parseScopedControlCall(call:LlmToolCall, expected:ScopedControlA
     return expected;
   }
   keys(['summary']);
-  if(call.name!=='agent.complete'||typeof value.summary!=='string'||!value.summary.trim()||value.summary.length>24_000||isAcknowledgementOutput(value.summary))return fail('SCOPED_RESULT_REQUIRED');
-  return {version:3,type:'complete',summary:value.summary.trim()};
+  if(call.name!==(expected.type==='request_release'?'agent.request_release':'agent.complete')||typeof value.summary!=='string'||!value.summary.trim()||value.summary.length>24_000||isAcknowledgementOutput(value.summary))return fail('SCOPED_RESULT_REQUIRED');
+  return {version:3,type:expected.type==='request_release'?'request_release':'complete',summary:value.summary.trim()};
 }
 function tool(expected:ScopedControlActionV3):LlmToolSchema {
   if(expected.type==='consult_batch')return {name:'agent.consult_batch',description:'按已冻结计划投递这一批独立材料；只能原样提交下面指定的 items、join 和 returnProfile。',parameters:{type:'object',additionalProperties:false,required:['items','join','returnProfile'],properties:{items:{type:'array',minItems:expected.items.length,maxItems:expected.items.length,items:{type:'object',additionalProperties:false,required:['key','target','payloadRef','expectation'],properties:{key:{type:'string'},target:{type:'string'},payloadRef:{type:'string'},expectation:{type:'string',enum:['material','acknowledged','result']}}}},join:{type:'string',enum:['all']},returnProfile:{type:'string',enum:['status-only-v1']}}}};
   if(expected.type==='acknowledge')return {name:'agent.acknowledge',description:'仅确认已接收本信封中的材料，不代表提交业务结果。',parameters:{type:'object',additionalProperties:false,required:['envelopeId'],properties:{envelopeId:{type:'string',enum:[expected.envelopeId]}}}};
-  return {name:'agent.complete',description:'提交本事项的实质结果；仅回复收到不能完成事项。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string'}}}};
+  return {name:expected.type==='request_release'?'agent.request_release':'agent.complete',description:expected.type==='request_release'?'提交仅 Owner 与汇总者可见的确切发布草稿，等待专用授权；不会立即发布。':'提交本事项的实质结果；仅回复收到不能完成事项。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string'}}}};
 }
 function batches(plan:DeliveryPlan) {
   return all<{ordinal:number;batch_id:string}>('SELECT ordinal,batch_id FROM scoped_delivery_batches WHERE run_id=? ORDER BY ordinal',plan.runId);
@@ -124,6 +127,8 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
   const controller=new AbortController();
   const unsubscribe=subscribe(()=>{if(!isActiveAttempt(attemptId,dispatch.id))controller.abort();});
   try {
+    assertReleaseInputs(plan.runId);
+    const releaseTask=releaseWorkflow(plan.runId);
     if((agent.execution?.kind??'builtin-llm')!=='builtin-llm')fail('BACKEND_SCOPE_UNSUPPORTED');
     const binding=captureExecutionBinding(plan.runId,agent.id,attemptId);
     const row=get<{subject_id:string;generation:number}>('SELECT s.subject_id,c.generation FROM runtime_dispatch_subjects s JOIN runtime_custody c ON c.subject_id=s.subject_id WHERE s.dispatch_id=?',dispatch.id)!;
@@ -133,8 +138,8 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
     if(!item&&agent.id!==plan.coordinatorId)fail('SCOPED_PLAN_MISMATCH');
     const next=item?[]:nextItems(plan);
     const expected:ScopedControlActionV3=item?.expectation==='acknowledged'?{version:3,type:'acknowledge',envelopeId:item.payloadRef}
-      :!item&&next.length?plannedBatchAction(next):{version:3,type:'complete',summary:''};
-    const instruction=item?`这是一个独立事项，仅使用本上下文中的材料。交付要求：${item.expectation}。${item.expectation==='acknowledged'?`请调用 agent.acknowledge，envelopeId=${item.payloadRef}`:'请以 agent.complete 提交完整结果。'}`
+      :!item&&next.length?plannedBatchAction(next):{version:3,type:item&&releaseTask?'request_release':'complete',summary:''};
+    const instruction=item?`这是一个独立事项，仅使用本上下文中的材料。交付要求：${item.expectation}。${item.expectation==='acknowledged'?`请调用 agent.acknowledge，envelopeId=${item.payloadRef}`:releaseTask?'请以 agent.request_release 提交完整私密汇总草稿，等待 Owner 授权。':'请以 agent.complete 提交完整结果。'}`
       :`你是独立材料组织者，只能按确认的计划推进。不得请求或推测私密正文。${next.length?'本轮唯一允许的动作（工具参数不含 version/type）：'+JSON.stringify(expected):'所有已授权批次完成。请调用 agent.complete，说明固定状态核对完成。'}`;
     const directive=post({runId:plan.runId,from:'system',to:agent.id,kind:'system',body:instruction,meta:{scopedInternal:true},...access(agent.id),clientMessageId:`scoped:instruction:${attemptId}`});
     const scope=createExecutionScope({runId:plan.runId,subjectId:row.subject_id,agentId:agent.id,kind:item?'content':'control',defaultOutputAccess:access(agent.id),recoveryGeneration:row.generation,
@@ -143,6 +148,20 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
     const context=assembleScopedContext(scoped);
     setAttemptInputContext(attemptId,context);
     const outputBinding={...scoped,ledgerRevision:inputLedgerRevision(attemptId),outputAccess:access(agent.id)};
+    if(!item && !next.length && releaseTask && !hasPublishedRelease(plan.runId)) {
+      const domain:RuntimeControlAction={version:2,type:'hold',wake:{kind:'user_decision',decisionKind:'agent_question',prompt:'请在专用发布卡中批准并发布，普通回答不会授权。'},reason:'等待专用发布授权'};
+      commitHoldActionCommand({runId:plan.runId,commandKey:`release:hold:${dispatch.id}`,attemptId,dispatchId:dispatch.id,scope:outputBinding,execute:()=>{
+        assertReleaseInputs(plan.runId);
+        observeAction({dispatchId:dispatch.id,attemptId,agentId:agent.id,action:domain,childDispatchIds:[],batchId:null});
+        createDurableHold({runId:plan.runId,sourceDispatchId:dispatch.id,sourceAttemptId:attemptId,holderAgentId:agent.id,
+          condition:releaseHoldCondition(plan.runId),timeoutAt:plan.deadlineAt,onTimeout:{kind:'fail',reason:'发布等待已超过任务时限'},
+          recoveryPolicy:{kind:'resume_dispatch',targetAgentId:agent.id,sourceMessageId:directive.id,parentDispatchId:dispatch.id,depth:0,reason:'专用授权发布已完成'},idempotencyKey:`release:hold:${plan.runId}`});
+        finishAttempt({attemptId,dispatchId:dispatch.id,status:'completed',action:domain,output:'等待 Owner 在专用发布卡操作。'});
+        setRunStatus(plan.runId,'waiting_for_user');
+        return {waitingFor:'information-release-v1'};
+      }});
+      return null;
+    }
     let action:ScopedControlActionV3;
     if(item?.expectation==='material')action={version:3,type:'complete',summary:'材料已投递至该事项的独立上下文。'};
     else {
@@ -160,11 +179,13 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
     const summary=item? action.type==='acknowledge'?'已确认收到本信封材料。':action.summary:'所有已授权事项的交付状态已核对完成。';
     const domain:RuntimeControlAction={version:2,type:'complete',summary};
     commitCompleteActionCommand({runId:plan.runId,commandKey:`scoped:complete:${dispatch.id}`,attemptId,dispatchId:dispatch.id,scope:outputBinding,intentFingerprint:createHash('sha256').update(JSON.stringify(action)).digest('hex'),execute:()=>{
+      assertReleaseInputs(plan.runId);
+      if(item && releaseTask) {if(action.type!=='request_release')fail('SCOPED_RELEASE_REQUIRED');storeReleaseDraft(plan.runId,attemptId,summary);}
       const result=submitCompletionCandidate({runId:plan.runId,dispatchId:dispatch.id,attemptId,agentId:agent.id,action:domain,summary,evidenceRefs:[{kind:'attempt_output',id:attemptId}],exitGuard:{status:'allow_candidate',reasons:[item?.expectation==='material'?'DELIVERY_MATERIAL_VALIDATED':action.type==='acknowledge'?'DELIVERY_ACK_VALIDATED':'EXPLICIT_COMPLETE']},retryAllowed:false});
       if(result.evaluation.status!=='accepted')return fail('SCOPED_COMPLETION_REJECTED');
       const message=post({runId:plan.runId,from:agent.id,to:'user',kind:'agent',messageType:'collaboration_contribution',body:summary,attemptId,...access(agent.id)});
       finishAttempt({attemptId,dispatchId:dispatch.id,status:'completed',action:domain,output:summary,outputMessageId:message.id});
-      return {action:action.type==='complete'?{version:3,type:'complete'}:action,candidateId:result.candidate.id,outputMessageId:message.id};
+      return {action:action.type==='complete'||action.type==='request_release'?{version:3,type:action.type}:action,candidateId:result.candidate.id,outputMessageId:message.id};
     }});
     return null;
   } catch(error) {

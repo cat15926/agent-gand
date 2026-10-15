@@ -27,6 +27,7 @@ export interface RuntimeActionCommandInput<T> {
   scope?: ScopedAttemptBinding & { ledgerRevision: number; outputAccess: MessageAccess };
   /** Server-only status projection; no model text may be published through this command. */
   projection?: { batchId: string; planFingerprint: string };
+  releaseWake?: { holdId: string; claimToken: string };
   intentFingerprint?: string;
   execute: () => T;
 }
@@ -64,6 +65,7 @@ function assertSameCommand<T>(row: CommandRow, kind: RuntimeActionCommandKind,
 
 function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | null {
   const s = input.scope;
+  if (input.releaseWake) return createHash('sha256').update(JSON.stringify(['release-wake-v1',input.runId,input.releaseWake.holdId])).digest('hex');
   if (input.projection) return createHash('sha256').update(JSON.stringify(['scoped-return-v1',input.runId,input.projection.batchId,input.projection.planFingerprint])).digest('hex');
   return s ? createHash('sha256').update(JSON.stringify([s.runId, s.scopeId, s.attemptId, s.agentId,
     s.ledgerRevision, s.outputAccess.visibility, [...s.outputAccess.audience].sort(),
@@ -89,7 +91,8 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
         WHERE p.run_id=? AND p.fingerprint=? AND b.id=? AND b.result_dispatch_id IS NULL AND b.status<>'cancelled'
         AND NOT EXISTS (SELECT 1 FROM collaboration_dispatches d WHERE d.batch_id=b.id AND d.kind='fanout' AND d.status IN ('queued','running'))`,
         input.runId,projection.planFingerprint,projection.batchId))) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
-    if (scoped && !projection && (!input.scope || input.scope.runId !== input.runId || input.scope.attemptId !== input.attemptId
+    if(input.releaseWake && (kind!=='wake'||projection||input.scope||scoped?.releaseVersion!==1||!get(`SELECT 1 FROM runtime_holds h JOIN information_release_records r ON r.run_id=h.run_id WHERE h.id=? AND h.run_id=? AND h.status='claimed' AND h.claim_token=? AND h.claim_expires_at>? AND h.source_attempt_id=? AND h.source_dispatch_id=? AND json_extract(h.condition,'$.receiverId')='information-release-v1' AND json_extract(h.condition,'$.correlationId')=h.run_id`,input.releaseWake.holdId,input.runId,input.releaseWake.claimToken,new Date().toISOString(),input.attemptId,input.dispatchId))) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if (scoped && !projection && !input.releaseWake && (!input.scope || input.scope.runId !== input.runId || input.scope.attemptId !== input.attemptId
       || !get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?', input.attemptId, input.dispatchId))) {
       throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     }

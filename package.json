@@ -123,7 +123,9 @@
     "verify:platform-real-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-platform-real-acceptance.mjs",
     "collaboration:acceptance-real": "node scripts/platform-collaboration-real-acceptance.mjs",
     "verify:scoped-delivery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery.mjs",
-    "verify:scoped-delivery-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery-ui.mjs"
+    "verify:scoped-delivery-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery-ui.mjs",
+    "verify:information-release": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release.mjs",
+    "verify:information-release-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release-ui.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

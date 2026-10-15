@@ -64,7 +64,7 @@ function fixture(privateRoot = false) {
   return { runId, roomId, subjectId, dispatchId, contract, message, create, binding };
 }
 try {
-  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 14);
+  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 15);
   assert.equal(db.get('SELECT boundary_fingerprint FROM runtime_action_commands WHERE id=?', 'historical').boundary_fingerprint, null);
   assert.equal(db.get('SELECT checksum FROM orchestration_schema_migrations WHERE version=12').checksum, '41db07fd6801da02da567691dc328cf771bd8728cdc643f2147ba1b4961d2207');
   const f = fixture(), a = f.message('ONLY_TASK_A'), b = f.message('ONLY_TASK_B'), extra = f.message('APPROVED_SUPPLEMENT');
@@ -157,14 +157,16 @@ try {
   assert.equal(normalizeRuntimeControlAction({ version: 3, type: 'acknowledge', envelopeId: 'x' }).ok, false, 'ACK must never turn into complete');
   for (const mutate of [c => c.features.controlActionVersion = 99, c => c.executionPolicy.toolApiVersion = 99,
     c => c.features.scopedCollaboration.boundaryVersion = 99, c => delete c.executionPolicy,
-    c => c.features.scopedCollaboration.capabilityPackage = 'unknown']) {
+    c => c.features.scopedCollaboration.capabilityPackage = 'unknown',
+    c => c.features.scopedCollaboration.releaseVersion = 2,
+    c => c.features.scopedCollaboration.releaseVersion = 1]) {
     const bad = structuredClone(f.contract); bad.runId = randomUUID(); mutate(bad);
     assert.throws(() => freezeRuntimeContract(bad));
     assert.equal(db.get('SELECT 1 FROM runtime_contracts WHERE run_id=?', bad.runId), undefined, 'invalid freeze rolls back');
   }
   for (const backend of ['builtin-llm', 'claude-sdk', 'codex-app-server', 'claude-cli', 'codex-exec']) {
     for (const cap of scopedCollaborationCapabilities(backend)) {
-      const g2 = backend === 'builtin-llm' && cap.package === 'scoped-control-v1';
+      const g2 = backend === 'builtin-llm';
       assert.equal(cap.implementationSupported, g2); assert.equal(cap.configuredAvailable, g2);
       assert.equal(cap.connectionVerified, false); assert.equal(cap.verifiedAt, null);
     }
@@ -180,10 +182,10 @@ try {
     assert.equal(body.toolApiVersion, 3);
     assert.equal(body.backends.length, 5);
     assert.deepEqual(body.allowedRecovery, []);
-    assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === (b.backend === 'builtin-llm' && c.package === 'scoped-control-v1') && !c.connectionVerified)));
+    assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === (b.backend === 'builtin-llm') && !c.connectionVerified)));
     assert.doesNotMatch(response.body, /ONLY_TASK|APPROVED_SUPPLEMENT|ROOT_MUST_NOT|UNLISTED/);
   } finally { await app.close(); }
-  db.run("INSERT INTO orchestration_schema_migrations VALUES(15,'future','unknown',?)", now);
-  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /15/);
+  db.run("INSERT INTO orchestration_schema_migrations VALUES(16,'future','unknown',?)", now);
+  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /16/);
   console.log('G1 verified: immutable manifests, separate same-audience scopes, whitelist context, dynamic provenance, atomic output guards, stale/cross-run/lease rejection, cold sessions, closed v3 admission and unknown-version rejection.');
 } finally { db.closeDatabase(); await rm(root, { recursive: true, force: true }); }

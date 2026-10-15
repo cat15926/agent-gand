@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AgentDefinition, Conversation, ScopedDeliveryDraft, ScopedDeliveryPreview, ScopedDeliveryStatus } from '@agent-gand/shared';
 import { managementRequest } from '../services/accounts';
 import { stopCollaborationRun } from '../services/api';
+import { InformationReleasePanel } from './InformationReleasePanel';
 import { Drawer } from './Drawer';
 
 const base='/api/accounts/scoped-delivery';
@@ -63,6 +64,7 @@ export function ScopedDeliveryComposer({room,agents,onCreated}:{room:Conversatio
             {r.items.map(i=><div className="border-t border-zinc-800 pt-2 text-xs" key={i.key}><p>第 {i.batch} 批 · {i.key} → {name(i.target)} · {expectationLabels[i.expectation]} · {stateLabels[i.status]??i.status}</p>{i.output&&<details className="mt-1"><summary className="cursor-pointer text-violet-300">查看该项私密结果</summary><pre className="mt-2 whitespace-pre-wrap font-sans">{i.output}</pre></details>}</div>)}
           </article>)}
         </section>
+        {open&&<InformationReleasePanel room={room} agents={agents} runs={runs} onCreated={async()=>{await reload();await onCreated();}}/>}
       </div>
     </Drawer>
   </>;

@@ -646,3 +646,37 @@ CREATE TRIGGER IF NOT EXISTS scoped_delivery_batches_immutable BEFORE UPDATE ON 
 CREATE TRIGGER IF NOT EXISTS scoped_delivery_batches_no_delete BEFORE DELETE ON scoped_delivery_batches BEGIN SELECT RAISE(ABORT,'immutable delivery batch'); END;
 CREATE TRIGGER IF NOT EXISTS scoped_delivery_envelopes_immutable BEFORE UPDATE ON scoped_delivery_envelopes BEGIN SELECT RAISE(ABORT,'immutable envelope'); END;
 CREATE TRIGGER IF NOT EXISTS scoped_delivery_envelopes_no_delete BEFORE DELETE ON scoped_delivery_envelopes BEGIN SELECT RAISE(ABORT,'immutable envelope'); END;
+
+-- G3: immutable drafts/intake/publication evidence; policies and grants are CAS governed.
+CREATE TABLE IF NOT EXISTS information_release_previews (
+  id TEXT PRIMARY KEY, owner TEXT NOT NULL, kind TEXT NOT NULL, fingerprint TEXT NOT NULL,
+  payload TEXT NOT NULL, expires_at TEXT NOT NULL, result TEXT, client_key TEXT UNIQUE
+);
+CREATE TABLE IF NOT EXISTS information_release_workflows (
+  run_id TEXT PRIMARY KEY REFERENCES runs(id), source_run_id TEXT NOT NULL REFERENCES runs(id),
+  aggregator_id TEXT NOT NULL, intake TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS information_release_drafts (
+  run_id TEXT NOT NULL REFERENCES runs(id), revision INTEGER NOT NULL, body TEXT NOT NULL,
+  attempt_id TEXT NOT NULL, inputs TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(run_id,revision)
+);
+CREATE TABLE IF NOT EXISTS information_release_policies (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), version INTEGER NOT NULL,
+  status TEXT NOT NULL, expires_at TEXT NOT NULL, record TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS information_release_grants (
+  id TEXT PRIMARY KEY, policy_id TEXT NOT NULL UNIQUE REFERENCES information_release_policies(id),
+  run_id TEXT NOT NULL REFERENCES runs(id), status TEXT NOT NULL, record TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS information_release_records (
+  id TEXT PRIMARY KEY, grant_id TEXT NOT NULL UNIQUE REFERENCES information_release_grants(id),
+  run_id TEXT NOT NULL UNIQUE REFERENCES runs(id), message_id TEXT NOT NULL UNIQUE REFERENCES messages(id),
+  record TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS information_release_workflows_immutable BEFORE UPDATE ON information_release_workflows BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+CREATE TRIGGER IF NOT EXISTS information_release_workflows_no_delete BEFORE DELETE ON information_release_workflows BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+CREATE TRIGGER IF NOT EXISTS information_release_drafts_immutable BEFORE UPDATE ON information_release_drafts BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+CREATE TRIGGER IF NOT EXISTS information_release_drafts_no_delete BEFORE DELETE ON information_release_drafts BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+CREATE TRIGGER IF NOT EXISTS information_release_records_immutable BEFORE UPDATE ON information_release_records BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+CREATE TRIGGER IF NOT EXISTS information_release_records_no_delete BEFORE DELETE ON information_release_records BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;

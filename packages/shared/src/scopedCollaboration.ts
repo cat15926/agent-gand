@@ -9,13 +9,15 @@ export interface ScopedCollaborationContract {
   capabilityPackage: CollaborationCapabilityPackage;
   /** G1 fixtures omit this; only the complete G2 delivery package is executable. */
   deliveryVersion?: 1;
+  releaseVersion?: 1;
 }
 /** material only delivers bytes; acknowledged only satisfies receipt; result requires completion acceptance. */
 export type DeliveryExpectation = 'material' | 'acknowledged' | 'result';
 export type ScopedControlActionV3 =
   | { version: 3; type: 'consult_batch'; items: Array<{ key: string; target: string; payloadRef: string; expectation: DeliveryExpectation }>; join: 'all'; returnProfile: string }
   | { version: 3; type: 'acknowledge'; envelopeId: string }
-  | { version: 3; type: 'complete'; summary: string };
+  | { version: 3; type: 'complete'; summary: string }
+  | { version: 3; type: 'request_release'; summary: string };
 
 export interface ScopedDeliveryDraft {
   conversationId: string;
@@ -72,4 +74,29 @@ export interface ScopedCollaborationCapability {
   package: CollaborationCapabilityPackage; boundaryVersion: 2; toolApiVersion: 3;
   foundationImplemented: boolean; implementationSupported: boolean; configuredAvailable: boolean;
   connectionVerified: boolean; verifiedAt: string | null; reason: string;
+}
+
+/** G3 publishes text only. Source references and input ledgers are resolved by the server. */
+export interface PrivateAggregateDraft {
+  sourceRunId: string; itemKeys: string[]; aggregatorId: string; instruction: string; maxTokens: number;
+}
+export interface PrivateAggregatePreview {
+  id: string; fingerprint: string; expiresAt: string; draft: PrivateAggregateDraft;
+  sources: Array<{ key: string; body: string }>; disclosure: string;
+  costPolicy: import('./cost.ts').CostPolicy | null;
+}
+export type InformationReleaseMode = 'exact_content' | 'deterministic_projection';
+export interface InformationReleasePreview {
+  id: string; policyId: string; fingerprint: string; expiresAt: string;
+  runId: string; draftRevision: number; body: string; access: MessageAccess;
+  mode: InformationReleaseMode; projectionId: 'status-receipts-v1' | null; sourceCount: number; inputCount: number; maxUses: 1;
+  sourceSummary: Array<{ key: string; ref: ScopedSourceRef; inputCount: number }>;
+}
+export interface InformationReleaseState {
+  runId: string; sourceRunId: string; aggregatorId: string;
+  sourceSummary: Array<{ key: string; ref: ScopedSourceRef; inputCount: number }>;
+  draft: { revision: number; body: string } | null;
+  policies: Array<{ id: string; version: number; status: string; expiresAt: string }>;
+  grants: Array<{ id: string; policyId: string; status: string; draftRevision: number; body: string; access: MessageAccess }>;
+  records: Array<{ id: string; grantId: string; messageId: string; body: string; access: MessageAccess }>;
 }
