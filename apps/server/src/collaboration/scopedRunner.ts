@@ -14,11 +14,12 @@ import { enterMember } from '../execution/memberAdmission.ts';
 import { captureExecutionBinding, assertBindingAuthorized, bindingAuthorized } from '../execution/authority.ts';
 import { createExecutionScope, assembleScopedContext, compileScopedSource, inputLedgerRevision,
   assertScopedSourceForRecipient, assertScopedOutput, ScopedCollaborationError, type ScopedAttemptBinding } from '../runtime/scopedCollaboration.ts';
-import { commitCompleteActionCommand, commitConsultAllActionCommand, commitWakeActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
+import { commitCompleteActionCommand, commitConsultAllActionCommand, commitConsultAnyActionCommand, commitWakeActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
 import { observeAction, observeAggregateLink, observeTechnicalBlock } from '../runtime/shadow.ts';
 import { submitCompletionCandidate } from '../runtime/subjectCompletion.ts';
+import { settleConsultAnyJoin } from '../runtime/obligations.ts';
 import { isAcknowledgementOutput } from '../runtime/exitGuard.ts';
-import { createBatch, createDispatch, getBatch, updateBatch, listDispatches, finishAttempt, isActiveAttempt, setAttemptInputContext } from './store.ts';
+import { createBatch, selectAnyBatchWinner, createDispatch, getBatch, updateBatch, listDispatches, finishAttempt, isActiveAttempt, setAttemptInputContext } from './store.ts';
 import { getDeliveryPlan, type DeliveryItem, type DeliveryPlan } from './scopedDelivery.ts';
 
 const access = (id:string):MessageAccess => ({visibility:'private',audience:['user',id].sort()});
@@ -27,8 +28,8 @@ export class ScopedDeliveryExecutionError extends Error {
 }
 const fail=(code:string):never=>{throw new ScopedDeliveryExecutionError(code);};
 const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
-export const plannedBatchAction=(items:DeliveryItem[]):Extract<ScopedControlActionV3,{type:'consult_batch'}>=>({
-  version:3,type:'consult_batch',items:items.map(({key,target,payloadRef,expectation})=>({key,target,payloadRef,expectation})),join:'all',returnProfile:'status-only-v1',
+export const plannedBatchAction=(items:DeliveryItem[],join:DeliveryPlan['join']='all'):Extract<ScopedControlActionV3,{type:'consult_batch'}>=>({
+  version:3,type:'consult_batch',items:items.map(({key,target,payloadRef,expectation})=>({key,target,payloadRef,expectation})),join,returnProfile:'status-only-v1',
 });
 /** Strict v3 parser. No v2 fallback and no user/model-authored source references. */
 export function parseScopedControlCall(call:LlmToolCall, expected:ScopedControlActionV3):ScopedControlActionV3 {
@@ -38,7 +39,7 @@ export function parseScopedControlCall(call:LlmToolCall, expected:ScopedControlA
   const keys=(allowed:string[])=>{if(Object.keys(value).some(k=>!allowed.includes(k)))fail('SCOPED_ACTION_INVALID');};
   if(expected.type==='consult_batch') {
     keys(['items','join','returnProfile']);
-    if(call.name!=='agent.consult_batch'||value.join!=='all'||value.returnProfile!=='status-only-v1'
+    if(call.name!=='agent.consult_batch'||value.join!==expected.join||value.returnProfile!=='status-only-v1'
       ||!Array.isArray(value.items)||value.items.length!==expected.items.length) return fail('SCOPED_PLAN_MISMATCH');
     const items=value.items.map(i=>{
       if(!i||typeof i!=='object'||Array.isArray(i)||Object.keys(i).some(k=>!['key','target','payloadRef','expectation'].includes(k)))return fail('SCOPED_PLAN_MISMATCH');
@@ -57,7 +58,7 @@ export function parseScopedControlCall(call:LlmToolCall, expected:ScopedControlA
   return {version:3,type:expected.type==='request_release'?'request_release':'complete',summary:value.summary.trim()};
 }
 function tool(expected:ScopedControlActionV3):LlmToolSchema {
-  if(expected.type==='consult_batch')return {name:'agent.consult_batch',description:'按已冻结计划投递这一批独立材料；只能原样提交下面指定的 items、join 和 returnProfile。',parameters:{type:'object',additionalProperties:false,required:['items','join','returnProfile'],properties:{items:{type:'array',minItems:expected.items.length,maxItems:expected.items.length,items:{type:'object',additionalProperties:false,required:['key','target','payloadRef','expectation'],properties:{key:{type:'string'},target:{type:'string'},payloadRef:{type:'string'},expectation:{type:'string',enum:['material','acknowledged','result']}}}},join:{type:'string',enum:['all']},returnProfile:{type:'string',enum:['status-only-v1']}}}};
+  if(expected.type==='consult_batch')return {name:'agent.consult_batch',description:'按已冻结计划投递这一批独立材料；只能原样提交下面指定的 items、join 和 returnProfile。',parameters:{type:'object',additionalProperties:false,required:['items','join','returnProfile'],properties:{items:{type:'array',minItems:expected.items.length,maxItems:expected.items.length,items:{type:'object',additionalProperties:false,required:['key','target','payloadRef','expectation'],properties:{key:{type:'string'},target:{type:'string'},payloadRef:{type:'string'},expectation:{type:'string',enum:['material','acknowledged','result']}}}},join:{type:'string',enum:[expected.join]},returnProfile:{type:'string',enum:['status-only-v1']}}}};
   if(expected.type==='acknowledge')return {name:'agent.acknowledge',description:'仅确认已接收本信封中的材料，不代表提交业务结果。',parameters:{type:'object',additionalProperties:false,required:['envelopeId'],properties:{envelopeId:{type:'string',enum:[expected.envelopeId]}}}};
   return {name:expected.type==='request_release'?'agent.request_release':'agent.complete',description:expected.type==='request_release'?'提交仅 Owner 与汇总者可见的确切发布草稿，等待专用授权；不会立即发布。':'提交本事项的实质结果；仅回复收到不能完成事项。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string'}}}};
 }
@@ -72,14 +73,14 @@ function nextItems(plan:DeliveryPlan):DeliveryItem[] {
 /** Atomically creates envelope, Batch, Subject obligations and the command receipt. No I/O inside. */
 export function commitScopedBatch(input:{plan:DeliveryPlan;dispatch:CollaborationDispatch;attemptId:string;scope:ScopedAttemptBinding & {ledgerRevision:number;outputAccess:MessageAccess};action:Extract<ScopedControlActionV3,{type:'consult_batch'}>}) {
   const {plan,dispatch,attemptId,scope,action}=input;
-  return commitConsultAllActionCommand({runId:plan.runId,commandKey:`scoped:consult:${dispatch.id}`,attemptId,dispatchId:dispatch.id,scope,intentFingerprint:createHash('sha256').update(JSON.stringify(action)).digest('hex'),execute:()=>{
+  return (plan.join==='any'?commitConsultAnyActionCommand:commitConsultAllActionCommand)({runId:plan.runId,commandKey:`scoped:consult:${dispatch.id}`,attemptId,dispatchId:dispatch.id,scope,intentFingerprint:createHash('sha256').update(JSON.stringify(action)).digest('hex'),execute:()=>{
     const items=nextItems(plan);
-    if(!items.length||items.length>plan.maxBatchItems||!same(action,plannedBatchAction(items)))return fail('SCOPED_PLAN_MISMATCH');
+    if(!items.length||items.length>plan.maxBatchItems||!same(action,plannedBatchAction(items,plan.join)))return fail('SCOPED_PLAN_MISMATCH');
     if(listDispatches(plan.runId).length+items.length+1>plan.maxDispatches)return fail('SCOPED_DISPATCH_LIMIT');
     // Validate ALL references before any effect. Transaction rollback also covers later failures.
     for(const i of items) assertScopedSourceForRecipient(plan.runId,i.source,i.target);
     const batch=createBatch({runId:plan.runId,conversationId:dispatch.conversationId,initiatorAgentId:plan.coordinatorId,
-      sourceDispatchId:dispatch.id,question:'已授权独立材料；仅回传固定状态',targetAgentIds:items.map(i=>i.target),joinPolicy:'all'});
+      sourceDispatchId:dispatch.id,question:'已授权独立材料；仅回传固定状态',targetAgentIds:items.map(i=>i.target),joinPolicy:plan.join});
     run('INSERT INTO scoped_delivery_batches VALUES (?,?,?)',plan.runId,items[0]!.batch,batch.id);
     const children=items.map(item=>{
       const child=createDispatch({runId:plan.runId,conversationId:dispatch.conversationId,sourceMessageId:item.source.id,parentDispatchId:dispatch.id,batchId:batch.id,
@@ -88,7 +89,7 @@ export function commitScopedBatch(input:{plan:DeliveryPlan;dispatch:Collaboratio
       return child;
     });
     // Explicit domain adapter: wire v3 is validated above. The shared responsibility engine still uses its v2 domain union.
-    const domain:RuntimeControlAction={version:2,type:'consult',targetAgentIds:items.map(i=>i.target),objective:'完成信封中指定的交付义务',reason:'Owner 确认的独立投递',join:'all'};
+    const domain:RuntimeControlAction={version:2,type:'consult',targetAgentIds:items.map(i=>i.target),objective:'完成信封中指定的交付义务',reason:'Owner 确认的独立投递',join:plan.join};
     observeAction({dispatchId:dispatch.id,attemptId,agentId:plan.coordinatorId,action:domain,childDispatchIds:children.map(c=>c.id),batchId:batch.id});
     finishAttempt({attemptId,dispatchId:dispatch.id,status:'completed',action:domain,output:'已提交当前批次。'});
     return {action,batchId:batch.id,childDispatchIds:children.map(c=>c.id),budgetRunId:plan.runId};
@@ -113,7 +114,9 @@ export function reconcileScopedBatch(batchId:string):boolean {
       const source=post({runId:batch.runId,from:'system',to:plan.coordinatorId,kind:'system',messageType:'collaboration_routing',...access(plan.coordinatorId),
         body:JSON.stringify({version:1,returnProfile:plan.returnProfile,receipts}),meta:{scopedInternal:true},clientMessageId:`scoped:return:${batchId}`});
       const resume=createDispatch({runId:batch.runId,conversationId:batch.conversationId,sourceMessageId:source.id,parentDispatchId:batch.sourceDispatchId,batchId,kind:'aggregate',from:'system',targetAgentId:plan.coordinatorId,depth:0,idempotencyKey:`aggregate:${batchId}`});
-      updateBatch(batchId,children.every(c=>c.status==='completed')?'completed':'failed',resume.id);
+      const success=batch.joinPolicy==='any'?!!batch.winnerDispatchId&&children.some(c=>c.id===batch.winnerDispatchId&&c.status==='completed'):children.every(c=>c.status==='completed');
+      if(batch.joinPolicy==='any'&&!success)settleConsultAnyJoin({runId:batch.runId,batchId,status:'failed',resolutionSourceId:`scoped-any-exhausted:${batchId}`,resolution:{reason:'all_candidates_failed'}});
+      updateBatch(batchId,success?'completed':'failed',resume.id);
       observeAggregateLink(batch.sourceDispatchId,resume.id);
       return {dispatchId:resume.id,receipts};
     }});
@@ -138,7 +141,7 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
     if(!item&&agent.id!==plan.coordinatorId)fail('SCOPED_PLAN_MISMATCH');
     const next=item?[]:nextItems(plan);
     const expected:ScopedControlActionV3=item?.expectation==='acknowledged'?{version:3,type:'acknowledge',envelopeId:item.payloadRef}
-      :!item&&next.length?plannedBatchAction(next):{version:3,type:item&&releaseTask?'request_release':'complete',summary:''};
+      :!item&&next.length?plannedBatchAction(next,plan.join):{version:3,type:item&&releaseTask?'request_release':'complete',summary:''};
     const instruction=item?`这是一个独立事项，仅使用本上下文中的材料。交付要求：${item.expectation}。${item.expectation==='acknowledged'?`请调用 agent.acknowledge，envelopeId=${item.payloadRef}`:releaseTask?'请以 agent.request_release 提交完整私密汇总草稿，等待 Owner 授权。':'请以 agent.complete 提交完整结果。'}`
       :`你是独立材料组织者，只能按确认的计划推进。不得请求或推测私密正文。${next.length?'本轮唯一允许的动作（工具参数不含 version/type）：'+JSON.stringify(expected):'所有已授权批次完成。请调用 agent.complete，说明固定状态核对完成。'}`;
     const directive=post({runId:plan.runId,from:'system',to:agent.id,kind:'system',body:instruction,meta:{scopedInternal:true},...access(agent.id),clientMessageId:`scoped:instruction:${attemptId}`});
@@ -163,7 +166,8 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
       return null;
     }
     let action:ScopedControlActionV3;
-    if(item?.expectation==='material')action={version:3,type:'complete',summary:'材料已投递至该事项的独立上下文。'};
+    if(!item&&!next.length&&plan.join==='any')action={version:3,type:'complete',summary:'只读批次已选出有效结果，固定状态核对完成。'};
+    else if(item?.expectation==='material')action={version:3,type:'complete',summary:'材料已投递至该事项的独立上下文。'};
     else {
       release=await enterMember({runId:plan.runId,agentId:agent.id,attemptId,scope:`collaboration:${dispatch.id}`,signal:controller.signal,authorized:()=>bindingAuthorized(binding)});
       assertBindingAuthorized(binding); assertScopedOutput(outputBinding);
@@ -183,6 +187,10 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
       if(item && releaseTask) {if(action.type!=='request_release')fail('SCOPED_RELEASE_REQUIRED');storeReleaseDraft(plan.runId,attemptId,summary);}
       const result=submitCompletionCandidate({runId:plan.runId,dispatchId:dispatch.id,attemptId,agentId:agent.id,action:domain,summary,evidenceRefs:[{kind:'attempt_output',id:attemptId}],exitGuard:{status:'allow_candidate',reasons:[item?.expectation==='material'?'DELIVERY_MATERIAL_VALIDATED':action.type==='acknowledge'?'DELIVERY_ACK_VALIDATED':'EXPLICIT_COMPLETE']},retryAllowed:false});
       if(result.evaluation.status!=='accepted')return fail('SCOPED_COMPLETION_REJECTED');
+      if(dispatch.kind==='fanout'&&dispatch.batchId&&plan.join==='any') {
+        const batch=getBatch(dispatch.batchId)!;
+        if(plan.recoveryVersion!==1||!selectAnyBatchWinner({batchId:batch.id,dispatchId:dispatch.id,expectedGeneration:batch.generation,candidateId:result.candidate.id}).selected)fail('SCOPED_ANY_NOT_SELECTED');
+      }
       const message=post({runId:plan.runId,from:agent.id,to:'user',kind:'agent',messageType:'collaboration_contribution',body:summary,attemptId,...access(agent.id)});
       finishAttempt({attemptId,dispatchId:dispatch.id,status:'completed',action:domain,output:summary,outputMessageId:message.id});
       return {action:action.type==='complete'||action.type==='request_release'?{version:3,type:action.type}:action,candidateId:result.candidate.id,outputMessageId:message.id};

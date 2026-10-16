@@ -10,11 +10,13 @@ export interface ScopedCollaborationContract {
   /** G1 fixtures omit this; only the complete G2 delivery package is executable. */
   deliveryVersion?: 1;
   releaseVersion?: 1;
+  /** Read-only any and attempt-bound crash recovery. Absent on historical G2/G3 runs. */
+  recoveryVersion?: 1;
 }
 /** material only delivers bytes; acknowledged only satisfies receipt; result requires completion acceptance. */
 export type DeliveryExpectation = 'material' | 'acknowledged' | 'result';
 export type ScopedControlActionV3 =
-  | { version: 3; type: 'consult_batch'; items: Array<{ key: string; target: string; payloadRef: string; expectation: DeliveryExpectation }>; join: 'all'; returnProfile: string }
+  | { version: 3; type: 'consult_batch'; items: Array<{ key: string; target: string; payloadRef: string; expectation: DeliveryExpectation }>; join: 'all' | 'any'; returnProfile: string }
   | { version: 3; type: 'acknowledge'; envelopeId: string }
   | { version: 3; type: 'complete'; summary: string }
   | { version: 3; type: 'request_release'; summary: string };
@@ -23,7 +25,7 @@ export interface ScopedDeliveryDraft {
   conversationId: string;
   coordinatorId: string;
   goal: string;
-  join: 'all';
+  join: 'all' | 'any';
   returnProfile: 'status-only-v1';
   maxTokens: number;
   items: Array<{ key: string; target: string; batch: number; material: string; expectation: DeliveryExpectation }>;

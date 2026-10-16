@@ -14,6 +14,7 @@ export function ScopedDeliveryComposer({room,agents,onCreated}:{room:Conversatio
   const members=agents.filter(a=>room.agentIds.includes(a.id)&&(a.execution?.kind??'builtin-llm')==='builtin-llm');
   const [open,setOpen]=useState(false),[goal,setGoal]=useState(''),[coordinator,setCoordinator]=useState(members[0]?.id??'');
   const [items,setItems]=useState<ScopedDeliveryDraft['items']>([{key:'item-1',target:members[1]?.id??members[0]?.id??'',batch:1,material:'',expectation:'result'}]);
+  const [join,setJoin]=useState<ScopedDeliveryDraft['join']>('all');
   const [maxTokens,setMaxTokens]=useState(16000),[preview,setPreview]=useState<ScopedDeliveryPreview|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [runs,setRuns]=useState<ScopedDeliveryStatus[]>([]);
@@ -22,7 +23,7 @@ export function ScopedDeliveryComposer({room,agents,onCreated}:{room:Conversatio
   const reload=async()=>setRuns(await managementRequest<ScopedDeliveryStatus[]>(`${base}/rooms/${encodeURIComponent(room.id)}`));
   useEffect(()=>{if(!open)return;let live=true;const load=()=>managementRequest<ScopedDeliveryStatus[]>(`${base}/rooms/${encodeURIComponent(room.id)}`).then(data=>{if(live)setRuns(data);}).catch(reason=>{if(live)setError(reason instanceof Error?reason.message:'读取失败');});void load();const timer=setInterval(()=>void load(),2500);return()=>{live=false;clearInterval(timer);};},[open,room.id]);
   const update=(index:number,patch:Partial<ScopedDeliveryDraft['items'][number]>)=>{invalidate();setItems(old=>old.map((i,n)=>n===index?{...i,...patch}:i));};
-  async function prepare(){setBusy(true);setError('');try{setPreview(await managementRequest<ScopedDeliveryPreview>(`${base}/preview`,'POST',{conversationId:room.id,coordinatorId:coordinator,goal,items,maxTokens,join:'all',returnProfile:'status-only-v1'}));}catch(reason){setError(reason instanceof Error?reason.message:'预览失败');}finally{setBusy(false);}}
+  async function prepare(){setBusy(true);setError('');try{setPreview(await managementRequest<ScopedDeliveryPreview>(`${base}/preview`,'POST',{conversationId:room.id,coordinatorId:coordinator,goal,items,maxTokens,join,returnProfile:'status-only-v1'}));}catch(reason){setError(reason instanceof Error?reason.message:'预览失败');}finally{setBusy(false);}}
   async function confirm(){if(!preview)return;setBusy(true);setError('');try{await managementRequest(`${base}/confirm`,'POST',{previewId:preview.id,fingerprint:preview.fingerprint,clientKey:clientKey.current});setPreview(null);setGoal('');setItems([{key:'item-1',target:members[1]?.id??members[0]?.id??'',batch:1,material:'',expectation:'result'}]);clientKey.current=crypto.randomUUID();setNotice('已启动独立材料协作，可在下方查看各项状态和私密结果。');await reload();await onCreated();}catch(reason){setError(reason instanceof Error?reason.message:'提交失败');}finally{setBusy(false);}}
   const name=(id:string)=>agents.find(a=>a.id===id)?.name??id;
   return <>
@@ -34,6 +35,8 @@ export function ScopedDeliveryComposer({room,agents,onCreated}:{room:Conversatio
         <fieldset disabled={busy} className="min-w-0 space-y-3">
           <label className="block">组织目标<textarea aria-label="独立材料组织目标" className="input mt-1 w-full" rows={2} maxLength={2000} value={goal} onChange={e=>{invalidate();setGoal(e.target.value);}} placeholder="说明组织目标；不要在这里填写只允许单个成员看到的材料"/></label>
           <label className="block">组织者<select aria-label="独立材料组织者" className="input mt-1" value={coordinator} onChange={e=>{invalidate();setCoordinator(e.target.value);}}>{members.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select></label>
+          <label className="block">批次完成条件<select aria-label="独立材料完成条件" className="input mt-1" value={join} onChange={e=>{invalidate();setJoin(e.target.value as typeof join);}}><option value="all">全部满足后继续</option><option value="any">首个有效结果后继续（只读）</option></select></label>
+          {join==='any'&&<p className="text-xs text-amber-200">只支持第 1 批，每个事项须选择“提交结果”。首个结果验收通过后停止其他项；已发出的请求仍可能计费。不开放文件、原生工具或外部写入。</p>}
           {items.map((item,index)=><fieldset key={index} className="min-w-0 space-y-2 rounded-lg border border-zinc-700 p-3">
             <legend className="px-1 text-xs text-violet-200">材料 {index+1} · {item.key}</legend>
             <div className="grid min-w-0 grid-cols-2 gap-2">
@@ -52,7 +55,7 @@ export function ScopedDeliveryComposer({room,agents,onCreated}:{room:Conversatio
         </fieldset>
         {preview&&<section aria-label="独立材料确认预览" className="space-y-3 rounded-lg border border-violet-500/50 bg-violet-500/5 p-3">
           <h3 className="font-semibold">确认可见范围与顺序</h3><p className="text-xs text-zinc-300">{preview.disclosure}</p>
-          {[1,2].filter(b=>preview.draft.items.some(i=>i.batch===b)).map(b=><div key={b}><strong>第 {b} 批 · 全部满足后继续</strong><ul className="mt-2 space-y-1 text-xs">{preview.draft.items.filter(i=>i.batch===b).map(i=><li key={i.key}>{i.key} → {name(i.target)} · {expectationLabels[i.expectation]} · 正文 {i.material.length} 字符</li>)}</ul></div>)}
+          {[1,2].filter(b=>preview.draft.items.some(i=>i.batch===b)).map(b=><div key={b}><strong>第 {b} 批 · {preview.draft.join==='any'?'首个有效结果后继续（只读）':'全部满足后继续'}</strong><ul className="mt-2 space-y-1 text-xs">{preview.draft.items.filter(i=>i.batch===b).map(i=><li key={i.key}>{i.key} → {name(i.target)} · {expectationLabels[i.expectation]} · 正文 {i.material.length} 字符</li>)}</ul></div>)}
           <p className="text-xs">组织者：{name(preview.draft.coordinatorId)} · 预计派发 {preview.maxDispatches} 次 · 共用输出预算 {preview.draft.maxTokens}</p>
           {preview.costPolicy&&<p className="text-xs text-amber-200">继承房间费用政策：估算上限 {preview.costPolicy.maxCost} {preview.costPolicy.currency}；未知费用{preview.costPolicy.unknownAction==='stop'?'停止派发':`每次预留 ${preview.costPolicy.unknownReserve}`}。估算控制不保证供应商账单硬上限。</p>}
           <button type="button" disabled={busy} className="rounded-lg bg-violet-600 px-3 py-2 text-sm disabled:opacity-40" onClick={()=>void confirm()}>确认授权并执行</button>

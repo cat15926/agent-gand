@@ -1,3 +1,4 @@
+import { recoverScopedAttemptCalls } from '../orchestration/modelCallRecovery.ts';
 import { reserveMember } from '../execution/memberAdmission.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type {
@@ -244,8 +245,8 @@ export function finishAttempt(input: { attemptId: string; dispatchId: string; st
   });
   const attempt = get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', input.attemptId);
   const dispatch = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', input.dispatchId);
-  if (attempt) emit({ type: 'collaboration.attempt.updated', attempt: toAttempt(attempt) });
-  if (dispatch) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch(dispatch) });
+  if (attempt) afterCommit(() => emit({ type: 'collaboration.attempt.updated', attempt: toAttempt(attempt) }));
+  if (dispatch) afterCommit(() => emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch(dispatch) }));
 }
 
 export function setAttemptInputContext(attemptId: string, inputContext: string): void {
@@ -598,14 +599,17 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
       })();
       // Native effects are not replayable ToolExecution calls; phase D owns crash recovery.
       const external = get("SELECT 1 FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.attemptId')=?", item.run_id, item.id);
+      const scoped = get<{record:string}>('SELECT record FROM scoped_delivery_plans WHERE run_id=?',item.run_id);
+      const unknownModel = !!scoped && (recoverScopedAttemptCalls(item.id) || (JSON.parse(scoped.record).recoveryVersion !== 1 && !!get('SELECT 1 FROM orchestration_model_calls WHERE attempt_id=?',item.id)));
       const hasPossibleSideEffect = !!external || ledger.needsAttention || legacySideEffect;
-      if (hasPossibleSideEffect || item.attempt_no >= config.collaboration.maxAttempts) {
+      if(scoped)run("UPDATE execution_member_tickets SET status=?,owner=NULL,finished_at=? WHERE attempt_id=? AND status IN ('active','waiting','interrupted','done')",unknownModel||hasPossibleSideEffect||item.attempt_no>=config.collaboration.maxAttempts?'interrupted':'waiting',now,item.id);
+      if (hasPossibleSideEffect || unknownModel || item.attempt_no >= config.collaboration.maxAttempts) {
         run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
-          hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
+          unknownModel ? 'SCOPED_MODEL_USAGE_UNKNOWN：请求可能已发出，保留预算，未自动重试' : hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
         const observe = () => observeTerminalInterruption(item.dispatch_id, item.id, item.agent_id);
         observeRuntimeState(item.run_id, observe);
       } else {
-        if (resolveRunPolicy(item.run_id).profile === 'execute' && runtimeDurableHoldVersion(item.run_id) !== null) {
+        if (!scoped && resolveRunPolicy(item.run_id).profile === 'execute' && runtimeDurableHoldVersion(item.run_id) !== null) {
           createDurableHold({ runId: item.run_id, sourceDispatchId: item.dispatch_id, sourceAttemptId: item.id,
             holderAgentId: item.agent_id,
             condition: { kind: 'lease_recovery', attemptId: item.id, leaseExpiredAt: item.lease_expires_at ?? now },

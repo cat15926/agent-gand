@@ -458,6 +458,8 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### G4：持久恢复、竞争与费用强化
 
+**已完成（2026-10-16）**：[G4 验收报告](../reports/scoped-collaboration-g4-acceptance-2026-10-16.md)、[恢复契约](../architecture/scoped-collaboration-recovery-v1.md)。已交付单批只读 any、失效 Attempt 的安全恢复、调用/Token/费用关联与跨进程崩溃及竞争矩阵。确定业务失败和未知调用不自动重开，SDK/CLI 与 Coordination 新范围支持留待 G5。
+
 建议提交：`test: harden scoped recovery release races and budgets`，确有实现缺口时配套修复提交。
 
 交付：系统化崩溃注入、Stop/complete/release/wake 竞争测试、适用只读 any、工作组部分失败恢复、费用对账证据。
@@ -527,17 +529,16 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### 12.3 验证脚本及实施状态
 
-G0/G1 脚本已落库；其余为后续阶段拟新增入口，尚不可运行。
+G0–G4 的以下脚本已落库并可运行；真实外部后端和更广泛场景仍由 G5/G6 补齐。
 
 | 脚本 | 内容 |
 |---|---|
 | [verify-scoped-collaboration-baseline.mjs](../../scripts/verify-scoped-collaboration-baseline.mjs) | 已实施：G0 实际调度复现、timer/answer、旧契约保护 |
 | [verify-scoped-collaboration.mjs](../../scripts/verify-scoped-collaboration.mjs) | 已实施：Scope/manifest/来源、版本与迁移准入 |
-| `scripts/verify-independent-delivery.mjs` | 独立项、ACK/结果、整批准入和幂等 |
-| `scripts/verify-control-resume.mjs` | 状态回流、唯一父恢复、元数据边界与非干扰 |
-| `scripts/verify-information-release.mjs` | exact/projection、撤销/过期、漂移和单次消费 |
-| `scripts/verify-scoped-collaboration-recovery.mjs` | 崩溃、Stop、any、预算和副作用 |
-| `scripts/verify-scoped-collaboration-ui.mjs` | 正常创建、发布卡、权限视图、桌面/窄屏与重连 |
+| [verify-scoped-delivery.mjs](../../scripts/verify-scoped-delivery.mjs) | 独立项、ACK/结果、整批准入、幂等、状态回流与唯一父恢复 |
+| [verify-information-release.mjs](../../scripts/verify-information-release.mjs) | exact/projection、撤销/过期、漂移和单次消费 |
+| [verify-scoped-recovery.mjs](../../scripts/verify-scoped-recovery.mjs) | 崩溃、Stop、any、预算和副作用 |
+| [verify-scoped-delivery-ui.mjs](../../scripts/verify-scoped-delivery-ui.mjs)、[verify-information-release-ui.mjs](../../scripts/verify-information-release-ui.mjs) | 正常创建、all/any、发布卡、权限视图、桌面/窄屏与重连 |
 
 G5 增加每个 Driver 的协议用例与真实场景；沿用 R8 预算/时限控制，不把 mock 结果写成供应商实测。
 
@@ -577,7 +578,7 @@ pnpm verify:docs
 
 ### 13.1 迁移
 
-G1 当前清单至 v13；后续迁移从 v14 追加，实际编号以落库前基线为准。既有 migration descriptor/checksum 不得修改。
+G4 当前迁移清单至 v16；后续迁移从 v17 追加，实际编号以落库前基线为准。既有 migration descriptor/checksum 不得修改。
 
 先停止新准入并等待活动工作到安全边界，按[账户备份规范](../architecture/accounts-migration-phase-e4.md)保存数据库、主密钥、认证目录；同时保留适用产物、工作区、部署配置及匹配源码。验证备份完整性，并在隔离位置演练恢复。
 
@@ -615,12 +616,12 @@ G0–G6 不自动承诺迁移任意旧私密 Run。若旧 Run 缺少可验证来
 
 - [x] G0：实际开发/验收基线明确，隔离完整调度复现及旧行为回归落库。
 - [x] G1：Scope、manifest、输入来源、动作版本、能力包和默认权限检查完成。
-- [ ] G2：模型 API 独立材料分批、明确回执和干净父恢复，最小 UI 与基础竞态通过。
-- [ ] G3：确切发布、有限投影、私密汇总、专用批准/撤销/过期闭环通过。
-- [ ] G4：崩溃、Stop、只读 any、未知副作用和费用矩阵通过。
+- [x] G2：模型 API 独立材料分批、明确回执和干净父恢复，最小 UI 与基础竞态通过。
+- [x] G3：确切发布、有限投影、私密汇总、专用批准/撤销/过期闭环通过。
+- [x] G4：崩溃、Stop、只读 any、未知副作用和费用矩阵通过。
 - [ ] G5：每个宣称支持的 SDK/Codex/Coordination 组合分别完成适用验证。
 - [ ] G6：通用场景、正常界面、灰度、兼容排空、文档和证据完成。
 - [ ] 原始消息/文件/证据权限保持原含义；所有新发布可追溯。
 - [ ] 未实现能力及自由文本自动披露边界在 UI、API 和文档中一致。
 
-**下一实施入口：G2。** 接入模型 API 的逐项材料、接收义务、获准状态投影、干净父恢复和最小 UI，完成整包验收后再开放，并保留 G0 的 v2 基线。最终产品验收同时检查协作能继续、信息没有越界、责任没有提前完成，以及重试没有重复副作用。
+**下一实施入口：G5。** 为 Claude SDK、Codex app-server 和 Coordination 分别实现并验证新范围隔离；只开放有证据支持的组合，保留 G0 的 v2 基线。最终产品验收同时检查协作能继续、信息没有越界、责任没有提前完成，以及重试没有重复副作用。

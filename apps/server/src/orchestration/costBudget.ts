@@ -64,7 +64,7 @@ export function costBudgetState(runId: string): CostBudgetState | null {
   return { runId, currency: policy.currency, mode: policy.mode, unknownAction: policy.unknownAction, run: scopeSummary(rows, null, policy.maxCost),
     stages: (frozen?.request.businessContract?.stages ?? []).map(s => scopeSummary(rows, s.id, s.execution?.maxCost ?? null)), inheritedCalls: rows.filter(r => r.source_reservation_id).length };
 }
-export function reserveCost(runId: string, agentId: string, model: string, backend: string, request?: LlmRequest): CostReservationRow | null {
+export function reserveCost(runId: string, agentId: string, model: string, backend: string, request?: LlmRequest, callId?: string): CostReservationRow | null {
   const frozen = getRunOrchestrationSnapshot(runId), policy = runCostPolicy(runId);
   if (!policy) return null;
   if (policy.mode === 'strict') fail('HARD_COST_LIMIT_UNSUPPORTED', '当前后端不能落实供应商账单硬上限');
@@ -87,7 +87,7 @@ export function reserveCost(runId: string, agentId: string, model: string, backe
       if (policy.unknownAction === 'stop' && check.selected.some(r => ['unknown','carried_unknown'].includes(r.status))) fail('COST_RESULT_UNKNOWN', `${check.label}费用尚未完整报告，保留额度并停止新派发`);
       if (check.limit !== undefined && check.selected.reduce((n,r) => n + charged(r), 0) + reserved > units(check.limit)) fail('COST_BUDGET_EXHAUSTED', `${check.label}费用预算不足，停止后续调用；已有未知预留不会释放`);
     }
-    const row: CostReservationRow = { id: randomUUID(), run_id: runId, stage_id: stageId, agent_id: agentId, model, backend, currency: policy.currency, reserved, known: null, status: 'pending', cost_source: null, pricing: price ? JSON.stringify(price) : null, policy_digest: stableDigest(policy), source_reservation_id: null, created_at: new Date().toISOString(), settled_at: null };
+    const row: CostReservationRow = { id: callId ?? randomUUID(), run_id: runId, stage_id: stageId, agent_id: agentId, model, backend, currency: policy.currency, reserved, known: null, status: 'pending', cost_source: null, pricing: price ? JSON.stringify(price) : null, policy_digest: stableDigest(policy), source_reservation_id: null, created_at: new Date().toISOString(), settled_at: null };
     run('INSERT INTO execution_cost_reservations(id,run_id,stage_id,agent_id,model,backend,currency,reserved,status,pricing,policy_digest,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', row.id,runId,stageId,agentId,model,backend,policy.currency,reserved,row.status,row.pricing,row.policy_digest,row.created_at);
     return row;
   });
@@ -111,7 +111,9 @@ export function settleCost(row: CostReservationRow | null, usage?: Parameters<ty
   run("UPDATE execution_cost_reservations SET known=?,cost_source=?,status=?,settled_at=? WHERE id=? AND status='pending'", result.known,result.source,!failed && result.complete ? 'settled' : 'unknown',new Date().toISOString(),row.id);
 }
 /** A host restart cannot prove a pending supplier call was free or unissued. */
-export function recoverCostReservations(): void { run("UPDATE execution_cost_reservations SET status='unknown' WHERE status='pending'"); }
+export function recoverCostReservations(): void { run(`UPDATE execution_cost_reservations SET status='unknown' WHERE status='pending'
+  AND NOT EXISTS (SELECT 1 FROM orchestration_model_calls c JOIN scoped_delivery_plans p ON p.run_id=c.run_id
+    WHERE c.id=execution_cost_reservations.id AND json_extract(p.record,'$.recoveryVersion')=1)` ); }
 export function costCarry(runId: string): CostReservationRow[] {
   const rows = costRows(runId), policy = runCostPolicy(runId);
   if (!policy && rows.length) fail('COST_POLICY_MISSING', '费用账本缺少冻结政策');

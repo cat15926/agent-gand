@@ -1,3 +1,4 @@
+import { recoverScopedAttemptCalls } from '../orchestration/modelCallRecovery.ts';
 import { all, get, run, tx } from '../db/database.ts';
 import { getRun } from '../runs/trace.ts';
 import { acquireDurableLease } from './leases.ts';
@@ -45,7 +46,7 @@ export async function enterMember(input: { runId: string; agentId: string; attem
         WHERE agent_id=? AND t.status IN ('waiting','active') AND (t.status='active' OR r.status!='waiting_for_user') ORDER BY seq LIMIT 1`, input.agentId);
       if (first?.ticket_key !== key) return null;
       let release: () => void;
-      try { release = acquireDurableLease(`member:${input.agentId}`, key, false); }
+      try { release = acquireDurableLease(`member:${input.agentId}`, input.attemptId&&get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',input.runId)?`${key}:attempt:${input.attemptId}`:key, false); }
       catch (error) { if (error instanceof ExecutionError && error.code === 'policy_rejected') return null; throw error; }
       run(`UPDATE execution_member_tickets SET status='active',owner=?,host=?,pid=?,identity=?,started_at=?
         WHERE ticket_key=? AND status='waiting'`, hostOwner.owner, hostOwner.host, hostOwner.pid, hostOwner.identity,
@@ -53,8 +54,8 @@ export async function enterMember(input: { runId: string; agentId: string; attem
       return release;
     });
     if (acquired) return (status = 'done') => {
-      run("UPDATE execution_member_tickets SET status=?,finished_at=? WHERE ticket_key=? AND status='active' AND owner=?",
-        status, status === 'done' ? new Date().toISOString() : null, key, hostOwner.owner);
+      run("UPDATE execution_member_tickets SET status=?,finished_at=? WHERE ticket_key=? AND status='active' AND owner=? AND attempt_id IS ?",
+        status, status === 'done' ? new Date().toISOString() : null, key, hostOwner.owner,input.attemptId??null);
       acquired();
       for (const listener of availabilityListeners) listener(input.agentId);
     };
@@ -82,6 +83,14 @@ export function recoverMemberAdmissions(): void {
       // The member ticket proves this attempt's process is gone. Let the existing lease
       // recovery interrupt it now instead of delaying a known approval boundary for 5 min.
       run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE id=? AND status='running'",new Date().toISOString(),source.attempt_id);
+    }
+    if(get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',item.run_id)) {
+      const attempt=source?.attempt_id?get<{status:string}>('SELECT status FROM collaboration_attempts WHERE id=?',source.attempt_id):null;
+      // Scoped recovery owns replay decisions and must not be blocked by the generic member fence.
+      if(attempt?.status==='running')continue;
+      if(source?.attempt_id)recoverScopedAttemptCalls(source.attempt_id);
+      run("UPDATE execution_member_tickets SET status=?,finished_at=? WHERE seq=?",attempt?.status==='completed'?'done':'interrupted',new Date().toISOString(),item.seq);
+      continue;
     }
     const scope = item.ticket_key.slice(`${item.run_id}:${item.agent_id}:`.length);
     const persisted = get("SELECT id FROM run_checkpoints WHERE run_id=? AND kind='agent_turn' AND phase='completed' AND json_extract(state,'$.executionScopeId')=?", item.run_id, scope);

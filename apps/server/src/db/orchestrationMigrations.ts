@@ -19,6 +19,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 13, name: 'scoped-action-boundary-fingerprint-v1', descriptor: 'runtime-action-commands-boundary-fingerprint;scope-attempt-ledger-output-bound-idempotency-v1' },
   { version: 14, name: 'scoped-delivery-v1', descriptor: 'owner-sealed-preview;immutable-delivery-plan-envelope;all-batches-status-only-return;unique-parent-wake;shared-token-ledger-v1' },
   { version: 15, name: 'scoped-release-v1', descriptor: 'sealed-intake-preview;immutable-source-authorized-aggregate;versioned-private-draft;single-use-policy-grant-record;exact-text-status-projection;registered-release-hold-v1' },
+  { version: 16, name: 'scoped-recovery-v1', descriptor: 'readonly-single-batch-any;atomic-winner-fence;call-id-token-money-binding;attempt-local-crash-reconciliation;known-output-retry-charged;unknown-call-no-replay;member-ticket-attempt-fence' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));

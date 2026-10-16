@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { reconcileModelCallReservations } from './modelCallRecovery.ts';
 import { queueModelCall, startModelCall, finishModelCall, modelCallWaiting } from './modelCalls.ts';
 import { get, run, tx } from '../db/database.ts';
 import type { LlmRequest, LlmResponse, DeltaHandler, LLMProvider } from '../llm/provider.ts';
@@ -19,7 +19,7 @@ function throwIfStopped(runId:string,signal?:AbortSignal):void {
   assertExecutionDeadline(runId);assertBusinessStageDeadline();
 }
 export async function reserveCostWhenReady(runId:string,agentId:string,model:string,backend:string,request?:LlmRequest,signal?:AbortSignal,callId?:string,onWaiting?:()=>void):Promise<CostReservationRow|null> {
-  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
+  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request,callId);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
 }
 
 export function executionPolicy(runId: string) {
@@ -54,7 +54,7 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
 /** Reserve before I/O so concurrent branches cannot spend the same allowance. Unknown calls retain their reservation. */
 export async function budgetedChat(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = '',attemptId?:string,hooks?:{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}): Promise<LlmResponse> {
   const id=queueModelCall(runId,agentId,request.model,'builtin-llm',attemptId);
-  try{const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,delta,agentId)));finishModelCall(id,true);return response;}catch(error){finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
+  try{const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,delta,agentId)));finishModelCall(id,true);return response;}catch(error){reconcileModelCallReservations(id);finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
 }
 async function budgetedChatImpl(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = ''): Promise<LlmResponse> {
   const limit = executionPolicy(runId)?.request.constraints.maxTokens
@@ -70,7 +70,7 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
     if (request.signal?.aborted) throw request.signal.reason ?? new Error('执行已停止');
     const cost = await reserveCostWhenReady(runId, agentId, request.model, 'builtin-llm', request,request.signal,modelCallContext.getStore());
     try { const response = await modelChat(runId, provider, request, delta); settleCost(cost, response.usage); return response; }
-    catch (error) { settleCost(cost, undefined, true); throw error; }
+    catch (error) { reconcileModelCallReservations(modelCallContext.getStore()!); throw error; }
   }
   const desired = Math.max(1, Math.min(...scopes.map(s => s.limit), request.maxTokens ?? 4000));
   let reservation: { id: string; tokens: number; cost: CostReservationRow | null } | undefined;
@@ -89,29 +89,28 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
         available = Math.min(available, remaining);
       }
       if (waiting) {const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'tokens');modelCallHooks.getStore()?.onWaiting?.();return undefined;}
-      const id = randomUUID(), tokens = available, now = new Date().toISOString();
+      const id = modelCallContext.getStore()!, tokens = available, now = new Date().toISOString();
       for (const scope of scopes) {
         if (scope.table === 'business_stage_token_reservations') run('INSERT INTO business_stage_token_reservations(id,run_id,stage_id,reserved,status,created_at) VALUES (?,?,?,?,?,?)', id, runId, stage!.stageId, tokens, 'pending', now);
         else run('INSERT INTO orchestration_token_reservations(id,run_id,reserved,status,created_at) VALUES (?,?,?,?,?)', id, runId, tokens, 'pending', now);
       }
-      const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', { ...request, maxTokens: tokens });
+      const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', { ...request, maxTokens: tokens }, id);
       return { id, tokens, cost };
     });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
     if (!reservation) await new Promise(resolve => setTimeout(resolve, 25));
   }
   try {
     const response = await modelChat(runId, provider, { ...request, maxTokens: reservation.tokens }, delta);
-    settleCost(reservation.cost, response.usage);
+
     const count = response.usage?.tokensOut;
     // Missing usage conservatively consumes the whole reservation.
     const usageKnown = response.usage.outputKnown !== false && Number.isFinite(count) && count >= 0;
     const used = usageKnown ? Math.ceil(count) : reservation.tokens;
-    tx(() => { for (const scope of scopes) run(`UPDATE ${scope.table} SET used=?,status=? WHERE id=? AND status='pending'`, used, usageKnown ? 'settled' : 'unknown', reservation!.id); });
+    tx(() => { settleCost(reservation!.cost, response.usage); for (const scope of scopes) run(`UPDATE ${scope.table} SET used=?,status=? WHERE id=? AND status='pending'`, used, usageKnown ? 'settled' : 'unknown', reservation!.id); });
     if (used > reservation.tokens) throw new Error('模型服务超过所请求的输出预算，停止后续调用');
     return response;
   } catch (error) {
-    settleCost(reservation.cost, undefined, true);
-    tx(() => { for (const scope of scopes) run(`UPDATE ${scope.table} SET status='unknown' WHERE id=? AND status='pending'`, reservation!.id); });
+    reconcileModelCallReservations(reservation.id);
     throw error;
   }
 }

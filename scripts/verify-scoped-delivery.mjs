@@ -106,12 +106,12 @@ try{
   commitRunTerminal({runId:stopped.id,status:'cancelled',disposition:'cancelled',source:'g2-test',userMessageStatus:'cancelled',prepare:()=>({reasonCodes:['USER_STOP']})});store.cancelCollaborationRun(stopped.id);const stopCount=store.listDispatches(stopped.id).length;release();await new Promise(r=>setTimeout(r,100));
   assert.equal(trace.getRun(stopped.id).status,'cancelled');assert.equal(store.listDispatches(stopped.id).length,stopCount);assert.equal(db.get("SELECT count(*) n FROM messages WHERE run_id=? AND body LIKE 'PRIVATE_RESULT_%'",stopped.id).n,0);cases.push('Stop fences late result and parent wake');
   const unknown=await execute(draft([['aa',1,'result']]),{unknown:true});assert.equal(trace.getRun(unknown.id).status,'failed');assert.equal(db.get("SELECT count(*) n FROM orchestration_token_reservations WHERE run_id=? AND status='unknown'",unknown.id).n,1);assert.equal(calls.filter(c=>c.runId===unknown.id&&c.agentId==='aa').length,1);cases.push('unknown output usage retains reservation and blocks automatic replay');
-  assert.throws(()=>delivery.previewScopedDelivery({...draft(),join:'any'},'owner'),/all/);
+  assert.throws(()=>delivery.previewScopedDelivery({...draft(),join:'any'},'owner'),/单批次/);
   assert.throws(()=>delivery.previewScopedDelivery({...draft(),returnProfile:'publish-body'},'owner'),/all/);
   assert.throws(()=>delivery.previewScopedDelivery(draft([['aa',1,'result'],['aa',1,'result']]),'owner'),/同批/);
   assert.throws(()=>runner.parseScopedControlCall(tool('agent.complete',{summary:'收到'}),{version:3,type:'complete',summary:''}),/RESULT_REQUIRED/);
   assert.throws(()=>runner.parseScopedControlCall(tool('agent.acknowledge',{envelopeId:'wrong'}),{version:3,type:'acknowledge',envelopeId:'approved'}),/ACK_MISMATCH/);
-  assert.throws(()=>runner.parseScopedControlCall(tool('agent.consult',{targets:['aa']}),runner.plannedBatchAction(delivery.getDeliveryPlan(first.id).items)),/ACTION_INVALID|PLAN_MISMATCH/);cases.push('reject any, release, duplicate member and v2 fallback');
+  assert.throws(()=>runner.parseScopedControlCall(tool('agent.consult',{targets:['aa']}),runner.plannedBatchAction(delivery.getDeliveryPlan(first.id).items)),/ACTION_INVALID|PLAN_MISMATCH/);cases.push('reject multibatch any, release, duplicate member and v2 fallback');
   const original=db.get('SELECT definition FROM agents WHERE id=?','bb').definition;
   db.run('UPDATE agents SET definition=? WHERE id=?',JSON.stringify({...JSON.parse(original),execution:{kind:'external',driver:'claude-sdk',platformTools:[]}}),'bb');
   assert.throws(()=>delivery.previewScopedDelivery(draft(),'owner'),/SDK/);db.run('UPDATE agents SET definition=? WHERE id=?',original,'bb');

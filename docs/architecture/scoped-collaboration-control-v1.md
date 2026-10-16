@@ -2,7 +2,7 @@
 
 状态：已实现，2026-10-14；数据库迁移 v14。对应[实施指导](../plans/scoped-collaboration-implementation-guide.md)与[G2 验收报告](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)。
 
-G3 已在独立 Owner 授权入口开放文字汇总与发布，详见[发布契约](scoped-information-release-v1.md)。下文 G2 Run 的范围与限制仍保持。
+G3 已在独立 Owner 授权入口开放文字汇总与发布，详见[发布契约](scoped-information-release-v1.md)。下文记录 G2 基线；G4 新增单批只读 any 和 Attempt 恢复，差异以[恢复契约](scoped-collaboration-recovery-v1.md)为准。
 
 ## 1. 产品入口与适用范围
 
@@ -51,7 +51,7 @@ v3 协议经严格解析后显式映射到责任引擎既有的内部 v2 动作�
 
 模型 API 不承诺供应商账单硬上限，因此 strict 费用模式在预览拒绝；要求未知价格停止时，所有实际调用成员必须有完整价格。未知用量保留占额并阻止自动重放。该版本不允许通过预算修订或跨 Run 后继修改冻结计划，需要重新预览新任务。
 
-停止后旧 Attempt、迟到响应和父唤醒均受 Run 状态、授权、lease/代际及截止时间检查约束。初始提交后未派发、批次提交后未执行、子项结束后未唤醒的恢复使用现有调度器和唯一命令账本。G4 将继续补充系统化跨进程崩溃与竞争矩阵。
+停止后旧 Attempt、迟到响应和父唤醒均受 Run 状态、授权、lease/代际及截止时间检查约束。初始提交后未派发、批次提交后未执行、子项结束后未唤醒的恢复使用现有调度器和唯一命令账本。G4 已补齐跨进程 SIGKILL、停止/发布/唤醒竞争和预算对账矩阵，见[恢复契约](scoped-collaboration-recovery-v1.md)。
 
 ## 5. 存储与兼容
 

@@ -91,6 +91,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
   }
   const scoped = f?.scopedCollaboration;
+  if (scoped?.recoveryVersion !== undefined && (scoped.recoveryVersion !== 1 || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped recovery version');
   if (scoped?.releaseVersion !== undefined && (scoped.releaseVersion !== 1 || scoped.capabilityPackage !== 'scoped-release-v1' || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped release version');
   if (scoped?.deliveryVersion !== undefined && scoped.deliveryVersion !== 1) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped delivery version');
   if (scoped !== undefined || f?.controlActionVersion === 3 || contract.executionPolicy?.toolApiVersion === 3) {

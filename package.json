@@ -125,6 +125,7 @@
     "verify:scoped-delivery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery.mjs",
     "verify:scoped-delivery-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery-ui.mjs",
     "verify:information-release": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release.mjs",
+    "verify:scoped-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-recovery.mjs",
     "verify:information-release-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release-ui.mjs"
   },
   "devDependencies": {

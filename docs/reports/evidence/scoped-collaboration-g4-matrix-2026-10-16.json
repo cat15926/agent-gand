@@ -1,0 +1,242 @@
+{
+  "passed": 25,
+  "cases": [
+    "batch_before: atomic batch rollback/commit and unique parent",
+    "batch_after: atomic batch rollback/commit and unique parent",
+    "claim: partial recovery preserves successful sibling and accounts every invocation",
+    "reserved: partial recovery preserves successful sibling and accounts every invocation",
+    "issued: partial recovery preserves successful sibling and accounts every invocation",
+    "output: partial recovery preserves successful sibling and accounts every invocation",
+    "complete_before: partial recovery preserves successful sibling and accounts every invocation",
+    "complete_after: partial recovery preserves successful sibling and accounts every invocation",
+    "reconcile_before: status projection and parent resume are atomic",
+    "reconcile_after: status projection and parent resume are atomic",
+    "recover one expired worker without changing a live sibling reservation",
+    "cross-process readonly any: one accepted winner; late loser has no publishable output",
+    "same-process any cancellation retains unknown loser cost; deterministic control needs no new model call",
+    "any exhausted: failed join cannot become a successful parent",
+    "cross-process Stop/complete fence",
+    "unknown external write is retained for attention and never replayed",
+    "publish_before: grant, message, publication record and wake event commit together",
+    "publish_after: grant, message, publication record and wake event commit together",
+    "hold_claim: expired hold claim and competing wakes yield one resume",
+    "wake_before: expired hold claim and competing wakes yield one resume",
+    "wake_after: expired hold claim and competing wakes yield one resume",
+    "cross-process publish/publish: serialized authorization consumption",
+    "cross-process publish/stop: serialized authorization consumption",
+    "cross-process publish/revoke: serialized authorization consumption",
+    "cross-process Stop/wake: no post-terminal dispatch; committed publication remains"
+  ],
+  "killedWorkers": 16,
+  "concurrentWorkers": 22,
+  "networkAttempts": 0,
+  "costs": [
+    {
+      "runId": "84171f64-2273-40a9-ab20-4e7e5a60b7f5",
+      "calls": 5,
+      "issued": 5,
+      "settled": 5,
+      "unknown": 0,
+      "chargedCostUsd": 9.5e-05,
+      "chargedTokens": 40
+    },
+    {
+      "runId": "cff3dfc1-235f-4435-b8e8-3539e982c3ac",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "331db8db-2ede-4d23-9288-74f64f880b01",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "bf1371fc-b577-4801-a7f8-88d81038863b",
+      "calls": 5,
+      "issued": 4,
+      "settled": 5,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "5b17747f-28ea-4b0f-bc56-96a75806cb0b",
+      "calls": 3,
+      "issued": 3,
+      "settled": 2,
+      "unknown": 1,
+      "chargedCostUsd": 0.009986,
+      "chargedTokens": 4112
+    },
+    {
+      "runId": "b589c9d7-bb86-4f8e-a6f1-8a928d970844",
+      "calls": 5,
+      "issued": 5,
+      "settled": 5,
+      "unknown": 0,
+      "chargedCostUsd": 9.5e-05,
+      "chargedTokens": 40
+    },
+    {
+      "runId": "b89ee2db-d7bb-427f-9d29-8e56894e0fcc",
+      "calls": 5,
+      "issued": 5,
+      "settled": 5,
+      "unknown": 0,
+      "chargedCostUsd": 9.5e-05,
+      "chargedTokens": 40
+    },
+    {
+      "runId": "c34cdc22-a838-43b8-84e8-aab440531dab",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "dc8618ec-fe8a-4dc5-9d8f-9ce7caa5163a",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "a7ca59d7-30b5-4f28-a9e0-6ae331fb4d1b",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "891ed724-16ca-4b56-b8ec-3a6415c24995",
+      "calls": 4,
+      "issued": 4,
+      "settled": 4,
+      "unknown": 0,
+      "chargedCostUsd": 7.6e-05,
+      "chargedTokens": 32
+    },
+    {
+      "runId": "2cfc0d06-7de3-43f7-998a-e3b28926d981",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "7d83ad6c-a8f6-4f22-b842-f35b76015914",
+      "calls": 3,
+      "issued": 3,
+      "settled": 2,
+      "unknown": 1,
+      "chargedCostUsd": 0.009986,
+      "chargedTokens": 4112
+    },
+    {
+      "runId": "cd35d767-6899-450f-8023-54de3c1af205",
+      "calls": 1,
+      "issued": 1,
+      "settled": 1,
+      "unknown": 0,
+      "chargedCostUsd": 1.9e-05,
+      "chargedTokens": 8
+    },
+    {
+      "runId": "6b088288-3745-43c8-9f18-5773510bdf65",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "e73adc62-2786-431e-9e91-9141dc2f1501",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "83adc207-8807-4f65-8efd-e18665e14763",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "a9ac793d-9b1e-4a6e-8a59-965043d9b27f",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "fea7cc4a-68f6-4ede-afb2-6af874db4336",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "b8d7a0fb-5c92-47f7-9ade-eb45af7404c0",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "05158d39-aa1b-40fa-a5c8-53b01d200656",
+      "calls": 2,
+      "issued": 2,
+      "settled": 2,
+      "unknown": 0,
+      "chargedCostUsd": 3.8e-05,
+      "chargedTokens": 16
+    },
+    {
+      "runId": "8c158d9b-44c7-4d3f-9a66-fc0678d4363f",
+      "calls": 3,
+      "issued": 3,
+      "settled": 3,
+      "unknown": 0,
+      "chargedCostUsd": 5.7e-05,
+      "chargedTokens": 24
+    },
+    {
+      "runId": "0152b696-c2b2-43c1-82e2-df703071f4e2",
+      "calls": 2,
+      "issued": 2,
+      "settled": 2,
+      "unknown": 0,
+      "chargedCostUsd": 3.8e-05,
+      "chargedTokens": 16
+    }
+  ]
+}
