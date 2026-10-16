@@ -6,6 +6,7 @@ import { runSourceAccess, attemptAccess } from '../messaging/access.ts';
 import { getManagedArtifact, readManagedArtifact } from '../artifacts/store.ts';
 import { loadRuntimeContract, resolveRunPolicy } from './runPolicy.ts';
 import { persistRuntimeContextAssembly } from './context.ts';
+import { captureExecutionBinding, assertBindingAuthorized } from '../execution/authority.ts';
 
 export class ScopedCollaborationError extends Error {
   readonly retryable = false;
@@ -23,6 +24,7 @@ function access(value: MessageAccess): MessageAccess {
 function contract(runId: string) {
   const c = loadRuntimeContract(runId);
   resolveRunPolicy(runId);
+  if (c?.features?.coordinationScopes === 1) return c;
   if (!c?.features?.scopedCollaboration || c.features.controlActionVersion !== 3 || c.executionPolicy?.toolApiVersion !== 3) fail('SCOPE_BINDING_INVALID');
   return c!;
 }
@@ -88,8 +90,8 @@ function assertScope(scope: ExecutionScopeV1) {
   const custody = get<{ holder_agent_id: string; generation: number; state: string }>('SELECT holder_agent_id,generation,state FROM runtime_custody WHERE subject_id=?', scope.subjectId);
   if (!subject || subject.status !== 'active' || custody?.holder_agent_id !== scope.agentId
     || custody.generation !== scope.recoveryGeneration || custody.state !== 'owned') fail('SCOPE_BINDING_INVALID');
-  if (c.features!.scopedCollaboration!.policyRevision !== scope.policyRevision) fail('SCOPE_BINDING_INVALID');
-  if (c.features!.scopedCollaboration!.deliveryVersion === 1) {
+  if ((c.features!.scopedCollaboration?.policyRevision ?? 1) !== scope.policyRevision) fail('SCOPE_BINDING_INVALID');
+  if (c.features!.scopedCollaboration?.deliveryVersion === 1) {
     const deadline = get<{ deadline: string }>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",scope.runId)?.deadline;
     if (!deadline || Date.now() >= Date.parse(deadline)) fail('SCOPE_BINDING_INVALID');
   }
@@ -100,7 +102,7 @@ export function createExecutionScope(input: {
   objective: ScopedSourceRef; inputs: ScopedSourceRef[]; dynamicInputs?: ScopedSourceRef[]; allowedTools?: string[];
 }): ExecutionScopeV1 {
   return tx(() => {
-    const c = contract(input.runId).features!.scopedCollaboration!;
+    const c = contract(input.runId).features!.scopedCollaboration ?? { policyRevision:1, capabilityPackage:'scoped-control-v1' as const };
     if (!['control', 'content'].includes(input.kind)) return fail('SCOPE_BINDING_INVALID');
     const id = randomUUID(), manifestId = randomUUID();
     const scope: ExecutionScopeV1 = { version: 1, id, runId: input.runId, subjectId: input.subjectId,
@@ -128,13 +130,21 @@ function bound(input: ScopedAttemptBinding, requireBound = true) {
   const scope = JSON.parse(row.record) as ExecutionScopeV1;
   if (scope.agentId !== input.agentId) return fail('SCOPE_BINDING_INVALID');
   assertScope(scope);
-  const attempt = get<{ subject_id: string; expected_generation: number; status: string; lease_expires_at: string }>(`SELECT s.subject_id,
+  let attempt = get<{ subject_id: string; expected_generation: number; status: string; lease_expires_at: string }>(`SELECT s.subject_id,
     CASE WHEN json_extract(c.payload,'$.features.scopedCollaboration.deliveryVersion')=1
       THEN (SELECT generation FROM runtime_custody_events WHERE source_event_id='claim:' || a.id)
       ELSE s.expected_generation END expected_generation,a.status,a.lease_expires_at
     FROM collaboration_attempts a JOIN runtime_dispatch_subjects s ON s.dispatch_id=a.dispatch_id
     JOIN runtime_contracts c ON c.run_id=a.run_id
     WHERE a.id=? AND a.run_id=? AND a.agent_id=?`, input.attemptId, input.runId, input.agentId);
+  if (!attempt && contract(input.runId).features?.coordinationScopes === 1) {
+    try {
+      const authority = captureExecutionBinding(input.runId,input.agentId,input.attemptId);
+      assertBindingAuthorized(authority);
+      if (authority.origin !== 'coordination_step_attempt') return fail('SCOPE_BINDING_INVALID');
+      attempt = { subject_id:authority.subjectId, expected_generation:authority.generation, status:'running', lease_expires_at:authority.leaseExpiresAt };
+    } catch { return fail('SCOPE_BINDING_INVALID'); }
+  }
   if (!attempt || attempt.subject_id !== scope.subjectId || attempt.expected_generation !== scope.recoveryGeneration
     || attempt.status !== 'running' || !attempt.lease_expires_at || !Number.isFinite(Date.parse(attempt.lease_expires_at))
     || Date.parse(attempt.lease_expires_at) <= Date.now()) return fail('SCOPE_BINDING_INVALID');
@@ -221,4 +231,11 @@ export function scopedSessionBoundary(input: ScopedAttemptBinding) {
   return { scopeId: scope.id, manifestId: manifest.id, manifestRevision: manifest.revision, manifestSha256: manifest.sha256,
     policyRevision: scope.policyRevision, recoveryGeneration: scope.recoveryGeneration,
     sessionBoundaryId: scope.sessionBoundaryId, resumeAllowed: false as const };
+}
+
+/** Check both declaration and invocation; a mutable role tool list grants no Scope authority. */
+export function assertScopedTool(input: ScopedAttemptBinding, name: string): void {
+  const { scope, manifest } = bound(input);
+  if (!manifest.allowedTools.includes(name)) fail('SCOPE_NOT_READABLE');
+  assertScopedOutput({ ...input, ledgerRevision: inputLedgerRevision(input.attemptId), outputAccess: scope.defaultOutputAccess });
 }

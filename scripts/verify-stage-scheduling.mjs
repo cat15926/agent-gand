@@ -81,7 +81,45 @@ try {
   await waitFor(()=>schedulingState(nq.run.id).steps.some(s=>s.waitingReason==='cost'),'native budget wait');coordination.requestCoordinationPause(nq.run.id);await nqOperation;assert.equal(trace.getRun(nq.run.id).status,'waiting_for_user');assert.equal(schedulingState(nq.run.id).nativeInvocations,1);await applyRunAction(nq.run.id,'resume');await waitFor(()=>business.getBusinessState(nq.run.id).stages[0].execution.canAccept,'native queue resume');assert.equal(schedulingState(nq.run.id).nativeInvocations,2);
   // Owner-only telemetry must never expose member objectives in the response or mutate execution.
   const host={host:'127.0.0.1:43221'},url=`/api/accounts/business/${comparison.run.id}/scheduling`;assert.equal((await app.inject({method:'GET',url,headers:host})).statusCode,401);const session=await app.inject({method:'POST',url:'/api/accounts/session',headers:{...host,'x-gand-bootstrap':'1'}}),auth={...host,cookie:session.headers['set-cookie'].split(';')[0],'x-gand-csrf':session.json().csrfToken};const telemetry=await app.inject({method:'GET',url,headers:auth});assert.equal(telemetry.statusCode,200);assert.equal(telemetry.json().apiRequests,3);assert.doesNotMatch(telemetry.body,/TASK_AA_SECRET/);assert.equal(telemetry.headers['cache-control'],'no-store');
+  // G5: the separately admitted tool-free static graph uses the shared Scope ledger.
+  for(const id of ['aa','bb','cc','jj']){const role=registry.getAnyAgent(id);registry.updateAgent(id,{...role,tools:[]},role.version);}
+  behavior=async()=>{};
+  const commonScope=await seed(contract({ids:['aa','bb']}));
+  assert.equal(JSON.parse(db.get('SELECT payload FROM runtime_contracts WHERE run_id=?',commonScope.run.id).payload).features.coordinationScopes,1);
+  await coordination.runCoordinationPlan(commonScope.run,'UNLISTED_ROOM_HISTORY_MUST_NOT_ENTER');
+  assert.equal(db.get('SELECT COUNT(*) n FROM runtime_execution_scopes WHERE run_id=?',commonScope.run.id).n,3);
+  assert.ok(calls.slice(-3).every(c=>!c.text.includes('UNLISTED_ROOM_HISTORY_MUST_NOT_ENTER')));
+  assert.equal(trace.getRun(commonScope.run.id).status,'waiting_for_user');
+  accept(commonScope.run.id);await coordination.resumeCoordinationRun(commonScope.run.id);
+  const {previewPrivateAggregate}=await import('../apps/server/src/collaboration/informationRelease.ts');
+  const releasePreview=previewPrivateAggregate({sourceRunId:commonScope.run.id,itemKeys:['stage-1-work-1'],aggregatorId:'jj',instruction:'汇总已授权的成员结果',maxTokens:2048},'g5-owner');
+  assert.equal(releasePreview.sources.length,1);assert.match(releasePreview.sources[0].body,/RESULT_AA_SECRET/);
+  const privateContract=contract({scoped:true,dependent:true});privateContract.stages[0].execution.assignments[0].audience.push('observer');
+  const privateCommon=await seed(privateContract);try{await coordination.runCoordinationPlan(privateCommon.run,privateCommon.run.goal);}catch(error){throw new Error(error.message+' '+JSON.stringify(db.all('SELECT step_id,error FROM coordination_step_states WHERE run_id=?',privateCommon.run.id)));}
+  assert.equal(db.get('SELECT COUNT(*) n FROM runtime_execution_scopes WHERE run_id=?',privateCommon.run.id).n,4);
+  assert.doesNotMatch(JSON.stringify(inbox.listByConversation(privateCommon.run.conversationId,'observer')),/TASK_BB_SECRET|RESULT_BB_SECRET|JOIN_ONLY_SECRET/);
+  // Checkpoint admission precedes checkpoint persistence. A tool-free rework must retain
+  // the checkpoint-aware R7 path, including the independent result carried from its source.
+  const checkpointSource=await seed(contract({ids:['aa','bb']}));
+  await coordination.runCoordinationPlan(checkpointSource.run,checkpointSource.run.goal);
+  const checkpointProof=business.listBusinessEvidence(checkpointSource.run.id).at(-1).ref;
+  const checkpointReport=command(checkpointSource.run.id,{action:'report',stageId:'analysis',kind:'delivery',note:'无工具汇合交付',evidence:[{deliverableId:'result',ref:checkpointProof}]});
+  command(checkpointSource.run.id,{action:'decide',stageId:'analysis',reportId:checkpointReport.stages[0].report.id,verdict:'reject',checkedCriteria:[],reason:'B 的依据需要重做'});
+  const checkpointInput={stageId:'analysis',reportId:checkpointReport.stages[0].report.id,expectedVersion:business.getBusinessState(checkpointSource.run.id).version,instruction:'仅重做 B 和汇合，保留 A 的结果。',selectedAgentIds:['bb']};
+  const checkpointPreview=await previewBusinessRework(checkpointSource.run.id,checkpointInput,true);
+  const checkpointNext=submitBusinessRework(checkpointSource.run.id,{...checkpointInput,previewId:checkpointPreview.preview.previewId,orchestrationFingerprint:checkpointPreview.preview.fingerprint},true);
+  assert.equal(JSON.parse(db.get('SELECT payload FROM runtime_contracts WHERE run_id=?',checkpointNext.run.id).payload).features.coordinationScopes,undefined);
+  const checkpointCalls=calls.length;
+  await coordination.runCoordinationPlan(checkpointNext.run,checkpointNext.run.goal);
+  assert.equal(calls.length,checkpointCalls+2);
+  assert.match(calls.at(-1).text,/RESULT_AA_SECRET/);
+  assert.equal(db.get('SELECT COUNT(*) n FROM runtime_execution_scopes WHERE run_id=?',checkpointNext.run.id).n,0);
+  const drift=await seed(contract({ids:['aa','bb']}));
+  behavior=async actor=>{if(actor==='jj')db.run("UPDATE messages SET body='changed original input' WHERE run_id=? AND from_agent='aa' AND kind='agent'",drift.run.id);};
+  await assert.rejects(()=>coordination.runCoordinationPlan(drift.run,drift.run.goal));
+  assert.equal(inbox.listByRun(drift.run.id).filter(m=>m.from==='jj'&&m.kind==='agent').length,0,'late output must not escape changed input scope');
+  behavior=async()=>{};
   const {ORCHESTRATION_MIGRATIONS}=await import('../apps/server/src/db/orchestrationMigrations.ts');
   assert.equal(db.get('SELECT MAX(version)n FROM orchestration_schema_migrations').n,ORCHESTRATION_MIGRATIONS.at(-1).version);
-  console.log(JSON.stringify({passed:true,kernel:process.env.COORDINATION_RUNTIME_KERNEL,referenceModelRoutedCalls:baselineCalls,explicitStageCalls:3,checks:['scope-isolated objectives/results/files/evidence','immediate dependent refill and explicit selected-source all join','zero-model receipts/acceptance/gates','cost/token queue, unknown usage fence and accurate admission telemetry','failure/pause/cancel and budget-queue pause convergence','actual local SDK/Codex scope-bound cold sessions','Owner/no-store telemetry','current migration including stage scheduling'],realSupplierRequests:0}));
+  console.log(JSON.stringify({passed:true,kernel:process.env.COORDINATION_RUNTIME_KERNEL,referenceModelRoutedCalls:baselineCalls,explicitStageCalls:3,checks:['scope-isolated objectives/results/files/evidence','immediate dependent refill and explicit selected-source all join','zero-model receipts/acceptance/gates','cost/token queue, unknown usage fence and accurate admission telemetry','failure/pause/cancel and budget-queue pause convergence','actual local SDK/Codex scope-bound cold sessions','Owner/no-store telemetry','current migration including stage scheduling','G5 common Scope/ledger and room-history exclusion','G5 source-drift output fence and authorized release intake'],realSupplierRequests:0}));
 }finally{await app.close();db.db.close();await rm(root,{recursive:true,force:true});}

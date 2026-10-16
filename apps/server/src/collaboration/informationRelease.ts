@@ -8,6 +8,7 @@ import { getConversation } from '../conversations/service.ts';
 import { getRun } from '../runs/trace.ts';
 import { post } from '../messaging/inbox.ts';
 import { compileScopedSource } from '../runtime/scopedCollaboration.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { registerRuntimeExternalEventReceiver, registeredRuntimeExternalEventCondition, recordRegisteredRuntimeExternalEvent } from '../runtime/holds.ts';
 import { confirmScopedDelivery, getDeliveryPlan, previewScopedDelivery, scopedDeliveryStatus } from './scopedDelivery.ts';
 
@@ -86,10 +87,21 @@ export function previewPrivateAggregate(value:unknown,owner:string):PrivateAggre
   const v=object(value);assertFields(v,['sourceRunId','itemKeys','aggregatorId','instruction','maxTokens']);
   const sourceRunId=text(v.sourceRunId,100),aggregatorId=text(v.aggregatorId,100),instruction=text(v.instruction,2000);
   const task=getRun(sourceRunId),plan=getDeliveryPlan(sourceRunId);
-  if(!task||task.status!=='completed'||!plan||releaseWorkflow(sourceRunId))fail('RELEASE_SOURCE_INVALID','请选择已完成的独立材料任务');
+  const coordination=loadRuntimeContract(sourceRunId)?.features?.coordinationScopes===1;
+  if(!task||task.status!=='completed'||(!plan&&!coordination)||releaseWorkflow(sourceRunId))fail('RELEASE_SOURCE_INVALID','请选择已完成且具有输入账本的独立材料或 Coordination 任务');
   if(!Array.isArray(v.itemKeys)||!v.itemKeys.length||v.itemKeys.length>6||v.itemKeys.some(k=>typeof k!=='string')||new Set(v.itemKeys).size!==v.itemKeys.length)throw new AccountError(400,'请选择不重复的结果项');
   const itemKeys=v.itemKeys as string[];
   const sources=itemKeys.map(key=>{
+    if(coordination) {
+      const candidate=get<{id:string;message_id:string}>(`SELECT a.id,m.id message_id FROM coordination_step_attempts a
+        JOIN coordination_plans p ON p.id=a.plan_id AND p.revision=a.revision
+        JOIN coordination_step_states s ON s.plan_id=a.plan_id AND s.revision=a.revision AND s.step_id=a.step_id AND s.attempt_no=a.attempt_no
+        JOIN messages m ON m.run_id=a.run_id AND m.client_message_id=a.idempotency_key AND m.kind='agent'
+        JOIN runtime_scope_attempts b ON b.attempt_id=a.id
+        WHERE a.run_id=? AND a.step_id=? AND a.status='completed' AND s.status='completed'`,sourceRunId,key);
+      if(!candidate)fail('RELEASE_SOURCE_INVALID','Coordination 结果尚未完成或缺少范围输入账本');
+      return {key,ref:compileScopedSource(sourceRunId,'message',candidate!.message_id),attemptId:candidate!.id,...ledgerSnapshot(candidate!.id)};
+    }
     if(!plan!.items.some(i=>i.key===key&&i.expectation==='result'))fail('RELEASE_SOURCE_INVALID','只能选择提交结果的事项');
     const d=get<{id:string;output_message_id:string}>(`SELECT d.id,d.output_message_id FROM scoped_delivery_envelopes e JOIN collaboration_dispatches d ON d.id=e.dispatch_id WHERE e.run_id=? AND e.item_key=? AND d.status='completed'`,sourceRunId,key);
     const attempt=get<{id:string}>('SELECT id FROM collaboration_attempts WHERE dispatch_id=? AND status=\'completed\' ORDER BY rowid DESC LIMIT 1',d?.id);

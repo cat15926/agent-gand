@@ -25,12 +25,20 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
     allowedTools: input.bridge?.toolNames.map((name) => `mcp__agent_gand__${name}`) ?? [], disallowedTools: input.bridge ? [] : ['mcp__*'], permissionMode: 'default',
     settingSources: [], mcpServers: input.bridge ? { agent_gand: { command: input.bridge.command, args: input.bridge.args, env: { ...cleanEnvironment() as Record<string, string>, ...Object.fromEntries(protectedEnvironmentNames.map((name) => [name, ''])), ...input.bridge.env } } } : {}, strictMcpConfig: true, plugins: [],
     env: { ...process.env, ENABLE_TOOL_SEARCH: 'false', ...(input.controlOnly ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.correctionMaxTokens ?? 2048) } : {}) },
-    ...(input.controlOnly ? { maxTurns: 2 } : {}),
+    ...(input.controlOnly || input.session?.ephemeral ? { maxTurns: 2 } : {}),
     ...(input.connectionTest ? { thinking: { type: 'disabled' as const }, effort: 'low' as const, maxTurns: 1 } : {}),
-    settings: { syncClaudeAiSkills: false, syncClaudeAiPlugins: false, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] } },
-    includePartialMessages: true, persistSession: !!input.session,
+    settings: { ...(input.session?.ephemeral ? { autoMemoryEnabled:false, claudeMdExcludes:['**'] } : {}), syncClaudeAiSkills: false, syncClaudeAiPlugins: false, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] } },
+    includePartialMessages: true, persistSession: !!input.session && !input.session.ephemeral,
     ...(input.session?.id ? input.session.resume ? { resume: input.session.id } : { sessionId: input.session.id } : {}),
-    hooks: { PreToolUse: [{ hooks: [pre], timeout: 86400 }] },
+    hooks: { PreToolUse: [{ hooks: [pre], timeout: 86400 }],
+      ...(input.session?.ephemeral && input.bridge ? { PostToolUse: [{ hooks: [async (event) => {
+        // Scoped native turns expose only one control tool. End at its return,
+        // before another model request, allowing the SDK to emit final usage.
+        if (event.hook_event_name === 'PostToolUse' && input.bridge!.toolNames.some(name => event.tool_name === `mcp__agent_gand__${name}`))
+          return { continue:false, stopReason:'平台控制动作已提交，本回合结束。' };
+        return {};
+      }] }] } : {}),
+    },
     canUseTool: async () => ({ behavior: 'deny', message: '权限必须由平台工具前检查裁定' }),
     sandbox: { enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: false, allowUnsandboxedCommands: false,
       filesystem: { denyRead: [config.accounts.privateDir], allowWrite: [input.cwd], denyWrite: [input.cwd + '/.git', input.cwd + '/.claude', input.cwd + '/.codex', input.cwd + '/.agents', '/tmp', ...(process.env.TMPDIR ? [process.env.TMPDIR] : [])] },

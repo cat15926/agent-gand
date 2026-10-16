@@ -153,6 +153,8 @@ export interface AgentTurnOptions {
   modelAdmissionHooks?: {onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void};
   /** Private context allows only scoped platform file tools and Runtime controls. */
   privateContext?: boolean;
+  /** Trusted v3 Scope binding; never supplied by model or request payload. */
+  scopedNative?: import('../execution/scopedNative.ts').ScopedNativeEnvironment;
   recoveryFilesOnly?:boolean;
   executionSignal?: AbortSignal;
   admissionTiming?: { queuedAt: string; memberAcquiredAt?: string; workspaceReadyAt?: string };

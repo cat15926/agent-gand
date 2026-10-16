@@ -20,9 +20,28 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 14, name: 'scoped-delivery-v1', descriptor: 'owner-sealed-preview;immutable-delivery-plan-envelope;all-batches-status-only-return;unique-parent-wake;shared-token-ledger-v1' },
   { version: 15, name: 'scoped-release-v1', descriptor: 'sealed-intake-preview;immutable-source-authorized-aggregate;versioned-private-draft;single-use-policy-grant-record;exact-text-status-projection;registered-release-hold-v1' },
   { version: 16, name: 'scoped-recovery-v1', descriptor: 'readonly-single-batch-any;atomic-winner-fence;call-id-token-money-binding;attempt-local-crash-reconciliation;known-output-retry-charged;unknown-call-no-replay;member-ticket-attempt-fence' },
+  { version: 17, name: 'scoped-native-coordination-v1', descriptor: 'polymorphic-scope-attempt-binding;native-cold-home-workspace-v1;ephemeral-native-memory;scope-tool-provenance;coordination-static-scope-adapter-v1;verified-combination-admission' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
+
+/** Preserve every historical byte while removing the Collaboration-only foreign key.
+ * schema.sql installs the shared Attempt authority trigger before any worker starts. */
+export function migrateScopedAttemptBindings(db: Database.Database): void {
+  if (!tables(db).has('runtime_scope_attempts')) return;
+  const keys = db.prepare('PRAGMA foreign_key_list(runtime_scope_attempts)').all() as Array<{table:string}>;
+  if (!keys.some(k => k.table === 'collaboration_attempts')) return;
+  const enabled = db.pragma('foreign_keys', { simple:true });
+  db.pragma('foreign_keys = OFF');
+  try { db.transaction(() => {
+    db.exec(`CREATE TABLE runtime_scope_attempts_g5 (
+      attempt_id TEXT PRIMARY KEY, scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id),
+      context_sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
+      INSERT INTO runtime_scope_attempts_g5 SELECT * FROM runtime_scope_attempts;
+      DROP TABLE runtime_scope_attempts;
+      ALTER TABLE runtime_scope_attempts_g5 RENAME TO runtime_scope_attempts;`);
+  }).immediate(); } finally { if (enabled) db.pragma('foreign_keys = ON'); }
+}
 
 /** Run before schema.sql: an older compatible worker must reject a future DB without mutating it. */
 export function assertOrchestrationSchemaCompatible(db: Database.Database): void {

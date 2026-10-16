@@ -13,9 +13,21 @@ import { containedPath, sdkPermission, SDK_TOOLS, READ_TOOLS } from './policy.ts
 import { BRIDGE_NAME } from './bridge.ts';
 import { protectedEnvironmentNames } from '../accounts/environment.ts';
 import { SessionUnavailableError } from './sessions.ts';
-import { assertCodexHomePolicy, CODEX_SKILL_POLICY } from './codexHome.ts';
+import { assertCodexHomePolicy, CODEX_SKILL_POLICY, CODEX_SCOPED_POLICY } from './codexHome.ts';
+
+/** A sealed control candidate may collect billing metadata, never new effects.
+ * Missing/fatal final accounting stays unknown; the enclosing deadline still wins. */
+async function drainFinalUsage(done: Promise<void>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try { await Promise.race([done.catch(() => {}), new Promise<void>(resolve => { timer = setTimeout(resolve, 1500); })]); }
+  finally { clearTimeout(timer); }
+}
 
 export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
+  if (input.scopedNative) {
+    input.scopedNative.assertAuthorized();
+    if (input.session?.resume || !input.session?.ephemeral || input.cwd !== input.scopedNative.cwd || input.nativeHome !== input.scopedNative.home || !input.privateContext) throw new ExecutionError('policy_rejected', 'Scope SDK 冷边界与启动参数不一致');
+  }
   if (!input.environment?.ANTHROPIC_API_KEY) throw new ExecutionError('auth_required', 'Claude SDK 需要所选账户的 API Key');
   const sdkHome = path.resolve(input.nativeHome ?? config.externalAgents.claudeHome);
   let userHome = path.resolve(process.env.CLAUDE_CONFIG_DIR ?? path.join(homedir(), '.claude'));
@@ -29,8 +41,10 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
   const mode = input.permissionMode ?? 'readonly';
   const mcpTools = input.bridge?.launch.toolNames.map((name) => `mcp__${BRIDGE_NAME}__${name}`) ?? [];
   let initialized = false;
+  let sessionId: string | undefined;
+  let sealedUsage: NativeAgentEvent | undefined;
   const parser = new NativeEventParser('claude-sdk', (event) => {
-    if (event.type === 'session.bound') initialized = true;
+    if (event.type === 'session.bound') { initialized = true; sessionId = event.sessionId; }
     // Resume billing semantics are not assumed to be turn-local; retain unknown rather than count twice.
     input.onEvent(input.session?.resume && event.type === 'usage' ? { ...event, tokensIn: null, tokensOut: null, costUsd: null } : event, parser.content);
   }, [...(input.controlOnly || input.privateContext ? [] : mode === 'readonly' ? READ_TOOLS : SDK_TOOLS.filter(n=>!input.recoveryFilesOnly||n!=='Bash')), ...mcpTools], input.bridge ? [BRIDGE_NAME] : []);
@@ -43,7 +57,25 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
     void done.catch(() => {});
     peer.onInterrupt(() => peer.send({ method: 'sdk/interrupt', params: {} }));
     peer.onMessage(async (message) => {
-      if (input.signal.aborted || input.authorized?.() === false || input.bridge?.sealed()) return;
+      if (input.signal.aborted || input.authorized?.() === false) return;
+      if (input.bridge?.sealed()) {
+        if (!input.scopedNative) return;
+        const record = message.method === 'sdk/message' ? message.params?.message : undefined;
+        if (record?.type === 'result' && record.session_id === sessionId && !record.startup_failure_reason) {
+          // modelUsage is query-wide; usage alone excludes auxiliary SDK calls.
+          const models = record.modelUsage && typeof record.modelUsage === 'object' ? Object.values(record.modelUsage) as Array<Record<string, unknown>> : [];
+          const fields = ['inputTokens','outputTokens','cacheReadInputTokens','cacheCreationInputTokens'];
+          const accountedEnd = record.subtype === 'success' && record.is_error !== true || record.subtype === 'error_max_turns' || record.terminal_reason === 'hook_stopped';
+          if (accountedEnd && models.length && models.every(model => fields.every(key => typeof model[key] === 'number' && Number.isFinite(model[key]) && Number(model[key]) >= 0))) {
+            const sum = (key: string) => models.reduce((total, model) => total + Number(model[key]), 0);
+            // A known control tool call cannot have a zeroed startup/crash total.
+            if (sum('outputTokens') > 0) sealedUsage = { type:'usage', tokensIn:sum('inputTokens')+sum('cacheReadInputTokens')+sum('cacheCreationInputTokens'), tokensOut:sum('outputTokens'), costUsd:typeof record.total_cost_usd==='number'&&Number.isFinite(record.total_cost_usd)&&record.total_cost_usd>=0?record.total_cost_usd:null };
+          }
+          resolveDone();
+        } else if (message.method === 'sdk/done' || message.method === 'sdk/error') resolveDone();
+        else if (message.method === 'sdk/permission' && message.id !== undefined) peer.send({id:message.id,result:{allow:false}});
+        return;
+      }
       if (message.method === 'sdk/message') parser.accept(message.params?.message);
       else if (message.method === 'sdk/resumeUnavailable' && input.session?.resume && !initialized) rejectDone(new SessionUnavailableError('SDK 会话恢复预检失败'));
       else if (message.method === 'sdk/error') rejectDone(exitError(String(message.params?.message ?? 'SDK failed')));
@@ -64,7 +96,14 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
     });
     peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext,recoveryFilesOnly:input.recoveryFilesOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
-    if (ending === 'control') peer.send({ method: 'sdk/interrupt', params: {} }); else parser.finish();
+    if (ending === 'control') {
+      if (input.scopedNative) {
+        // The scoped PostToolUse hook stops at the tool boundary, before another
+        // model request. A forced interrupt here would lose reliable final usage.
+        await drainFinalUsage(done);
+        input.onEvent(sealedUsage ?? {type:'usage',tokensIn:null,tokensOut:null,costUsd:null},parser.content);
+      } else peer.send({method:'sdk/interrupt',params:{}});
+    } else parser.finish();
     return parser.content;
   });
 }
@@ -87,6 +126,7 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     env: Object.fromEntries(protectedEnvironmentNames.filter((name) => !(name in input.bridge!.launch.env)).map((name) => [name, ''])), env_vars: Object.keys(input.bridge.launch.env), enabled: true, required: true,
     enabled_tools: input.bridge.launch.toolNames, default_tools_approval_mode: 'approve', tool_timeout_sec: Math.ceil(input.timeoutMs / 1000) + 5 } : null;
   const args = ['app-server', '--listen', 'stdio://', ...codexProjectPolicy(input.cwd), ...CODEX_SKILL_POLICY,
+    ...(input.scopedNative ? CODEX_SCOPED_POLICY : []),
     '-c', 'web_search="disabled"', '-c', 'approvals_reviewer="user"', '-c', 'sandbox_mode="read-only"',
     // Codex 0.159.2 needs the host for deferred MCP discovery; code execution remains disabled.
     '-c', 'features.code_mode_host=true',
@@ -94,6 +134,8 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
   if (input.account?.managed) args.splice(args.indexOf('sandbox_mode="read-only"') - 1, 2);
   return withRpcProcess({ command: config.externalAgents.codexCommand, args, cwd: input.cwd, signal: input.signal, timeoutMs: input.timeoutMs, env: { ...input.environment, CODEX_HOME: nativeHome, ...input.bridge?.launch.env }, onProcess: input.onProcess, onProcessStopped: input.onProcessStopped }, async (peer) => {
     let threadId = ''; let turnId = ''; let final = ''; let ended = false;
+    let sealedUsage: Extract<NativeAgentEvent, {type:'usage'}> | undefined;
+    let sealedTerminal = false;
     const items = new Map<string, Record<string, any>>();
     const textItems = new Map<string, string>();
     let resolveDone!: () => void; let rejectDone!: (error: Error) => void;
@@ -102,9 +144,25 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     const emitEvent = (event: NativeAgentEvent) => input.onEvent(event, final || [...textItems.values()].join('\n\n'));
     const valid = (params: Record<string, any>) => params.threadId === threadId && (!turnId || !params.turnId || params.turnId === turnId);
     const requests = new Map<string, { fingerprint: string; response: Promise<boolean> }>();
-    peer.onMessage(async (message) => {
-      if (input.signal.aborted || input.authorized?.() === false || input.bridge?.sealed()) return;
+    let awaitingTurnResponse = false;
+    const earlyTurnMessages: Record<string, any>[] = [];
+    const handleMessage = async (message: Record<string, any>) => {
+      if (input.signal.aborted || input.authorized?.() === false) return;
       const params = message.params ?? {};
+      if (input.bridge?.sealed()) {
+        if (!input.scopedNative) return;
+        if (params.threadId !== threadId || (params.turnId && params.turnId !== turnId)) return;
+        if (message.method === 'thread/tokenUsage/updated' && !sealedTerminal) {
+          const usage = params.tokenUsage?.total;
+          if (typeof usage?.inputTokens==='number'&&Number.isFinite(usage.inputTokens)&&usage.inputTokens>=0&&typeof usage.outputTokens==='number'&&Number.isFinite(usage.outputTokens)&&usage.outputTokens>0)
+            sealedUsage={type:'usage',tokensIn:usage.inputTokens,tokensOut:usage.outputTokens,costUsd:null};
+        } else if (message.method === 'turn/completed' && params.turn?.id===turnId) {
+          sealedTerminal=true;
+          if (!['completed','interrupted'].includes(params.turn.status)) sealedUsage=undefined;
+          resolveDone();
+        } else if (message.id!==undefined) peer.send({id:message.id,error:{code:-32601,message:'当前回合已封闭'}});
+        return;
+      }
       if (message.id !== undefined) {
         const file = message.method === 'item/fileChange/requestApproval';
         const command = message.method === 'item/commandExecution/requestApproval';
@@ -179,9 +237,23 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
         else { emitEvent({ type: 'terminal', status: 'completed' }); resolveDone(); }
       }
       if (message.method === 'error' && params.willRetry !== true) rejectDone(exitError(String(params.error?.message ?? params.message ?? 'Codex failed')));
+    };
+    peer.onMessage(message => {
+      // One stdout chunk can carry the turn/start response and all notifications.
+      // Correlate against its resolved ID before accepting any model/tool effect.
+      if (awaitingTurnResponse) {
+        if (earlyTurnMessages.length >= 1024) throw new ExecutionError('protocol_error', 'Codex turn 初始化通知超限');
+        earlyTurnMessages.push(message); return;
+      }
+      return handleMessage(message);
     });
     await peer.request('initialize', { clientInfo: { name: 'agent_gand', title: 'Agent Gand', version: '0.1.0' }, capabilities: { experimentalApi: false } });
     peer.send({ method: 'initialized', params: {} });
+    if (input.scopedNative) {
+      input.scopedNative.assertAuthorized();
+      if (input.session?.resume || input.cwd !== input.scopedNative.cwd || nativeHome !== input.scopedNative.home) throw new ExecutionError('policy_rejected', 'Scope 原生边界与启动参数不一致');
+    }
+    if (input.externalAuth) await peer.request('account/login/start', { type: 'chatgptAuthTokens', ...input.externalAuth });
     if (input.session?.resume && input.session.id) {
       let saved;
       try { saved = await peer.request('thread/read', { threadId: input.session.id, includeTurns: true }); }
@@ -190,20 +262,30 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
     }
     let thread;
     try { thread = await peer.request(input.session?.resume ? 'thread/resume' : 'thread/start', { ...(input.session?.resume ? { threadId: input.session.id } : {}), cwd: input.cwd, model: input.model === 'default' ? null : input.model,
-      approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user', ...(input.account?.managed ? {} : { sandbox: 'read-only' }), developerInstructions: input.instructions,
+      ...(input.scopedNative ? { ephemeral: true } : {}), approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user', ...(input.account?.managed ? {} : { sandbox: 'read-only' }), developerInstructions: input.instructions,
       ...(bridgeConfig ? { config: { mcp_servers: { [BRIDGE_NAME]: bridgeConfig } } } : {}) }); }
     catch (error) { if (input.session?.resume) throw new SessionUnavailableError('Codex thread 恢复在模型 turn 前失败'); throw error; }
     threadId = thread.thread?.id;
     if (typeof threadId !== 'string' || !threadId || (input.session?.resume && threadId !== input.session.id) || thread.cwd !== input.cwd || thread.sandbox?.type !== 'readOnly' || thread.sandbox.networkAccess !== false || thread.approvalPolicy !== (mode === 'readonly' ? 'never' : 'untrusted') || thread.approvalsReviewer !== 'user') throw new ExecutionError('policy_rejected', 'Codex 实际线程策略与平台编译策略不一致');
     emitEvent({ type: 'session.bound', sessionId: threadId });
+    awaitingTurnResponse = true;
     const turn = await peer.request('turn/start', { threadId, input: [{ type: 'text', text: input.prompt }], ...(input.account?.managed ? {} : { sandboxPolicy: { type: 'readOnly', networkAccess: false } }), approvalPolicy: mode === 'readonly' ? 'never' : 'untrusted', approvalsReviewer: 'user' });
     if (turnId && turnId !== turn.turn?.id) throw new ExecutionError('protocol_error', 'Codex turn 响应绑定冲突');
     turnId = turn.turn?.id;
     if (typeof turnId !== 'string' || !turnId) throw new ExecutionError('protocol_error', 'Codex turn 缺少 ID');
+    while (earlyTurnMessages.length) await handleMessage(earlyTurnMessages.shift()!);
+    awaitingTurnResponse = false;
     const interrupt = () => { void peer.request('turn/interrupt', { threadId, turnId }).catch(() => {}); };
     peer.onInterrupt(interrupt);
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
-    if (ending === 'control') { interrupt(); return final || [...textItems.values()].join('\n\n'); }
+    if (ending === 'control') {
+      interrupt();
+      if (input.scopedNative) {
+        await drainFinalUsage(done);
+        emitEvent(sealedTerminal && sealedUsage ? sealedUsage : {type:'usage',tokensIn:null,tokensOut:null,costUsd:null});
+      }
+      return final || [...textItems.values()].join('\n\n');
+    }
     const content = final || [...textItems.values()].join('\n\n');
     if (!content.trim()) throw new ExecutionError('protocol_error', 'Codex 成功终态没有正文');
     return content;

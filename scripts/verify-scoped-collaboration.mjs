@@ -64,7 +64,7 @@ function fixture(privateRoot = false) {
   return { runId, roomId, subjectId, dispatchId, contract, message, create, binding };
 }
 try {
-  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 16);
+  assert.equal(db.get('SELECT MAX(version) v FROM orchestration_schema_migrations').v, 17);
   assert.equal(db.get('SELECT boundary_fingerprint FROM runtime_action_commands WHERE id=?', 'historical').boundary_fingerprint, null);
   assert.equal(db.get('SELECT checksum FROM orchestration_schema_migrations WHERE version=12').checksum, '41db07fd6801da02da567691dc328cf771bd8728cdc643f2147ba1b4961d2207');
   const f = fixture(), a = f.message('ONLY_TASK_A'), b = f.message('ONLY_TASK_B'), extra = f.message('APPROVED_SUPPLEMENT');
@@ -187,7 +187,7 @@ try {
     assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === (b.backend === 'builtin-llm') && !c.connectionVerified)));
     assert.doesNotMatch(response.body, /ONLY_TASK|APPROVED_SUPPLEMENT|ROOT_MUST_NOT|UNLISTED/);
   } finally { await app.close(); }
-  db.run("INSERT INTO orchestration_schema_migrations VALUES(17,'future','unknown',?)", now);
-  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /17/);
+  db.run("INSERT INTO orchestration_schema_migrations VALUES(18,'future','unknown',?)", now);
+  assert.throws(() => assertOrchestrationSchemaCompatible(db.db), /18/);
   console.log('G1 verified: immutable manifests, separate same-audience scopes, whitelist context, dynamic provenance, atomic output guards, stale/cross-run/lease rejection, cold sessions, closed v3 admission and unknown-version rejection.');
 } finally { db.closeDatabase(); await rm(root, { recursive: true, force: true }); }

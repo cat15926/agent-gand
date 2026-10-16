@@ -5,6 +5,10 @@ import { ExecutionError } from './errors.ts';
 // The client installs this cache during login/inspection too. Keep it on disk,
 // but never load bundled skills into a platform-controlled invocation.
 export const CODEX_SKILL_POLICY = ['-c', 'skills.bundled.enabled=false'];
+/** Independent from project trust: even untrusted ancestor AGENTS.md must not
+ * become a hidden Scope input. Applied only to the new cold-scope path. */
+export const CODEX_SCOPED_POLICY = ['-c','project_doc_max_bytes=0','-c','project_doc_fallback_filenames=[]',
+  '-c','memories.use_memories=false','-c','memories.generate_memories=false'];
 
 export async function assertCodexHomePolicy(home: string): Promise<void> {
   const reject = () => new ExecutionError('policy_rejected', 'Codex 专用执行目录包含自定义配置、规则或插件，拒绝启动');

@@ -73,17 +73,26 @@ function selectedMode(plan: CoordinationPlan): KernelMode | null {
   return plan.protocols.every((item) => allowed.has(item.protocol)) ? 'execute' : 'shadow';
 }
 
-function contractFor(plan: CoordinationPlan, mode: KernelMode, executionPolicy: RuntimeExecutionPolicyV1): RuntimeRunContract {
+/** Server admission context; never taken from a model-authored plan or request metadata. */
+export interface CoordinationAdmissionContext { checkpointContinuation?: boolean }
+
+function contractFor(plan: CoordinationPlan, mode: KernelMode, executionPolicy: RuntimeExecutionPolicyV1, admission: CoordinationAdmissionContext): RuntimeRunContract {
   if (!plan.runId) throw new Error('Coordination Plan 尚未绑定 Run');
   const steps = plan.steps.filter((step) => step.type !== 'completion_gate');
+  const prior = loadRuntimeContract(plan.runId);
+  const staticScopes = prior ? prior.features?.coordinationScopes === 1
+    : !admission.checkpointContinuation && mode === 'execute' && steps.length > 0 && steps.every(step => step.metadata.stageBatchVersion===1 && step.metadata.readonly===true && step.toolPolicy.allowedTools.length===0 && !step.expectedArtifacts?.length
+      && !!get("SELECT 1 FROM run_agent_snapshots WHERE run_id=? AND agent_id=? AND COALESCE(json_extract(definition,'$.execution.kind'),'builtin-llm')='builtin-llm'",plan.runId,step.agentId))
+      && !get('SELECT 1 FROM business_run_checkpoints WHERE run_id=?',plan.runId);
   return {
     version: 1, runtimeRevision: plan.revision, runId: plan.runId,
     objective: `Coordination Plan ${plan.id} revision ${plan.revision}`,
-    participantIds: [...new Set(steps.flatMap((step) => step.agentId ? [step.agentId] : []))],
+    // R7 authorizes viewers as well as actors; freeze those audience IDs without giving them graph steps.
+    participantIds: [...new Set(steps.flatMap(step => [...(step.agentId ? [step.agentId] : []), ...(staticScopes && Array.isArray(step.metadata.scopeAudience) ? step.metadata.scopeAudience.filter((id):id is string=>typeof id==='string'&&id!=='user') : [])]))],
     requiredSubjectKeys: steps.map((step) => subjectKey(plan, step.id)),
     completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
     executionPolicy,
-    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2,
+    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2, ...(staticScopes ? {coordinationScopes:1 as const}:{}),
       ...(mode === 'execute' ? {
         exitGuard: { version: 1 as const, maxCorrections: 0, correctionMaxTokens: 512 },
         completionCandidateVersion: 1 as const,
@@ -119,7 +128,7 @@ export function getCoordinationKernelStatus(runId: string): {
   };
 }
 
-export function admitCoordinationKernelPlan(plan: CoordinationPlan): void {
+export function admitCoordinationKernelPlan(plan: CoordinationPlan, admission: CoordinationAdmissionContext = {}): void {
   if (!plan.runId) return;
   const existingContract = loadRuntimeContract(plan.runId);
   const mode = existingContract?.features?.coordinationKernel ?? selectedMode(plan);
@@ -130,7 +139,7 @@ export function admitCoordinationKernelPlan(plan: CoordinationPlan): void {
   const executionPolicy = existingContract
     ? resolveRunPolicy(plan.runId)
     : executionPolicyForProfile(mode === 'execute' ? 'execute' : 'shadow', { implicitAnswerPolicy: 'explicit_only' });
-  const contract = contractFor(plan, mode, executionPolicy);
+  const contract = contractFor(plan, mode, executionPolicy, admission);
   const now = new Date().toISOString();
   const superseded = all<{ subject_id: string; state: CustodyState; holder_agent_id: string | null; generation: number; revision: number; step_id: string }>(
     `SELECT m.subject_id,c.state,c.holder_agent_id,c.generation,m.revision,m.step_id

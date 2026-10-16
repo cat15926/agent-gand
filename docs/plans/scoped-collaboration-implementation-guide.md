@@ -318,8 +318,8 @@ clean_control 从批准的模板、根目标和投影编译新 manifest，并使
 | 引擎/后端 | 新能力启用门槛 | 当前计划状态 |
 |---|---|---|
 | Collaboration＋模型 API | G1/G2 输入白名单、状态回流；G3 专用文字发布授权 | G2/G3 已实现；真实连接未验证 |
-| Collaboration＋Claude SDK/Codex app-server | G5 会话、home、目录、记忆、桥工具与真实连接验证 | 待实施；已有私密文本能力不等于新范围能力 |
-| Coordination | G5 对接共同 Scope/Return/Release 服务，保留 R7 图与 Owner 门禁 | 待实施；已有静态逐成员范围继续按现契约 |
+| Collaboration＋Claude SDK/Codex app-server | G5 会话、home、目录、记忆、桥工具与真实连接验证 | G5 冷边界基础已实现，本机协议验证通过；完整能力包与真实账户验收待完成，准入关闭 |
+| Coordination | G5 对接共同 Scope/Return/Release 服务，保留 R7 图与 Owner 门禁 | 无工具模型 API 静态步骤已接入；工具、原生成员及检查点续跑保留原契约 |
 | 兼容 Pipeline/Supervisor | 无可靠独立上下文时拒绝新能力 | 本计划不承诺支持 |
 | 只读 CLI | 无可靠私密隔离时预览阻断 | 保持拒绝 |
 
@@ -473,6 +473,8 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### G5：外部 Agent 与 Coordination
 
+**进行中（更新于 2026-10-17）**：[G5 实施与验证进展](../reports/scoped-collaboration-g5-progress-2026-10-16.md)、[当前范围契约](../architecture/scoped-native-coordination-v1.md)。已实现原生冷边界、受控桥、最终用量结算与未知占额、schema 17，以及无工具模型 API 静态 Coordination 的公共 Scope 和授权汇总来源。四种控制动作、all 混合调度、运行中取消/来源漂移与检查点兼容已有本地证据；原生 any/发布矩阵、原生 Coordination 与真实账户验收未完成，原生能力包准入继续关闭。
+
 建议拆分：`feat: isolate native collaboration scopes`、`feat: integrate scoped returns into coordination`。
 
 交付：Claude SDK/Codex app-server 冷边界实现、协议夹具、Scope 目录/记忆隔离、受控工具输入账本；Coordination 复用公共服务。
@@ -624,4 +626,4 @@ G0–G6 不自动承诺迁移任意旧私密 Run。若旧 Run 缺少可验证来
 - [ ] 原始消息/文件/证据权限保持原含义；所有新发布可追溯。
 - [ ] 未实现能力及自由文本自动披露边界在 UI、API 和文档中一致。
 
-**下一实施入口：G5。** 为 Claude SDK、Codex app-server 和 Coordination 分别实现并验证新范围隔离；只开放有证据支持的组合，保留 G0 的 v2 基线。最终产品验收同时检查协作能继续、信息没有越界、责任没有提前完成，以及重试没有重复副作用。
+**下一实施入口：完成 G5 剩余验收。** 补齐原生 any 竞争/端到端发布/崩溃恢复矩阵、获准账户的真实验证和原生 Coordination 接入；只开放有证据支持的组合，保留 G0 的 v2 基线。最终产品验收同时检查协作能继续、信息没有越界、责任没有提前完成，以及重试没有重复副作用。

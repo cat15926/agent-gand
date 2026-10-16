@@ -41,6 +41,8 @@ export interface DriverInput {
   account?: ResolvedAccount | null;
   environment?: NodeJS.ProcessEnv;
   nativeHome?: string;
+  scopedNative?: import('./scopedNative.ts').ScopedNativeEnvironment;
+  externalAuth?: { accessToken: string; chatgptAccountId: string };
   credentialArgs?: string[];
 }
 export interface AgentDriver {
@@ -137,8 +139,8 @@ export async function codexMcpPolicy(input: Pick<DriverInput, 'cwd' | 'signal' |
 export function getDriver(id: ExternalDriverId): AgentDriver {
   if (!(id in commands)) throw new ExecutionError('unsupported_cli', '未知外部 Driver');
   return { id, detect: () => detectDriver(id), invoke: async (input) => {
-    const launch = await prepareAccountLaunch(id, input.account, input.signal, !!input.controlOnly && !input.bridge, !!input.connectionTest);
-    input = { ...input, signal: launch.signal, environment: launch.env, nativeHome: launch.home, credentialArgs: launch.args };
+    const launch = await prepareAccountLaunch(id, input.account, input.signal, !!input.controlOnly && !input.bridge, !!input.connectionTest, input.scopedNative);
+    input = { ...input, signal: launch.signal, externalAuth: launch.externalAuth, environment: launch.env, nativeHome: launch.home, credentialArgs: launch.args };
     try {
     if (id === 'claude-sdk') return await invokeClaudeSdk(input);
     if (id === 'codex-app-server') return await invokeCodexAppServer(input);

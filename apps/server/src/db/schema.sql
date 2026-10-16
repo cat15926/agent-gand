@@ -604,7 +604,7 @@ CREATE TABLE IF NOT EXISTS runtime_context_manifests (
   record TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runtime_scope_attempts (
-  attempt_id TEXT PRIMARY KEY REFERENCES collaboration_attempts(id),
+  attempt_id TEXT PRIMARY KEY,
   scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id), context_sha256 TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
@@ -619,6 +619,10 @@ CREATE TRIGGER IF NOT EXISTS runtime_context_manifests_no_update BEFORE UPDATE O
 CREATE TRIGGER IF NOT EXISTS runtime_context_manifests_no_delete BEFORE DELETE ON runtime_context_manifests BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_update BEFORE UPDATE ON runtime_scope_attempts BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_no_delete BEFORE DELETE ON runtime_scope_attempts BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS runtime_scope_attempts_authority BEFORE INSERT ON runtime_scope_attempts
+WHEN NOT EXISTS (SELECT 1 FROM runtime_execution_scopes s JOIN collaboration_attempts a ON a.id=NEW.attempt_id AND a.run_id=s.run_id AND a.agent_id=json_extract(s.record,'$.agentId') WHERE s.id=NEW.scope_id)
+ AND NOT EXISTS (SELECT 1 FROM runtime_execution_scopes s JOIN coordination_step_attempts a ON a.id=NEW.attempt_id AND a.run_id=s.run_id JOIN runtime_coordination_subjects c ON c.plan_id=a.plan_id AND c.revision=a.revision AND c.step_id=a.step_id AND c.subject_id=s.subject_id WHERE s.id=NEW.scope_id)
+BEGIN SELECT RAISE(ABORT,'scope attempt authority invalid'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_update BEFORE UPDATE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 CREATE TRIGGER IF NOT EXISTS runtime_input_provenance_no_delete BEFORE DELETE ON runtime_input_provenance BEGIN SELECT RAISE(ABORT, 'scoped history is immutable'); END;
 

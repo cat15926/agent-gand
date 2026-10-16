@@ -47,6 +47,9 @@ import { attemptAccess, runSourceAccess } from '../messaging/access.ts';
 import { canUseResult } from '../orchestration/businessScheduling.ts';
 import type { MessageAccess } from '@agent-gand/shared';
 import { ModelAdmissionPausedError } from '../orchestration/executionBudget.ts';
+import { createCoordinationScopedContext, runCoordinationScopedTurn } from './scopedContext.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
+import { all } from '../db/database.ts';
 import { isAcknowledgementOutput } from '../runtime/exitGuard.ts';
 
 interface RuntimeMessageInput {
@@ -207,10 +210,12 @@ function coordinationTerminalReport(plan: CoordinationPlan, states: Coordination
 async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string,runSignal:AbortSignal): Promise<'paused' | void> {
   if(runSignal.aborted||getRunCoordinationPlan(run.id)?.status==='pause_requested'||listCoordinationStepStates(plan.id).some(s=>s.status==='failed'))return;
   const before = listCoordinationStepStates(plan.id);
-  const baseInput = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, contextGoal);
+  const hasScope = loadRuntimeContract(run.id)?.features?.coordinationScopes===1;
+  const baseInput = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, hasScope ? run.goal : contextGoal);
   const claimed = claimCoordinationStep(plan, step, baseInput);
   if (!claimed) return;
-  const input = step.type === 'completion_gate' ? baseInput
+  const useScope = loadRuntimeContract(run.id)?.features?.coordinationScopes===1 && step.type!=='completion_gate';
+  const input = step.type === 'completion_gate' || useScope ? baseInput
     : hasRuntimeContextAssembly(claimed.attempt.id) && claimed.attempt.input
       ? claimed.attempt.input
       : assembleCoordinationKernelContext({ run, plan, step, attemptId: claimed.attempt.id, baseInput });
@@ -259,7 +264,11 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       ...(agent.execution?.kind === 'external' ? { execution: { ...agent.execution,
         platformTools: agent.execution.platformTools?.filter(name => step.toolPolicy.allowedTools.includes(name)) } } : {}) };
     const stage = stageForStep(run.id, step);
-    const invoke = (executionSignal?: AbortSignal) => runAgentTurn({
+    const visibleSteps=new Set(ancestorIds(plan,step).filter(id=>visibleDependency(run,step,plan.steps.find(s=>s.id===id)!)));
+    const sourceMessageIds=useScope?all<{id:string;step_id:string}>("SELECT id,json_extract(payload,'$.coordinationStepId') step_id FROM messages WHERE run_id=? AND json_extract(payload,'$.coordinationPlanId')=?",run.id,plan.id).filter(m=>visibleSteps.has(m.step_id)).map(m=>m.id):[];
+    const scoped=useScope?createCoordinationScopedContext({runId:run.id,plan,step,attemptId:claimed.attempt.id,agent:stepAgent,context:input,access:stepAccess(run.id,step),sourceMessageIds}):undefined;
+    if(scoped)setCoordinationAttemptInput(claimed.attempt.id,scoped.context);
+    const invoke = (executionSignal?: AbortSignal) => scoped ? runCoordinationScopedTurn({...scoped,agent:stepAgent,parentSpanId:span.id,maxTokens:step.tokenBudget,signal:executionSignal?AbortSignal.any([executionSignal,runSignal]):runSignal}) : runAgentTurn({
       run,
       agent: step.type === 'review' || step.metadata.readonly === true ? asReadonlyAgent(stepAgent) : stepAgent,
       parentSpanId: span.id,
@@ -283,6 +292,7 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     });
     const turn = stage ? await withBusinessStageExecution(run.id, stage, invoke) : await invoke();
     assertBindingAuthorized(claimed.executionBinding);
+    scoped?.assertOutput();
     // AG-COORD-04：审批连续超时 → 释放步骤（不烧 attempt 失败）并上抛暂停信号，由 execute() 暂停 run
     if (turn.approvalStarved) {
       releaseCoordinationStep(plan, step, claimed.attempt.id, '审批连续超时，等待用户处理后恢复');
@@ -296,6 +306,17 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     const output = turn.content.trim();
     if (!output) throw new Error(`步骤 ${step.id} 返回空结果`);
     if(step.metadata.stageBatchVersion===1&&isAcknowledgementOutput(output))throw new Error('ACK_ONLY_OUTPUT：确认收到不能替代成员实质交付。');
+    if(scoped) {
+      const completion=scoped.commitOutput(()=>{
+        const completed=completeCoordinationStep(plan,step.id,claimed.attempt.id,output,{version:2,type:'complete',summary:output});
+        if(completed.accepted)post({runId:run.id,from:agent.id,to:'all',kind:'agent',body:output,messageType:messageType(step),
+          payload:{coordinationPlanId:plan.id,coordinationStepId:step.id,attemptNo:claimed.attempt.attemptNo},clientMessageId:claimed.attempt.idempotencyKey,
+          attemptId:claimed.attempt.id,...stepAccess(run.id,step)});
+        return completed;
+      });
+      endSpan(span,{output:completion.feedback??output,status:completion.accepted?'ok':'error'});
+      return;
+    }
     await post({
       runId: run.id, from: agent.id, to: step.type === 'review' ? 'all' : 'all', kind: 'agent', body: output,
       messageType: messageType(step), payload: { coordinationPlanId: plan.id, coordinationStepId: step.id, attemptNo: claimed.attempt.attemptNo },

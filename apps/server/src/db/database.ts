@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { config } from '../config.ts';
-import { assertOrchestrationSchemaCompatible, applyOrchestrationSchemaMigrations, assertActiveOrchestrationCompatible } from './orchestrationMigrations.ts';
+import { assertOrchestrationSchemaCompatible, applyOrchestrationSchemaMigrations, assertActiveOrchestrationCompatible, migrateScopedAttemptBindings } from './orchestrationMigrations.ts';
 
 mkdirSync(path.dirname(config.dbPath), { recursive: true });
 
@@ -15,6 +15,7 @@ export const db = new Database(config.dbPath, { timeout: 5000 });
 assertOrchestrationSchemaCompatible(db);
 assertActiveOrchestrationCompatible(db);
 db.pragma('journal_mode = WAL');
+migrateScopedAttemptBindings(db);
 
 // schema.sql 与本文件同目录，tsx 下路径不变，可直接读
 const schemaPath = fileURLToPath(new URL('./schema.sql', import.meta.url));

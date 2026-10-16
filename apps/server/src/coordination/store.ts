@@ -24,6 +24,7 @@ import {
   submitCoordinationStepCompletion,
   coordinationKernelMode,
   createCoordinationResumeHold,
+  type CoordinationAdmissionContext,
 } from '../runtime/coordinationAdapter.ts';
 import { commitCompleteActionCommand, commitHoldActionCommand } from '../runtime/actionCommands.ts';
 import { captureExecutionBinding } from '../execution/authority.ts';
@@ -124,7 +125,7 @@ export function conversationHasCoordinationPlan(conversationId: string): boolean
   return (row?.n ?? 0) > 0;
 }
 
-export function activateCoordinationPlan(planId: string, runId: string): CoordinationPlan | undefined {
+export function activateCoordinationPlan(planId: string, runId: string, admission: CoordinationAdmissionContext = {}): CoordinationPlan | undefined {
   return tx(() => {
     const plan = getCoordinationPlan(planId);
     if (!plan || plan.runId !== null || plan.status !== 'draft') return undefined;
@@ -134,7 +135,7 @@ export function activateCoordinationPlan(planId: string, runId: string): Coordin
     for (const step of plan.steps) run(`INSERT INTO coordination_step_states
       (plan_id,run_id,revision,step_id,status,attempt_no,output,error,started_at,completed_at,updated_at)
       VALUES (?,?,?,?,?,0,NULL,NULL,NULL,NULL,?)`, planId, runId, plan.revision, step.id, step.dependsOn.length === 0 ? 'ready' : 'pending', updated.updatedAt);
-    if (updated.executionAdapter !== 'collaboration') admitCoordinationKernelPlan(updated);
+    if (updated.executionAdapter !== 'collaboration') admitCoordinationKernelPlan(updated, admission);
     recordCoordinationEvent({ kind: 'plan_activated', draftId: plan.draftId, planId, runId, payload: { revision: plan.revision } });
     return updated;
   });

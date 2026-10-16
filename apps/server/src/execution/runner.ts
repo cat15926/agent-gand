@@ -1,5 +1,8 @@
 import { mkdirSync, realpathSync } from 'node:fs';
-import { get } from '../db/database.ts';
+import { get, tx } from '../db/database.ts';
+import { randomUUID } from 'node:crypto';
+import { reserveScopedNativeTokens, settleScopedNativeTokens } from './scopedNativeBudget.ts';
+import { reconcileModelCallReservations } from '../orchestration/modelCallRecovery.ts';
 import { readBusinessCheckpoint } from '../orchestration/businessCheckpointStore.ts';
 import { settleCost, type CostReservationRow } from '../orchestration/costBudget.ts';
 import { reserveCostWhenReady,ModelAdmissionPausedError } from '../orchestration/executionBudget.ts';
@@ -86,6 +89,12 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
 }
 
 async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callId:string;cost:CostReservationRow|null}): Promise<AgentTurnResult> {
+  if (opts.scopedNative) {
+    opts.scopedNative.assertAuthorized();
+    if (opts.scopedNative.binding.runId !== opts.run.id || opts.scopedNative.binding.attemptId !== opts.attemptId || opts.scopedNative.binding.agentId !== opts.agent.id) throw new ExecutionError('policy_rejected', 'Scope 与原生执行主体不一致');
+    opts = { ...opts, privateContext: true, disableTools: true, reviewExit: undefined,
+      agent: { ...opts.agent, permissionMode: 'readonly', tools: [], ...(opts.agent.execution?.kind === 'external' ? { execution: { ...opts.agent.execution, nativeTools: [], platformTools: [], sessionPolicy: 'turn' } } : {}) } };
+  }
   assertExternalPolicy(opts.agent);
   if (opts.agent.execution?.kind !== 'external') throw new ExecutionError('policy_rejected', '缺少外部执行配置');
   const duplex = bidirectional(opts.agent.execution.driver);
@@ -108,7 +117,7 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
       && (!opts.executionBinding || existing.executionBinding?.id === opts.executionBinding.id)) return { ...asResult(existing.content, 0), workspaceSnapshot: existing.snapshot, controlAction: existing.controlAction ?? null, exitCorrectionAttempts: existing.exitCorrectionAttempts ?? 0 };
     throw new ExecutionError(existing.errorCode ?? 'interrupted', existing.error ?? '原生执行未完成，不自动重放；请创建新运行');
   }
-  const root = workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: coordination ? null : opts.workspaceScope, workspaceRoot: opts.nativeWorkspaceRoot ?? opts.workspaceRoot });
+  const root = opts.scopedNative?.cwd ?? workspaceRootDir({ runId: opts.run.id, workspace: opts.run.workspace, workspaceScope: coordination ? null : opts.workspaceScope, workspaceRoot: opts.nativeWorkspaceRoot ?? opts.workspaceRoot });
   // Only platform-managed empty workspaces may be created. Registered repo paths must exist.
   if (!opts.run.workspace?.startsWith('ext:')) mkdirSync(root, { recursive: true });
   const cwd = realpathSync(root);
@@ -135,7 +144,7 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   else opts.executionSignal?.addEventListener('abort', abortFromTurn, { once: true });
   const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
   const timeoutPolicy = effectiveExternalTimeout({ configuredMs: configuredTimeout, managed: account?.managed === true,
-    runDeadlineAt: executionPolicy(opts.run.id)?.execution?.deadlineAt ?? undefined,
+    runDeadlineAt: executionPolicy(opts.run.id)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",opts.run.id)?.deadline,
     leaseExpiresAt: opts.executionBinding?.origin === 'coordination_step_attempt' ? opts.executionBinding.leaseExpiresAt : undefined });
   const limits = executionPolicy(opts.run.id)?.request.constraints;
   if (limits?.firstResponseTimeoutMs) timeoutPolicy.firstResponseTimeoutMs = limits.firstResponseTimeoutMs;
@@ -147,6 +156,7 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   const authorityTimer = setInterval(() => {
     if (!executionAuthorized(execution)) controller.abort(new ExecutionError('cancelled', '执行或责任代际已失效'));
     try { if (account?.managed) assertNotRevoked(account.accountId); } catch { controller.abort(new ExecutionError('cancelled', '账户已立即撤销')); }
+    try { opts.scopedNative?.assertAuthorized(); } catch { controller.abort(new ExecutionError('cancelled', 'Scope 输入或责任代际已失效')); }
   }, 100);
   const done = invokeTurn(opts, execution, controller, account,admission);
   active.set(execution.id, { runId: opts.run.id, controller, done });
@@ -227,7 +237,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       release = await waitForWorkspace(execution.cwd, execution.id, signal, mode === 'readonly');
       if (mode !== 'readonly'&&!opts.privateContext) await assertCodingWorkspace(execution.cwd);
     }
-    if (bidirectional(execution.driver)) {
+    if (bidirectional(execution.driver) && !opts.scopedNative) {
       before = await captureEvidence(execution.cwd);
       updateExecution(execution.id, { evidence: { head: before.head, beforeDiff: before.diff, afterDiff: before.diff, truncated: before.truncated, commands: [] } });
     }
@@ -240,7 +250,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     const systems = opts.messages.filter((message) => message.role === 'system' && !message.content.startsWith('会话边界提示：')).map((message) => message.content);
     const instructions = [...systems, `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
       opts.privateContext ? '本轮上下文含私密信息。文件仅通过平台 fs.read / fs.write / search.files 受控桥读取或加密写入；禁止原生文件、shell、网络和其他业务工具。回复与交接不得扩大授权。' : '',
-      opts.controlTools?.length ? 'Runtime 工具通过 agent_gand MCP 提供。上下文中的 agent.complete/handoff/consult/hold 对应 agent_complete/agent_handoff/agent_consult/agent_hold。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。' : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
+      opts.controlTools?.length ? `Runtime 工具通过 agent_gand MCP 提供：${opts.controlTools.map(t=>`${t.name} 对应 ${t.name.replace('.', '_')}`).join('；')}。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。` : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
     let prompt = opts.messages.filter((message) => message.role !== 'system').map((message) => `[${message.role}]\n${message.content}`).join('\n\n');
     let result: AgentTurnResult;
     const approve = nativeApprovalGate(execution, signal);
@@ -260,13 +270,15 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       const admitted=firstAdmission;firstAdmission=undefined;
       const callId=admitted?.callId??queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,execution.driver,opts.attemptId);
       try {
+        if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); await reserveScopedNativeTokens(opts.run.id, callId, signal); }
         cost = admitted?admitted.cost:await reserveCostWhenReady(opts.run.id, opts.agent.id, opts.agent.model, execution.driver,undefined,signal,callId);
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
         activity.start();
         startModelCall(callId);
         content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
-          authorized: () => executionAuthorized(execution),
+          scopedNative: opts.scopedNative,
+          authorized: () => { try { opts.scopedNative?.assertAuthorized(); return executionAuthorized(execution); } catch { return false; } },
           permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
           requestApproval: async (id, tool, args, reason) => {
             if (bridge?.sealed() || correction) return false;
@@ -279,16 +291,17 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
             finally { activity.resume(`approval:${id}`); }
           },
           bridge, controlOnly: correction > 0, privateContext: opts.privateContext,recoveryFilesOnly:opts.recoveryFilesOnly, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
-          session: session?.input,
+          session: opts.scopedNative ? { id: execution.driver==='claude-sdk'?randomUUID():null, resume: false, ephemeral: true, configDir: opts.scopedNative.home, projectDir: 'scope-'+opts.scopedNative.boundary.sessionBoundaryId } : session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
           onProcessStopped: markNativeProcessStopped }));
         const part = usage.get(correction)!;
         finishModelCall(callId,true);
-        settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' });
+        tx(() => { settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }); if(opts.scopedNative)settleScopedNativeTokens(callId,part.tokensOut); });
       } catch (error) {
         finishModelCall(callId,false);
         const part = usage.get(correction)!;
-        settleCost(cost, { costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }, true);
+        if(opts.scopedNative)reconcileModelCallReservations(callId);
+        else settleCost(cost, { costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }, true);
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
         } else throw error;
@@ -309,7 +322,8 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     const after = before ? await captureEvidence(execution.cwd) : null;
     const evidence = before && after ? { head: after.head, beforeDiff: before.diff, afterDiff: after.diff, truncated: before.truncated || after.truncated, commands } : undefined;
     if (signal.aborted || terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已停止，证据采集后的迟到结果已丢弃');
-    const snapshot = opts.displayKind !== 'review_protocol' ? await captureWorkspaceSnapshot(opts.run.id, execution.id, execution.cwd) : undefined;
+    opts.scopedNative?.assertAuthorized();
+    const snapshot = !opts.scopedNative && opts.displayKind !== 'review_protocol' ? await captureWorkspaceSnapshot(opts.run.id, execution.id, execution.cwd) : undefined;
     if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '快照采集后的迟到结果已丢弃');
     const record = updateExecution(execution.id, { status: 'completed', content, evidence, snapshot, controlAction: result.controlAction, exitCorrectionAttempts: correction, finishedAt: new Date().toISOString() });
     session?.finish(naturalTerminal && !result.controlAction && correction === 0);

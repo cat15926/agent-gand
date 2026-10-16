@@ -16,7 +16,7 @@ import { attemptAccess, runSourceAccess } from '../messaging/access.ts';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 interface Document { role: string; blocks: string[] }
-export interface NativeSessionInput { id: string | null; resume: boolean; configDir?: string; projectDir?: string; usageBaseline?: { tokensIn: number | null; tokensOut: number | null; costUsd: number | null } }
+export interface NativeSessionInput { id: string | null; resume: boolean; ephemeral?: boolean; configDir?: string; projectDir?: string; usageBaseline?: { tokensIn: number | null; tokensOut: number | null; costUsd: number | null } }
 export interface SessionRecord {
   id: string; bindingKey: string; nativeId: string | null; driver: string; cwd: string; host: string;
   status: 'inflight' | 'ready' | 'invalid'; executionId: string; revision: number;
@@ -50,9 +50,10 @@ async function accountBinding(execution: ExternalAgentExecution): Promise<string
   } catch { return null; }
 }
 export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false, connection?: ResolvedAccount | null): Promise<SessionHandle | undefined> {
-  if (loadRuntimeContract(opts.run.id)?.features?.scopedCollaboration) throw new Error('BACKEND_SCOPE_UNSUPPORTED: scoped native history requires provenance-aware integration');
+  if (loadRuntimeContract(opts.run.id)?.features?.scopedCollaboration && !opts.scopedNative) throw new Error('BACKEND_SCOPE_UNSUPPORTED: scoped native history requires provenance-aware integration');
   assertBindingAuthorized(opts.executionBinding);
   const policy = opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn';
+  if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); return undefined; }
   if (policy === 'turn') return undefined;
   const account = connection?.managed ? connection.cacheKey : await accountBinding(execution);
   const access = opts.attemptId ? attemptAccess(opts.attemptId) : runSourceAccess(opts.run.id);

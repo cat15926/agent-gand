@@ -76,7 +76,7 @@ export function validateDeliveryDraft(value: unknown): ScopedDeliveryDraft {
   for (const id of new Set([coordinatorId, ...items.map(i => i.target)])) {
     const agent = getAgent(id);
     if (!room!.agentIds.includes(id) || !agent?.enabled) invalid('选择的成员不在当前聊天室或已停用');
-    if ((agent!.execution?.kind ?? 'builtin-llm') !== 'builtin-llm') invalid('G2 仅支持模型 API 成员，SDK/CLI 尚未开放');
+    if ((agent!.execution?.kind ?? 'builtin-llm') !== 'builtin-llm') invalid('当前独立材料协作仅开放模型 API；Claude SDK / Codex 的 G5 隔离验收尚未完成，不能仅凭账户连接测试放行');
     if (agent!.systemPrompt.length > 6_000) invalid('角色提示词超过独立上下文限制（6000 字符）');
     resolveAccount(agent!); // validate configuration without making a model request
   }

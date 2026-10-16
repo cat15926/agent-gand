@@ -21,6 +21,7 @@ import { settleConsultAnyJoin } from '../runtime/obligations.ts';
 import { isAcknowledgementOutput } from '../runtime/exitGuard.ts';
 import { createBatch, selectAnyBatchWinner, createDispatch, getBatch, updateBatch, listDispatches, finishAttempt, isActiveAttempt, setAttemptInputContext } from './store.ts';
 import { getDeliveryPlan, type DeliveryItem, type DeliveryPlan } from './scopedDelivery.ts';
+import { runScopedNativeTurn } from './scopedNativeTurn.ts';
 
 const access = (id:string):MessageAccess => ({visibility:'private',audience:['user',id].sort()});
 export class ScopedDeliveryExecutionError extends Error {
@@ -57,7 +58,7 @@ export function parseScopedControlCall(call:LlmToolCall, expected:ScopedControlA
   if(call.name!==(expected.type==='request_release'?'agent.request_release':'agent.complete')||typeof value.summary!=='string'||!value.summary.trim()||value.summary.length>24_000||isAcknowledgementOutput(value.summary))return fail('SCOPED_RESULT_REQUIRED');
   return {version:3,type:expected.type==='request_release'?'request_release':'complete',summary:value.summary.trim()};
 }
-function tool(expected:ScopedControlActionV3):LlmToolSchema {
+export function scopedControlTool(expected:ScopedControlActionV3):LlmToolSchema {
   if(expected.type==='consult_batch')return {name:'agent.consult_batch',description:'按已冻结计划投递这一批独立材料；只能原样提交下面指定的 items、join 和 returnProfile。',parameters:{type:'object',additionalProperties:false,required:['items','join','returnProfile'],properties:{items:{type:'array',minItems:expected.items.length,maxItems:expected.items.length,items:{type:'object',additionalProperties:false,required:['key','target','payloadRef','expectation'],properties:{key:{type:'string'},target:{type:'string'},payloadRef:{type:'string'},expectation:{type:'string',enum:['material','acknowledged','result']}}}},join:{type:'string',enum:[expected.join]},returnProfile:{type:'string',enum:['status-only-v1']}}}};
   if(expected.type==='acknowledge')return {name:'agent.acknowledge',description:'仅确认已接收本信封中的材料，不代表提交业务结果。',parameters:{type:'object',additionalProperties:false,required:['envelopeId'],properties:{envelopeId:{type:'string',enum:[expected.envelopeId]}}}};
   return {name:expected.type==='request_release'?'agent.request_release':'agent.complete',description:expected.type==='request_release'?'提交仅 Owner 与汇总者可见的确切发布草稿，等待专用授权；不会立即发布。':'提交本事项的实质结果；仅回复收到不能完成事项。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string'}}}};
@@ -132,7 +133,7 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
   try {
     assertReleaseInputs(plan.runId);
     const releaseTask=releaseWorkflow(plan.runId);
-    if((agent.execution?.kind??'builtin-llm')!=='builtin-llm')fail('BACKEND_SCOPE_UNSUPPORTED');
+    if(agent.execution?.kind==='external'&&!['claude-sdk','codex-app-server'].includes(agent.execution.driver))fail('BACKEND_SCOPE_UNSUPPORTED');
     const binding=captureExecutionBinding(plan.runId,agent.id,attemptId);
     const row=get<{subject_id:string;generation:number}>('SELECT s.subject_id,c.generation FROM runtime_dispatch_subjects s JOIN runtime_custody c ON c.subject_id=s.subject_id WHERE s.dispatch_id=?',dispatch.id)!;
     const envelope=get<{record:string}>('SELECT record FROM scoped_delivery_envelopes WHERE dispatch_id=?',dispatch.id);
@@ -172,11 +173,16 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
       release=await enterMember({runId:plan.runId,agentId:agent.id,attemptId,scope:`collaboration:${dispatch.id}`,signal:controller.signal,authorized:()=>bindingAuthorized(binding)});
       assertBindingAuthorized(binding); assertScopedOutput(outputBinding);
       span=startSpan(plan.runId,{spanKind:'llm',name:`scoped:${agent.id}`,input:context,attributes:{'agent.id':agent.id,'collaboration.attempt.id':attemptId,'collaboration.dispatch.id':dispatch.id}});
-      const response=await budgetedChat(plan.runId,providerForAgent(agent,plan.runId),{model:agent.model,messages:[{role:'system',content:'严格遵循本事项的独立材料边界。使用所提供的唯一控制工具结束本轮。'},{role:'user',content:context}],tools:[tool(expected)],maxTokens:Math.min(4096,plan.maxTokens),signal:controller.signal},undefined,agent.id,attemptId);
+      if(agent.execution?.kind==='external') {
+        action=await runScopedNativeTurn({binding:scoped,agent,context,parentSpanId:span.id,tool:scopedControlTool(expected),parse:call=>parseScopedControlCall(call,expected),signal:controller.signal});
+        endSpan(span,{output:'范围动作候选已校验',usageKnown:false,costKnown:false});span=undefined;
+      } else {
+      const response=await budgetedChat(plan.runId,providerForAgent(agent,plan.runId),{model:agent.model,messages:[{role:'system',content:'严格遵循本事项的独立材料边界。使用所提供的唯一控制工具结束本轮。'},{role:'user',content:context}],tools:[scopedControlTool(expected)],maxTokens:Math.min(4096,plan.maxTokens),signal:controller.signal},undefined,agent.id,attemptId);
       endSpan(span,{tokensIn:response.usage.tokensIn,tokensOut:response.usage.tokensOut,costUsd:response.usage.costUsd,usageKnown:response.usage.outputKnown!==false,costKnown:response.usage.costKnown!==false});span=undefined;
       assertBindingAuthorized(binding);
       if(response.truncated||response.toolCalls.length!==1)fail('SCOPED_EXPLICIT_ACTION_REQUIRED');
       action=parseScopedControlCall(response.toolCalls[0]!,expected);
+      }
     }
     assertBindingAuthorized(binding);
     if(action.type==='consult_batch')return commitScopedBatch({plan,dispatch,attemptId,scope:outputBinding,action}).result.batchId;

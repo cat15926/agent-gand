@@ -257,7 +257,8 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
       planning.draft.capabilitySnapshotId = planning.snapshot.id; planning.plan.capabilitySnapshotId = planning.snapshot.id;
       planning.plan.draftId = planning.draft.id;
       savePlanningResult(planning.snapshot, planning.draft, planning.plan);
-      plan = activateCoordinationPlan(planning.plan.id, currentRun.id) ?? null;
+      // Checkpoint rows are persisted by the continuation service after this admission.
+      plan = activateCoordinationPlan(planning.plan.id, currentRun.id, { checkpointContinuation: !!checkpoint }) ?? null;
       if (!plan) invalid('PLAN_ADMISSION_FAILED','无法准入已确认计划');
     }
     const frozen: RunOrchestrationSnapshot = { ...prepared, request, schemaVersion: 1, requestId: randomUUID(), runId: currentRun.id,

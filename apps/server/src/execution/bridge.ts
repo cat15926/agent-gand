@@ -11,6 +11,8 @@ import { startSpan, endSpan } from '../runs/trace.ts';
 import { executionAuthorized } from './authority.ts';
 import { nativeApprovalGate } from './approvals.ts';
 import { ExecutionError, diagnostic } from './errors.ts';
+import { assertScopedTool, compileScopedSource, exposeScopedInput } from '../runtime/scopedCollaboration.ts';
+import { get } from '../db/database.ts';
 
 export const BRIDGE_NAME = 'agent_gand';
 export interface BridgeLaunch { command: string; args: string[]; env: Record<string, string>; toolNames: string[] }
@@ -25,6 +27,7 @@ export interface ExecutionBridge {
 /** Only prepares a candidate. The owning scheduler commits after native cleanup. */
 export async function createExecutionBridge(opts: AgentTurnOptions, execution: ExternalAgentExecution,
   signal: AbortSignal, controlOnly: boolean): Promise<ExecutionBridge> {
+  opts.scopedNative?.assertAuthorized();
   const lifetime = new AbortController();
   signal = AbortSignal.any([signal, lifetime.signal]);
   const agent = { ...opts.agent, permissionMode: execution.permissionMode ?? opts.agent.permissionMode };
@@ -33,6 +36,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
     description: tool.description, inputSchema: tool.parameters, control: true }));
   const exposed = !controlOnly && opts.agent.execution?.kind === 'external' ? (opts.agent.execution.platformTools ?? []).filter(name => !opts.privateContext || ['fs.read','fs.write','search.files'].includes(name)) : [];
   const ordinary = exposed.flatMap((name) => {
+    if (opts.scopedNative) { try { assertScopedTool(opts.scopedNative.binding, name); } catch { return []; } }
     const tool = getTool(name);
     return tool && checkPermission(agent, name) !== 'deny' ? [{ name: 'platform_' + Buffer.from(name).toString('hex'), original: name,
       description: `${name}: ${tool.description}`, inputSchema: tool.inputSchema, control: false }] : [];
@@ -46,7 +50,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
   const requests = new Map<string, { hash: string; result: Promise<unknown> }>();
   let ordinaryActive = false;
   const approval = nativeApprovalGate(execution, signal);
-  const valid = () => !closed && !signal.aborted && executionAuthorized(execution);
+  const valid = () => { try { opts.scopedNative?.assertAuthorized(); return !closed && !signal.aborted && executionAuthorized(execution); } catch { return false; } };
   const assertValid = () => { if (!valid()) throw new ExecutionError('cancelled', '执行凭据或责任代际已失效'); };
   const invoke = async (body: Record<string, unknown>) => {
     assertValid();
@@ -80,6 +84,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
         ordinaryActive = true;
         try {
           const nativeTool = getTool(tool.original);
+          if (opts.scopedNative) assertScopedTool(opts.scopedNative.binding, tool.original);
           const decision = checkPermission(agent, tool.original);
           if (!nativeTool || decision === 'deny') throw new Error('业务工具权限已拒绝');
           if (decision === 'need_approval' && !await approval('bridge:' + body.requestId, tool.original, body.arguments)) throw new Error('用户拒绝业务工具');
@@ -88,13 +93,19 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
             toolName: tool.original, input: JSON.stringify(body.arguments), idempotencyKey: `external:${execution.id}:${body.requestId}`,
             replayPolicy: nativeTool.replayPolicy ?? 'manual', spanId: span.id,
             execute: () => { assertValid(); return nativeTool.run(body.arguments, { runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot }); } });
-          assertValid(); endSpan(span, { output: value.output });
-          return { content: [{ type: 'text', text: value.output }] };
+          assertValid();
+          let output = value.output;
+          if (opts.scopedNative) {
+            const row = get<{id:string}>('SELECT id FROM tool_executions WHERE idempotency_key=?', `external:${execution.id}:${body.requestId}`)!;
+            output = exposeScopedInput(opts.scopedNative.binding, compileScopedSource(execution.runId,'tool_execution',row.id), 'mcp_result', tool.original).toString('utf8');
+          }
+          endSpan(span, { output });
+          return { content: [{ type: 'text', text: output }] };
         } finally { ordinaryActive = false; }
       } catch (error) {
         const message = diagnostic(error instanceof Error ? error.message : String(error));
         endSpan(span, { status: 'error', output: message });
-        return { isError: true, content: [{ type: 'text', text: message }] };
+        return { isError: true, content: [{ type: 'text', text: opts.scopedNative ? 'SCOPED_TOOL_REJECTED' : message }] };
       }
     })();
     requests.set(body.requestId, { hash, result }); return result;
