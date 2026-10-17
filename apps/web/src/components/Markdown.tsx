@@ -1,3 +1,4 @@
+import {ManagedArtifactLink} from './ManagedArtifactLink';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -12,7 +13,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
 }
 export function Markdown({ text }: { text: string }) {
   return <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-    a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+    a: ({ children, href, ...props }) => {const artifact=href?.match(/^\/api\/accounts\/artifacts\/([a-zA-Z0-9-]+)\/content$/);return artifact?<ManagedArtifactLink id={artifact[1]!} href={href!}>{children}</ManagedArtifactLink>:<a {...props} href={href} target="_blank" rel="noreferrer">{children}</a>;},
     table: ({ children }) => <div className="my-2 max-w-full overflow-x-auto"><table>{children}</table></div>,
     pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   }}>{text}</ReactMarkdown>;

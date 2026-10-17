@@ -209,8 +209,8 @@ export function kickCollaboration(conversationId: string): void {
 }
 
 /** Explicit service admission for AC2; ordinary UI remains on its existing path until AC4. */
-export function admitAutonomousCollaboration(runId:string,draft:unknown){
-  const work=admitAutonomousGraph(runId,draft),item=getRun(runId)!;
+export function admitAutonomousCollaboration(runId:string,draft:unknown,options:{deliveryVersion?:1}={}){
+  const work=admitAutonomousGraph(runId,draft,options),item=getRun(runId)!;
   ensureCollaborationSpan(item);kickCollaboration(item.conversationId);return work;
 }
 
@@ -966,6 +966,7 @@ function hashText(value: string): string {
 }
 
 export function recoverCollaborationRuns(): void {
+  for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.status='waiting_for_user'"))settleAutonomousRun(row.run_id);
   for (const runId of listRunningCollaborationRunIds()) {
     const run = getRun(runId); if (run) ensureCollaborationSpan(run);
     if (hasPendingDecision(runId)) setRunStatus(runId, 'waiting_for_user');
@@ -978,6 +979,7 @@ export function recoverCollaborationRuns(): void {
 
 /** 活进程先续自己的租约，再只回收真正过期的其他进程 Attempt。 */
 export function sweepCollaborationLeases(): void {
+  for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.status='waiting_for_user'"))settleAutonomousRun(row.run_id);
   renewCollaborationLeases(leaseOwner);
   for (const conversationId of interruptExpiredAttempts({ onlyExpired: true })) {
     for (const runId of new Set(listConversationDispatches(conversationId).map((item) => item.runId))) finalizeRun(runId);

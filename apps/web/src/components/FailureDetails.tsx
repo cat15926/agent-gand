@@ -5,7 +5,7 @@ const ROLE: Record<RunFailureNode['role'], string> = { failure: '执行失败', 
 const RELATION = { same_attempt: '同一次执行的关联记录', span_parent: '调用层级', depends_on: '前置依赖', secondary_to: '失败后的证据采集异常',
   failed_at_terminal: '终态提交前已记录的失败事项', terminal_cancel: '因任务终态而停止' };
 const PHASE: Record<string, string> = { queue: '排队', initialization: '初始化', before_session: '会话建立前', before_first_activity: '首次活动前', after_activity: '模型活动后', deadline: '截止时间' };
-const ACTION = { complete: '结束责任', handoff: '交接', consult_all: '等待全部咨询', consult_any: '等待首个咨询', hold: '挂起', wake: '唤醒' };
+const ACTION = { complete: '结束责任', handoff: '交接', consult_all: '等待全部咨询', consult_any: '等待首个咨询', hold: '挂起', wake: '唤醒', emit: '交付结果' };
 
 export function FailureDetails({ report, memberName }: { report: RunFailureReport; memberName: (id: string) => string }) {
   const primary = new Set(report.primaryNodeIds);

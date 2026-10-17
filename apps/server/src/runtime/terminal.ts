@@ -29,6 +29,8 @@ interface TerminalRow {
 }
 
 export interface RuntimeTerminalPreparation {
+  /** Trusted AC3 terminal transaction may already have published its exact immutable plan. */
+  existingAutonomousReportId?: string;
   completion?: {
     input: RuntimeCompletionInput;
     evaluation: RuntimeCompletionEvaluation;
@@ -128,12 +130,13 @@ export function commitRunTerminal(input: CommitRunTerminalInput): CommitRunTermi
     cancelRunObligations(input.runId, `run-terminal:${input.runId}:${input.status}`);
 
     const report = prepared.report ? post({ ...prepared.report, runId: input.runId }) : null;
+    if(prepared.existingAutonomousReportId&&!get('SELECT 1 FROM autonomous_emission_records e JOIN messages m ON m.id=e.message_id WHERE e.run_id=? AND m.run_id=e.run_id AND m.id=?',input.runId,prepared.existingAutonomousReportId))throw new Error('Autonomous terminal report is not a committed emission');
     if (input.userMessageStatus) updateRunUserMessageStatus(input.runId, input.userMessageStatus);
     const reasonCodes = prepared.reasonCodes ?? (prepared.completion?.evaluation.reasons ?? []);
     run(`INSERT INTO runtime_run_terminals
       (run_id,status,disposition,completion_evaluation_seq,report_message_id,reason_codes,source,committed_at)
       VALUES (?,?,?,?,?,?,?,?)`, input.runId, input.status, input.disposition, evaluationSeq,
-    report?.id ?? null, JSON.stringify(reasonCodes), input.source, now);
+    report?.id ?? prepared.existingAutonomousReportId ?? null, JSON.stringify(reasonCodes), input.source, now);
     const terminal = toTerminal(get<TerminalRow>('SELECT * FROM runtime_run_terminals WHERE run_id=?', input.runId)!);
     const committedRun = getRun(input.runId)!;
     afterCommit(() => emit({ type: 'run.updated', run: committedRun }));

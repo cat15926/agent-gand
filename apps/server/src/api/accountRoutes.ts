@@ -1,6 +1,8 @@
 import { InformationReleaseError, previewPrivateAggregate, confirmPrivateAggregate, previewInformationRelease, confirmInformationRelease, publishInformationRelease, revokeInformationRelease, editReleaseDraft, releaseState, roomReleaseStates, roomAggregateSources } from '../collaboration/informationRelease.ts';
 import { scopedCollaborationSupport } from '../runtime/scopedCapabilities.ts';
 import {autonomousCollaborationSupport} from '../runtime/autonomousTasks.ts';
+import {previewAutonomousDecision,resolveAutonomousAuthorization} from '../collaboration/autonomousDelivery.ts';
+import {AutonomousTaskError} from '../runtime/autonomousPolicy.ts';
 import { recoverDurableHolds } from '../runs/recovery.ts';
 import type { AccountBackend } from '@agent-gand/shared';
 import type { FastifyInstance } from 'fastify';
@@ -29,6 +31,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.setErrorHandler((error, request, reply) => {
       // Never log error objects, request bodies or native credential material in this module.
       if (error instanceof InformationReleaseError) return reply.code(error.status).send({error:error.message,code:error.code,retryable:error.retryable,allowedRecovery:error.allowedRecovery,diagnosticRef:null});
+      if(error instanceof AutonomousTaskError)return reply.code(409).send({error:error.code,code:error.code,retryable:false});
       if (error instanceof AccountError) return reply.code(error.status).send({ error: error.message, fieldErrors: error.fieldErrors });
       const statusCode = (error as { statusCode?: number }).statusCode;
       const status = statusCode && statusCode >= 400 && statusCode < 500 ? statusCode : 500;
@@ -40,6 +43,10 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.delete('/api/accounts/session', async (request, reply) => { await cancelSessionLogins(managementOwner(request)); return deleteManagementSession(request, reply); });
     accounts.get('/api/accounts/scoped-delivery/capabilities', async () => scopedCollaborationSupport());
     accounts.get('/api/accounts/autonomous-collaboration/capabilities', async () => autonomousCollaborationSupport());
+    accounts.get<{Params:{id:string}}>('/api/accounts/autonomous-collaboration/decisions/:id',async request=>previewAutonomousDecision(request.params.id));
+    accounts.post<{Params:{id:string}}>('/api/accounts/autonomous-collaboration/decisions/:id/resolve',{bodyLimit:2048},async request=>{
+      const result=resolveAutonomousAuthorization(request.params.id,request.body,managementOwner(request));kickCollaboration(getRun(result.runId)!.conversationId);return result;
+    });
     accounts.post('/api/accounts/scoped-delivery/preview', { bodyLimit: 100_000 }, async request => previewScopedDelivery(request.body,managementOwner(request)));
     accounts.post('/api/accounts/scoped-delivery/confirm', { bodyLimit: 1024 }, async request => {
       const runId=confirmScopedDelivery(request.body,managementOwner(request));

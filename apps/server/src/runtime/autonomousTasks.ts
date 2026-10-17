@@ -14,6 +14,7 @@ import {captureExecutionBinding,assertBindingAuthorized} from '../execution/auth
 import {scopedNativeAgentSupported} from './scopedCapabilities.ts';
 import {normalizeCostPolicy} from '../orchestration/costPolicy.ts';
 import {autonomousDigest as digest,autonomousFail as fail,autonomousObject as object,autonomousStrings as strings,loadAutonomousTaskPolicy} from './autonomousPolicy.ts';
+import {validateAutonomousDerivedSource} from './autonomousResults.ts';
 
 const ACTIONS:AutonomousActionName[]=['delegate','aggregate','emit','request_user','complete'];
 const list=(value:unknown):string[]=>{if(!strings(value))return fail('AUTONOMOUS_CONTRACT_INVALID');return [...value];};
@@ -37,6 +38,7 @@ function sourceInput(runId:string,value:unknown,participants:string[]):Autonomou
 function checkInput(runId:string,input:AutonomousInputV1,reader?:string,output?:MessageAccess):void {
   const value=inspectScopedSource(runId,input.source.kind,input.source.id);
   if(digest(value.ref)!==digest(input.source))fail('AUTONOMOUS_POLICY_DRIFT');
+  if(get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.deliveryVersion')=1",runId))validateAutonomousDerivedSource(runId,input.source);
   if(reader&&(!input.readers.includes(reader)||!isMessageVisibleTo(value.access,reader)))fail('AUTONOMOUS_ACCESS_DENIED');
   if(output&&!isMessageWithinScope(value.access,output))fail('AUTONOMOUS_ACCESS_DENIED');
 }
@@ -54,10 +56,10 @@ export function loadAutonomousTaskGrant(id:string):AutonomousTaskGrantV1 {
 
 /** Trusted server compiler, not an Agent tool or HTTP admission endpoint.
  * Freezes a fresh root only; creates no Dispatch and cannot start a v4 worker in AC1. */
-export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
+export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
   return tx(()=>{
     const v=object(value,['coordinatorId','participantIds','inputs','outputAccess','budget']);
-    const admission=digest(options.delegationVersion?{draft:v,delegationVersion:1}:v);
+    const admission=digest(options.deliveryVersion?{draft:v,delegationVersion:1,deliveryVersion:1}:options.delegationVersion?{draft:v,delegationVersion:1}:v);
     const previous=loadAutonomousTaskPolicy(runId);
     if(previous){
       if(previous.admissionSha256!==admission)return fail('AUTONOMOUS_AUTHORITY_INVALID');
@@ -110,6 +112,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     planned.contract.features!.controlActionVersion=4;
     planned.contract.features!.autonomousCollaboration={version:1,capabilityPackage:'autonomous-collaboration-v1',boundaryVersion:2,policyId:policy.id,policyRevision:1,policySha256:digest(policy),rootRunId:runId,budgetRunId:runId};
     if(options.delegationVersion)planned.contract.features!.autonomousCollaboration.delegationVersion=1;
+    if(options.deliveryVersion)planned.contract.features!.autonomousCollaboration.deliveryVersion=1;
     freezeRuntimeContract(planned.contract);resolveRunPolicy(runId);
     const subjectId=randomUUID();
     run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,runId,'root:'+coordinatorId,'root',null,source.goal,now,now);
@@ -121,13 +124,13 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
   });
 }
 
-export function assertAutonomousGrantReady(id:string):{policy:AutonomousTaskPolicyV1;grant:AutonomousTaskGrantV1} {
+export function assertAutonomousGrantReady(id:string,options:{allowWaitingForUser?:boolean}={}):{policy:AutonomousTaskPolicyV1;grant:AutonomousTaskGrantV1} {
   const grant=loadAutonomousTaskGrant(id),policy=loadAutonomousTaskPolicy(grant.runId);
   const contract=loadRuntimeContract(grant.runId);
   if(!policy||policy.id!==grant.policyId||contract?.features?.autonomousCollaboration?.policyId!==policy.id)return fail('AUTONOMOUS_AUTHORITY_INVALID');
   if(contract.features.autonomousCollaboration.delegationVersion===1&&config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   const state=get<{status:string}>('SELECT status FROM runs WHERE id=?',grant.runId)?.status;
-  if(state!=='running')return fail('AUTONOMOUS_AUTHORITY_INVALID');
+  if(state!=='running'&&!(options.allowWaitingForUser&&state==='waiting_for_user'))return fail('AUTONOMOUS_AUTHORITY_INVALID');
   if(Date.now()>=Date.parse(grant.expiresAt)||Date.now()>=Date.parse(policy.budget.deadlineAt))return fail('AUTONOMOUS_TASK_EXPIRED');
   if(get('SELECT 1 FROM autonomous_task_revocations WHERE run_id=? AND grant_id IS NULL',grant.runId))return fail('AUTONOMOUS_GRANT_REVOKED');
   let current:AutonomousTaskGrantV1|null=grant;
@@ -162,21 +165,24 @@ export function assertAutonomousGrant(binding:AutonomousGrantBinding,action?:Aut
 }
 
 /** The scheduler supplies childSubjectId. A model cannot create its own authority row. */
-export function deriveAutonomousGrant(binding:AutonomousGrantBinding,childSubjectId:string,value:unknown):AutonomousTaskGrantV1 {
+export function deriveAutonomousGrant(binding:AutonomousGrantBinding,childSubjectId:string,value:unknown,options:{aggregateInputs?:AutonomousInputV1[]}={}):AutonomousTaskGrantV1 {
   return tx(()=>{
-    const {grant:parent,policy}=assertAutonomousGrant(binding,'delegate');
+    const aggregate=options.aggregateInputs!==undefined;
+    const {grant:parent,policy}=assertAutonomousGrant(binding,aggregate?'aggregate':'delegate');
+    if(aggregate&&loadRuntimeContract(binding.runId)?.features?.autonomousCollaboration?.deliveryVersion!==1)return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
     const v=object(value,['agentId','participantIds','inputIds','allowedTools','delegableTools','actions','outputAccess','expiresAt','commandKey']);
     const agentId=text(v.agentId),participantIds=list(v.participantIds??[agentId]);subset(participantIds,parent.participantIds);
-    if(agentId===parent.agentId)return fail('AUTONOMOUS_ACCESS_DENIED');
+    if(agentId===parent.agentId&&!aggregate)return fail('AUTONOMOUS_ACCESS_DENIED');
     if(!participantIds.includes(agentId)||parent.depth>=policy.budget.maxDepth)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const subject=get<{parent_subject_id:string;status:string}>('SELECT parent_subject_id,status FROM runtime_subjects WHERE id=? AND run_id=?',childSubjectId,binding.runId);
     if(!subject||subject.status!=='active'||subject.parent_subject_id!==parent.subjectId)return fail('AUTONOMOUS_AUTHORITY_INVALID');
-    const requested=list(v.inputIds??[]),inputs=requested.map(id=>{const i=parent.inputs.find(i=>i.source.id===id);if(!i||!i.readers.includes(agentId))return fail('AUTONOMOUS_ACCESS_DENIED');return {...i,readers:i.readers.filter(id=>participantIds.includes(id))};});
+    for(const input of options.aggregateInputs??[])if(!validateAutonomousDerivedSource(binding.runId,input.source))return fail('AUTONOMOUS_AUTHORITY_INVALID');
+    const requested=list(v.inputIds??[]),inputs=requested.map(id=>{const i=parent.inputs.find(i=>i.source.id===id)??options.aggregateInputs?.find(i=>i.source.id===id);if(!i||!i.readers.includes(agentId))return fail('AUTONOMOUS_ACCESS_DENIED');return {...i,readers:i.readers.filter(id=>participantIds.includes(id))};});
     const outputAccess=access(v.outputAccess??{visibility:'private',audience:['user',agentId]});
     if(!isMessageVisibleTo(outputAccess,agentId))return fail('AUTONOMOUS_ACCESS_DENIED');
     subset(outputAccess.audience.filter(id=>id!=='user'),parent.participantIds);
     if(!isMessageWithinScope(policy.rootAccess,outputAccess)||!isMessageWithinScope(parent.outputAccess,outputAccess))return fail('AUTONOMOUS_ACCESS_DENIED');
-    for(const input of inputs)checkInput(binding.runId,input,agentId,outputAccess);
+    for(const input of inputs){checkInput(binding.runId,input,agentId,outputAccess);const original=parent.inputs.find(i=>i.source.id===input.source.id)??options.aggregateInputs?.find(i=>i.source.id===input.source.id);if(loadRuntimeContract(binding.runId)?.features?.autonomousCollaboration?.deliveryVersion===1&&!isMessageWithinScope({visibility:'private',audience:['user',...(original?.readers??[])]},outputAccess))return fail('AUTONOMOUS_ACCESS_DENIED');}
     const allowedTools=list(v.allowedTools??[]);subset(allowedTools,parent.delegableTools);subset(allowedTools,policy.members.find(m=>m.agentId===agentId)!.allowedTools);
     const delegableTools=list(v.delegableTools??[]);subset(delegableTools,parent.delegableTools);subset(delegableTools,policy.members.filter(m=>participantIds.includes(m.agentId)).flatMap(m=>m.allowedTools));
     const actions=list(v.actions??['complete','request_user']);subset(actions,parent.actions);subset(actions,ACTIONS);
@@ -200,6 +206,6 @@ export function revokeAutonomousAuthority(runId:string,grantId:string|null,reaso
 
 export function autonomousCollaborationSupport(){
   return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,delegationVersion:1,
-    executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:false,
-    reason:'AC2 dynamic API delegation requires an explicit delegationVersion=1 root and execute mode; default UI and automatic delivery remain later stages'} as const;
+    deliveryVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:false,
+    reason:'API delegation and automatic result delivery require explicit versioned roots and execute mode; default chat entry remains AC4'} as const;
 }

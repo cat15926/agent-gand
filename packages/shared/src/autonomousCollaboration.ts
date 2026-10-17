@@ -14,6 +14,8 @@ export interface AutonomousCollaborationContractV1 {
   budgetRunId: string;
   /** Absent on immutable AC1 roots. Only AC2-aware workers may execute this package. */
   delegationVersion?: 1;
+  /** AC3 result intake, exact emission and necessary decisions; absent on AC2 roots. */
+  deliveryVersion?: 1;
 }
 
 export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete';
@@ -88,6 +90,20 @@ export interface AutonomousDelegateIntentV1 {
   items: Array<{
     key: string; agentId: string; objective: string; inputIds: string[];
     dependsOn: string[]; participantIds: string[]; allowedTools: string[];
-    delegableTools: string[]; outputAudience: string[];
+    delegableTools: string[]; outputAudience?: string[];
   }>;
+}
+export interface AutonomousAggregateIntentV1 {
+  commandKey:string;key:string;agentId:string;objective:string;resultKeys:string[];allowedTools:string[];
+}
+export interface AutonomousEmitIntentV1 {
+  commandKey:string;kind:'update'|'final';format:'text'|'result_bundle'|'task_status_v1';
+  text?:string;resultKeys?:string[];access:MessageAccess;
+}
+export interface AutonomousQuestionIntentV1 {
+  commandKey:string;questions:Array<{key:string;question:string;requiredFor:string}>;
+}
+export interface AutonomousDecisionPreview {
+  id:string;runId:string;kind:'release'|'intake';fingerprint:string;status:string;
+  body:string;access:MessageAccess;reason:string;expiresAt:string;
 }

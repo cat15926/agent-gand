@@ -16,6 +16,7 @@ const runner=await import('../apps/server/src/collaboration/autonomousRunner.ts'
 const {mockProvider}=await import('../apps/server/src/llm/provider.ts'),{parseAutonomousControlCall}=await import('../apps/server/src/collaboration/autonomousTools.ts');
 const {auditShadowRun}=await import('../apps/server/src/runtime/shadow.ts');
 const {commitRunTerminal}=await import('../apps/server/src/runtime/terminal.ts');
+const latestSchema=(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version;
 const members=['planner','aa','bb','summary'];let modelCalls=0,freshProcessCalls=0,releaseA=()=>{};
 function seed(marker,ids=members){
   const room=rooms.createConversation({title:marker,mode:'collaboration',agentIds:ids,workspace:null});
@@ -34,12 +35,12 @@ try{
   const historical=seed('AC2_HISTORY');tasks.freezeAutonomousTask(historical.run.id,historical.draft);
   db.run("INSERT INTO orchestration_token_reservations(id,run_id,reserved,used,status,created_at) VALUES(?,?,123,123,'unknown',?)",randomUUID(),historical.run.id,new Date().toISOString());
   const migrationFile=path.join(env.root,'v18.sqlite');await db.db.backup(migrationFile);const v18=new Database(migrationFile);
-  v18.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_delegation_rounds;DROP TABLE autonomous_dispatch_work;DROP TABLE autonomous_work_dependencies;DROP TABLE autonomous_work_items;DELETE FROM orchestration_schema_migrations WHERE version=19;PRAGMA foreign_keys=ON');
+  v18.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_tool_receipts;DROP TABLE autonomous_intake_copies;DROP TABLE autonomous_decision_resolutions;DROP TABLE autonomous_decision_proposals;DROP TABLE autonomous_emission_records;DROP TABLE autonomous_emission_plans;DROP TABLE autonomous_aggregate_sources;DROP TABLE autonomous_results;DROP TABLE autonomous_delegation_rounds;DROP TABLE autonomous_dispatch_work;DROP TABLE autonomous_work_dependencies;DROP TABLE autonomous_work_items;DELETE FROM orchestration_schema_migrations WHERE version>=19;PRAGMA foreign_keys=ON');
   const tables=v18.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('orchestration_schema_migrations','sqlite_sequence') ORDER BY name").all().map(r=>r.name);
   const digest=database=>createHash('sha256').update(JSON.stringify(tables.map(t=>database.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()))).digest('hex');
   const before=digest(v18);await writeFile(oldModule,execFileSync('git',['show','ec5eb88:apps/server/src/db/orchestrationMigrations.ts'],{encoding:'utf8'}),{mode:0o600});
   const oldWorker=await import(pathToFileURL(oldModule).href);oldWorker.assertOrchestrationSchemaCompatible(v18);v18.close();
-  for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',"const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==19)throw new Error('schema');d.closeDatabase();"],{env:{...process.env,DB_PATH:migrationFile},stdio:'pipe'});
+  for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',`const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==${latestSchema})throw new Error('schema');d.closeDatabase();`],{env:{...process.env,DB_PATH:migrationFile},stdio:'pipe'});
   const v19=new Database(migrationFile,{readonly:true});assert.equal(digest(v19),before);assert.deepEqual(v19.pragma('foreign_key_check'),[]);assert.throws(()=>oldWorker.assertOrchestrationSchemaCompatible(v19),/版本|migration|schema/i);v19.close();
   config.autonomousCollaborationMode='execute';
   assert.throws(()=>graph.admitAutonomousGraph(historical.run.id,historical.draft),/AUTONOMOUS_AUTHORITY_INVALID/);
@@ -227,6 +228,6 @@ try{
   assert.throws(()=>parseAutonomousControlCall(call('agent.delegate',{commandKey:'x',runId:'forged',items:[]})),/AUTONOMOUS_CONTRACT_INVALID/);
   for(const table of ['autonomous_work_items','autonomous_work_dependencies','autonomous_dispatch_work','autonomous_delegation_rounds'])assert.throws(()=>db.run(`DELETE FROM ${table}`),/immutable/);
   assert.deepEqual(db.db.pragma('foreign_key_check'),[]);assert.equal(env.externalRequests,0);
-  const report={passed:true,checks,schema:19,fixtureModelCalls:modelCalls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,defaultUiAvailable:false};
+  const report={passed:true,checks,schema:latestSchema,fixtureModelCalls:modelCalls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,defaultUiAvailable:false};
   await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
 }finally{releaseA();await rm(oldModule,{force:true});await env.close();}

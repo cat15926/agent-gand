@@ -1,4 +1,5 @@
 import { ArtifactDrawer } from '../ArtifactDrawer';
+import {AutonomousAuthorizationCard} from '../AutonomousAuthorizationCard';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AgentDefinition, CollaborationUserDecision, Message, ConversationMessageSearch } from '@agent-gand/shared';
 import * as api from '../../services/api';
@@ -81,6 +82,7 @@ function DecisionCard({ decision }: { decision: CollaborationUserDecision }) {
     finally { setBusy(false); }
   }
   if (decision.status !== 'pending') return <div className="mt-3 rounded-lg bg-zinc-950/40 px-3 py-2 text-xs text-zinc-400">已处理：{decision.status}</div>;
+  if(decision.kind==='autonomous_authorization')return <AutonomousAuthorizationCard decision={decision}/>;
   if (decision.kind === 'agent_question') return <div className="mt-3 space-y-2 rounded-xl border border-violet-500/20 bg-zinc-950/40 p-3">
     <div className="text-xs font-medium text-violet-200">Agent 正在等待你的回答</div>
     <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={2} className="w-full rounded-lg bg-zinc-900 p-2 text-xs outline-none ring-1 ring-zinc-700 focus:ring-violet-500" />

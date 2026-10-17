@@ -464,7 +464,7 @@ export interface RuntimeRunTerminalRecord {
   committedAt: string;
 }
 
-export type RuntimeActionCommandKind = 'complete' | 'wake' | 'hold' | 'handoff' | 'consult_all' | 'consult_any';
+export type RuntimeActionCommandKind = 'complete' | 'wake' | 'hold' | 'handoff' | 'consult_all' | 'consult_any' | 'emit';
 
 /** Runtime 动作命令的持久化幂等账本；result 是命令提交时冻结的最小返回值。 */
 export interface RuntimeActionCommandRecord {

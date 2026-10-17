@@ -143,7 +143,9 @@
     "verify:scoped-native-files": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-native-files.mjs",
     "verify:native-auth-timeout": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-native-auth-timeout.mjs",
     "verify:autonomous-ac1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac1.mjs",
-    "verify:autonomous-ac2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac2.mjs"
+    "verify:autonomous-ac2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac2.mjs",
+    "verify:autonomous-ac3": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac3.mjs",
+    "verify:autonomous-ac3-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac3-ui.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

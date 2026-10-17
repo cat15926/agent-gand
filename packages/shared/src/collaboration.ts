@@ -108,7 +108,7 @@ export type RuntimeControlAction =
 /** 数据库存量允许 v1/v2 并存；执行前必须经过 Legacy Adapter 归一化。 */
 export type CollaborationStoredControlAction = LegacyCollaborationControlAction | RuntimeControlAction;
 
-export type CollaborationDecisionKind = 'agent_question' | 'budget_exhausted' | 'supervisor_task_proposal';
+export type CollaborationDecisionKind = 'agent_question' | 'budget_exhausted' | 'supervisor_task_proposal' | 'autonomous_authorization';
 export type CollaborationDecisionStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
 
 export interface CollaborationUserDecision {

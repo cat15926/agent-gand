@@ -8,6 +8,8 @@ import { loadRuntimeContract, resolveRunPolicy } from './runPolicy.ts';
 import { persistRuntimeContextAssembly } from './context.ts';
 import { captureExecutionBinding, assertBindingAuthorized } from '../execution/authority.ts';
 import {assertAutonomousGrant} from './autonomousTasks.ts';
+import {autonomousDigest} from './autonomousPolicy.ts';
+import {validateAutonomousDerivedSource} from './autonomousResults.ts';
 
 export class ScopedCollaborationError extends Error {
   readonly retryable = false;
@@ -67,6 +69,12 @@ export function inspectScopedSource(runId:string,kind:ScopedSourceRef['kind'],id
   const value=source(runId,kind,id,'user');
   return {ref:value.ref,access:value.policy};
 }
+/** Trusted Owner preview/transport only; never exposed as a model tool. */
+export function readScopedSourceForOwner(runId:string,ref:ScopedSourceRef):Buffer {
+  const value=source(runId,ref.kind,ref.id,'user');
+  if(JSON.stringify(value.ref)!==JSON.stringify(ref))fail('SOURCE_VERSION_CHANGED');
+  return value.bytes;
+}
 /** Validate opaque forwarding authority without exposing its bytes to the coordinator. */
 export function assertScopedSourceForRecipient(runId: string, ref: ScopedSourceRef, recipient: string): void {
   const c = contract(runId);
@@ -79,6 +87,7 @@ const key = (ref: ScopedSourceRef) => JSON.stringify([ref.kind, ref.id, ref.vers
 function checkedSource(scope: ExecutionScopeV1, ref: ScopedSourceRef) {
   const value = source(scope.runId, ref.kind, ref.id, scope.agentId);
   if (key(value.ref) !== key(ref)) return fail('SOURCE_VERSION_CHANGED');
+  if(contract(scope.runId).features?.autonomousCollaboration?.deliveryVersion===1)validateAutonomousDerivedSource(scope.runId,ref);
   if (!isMessageWithinScope(value.policy, scope.defaultOutputAccess)) return fail('SCOPE_NOT_READABLE');
   return value;
 }
@@ -218,7 +227,9 @@ export function exposeScopedInput(input: ScopedAttemptBinding, ref: ScopedSource
       && Boolean(get("SELECT 1 FROM tool_executions WHERE id=? AND run_id=? AND attempt_id=? AND agent_id=? AND tool_name=? AND status='completed'",
         ref.id, input.runId, input.attemptId, input.agentId, toolName));
     const ownArtifact = ref.kind === 'artifact' && channel === 'file_read' && Boolean(get("SELECT 1 FROM managed_artifact_versions WHERE id=? AND run_id=? AND json_extract(record,'$.attemptId')=? AND json_extract(record,'$.createdBy')=?",ref.id,input.runId,input.attemptId,input.agentId));
-    if (!producedHere && !ownArtifact && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
+    const receipt=ref.kind==='message'&&channel==='supplement'&&contract(input.runId).features?.autonomousCollaboration?.deliveryVersion===1&&get<{record:string;sha256:string}>('SELECT record,sha256 FROM autonomous_tool_receipts WHERE message_id=? AND attempt_id=? AND scope_id=?',ref.id,input.attemptId,input.scopeId);
+    if(receipt&&(autonomousDigest(JSON.parse(receipt.record))!==receipt.sha256||autonomousDigest(ref)!==receipt.sha256))return fail('SOURCE_VERSION_CHANGED');
+    if (!producedHere && !ownArtifact && !receipt && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
     const value = checkedSource(scope, ref);
     append(input, ref, channel); // commit before returning bytes; crashes retain conservative exposure
     return value.bytes;

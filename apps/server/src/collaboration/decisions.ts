@@ -1,4 +1,6 @@
 import type { ResolveCollaborationDecision, Run } from '@agent-gand/shared';
+import {AutonomousTaskError} from '../runtime/autonomousPolicy.ts';
+import {answerAutonomousQuestion} from './autonomousDelivery.ts';
 import * as registry from '../agents/registry.ts';
 import { afterCommit, tx } from '../db/database.ts';
 import { nextTurnNo, touchConversation } from '../conversations/service.ts';
@@ -54,6 +56,12 @@ function recordDecisionTrace(sourceRun: Run, decisionId: string, kind: string, i
 
 export function resolveCollaborationDecision(id: string, input: ResolveCollaborationDecision) {
   const initial = assertPending(id);
+  if(initial.payload.autonomousDecisionId){
+    if(initial.kind!=='agent_question'||input.action!=='answer')throw new CollaborationDecisionError('该授权必须在确切内容决策卡中批准；普通回答不能授予权限',409);
+    try{const result=answerAutonomousQuestion(id,input.message);if(!result)throw new CollaborationDecisionError('自主问题不存在',409);}
+    catch(error){if(error instanceof AutonomousTaskError)throw new CollaborationDecisionError(error.code,409);throw error;}
+    kickCollaboration(initial.conversationId);return {decision:getDecision(id)!,linkedRun:null};
+  }
   if (initial.status !== 'pending') {
     recoverDurableHolds(initial.runId);
     return { decision: initial, linkedRun: initial.linkedRunId ? getRun(initial.linkedRunId) : null };

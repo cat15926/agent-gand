@@ -30,6 +30,7 @@ export interface RuntimeActionCommandInput<T> {
   releaseWake?: { holdId: string; claimToken: string };
   /** AC2 status-only wake; authority comes from the persisted round and waiting generation. */
   autonomousWake?: {roundId:string;generation:number};
+  autonomousDecisionWake?: {decisionId:string;generation:number};
   intentFingerprint?: string;
   execute: () => T;
 }
@@ -67,6 +68,7 @@ function assertSameCommand<T>(row: CommandRow, kind: RuntimeActionCommandKind,
 
 function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | null {
   const s = input.scope;
+  if(input.autonomousDecisionWake)return createHash('sha256').update(JSON.stringify(['autonomous-decision-wake-v1',input.runId,input.autonomousDecisionWake.decisionId,input.autonomousDecisionWake.generation])).digest('hex');
   if(input.autonomousWake)return createHash('sha256').update(JSON.stringify(['autonomous-wake-v1',input.runId,input.autonomousWake.roundId,input.autonomousWake.generation])).digest('hex');
   if (input.releaseWake) return createHash('sha256').update(JSON.stringify(['release-wake-v1',input.runId,input.releaseWake.holdId])).digest('hex');
   if (input.projection) return createHash('sha256').update(JSON.stringify(['scoped-return-v1',input.runId,input.projection.batchId,input.projection.planFingerprint])).digest('hex');
@@ -89,6 +91,9 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
     const features=loadRuntimeContract(input.runId)?.features;
     const scoped = features?.scopedCollaboration;
     const autonomous=features?.autonomousCollaboration?.delegationVersion===1;
+    if(input.autonomousDecisionWake&&(!autonomous||features?.autonomousCollaboration?.deliveryVersion!==1||kind!=='wake'||input.scope||input.autonomousWake||input.projection||input.releaseWake||input.attemptId||input.dispatchId||!get(`SELECT 1 FROM autonomous_decision_proposals p JOIN autonomous_decision_resolutions r ON r.decision_id=p.id
+      JOIN autonomous_work_items w ON w.id=p.work_id JOIN autonomous_task_grants g ON g.id=w.grant_id JOIN runtime_custody c ON c.subject_id=g.subject_id
+      WHERE p.id=? AND p.run_id=? AND p.generation=? AND c.state='waiting' AND c.generation=p.generation`,input.autonomousDecisionWake.decisionId,input.runId,input.autonomousDecisionWake.generation)))throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     if(input.autonomousWake&&(!autonomous||kind!=='wake'||input.scope||input.attemptId||input.dispatchId||input.projection||input.releaseWake||!get(`SELECT 1 FROM autonomous_delegation_rounds r
       JOIN autonomous_work_items w ON w.id=r.parent_work_id JOIN autonomous_task_grants g ON g.id=w.grant_id
       JOIN runtime_custody c ON c.subject_id=g.subject_id JOIN runs task ON task.id=r.run_id
@@ -107,8 +112,8 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
       || !get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?', input.attemptId, input.dispatchId))) {
       throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     }
-    if(autonomous&&!input.autonomousWake&&(!input.scope||input.projection||input.releaseWake||input.scope.runId!==input.runId||input.scope.attemptId!==input.attemptId||!get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?',input.attemptId,input.dispatchId)))throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
-    if (!scoped && !autonomous && (input.scope||input.autonomousWake)) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if(autonomous&&!input.autonomousWake&&!input.autonomousDecisionWake&&(!input.scope||input.projection||input.releaseWake||input.scope.runId!==input.runId||input.scope.attemptId!==input.attemptId||!get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?',input.attemptId,input.dispatchId)))throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if (!scoped && !autonomous && (input.scope||input.autonomousWake||input.autonomousDecisionWake)) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     const result = input.scope ? commitScopedOutput(input.scope, input.execute) : input.execute();
     const encoded = JSON.stringify(result ?? null);
     const now = new Date().toISOString();
@@ -124,6 +129,7 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
 }
 
 export const commitCompleteActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('complete', input);
+export const commitEmitActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('emit', input);
 export const commitWakeActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('wake', input);
 export const commitHoldActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('hold', input);
 export const commitHandoffActionCommand = <T>(input: RuntimeActionCommandInput<T>) => commitAction('handoff', input);

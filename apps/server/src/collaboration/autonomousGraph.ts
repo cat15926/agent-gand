@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import type {AutonomousDelegateIntentV1,AutonomousGrantBinding,MessageAccess,ScopedSourceRef} from '@agent-gand/shared';
+import {isMessageVisibleTo,type AutonomousInputV1,type AutonomousDelegateIntentV1,type AutonomousGrantBinding,type MessageAccess,type ScopedSourceRef} from '@agent-gand/shared';
 import {all,get,run,tx} from '../db/database.ts';
 import {config} from '../config.ts';
 import {post} from '../messaging/inbox.ts';
@@ -7,7 +7,7 @@ import {setRunStatus} from '../runs/trace.ts';
 import {assertAutonomousGrant,assertAutonomousGrantReady,deriveAutonomousGrant,freezeAutonomousTask,loadAutonomousTaskGrant} from '../runtime/autonomousTasks.ts';
 import {loadAutonomousTaskPolicy,autonomousDigest as digest,autonomousFail as fail} from '../runtime/autonomousPolicy.ts';
 import {assertExecutableCollaborationPolicy,loadRuntimeContract} from '../runtime/runPolicy.ts';
-import {assertScopedOutput,inputLedgerRevision,type ScopedAttemptBinding} from '../runtime/scopedCollaboration.ts';
+import {assertScopedOutput,inspectScopedSource,inputLedgerRevision,type ScopedAttemptBinding} from '../runtime/scopedCollaboration.ts';
 import {commitConsultAllActionCommand,commitWakeActionCommand} from '../runtime/actionCommands.ts';
 import {observeAutonomousWaiting,observeAutonomousDependencyFailure,observeWakeLink} from '../runtime/shadow.ts';
 import {openSuccessorObligation} from '../runtime/obligations.ts';
@@ -24,7 +24,7 @@ export function assertAutonomousDispatchLimit(runId:string):void {
   const p=loadAutonomousTaskPolicy(runId);
   if(!p||listDispatches(runId).length>=p.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
 }
-function assertPlanCapacity(runId:string,newItems:number):void {
+export function assertPlanCapacity(runId:string,newItems:number):void {
   const policy=loadAutonomousTaskPolicy(runId)!;
   const pending=get<{n:number}>(`SELECT COUNT(*) n FROM autonomous_work_items w JOIN autonomous_task_grants g ON g.id=w.grant_id
     JOIN runtime_subjects s ON s.id=g.subject_id WHERE w.run_id=? AND s.status='active'
@@ -33,8 +33,12 @@ function assertPlanCapacity(runId:string,newItems:number):void {
     JOIN autonomous_task_grants g ON g.id=w.grant_id JOIN runtime_custody c ON c.subject_id=g.subject_id
     WHERE r.run_id=? AND c.state='waiting' AND c.generation=r.generation
       AND NOT EXISTS(SELECT 1 FROM runtime_action_commands command WHERE command.command_key='autonomous:wake:' || r.id)`,runId)!.n;
+  const decisions=get<{n:number}>(`SELECT COUNT(*) n FROM autonomous_decision_proposals p JOIN autonomous_work_items w ON w.id=p.work_id
+    JOIN autonomous_task_grants g ON g.id=w.grant_id JOIN runtime_custody c ON c.subject_id=g.subject_id
+    WHERE p.run_id=? AND c.state='waiting' AND c.generation=p.generation
+      AND NOT EXISTS(SELECT 1 FROM runtime_action_commands command WHERE command.command_key='delivery:decision-wake:' || p.id)`,runId)!.n;
   // Reserve the future parent wake and every dependency-blocked child before admitting a plan.
-  if(listDispatches(runId).length+pending+wakes+newItems+1>policy.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
+  if(listDispatches(runId).length+pending+wakes+decisions+newItems+1>policy.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
 }
 function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
   const {grant,policy}=assertAutonomousGrantReady(work.grant_id);assertAutonomousDispatchLimit(work.run_id);
@@ -47,10 +51,10 @@ function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
 }
 
 /** Explicit trusted admission only. Ordinary chat does not call this until AC4. */
-export function admitAutonomousGraph(runId:string,draft:unknown){
+export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1}={}){
   if(config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   return tx(()=>{
-    const frozen=freezeAutonomousTask(runId,draft,{delegationVersion:1});
+    const frozen=freezeAutonomousTask(runId,draft,{delegationVersion:1,...options});
     if(frozen.policy.members.find(m=>m.agentId===frozen.policy.coordinatorId)?.driver!=='builtin-llm')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
     const existing=get<AutonomousWork>('SELECT * FROM autonomous_work_items WHERE run_id=? AND parent_work_id IS NULL',runId);
     if(existing)return existing;
@@ -62,15 +66,16 @@ export function admitAutonomousGraph(runId:string,draft:unknown){
 }
 
 /** Model intent -> immutable DAG, Grants, obligations, wait and command receipt in one transaction. */
-export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,intent:AutonomousDelegateIntentV1){
-  const {grant:parent}=assertAutonomousGrant(binding,'delegate');
+export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,intent:AutonomousDelegateIntentV1,options:{aggregateInputs?:AutonomousInputV1[];sources?:Array<{workId:string;refs:ScopedSourceRef[]}>}={}){
+  const aggregate=options.aggregateInputs!==undefined;
+  const {grant:parent,policy}=assertAutonomousGrant(binding,aggregate?'aggregate':'delegate');
   const dispatch=get<{dispatch_id:string}>('SELECT dispatch_id FROM collaboration_attempts WHERE id=?',binding.attemptId)!;
   const work=workForDispatch(dispatch.dispatch_id);if(!work||work.grant_id!==parent.id)return fail('AUTONOMOUS_AUTHORITY_INVALID');
-  const revision=inputLedgerRevision(binding.attemptId),commandKey=`autonomous:delegate:${parent.id}:${intent.commandKey}`;
+  const revision=inputLedgerRevision(binding.attemptId),commandKey=`autonomous:${aggregate?'aggregate':'delegate'}:${parent.id}:${intent.commandKey}`;
   // The frozen boundary covers actual exposure, including tool results, for every outgoing objective.
   return commitConsultAllActionCommand({runId:binding.runId,commandKey,attemptId:binding.attemptId,dispatchId:dispatch.dispatch_id,
     scope:{...scope,ledgerRevision:revision,outputAccess:getScopeAccess(scope.scopeId)},intentFingerprint:digest(intent),execute:()=>{
-      assertAutonomousGrant(binding,'delegate');assertExecutableCollaborationPolicy(binding.runId);
+      assertAutonomousGrant(binding,aggregate?'aggregate':'delegate');assertExecutableCollaborationPolicy(binding.runId);
       assertPlanCapacity(binding.runId,intent.items.length);
       const siblings=childWorks(work.id),byKey=new Map(siblings.map(w=>[w.work_key,w.id]));
       for(const item of intent.items){if(byKey.has(item.key))return fail('AUTONOMOUS_GRAPH_INVALID');byKey.set(item.key,randomUUID());}
@@ -85,20 +90,25 @@ export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:
       const ancestors=new Set<string>();let ancestor:AutonomousWork|undefined=work;
       while(ancestor){ancestors.add(loadAutonomousTaskGrant(ancestor.grant_id).agentId);ancestor=ancestor.parent_work_id?autonomousWork(ancestor.parent_work_id):undefined;}
       for(const item of intent.items){
-        if(ancestors.has(item.agentId))return fail('AUTONOMOUS_ACCESS_DENIED');
+        if(ancestors.has(item.agentId)&&!(aggregate&&item.agentId===parent.agentId))return fail('AUTONOMOUS_ACCESS_DENIED');
         const member=loadAutonomousTaskPolicy(binding.runId)!.members.find(m=>m.agentId===item.agentId);
         if(member?.driver!=='builtin-llm')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
-        const outputAccess:MessageAccess={visibility:'private',audience:[...new Set(['user',...item.outputAudience])].sort()};
+        const delivery=loadRuntimeContract(binding.runId)?.features?.autonomousCollaboration?.deliveryVersion===1;
+        const selected=item.inputIds.map(id=>parent.inputs.find(i=>i.source.id===id)??options.aggregateInputs?.find(i=>i.source.id===id));
+        const defaultAudience=delivery?policy.participantIds.filter(id=>parent.participantIds.includes(id)&&isMessageVisibleTo(getScopeAccess(scope.scopeId),id)
+          &&selected.every(i=>i&&i.readers.includes(id)&&isMessageVisibleTo(inspectScopedSource(binding.runId,i.source.kind,i.source.id).access,id))):['user',item.agentId];
+        const outputAccess:MessageAccess={visibility:'private',audience:[...new Set(['user',...(item.outputAudience??defaultAudience)])].sort()};
         assertScopedOutput({...scope,ledgerRevision:revision,outputAccess});
         const subjectId=randomUUID(),now=new Date().toISOString();
         run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,binding.runId,'autonomous:'+byKey.get(item.key),'consultation',parent.subjectId,item.objective,now,now);
         run("INSERT INTO runtime_custody VALUES(?,'unassigned',NULL,NULL,0,0,?)",subjectId,now);
         const child=deriveAutonomousGrant(binding,subjectId,{agentId:item.agentId,participantIds:item.participantIds,inputIds:item.inputIds,
-          allowedTools:item.allowedTools,delegableTools:item.delegableTools,actions:parent.actions,outputAccess,commandKey:`autonomous:grant:${digest([commandKey,item.key])}`});
+          allowedTools:item.allowedTools,delegableTools:item.delegableTools,actions:parent.actions,outputAccess,commandKey:`autonomous:grant:${digest([commandKey,item.key])}`},options);
         const objective=post({runId:binding.runId,from:parent.agentId,to:item.agentId,kind:'system',messageType:'collaboration_routing',body:item.objective,
           ...outputAccess,meta:{autonomousInternal:true},clientMessageId:`autonomous:objective:${child.id}`});
         const next:AutonomousWork={id:byKey.get(item.key)!,run_id:binding.runId,grant_id:child.id,parent_work_id:work.id,work_key:item.key,objective_message_id:objective.id,source_attempt_id:binding.attemptId};
         run('INSERT INTO autonomous_work_items VALUES(?,?,?,?,?,?,?,?)',next.id,next.run_id,next.grant_id,next.parent_work_id,next.work_key,next.objective_message_id,next.source_attempt_id,now);
+        for(const source of options.sources??[]){const record={refs:source.refs};run('INSERT INTO autonomous_aggregate_sources VALUES(?,?,?,?,?)',next.id,source.workId,JSON.stringify(record),digest(record),now);}
         openSuccessorObligation({runId:binding.runId,parentSubjectId:parent.subjectId,targetSubjectId:child.subjectId,kind:'consult_result',sourceActionId:commandKey,stableKey:`autonomous:result:${next.id}`,payload:{workId:next.id}});
         children.push(next);
       }

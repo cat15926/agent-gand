@@ -23,6 +23,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 17, name: 'scoped-native-coordination-v1', descriptor: 'polymorphic-scope-attempt-binding;native-cold-home-workspace-v1;ephemeral-native-memory;scope-tool-provenance;coordination-static-scope-adapter-v1;verified-combination-admission' },
   { version: 18, name: 'autonomous-task-authority-v1', descriptor: 'immutable-root-task-policy-v1;tool-api-v4-reserved;subject-bound-attenuating-grants;attempt-authority-binding;append-only-revocation;single-run-token-money-budget;no-autonomous-executor-ac1' },
   { version: 19, name: 'autonomous-dynamic-delegation-v1', descriptor: 'explicit-ac2-api-root;immutable-work-dag;attempt-bound-scopes;append-only-delegation-rounds;atomic-command-wait;dependency-ready-dispatch;generation-fenced-status-only-wake;no-default-ui-no-autonomous-release' },
+  { version: 20, name: 'autonomous-result-delivery-v1', descriptor: 'explicit-ac3-root;sealed-accepted-result-provenance;derived-input-grants;aggregate-task-scopes;exact-emission-plans-and-records;owner-only-single-decision;approved-intake-copies;question-answer-wake;known-usage-terminal-delivery;no-ac2-upgrade' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));

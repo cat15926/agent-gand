@@ -544,6 +544,7 @@ export function cancelCollaborationRun(runId: string): void {
       observeRuntimeState(runId, observe);
     }
     for(const work of all<{subject_id:string}>('SELECT g.subject_id FROM autonomous_work_items w JOIN autonomous_task_grants g ON g.id=w.grant_id WHERE w.run_id=?',runId))observeAutonomousCancellation(work.subject_id,`autonomous:stop:${runId}:${work.subject_id}`);
+    for(const decision of all<{collaboration_decision_id:string}>("SELECT p.collaboration_decision_id FROM autonomous_decision_proposals p JOIN collaboration_user_decisions d ON d.id=p.collaboration_decision_id WHERE p.run_id=? AND d.status='pending'",runId))resolveDecision(decision.collaboration_decision_id,'cancelled',{reason:'run_stopped'});
     cancelRunObligations(runId, `run:${runId}:cancelled`);
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止运行', finished_at: now }) });

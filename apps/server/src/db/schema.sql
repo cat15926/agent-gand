@@ -780,3 +780,61 @@ CREATE TRIGGER IF NOT EXISTS autonomous_dispatch_immutable BEFORE UPDATE ON auto
 CREATE TRIGGER IF NOT EXISTS autonomous_dispatch_no_delete BEFORE DELETE ON autonomous_dispatch_work BEGIN SELECT RAISE(ABORT,'immutable autonomous dispatch binding'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_rounds_immutable BEFORE UPDATE ON autonomous_delegation_rounds BEGIN SELECT RAISE(ABORT,'immutable autonomous round'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_rounds_no_delete BEFORE DELETE ON autonomous_delegation_rounds BEGIN SELECT RAISE(ABORT,'immutable autonomous round'); END;
+
+
+-- AC3: immutable result provenance, exact delivery and explicit human decisions.
+CREATE TABLE IF NOT EXISTS autonomous_results (
+  work_id TEXT PRIMARY KEY REFERENCES autonomous_work_items(id), run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  attempt_id TEXT NOT NULL UNIQUE REFERENCES collaboration_attempts(id), candidate_id TEXT NOT NULL UNIQUE REFERENCES runtime_completion_candidates(id),
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_results_immutable BEFORE UPDATE ON autonomous_results BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_results_no_delete BEFORE DELETE ON autonomous_results BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_aggregate_sources (
+  work_id TEXT NOT NULL REFERENCES autonomous_work_items(id), result_work_id TEXT NOT NULL REFERENCES autonomous_results(work_id),
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(work_id,result_work_id)
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_aggregate_sources_immutable BEFORE UPDATE ON autonomous_aggregate_sources BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_aggregate_sources_no_delete BEFORE DELETE ON autonomous_aggregate_sources BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_emission_plans (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id), work_id TEXT NOT NULL REFERENCES autonomous_work_items(id),
+  attempt_id TEXT NOT NULL REFERENCES collaboration_attempts(id), command_key TEXT NOT NULL UNIQUE, kind TEXT NOT NULL CHECK(kind IN ('update','final')),
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_emission_plans_immutable BEFORE UPDATE ON autonomous_emission_plans BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_emission_plans_no_delete BEFORE DELETE ON autonomous_emission_plans BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_emission_records (
+  id TEXT PRIMARY KEY, plan_id TEXT NOT NULL UNIQUE REFERENCES autonomous_emission_plans(id), run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  message_id TEXT NOT NULL UNIQUE REFERENCES messages(id), record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_emission_records_immutable BEFORE UPDATE ON autonomous_emission_records BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_emission_records_no_delete BEFORE DELETE ON autonomous_emission_records BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_decision_proposals (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id), work_id TEXT NOT NULL REFERENCES autonomous_work_items(id),
+  scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id), source_attempt_id TEXT NOT NULL UNIQUE REFERENCES collaboration_attempts(id),
+  source_dispatch_id TEXT NOT NULL REFERENCES collaboration_dispatches(id), collaboration_decision_id TEXT NOT NULL UNIQUE REFERENCES collaboration_user_decisions(id),
+  kind TEXT NOT NULL CHECK(kind IN ('question','intake','release')), generation INTEGER NOT NULL,
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_decision_proposals_immutable BEFORE UPDATE ON autonomous_decision_proposals BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_decision_proposals_no_delete BEFORE DELETE ON autonomous_decision_proposals BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_decision_resolutions (
+  decision_id TEXT PRIMARY KEY REFERENCES autonomous_decision_proposals(id), run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  outcome TEXT NOT NULL CHECK(outcome IN ('approved','denied','answered')), owner TEXT NOT NULL,
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_decision_resolutions_immutable BEFORE UPDATE ON autonomous_decision_resolutions BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_decision_resolutions_no_delete BEFORE DELETE ON autonomous_decision_resolutions BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_intake_copies (
+  id TEXT PRIMARY KEY, decision_id TEXT NOT NULL REFERENCES autonomous_decision_resolutions(decision_id), run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  result_work_id TEXT NOT NULL REFERENCES autonomous_results(work_id), source_id TEXT NOT NULL UNIQUE,
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_intake_copies_immutable BEFORE UPDATE ON autonomous_intake_copies BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_intake_copies_no_delete BEFORE DELETE ON autonomous_intake_copies BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TABLE IF NOT EXISTS autonomous_tool_receipts (
+  message_id TEXT PRIMARY KEY REFERENCES messages(id), attempt_id TEXT NOT NULL REFERENCES collaboration_attempts(id), scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id),
+  command_key TEXT NOT NULL UNIQUE, record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_tool_receipts_immutable BEFORE UPDATE ON autonomous_tool_receipts BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_tool_receipts_no_delete BEFORE DELETE ON autonomous_tool_receipts BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
