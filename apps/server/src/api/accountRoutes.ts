@@ -1,5 +1,6 @@
 import { InformationReleaseError, previewPrivateAggregate, confirmPrivateAggregate, previewInformationRelease, confirmInformationRelease, publishInformationRelease, revokeInformationRelease, editReleaseDraft, releaseState, roomReleaseStates, roomAggregateSources } from '../collaboration/informationRelease.ts';
 import { scopedCollaborationSupport } from '../runtime/scopedCapabilities.ts';
+import {autonomousCollaborationSupport} from '../runtime/autonomousTasks.ts';
 import { recoverDurableHolds } from '../runs/recovery.ts';
 import type { AccountBackend } from '@agent-gand/shared';
 import type { FastifyInstance } from 'fastify';
@@ -38,6 +39,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.post('/api/accounts/session', { bodyLimit: 1024 }, async (request, reply) => createManagementSession(request, reply));
     accounts.delete('/api/accounts/session', async (request, reply) => { await cancelSessionLogins(managementOwner(request)); return deleteManagementSession(request, reply); });
     accounts.get('/api/accounts/scoped-delivery/capabilities', async () => scopedCollaborationSupport());
+    accounts.get('/api/accounts/autonomous-collaboration/capabilities', async () => autonomousCollaborationSupport());
     accounts.post('/api/accounts/scoped-delivery/preview', { bodyLimit: 100_000 }, async request => previewScopedDelivery(request.body,managementOwner(request)));
     accounts.post('/api/accounts/scoped-delivery/confirm', { bodyLimit: 1024 }, async request => {
       const runId=confirmScopedDelivery(request.body,managementOwner(request));

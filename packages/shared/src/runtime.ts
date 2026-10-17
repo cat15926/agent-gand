@@ -18,7 +18,7 @@ export interface RuntimeExecutionPolicyV1 {
   authority: RuntimeAuthority;
   runtimeStateMode: RuntimeStateMode;
   atomicity: RuntimeAtomicity;
-  toolApiVersion: 1 | 2 | 3;
+  toolApiVersion: 1 | 2 | 3 | 4;
   implicitAnswerPolicy: 'initial_and_consultation' | 'explicit_only';
 }
 
@@ -39,8 +39,10 @@ export interface RuntimeRunContract {
     orchestrationAdapter?: 1;
     completionEngine?: boolean;
     coordinationKernel?: 'shadow' | 'execute';
-    /** 1 为历史动作，2 为当前规范动作；3 为尚未开放执行的 ScopedControlActionV3。 */
-    controlActionVersion?: 1 | 2 | 3;
+    /** 1 为历史动作，2 为规范动作，3 为 Scoped 动作；4 在 AC1 仅冻结自主授权。 */
+    controlActionVersion?: 1 | 2 | 3 | 4;
+    /** v4 authority foundation only in AC1; ordinary workers must reject execution. */
+    autonomousCollaboration?: import('./autonomousCollaboration.ts').AutonomousCollaborationContractV1;
     scopedCollaboration?: import('./scopedCollaboration.ts').ScopedCollaborationContract;
     /** Static Coordination text scopes; preserves v2 graph control and Owner stage gates. */
     coordinationScopes?: 1 | 2;

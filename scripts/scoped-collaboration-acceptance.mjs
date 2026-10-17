@@ -5,7 +5,7 @@ const args=process.argv.slice(2);if(args.some(arg=>arg!=='--core-only'))throw ne
 const coreOnly=args.includes('--core-only');
 const output=path.resolve('apps/server/data/scoped-acceptance',new Date().toISOString().replace(/[:.]/g,'-'));await mkdir(output,{recursive:true,mode:0o700});
 const nativeChecks=['verify:scoped-native','verify:scoped-native-files','verify:scoped-native-codex-protocol'];
-const scripts=['typecheck','verify:scoped-collaboration-baseline','verify:scoped-collaboration','verify:scoped-delivery','verify:information-release','verify:scoped-recovery',...(!coreOnly?nativeChecks:[]),'verify:message-visibility','verify:private-interaction','verify:runtime-action-commands','verify:stage-scheduling','verify:scoped-g6','verify:scoped-g6-operations',...(!coreOnly?['verify:scoped-delivery-ui','verify:information-release-ui']:[]),'verify:docs'];
+const scripts=['typecheck','verify:autonomous-ac1','verify:scoped-collaboration-baseline','verify:scoped-collaboration','verify:scoped-delivery','verify:information-release','verify:scoped-recovery',...(!coreOnly?nativeChecks:[]),'verify:message-visibility','verify:private-interaction','verify:runtime-action-commands','verify:stage-scheduling','verify:scoped-g6','verify:scoped-g6-operations',...(!coreOnly?['verify:scoped-delivery-ui','verify:information-release-ui']:[]),'verify:docs'];
 const results=[];
 for(const name of scripts){
   const started=performance.now();let log='';

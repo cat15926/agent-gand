@@ -6,9 +6,11 @@ import { getRunOrchestrationSnapshot } from './store.ts';
 import { businessStageContext } from './businessStageExecution.ts';
 import { OrchestrationError, stableDigest } from './normalize.ts';
 import type { LlmRequest, LlmUsage } from '../llm/provider.ts';
+import {loadAutonomousTaskPolicy} from '../runtime/autonomousPolicy.ts';
 
 /** Both schedulers consume the same money reservation ledger and frozen policy. */
 export function runCostPolicy(runId: string): CostPolicy | undefined {
+  const autonomous=loadAutonomousTaskPolicy(runId);if(autonomous)return autonomous.costPolicy;
   const unified=getRunOrchestrationSnapshot(runId)?.request.constraints.costPolicy;
   if(unified)return unified;
   const scoped=get<{policy:string|null}>("SELECT json_extract(record,'$.costPolicy') policy FROM scoped_delivery_plans WHERE run_id=?",runId);

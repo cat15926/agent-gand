@@ -85,7 +85,7 @@ try{
   assert.equal(JSON.parse(db.get('SELECT payload FROM runtime_contracts WHERE run_id=?',source.run.id).payload).features.coordinationScopes,1);
   const {cancelCoordinationRun}=await import('../apps/server/src/coordination/runtime.ts');cancelCoordinationRun(legacy.run.id,'G6 fixture cleanup');
   const changes=db.get('SELECT total_changes() n').n;const inventory=inspectScopedCollaboration(db.db);assert.equal(db.get('SELECT total_changes() n').n,changes);
-  assert.equal(inventory.readOnly,true);assert.equal(inventory.schema,17);assert.equal(inventory.foreignKeyErrors,0);assert.equal(inventory.databaseCheck,'ok');
+  assert.equal(inventory.readOnly,true);assert.equal(inventory.schema,(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version);assert.equal(inventory.foreignKeyErrors,0);assert.equal(inventory.databaseCheck,'ok');
   assert.equal(inventory.drain.noExecutingAttempts,true);assert.equal(inventory.drain.compatibleWorkerRequired,false);assert.doesNotMatch(JSON.stringify(inventory),/G6_PRIVATE|G6_COORD_PRIVATE/);
   checks.push('灰度开关只影响新 Scope 契约；只读排空清单无正文、无模型调用、无数据修改');
   const endpointP95Ms={};const countBeforeSampling=calls.length;

@@ -60,6 +60,11 @@ export function compileScopedSource(runId: string, kind: ScopedSourceRef['kind']
   contract(runId);
   return source(runId, kind, id, 'user').ref;
 }
+/** Trusted policy compiler only. Returns identity/ACL, never content to a model. */
+export function inspectScopedSource(runId:string,kind:ScopedSourceRef['kind'],id:string):{ref:ScopedSourceRef;access:MessageAccess} {
+  const value=source(runId,kind,id,'user');
+  return {ref:value.ref,access:value.policy};
+}
 /** Validate opaque forwarding authority without exposing its bytes to the coordinator. */
 export function assertScopedSourceForRecipient(runId: string, ref: ScopedSourceRef, recipient: string): void {
   const c = contract(runId);

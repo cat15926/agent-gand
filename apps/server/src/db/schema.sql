@@ -684,3 +684,53 @@ CREATE TRIGGER IF NOT EXISTS information_release_drafts_immutable BEFORE UPDATE 
 CREATE TRIGGER IF NOT EXISTS information_release_drafts_no_delete BEFORE DELETE ON information_release_drafts BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
 CREATE TRIGGER IF NOT EXISTS information_release_records_immutable BEFORE UPDATE ON information_release_records BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
 CREATE TRIGGER IF NOT EXISTS information_release_records_no_delete BEFORE DELETE ON information_release_records BEGIN SELECT RAISE(ABORT,'immutable release evidence'); END;
+
+-- AC1: immutable task authority; execution remains unavailable until AC2.
+CREATE TABLE IF NOT EXISTS autonomous_task_policies (
+  run_id TEXT PRIMARY KEY REFERENCES runs(id), id TEXT NOT NULL UNIQUE,
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  CHECK(json_extract(record,'$.runId')=run_id AND json_extract(record,'$.id')=id)
+);
+CREATE TABLE IF NOT EXISTS autonomous_task_grants (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  parent_grant_id TEXT REFERENCES autonomous_task_grants(id), subject_id TEXT NOT NULL REFERENCES runtime_subjects(id),
+  agent_id TEXT NOT NULL, depth INTEGER NOT NULL CHECK(depth>=0),
+  command_key TEXT NOT NULL UNIQUE, intent_sha256 TEXT NOT NULL,
+  record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
+  CHECK(json_extract(record,'$.id')=id AND json_extract(record,'$.runId')=run_id
+    AND json_extract(record,'$.subjectId')=subject_id AND json_extract(record,'$.agentId')=agent_id
+    AND json_extract(record,'$.depth')=depth AND json_extract(record,'$.parentGrantId') IS parent_grant_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS autonomous_task_root_grant ON autonomous_task_grants(run_id) WHERE parent_grant_id IS NULL;
+CREATE TABLE IF NOT EXISTS autonomous_attempt_grants (
+  attempt_id TEXT PRIMARY KEY REFERENCES collaboration_attempts(id), grant_id TEXT NOT NULL REFERENCES autonomous_task_grants(id),
+  run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id), generation INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS autonomous_task_revocations (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  grant_id TEXT REFERENCES autonomous_task_grants(id), reason TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_grant_lineage BEFORE INSERT ON autonomous_task_grants
+WHEN NOT EXISTS(SELECT 1 FROM runtime_subjects s WHERE s.id=NEW.subject_id AND s.run_id=NEW.run_id)
+  OR (NEW.parent_grant_id IS NULL AND NEW.depth!=0)
+  OR (NEW.parent_grant_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM autonomous_task_grants p JOIN runtime_subjects s ON s.id=NEW.subject_id
+    WHERE p.id=NEW.parent_grant_id AND p.run_id=NEW.run_id AND p.depth+1=NEW.depth AND s.parent_subject_id=p.subject_id))
+BEGIN SELECT RAISE(ABORT,'autonomous grant lineage invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_attempt_binding BEFORE INSERT ON autonomous_attempt_grants
+WHEN NOT EXISTS(SELECT 1 FROM autonomous_task_grants g JOIN collaboration_attempts a ON a.id=NEW.attempt_id
+  JOIN runtime_dispatch_subjects d ON d.dispatch_id=a.dispatch_id JOIN runtime_custody c ON c.subject_id=d.subject_id
+  WHERE g.id=NEW.grant_id AND g.run_id=NEW.run_id AND a.run_id=NEW.run_id AND g.agent_id=a.agent_id
+    AND g.subject_id=d.subject_id AND a.status='running' AND c.holder_agent_id=a.agent_id AND c.generation=NEW.generation)
+BEGIN SELECT RAISE(ABORT,'autonomous attempt binding invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_revocation_binding BEFORE INSERT ON autonomous_task_revocations
+WHEN NEW.grant_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM autonomous_task_grants WHERE id=NEW.grant_id AND run_id=NEW.run_id)
+BEGIN SELECT RAISE(ABORT,'autonomous revocation binding invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_policies_immutable BEFORE UPDATE ON autonomous_task_policies BEGIN SELECT RAISE(ABORT,'immutable autonomous policy'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_policies_no_delete BEFORE DELETE ON autonomous_task_policies BEGIN SELECT RAISE(ABORT,'immutable autonomous policy'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_grants_immutable BEFORE UPDATE ON autonomous_task_grants BEGIN SELECT RAISE(ABORT,'immutable autonomous grant'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_grants_no_delete BEFORE DELETE ON autonomous_task_grants BEGIN SELECT RAISE(ABORT,'immutable autonomous grant'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_attempts_immutable BEFORE UPDATE ON autonomous_attempt_grants BEGIN SELECT RAISE(ABORT,'immutable autonomous binding'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_attempts_no_delete BEFORE DELETE ON autonomous_attempt_grants BEGIN SELECT RAISE(ABORT,'immutable autonomous binding'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_revocations_immutable BEFORE UPDATE ON autonomous_task_revocations BEGIN SELECT RAISE(ABORT,'immutable autonomous revocation'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_revocations_no_delete BEFORE DELETE ON autonomous_task_revocations BEGIN SELECT RAISE(ABORT,'immutable autonomous revocation'); END;

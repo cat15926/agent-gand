@@ -21,3 +21,4 @@ export * from './artifacts.ts';
 export * from './recovery.ts';
 export * from './cost.ts';
 export * from './scopedCollaboration.ts';
+export * from './autonomousCollaboration.ts';

@@ -9,6 +9,8 @@ import { withActivityTimeout } from '../execution/activityTimeout.ts';
 import { ExecutionError } from '../execution/errors.ts';
 import { assertBusinessStageDeadline, businessStageContext } from './businessStageExecution.ts';
 import { reserveCost, settleCost, type CostReservationRow } from './costBudget.ts';
+import {loadAutonomousTaskPolicy} from '../runtime/autonomousPolicy.ts';
+import {assertAutonomousModelAdmission} from '../runtime/autonomousExecution.ts';
 const modelCallContext=new AsyncLocalStorage<string>();
 const modelCallHooks=new AsyncLocalStorage<{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}>();
 export class ModelAdmissionPausedError extends Error {constructor(){super('用户请求暂停，尚未发出的模型请求保留在队列。');}}
@@ -20,7 +22,7 @@ function throwIfStopped(runId:string,signal?:AbortSignal):void {
   assertExecutionDeadline(runId);assertBusinessStageDeadline();
 }
 export async function reserveCostWhenReady(runId:string,agentId:string,model:string,backend:string,request?:LlmRequest,signal?:AbortSignal,callId?:string,onWaiting?:()=>void):Promise<CostReservationRow|null> {
-  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request,callId);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
+  for(;;){throwIfStopped(runId,signal);try{return reserveCost(runId,agentId,model,backend,request,callId);}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!loadAutonomousTaskPolicy(runId)&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;if(callId)modelCallWaiting(callId,'cost');(onWaiting??modelCallHooks.getStore()?.onWaiting)?.();await new Promise(resolve=>setTimeout(resolve,25));}}
 }
 
 export function executionPolicy(runId: string) {
@@ -28,7 +30,7 @@ export function executionPolicy(runId: string) {
   return frozen?.executionAuthority === 'orchestration' ? frozen : null;
 }
 export function assertExecutionDeadline(runId: string): void {
-  const deadline = executionPolicy(runId)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline;
+  const deadline = loadAutonomousTaskPolicy(runId)?.budget.deadlineAt ?? executionPolicy(runId)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline;
   if (deadline && Date.now() >= Date.parse(deadline)) throw new ExecutionError('timeout', '本轮任务已超过截止时间', { phase: 'deadline', timeoutKind: 'total' });
 }
 
@@ -42,7 +44,9 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
     modelActivity.firstResponseAt ??= at; modelActivity.lastActivityAt = at;
   };
   const scopedLimits=get<{limits:string}>("SELECT json_extract(record,'$.requestLimits') limits FROM scoped_delivery_plans WHERE run_id=?",runId);
-  try { return await withActivityTimeout({ ...(scopedLimits ? JSON.parse(scopedLimits.limits) : {}), ...policy?.request.constraints, signal, deadlineAt: policy?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline },
+  const autonomous=loadAutonomousTaskPolicy(runId);
+  try { return await withActivityTimeout({ ...(scopedLimits ? JSON.parse(scopedLimits.limits) : {}), ...policy?.request.constraints,
+    ...(autonomous?{firstResponseTimeoutMs:autonomous.budget.firstResponseTimeoutMs,idleTimeoutMs:autonomous.budget.idleTimeoutMs}:{}),signal, deadlineAt:autonomous?.budget.deadlineAt ?? policy?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline },
     (signal, activity) => {throwIfStopped(runId,signal);const callId=modelCallContext.getStore();modelCallHooks.getStore()?.onStarted?.();if(callId)startModelCall(callId);return provider.chat({ ...request, signal, onActivity: kind => {
       if (!signal.aborted) { trustedActivity(); activity(); request.onActivity?.(kind); }
     } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } });}); }
@@ -54,11 +58,25 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
 
 /** Reserve before I/O so concurrent branches cannot spend the same allowance. Unknown calls retain their reservation. */
 export async function budgetedChat(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = '',attemptId?:string,hooks?:{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}): Promise<LlmResponse> {
+  const autonomous=assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm');
+  // Revoked authority cannot stream late content. Let the request finish accounting
+  // for known supplier usage, then reject the result under the current authority.
+  const guardedDelta:DeltaHandler|undefined=autonomous&&delta?text=>{
+    try{assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm');}catch{return;}
+    delta(text);
+  }:delta;
   const id=queueModelCall(runId,agentId,request.model,'builtin-llm',attemptId);
-  try{const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,delta,agentId)));finishModelCall(id,true);return response;}catch(error){reconcileModelCallReservations(id);finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
+  try{
+    const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,guardedDelta,agentId)));
+    finishModelCall(id,true);
+    if(autonomous)assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm');
+    return response;
+  }catch(error){reconcileModelCallReservations(id);finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
 }
 async function budgetedChatImpl(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = ''): Promise<LlmResponse> {
-  const limit = executionPolicy(runId)?.request.constraints.maxTokens
+  const autonomous=loadAutonomousTaskPolicy(runId);
+  if(autonomous)request={...request,maxTokens:Math.min(request.maxTokens??autonomous.budget.maxTokensPerCall,autonomous.budget.maxTokensPerCall)};
+  const limit = autonomous?.budget.maxOutputTokens ?? executionPolicy(runId)?.request.constraints.maxTokens
     ?? get<{ max_tokens: number }>('SELECT max_tokens FROM scoped_delivery_plans WHERE run_id=?',runId)?.max_tokens;
   const stage = businessStageContext();
   if (stage && stage.runId !== runId) throw new Error('阶段预算与 Run 不一致');
@@ -77,6 +95,7 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
   let reservation: { id: string; tokens: number; cost: CostReservationRow | null } | undefined;
   while (!reservation) {
     throwIfStopped(runId,request.signal);
+    if(autonomous){const call=get<{attempt_id:string}>('SELECT attempt_id FROM orchestration_model_calls WHERE id=?',modelCallContext.getStore()!);assertAutonomousModelAdmission(runId,agentId,call?.attempt_id,request.model);}
     try{reservation = tx(() => {
       let available = desired;
       let waiting = false;
@@ -97,7 +116,7 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
       }
       const cost = reserveCost(runId, agentId, request.model, 'builtin-llm', { ...request, maxTokens: tokens }, id);
       return { id, tokens, cost };
-    });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
+    });}catch(error){if((error as {code?:string}).code!=='COST_BUDGET_RESERVED'||(executionPolicy(runId)?.request.businessContract?.version!==3&&!loadAutonomousTaskPolicy(runId)&&!get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',runId)))throw error;const id=modelCallContext.getStore();if(id)modelCallWaiting(id,'cost');modelCallHooks.getStore()?.onWaiting?.();}
     if (!reservation) await new Promise(resolve => setTimeout(resolve, 25));
   }
   try {

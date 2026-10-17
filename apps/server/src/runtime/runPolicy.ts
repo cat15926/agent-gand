@@ -4,6 +4,7 @@ import type {
   RuntimeRunContract,
 } from '@agent-gand/shared';
 import { get } from '../db/database.ts';
+import { autonomousDigest, loadAutonomousTaskPolicy } from './autonomousPolicy.ts';
 
 export type RuntimePolicyErrorCode =
   | 'RUNTIME_CONTRACT_CORRUPT'
@@ -23,7 +24,7 @@ export class RuntimePolicyError extends Error {
 export function executionPolicyForProfile(
   profile: RuntimeAdmissionProfile,
   options: {
-    toolApiVersion?: 1 | 2 | 3;
+    toolApiVersion?: 1 | 2 | 3 | 4;
     implicitAnswerPolicy?: RuntimeExecutionPolicyV1['implicitAnswerPolicy'];
   } = {},
 ): RuntimeExecutionPolicyV1 {
@@ -49,7 +50,7 @@ function isExecutionPolicy(value: unknown): value is RuntimeExecutionPolicyV1 {
     || !['legacy', 'runtime'].includes(policy.authority ?? '')
     || !['off', 'shadow', 'authoritative'].includes(policy.runtimeStateMode ?? '')
     || !['legacy', 'custody_v1', 'commands_v1'].includes(policy.atomicity ?? '')
-    || ![1, 2, 3].includes(policy.toolApiVersion ?? 0)
+    || ![1, 2, 3, 4].includes(policy.toolApiVersion ?? 0)
     || !['initial_and_consultation', 'explicit_only'].includes(policy.implicitAnswerPolicy ?? '')) return false;
   const expected = executionPolicyForProfile(policy.profile!, {
     toolApiVersion: policy.toolApiVersion,
@@ -84,13 +85,25 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', `Run ${runId} 的消息可见性版本不受支持`);
   }
   const f = contract.features;
-  if (f?.controlActionVersion !== undefined && ![1, 2, 3].includes(f.controlActionVersion)) {
+  if (f?.controlActionVersion !== undefined && ![1, 2, 3, 4].includes(f.controlActionVersion)) {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown control action version');
   }
-  if (contract.executionPolicy && ![1, 2, 3].includes(contract.executionPolicy.toolApiVersion)) {
+  if (contract.executionPolicy && ![1, 2, 3, 4].includes(contract.executionPolicy.toolApiVersion)) {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
   }
   const scoped = f?.scopedCollaboration;
+  const autonomous = f?.autonomousCollaboration;
+  if(autonomous!==undefined||f?.controlActionVersion===4||contract.executionPolicy?.toolApiVersion===4){
+    if(!autonomous||autonomous.version!==1||autonomous.capabilityPackage!=='autonomous-collaboration-v1'||autonomous.boundaryVersion!==2||autonomous.policyRevision!==1)
+      throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous capability contract');
+    if(autonomous.rootRunId!==runId||autonomous.budgetRunId!==runId||f?.controlActionVersion!==4||contract.executionPolicy?.toolApiVersion!==4
+      ||contract.executionPolicy.profile!=='execute'||contract.executionPolicy.implicitAnswerPolicy!=='explicit_only'||f.messageVisibilityVersion!==1||scoped||f.coordinationKernel||f.coordinationScopes)
+      throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous authority requires an independent v4 root contract');
+    try {
+      const p=loadAutonomousTaskPolicy(runId);
+      if(!p||p.id!==autonomous.policyId||autonomousDigest(p)!==autonomous.policySha256||JSON.stringify(p.participantIds)!==JSON.stringify(contract.participantIds))throw new Error('policy mismatch');
+    } catch {throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous task policy is missing or drifted');}
+  }
   if (f?.coordinationScopes !== undefined && (![1,2].includes(f.coordinationScopes) || f.coordinationKernel !== 'execute' || f.controlActionVersion !== 2 || scoped)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown coordination scope version');
   if (scoped?.recoveryVersion !== undefined && (scoped.recoveryVersion !== 1 || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped recovery version');
   if (scoped?.releaseVersion !== undefined && (scoped.releaseVersion !== 1 || scoped.capabilityPackage !== 'scoped-release-v1' || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped release version');
@@ -209,6 +222,7 @@ export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean
 /** 历史 Profile 仍可读取，但 Collaboration worker 只执行已冻结的 execute Run。 */
 export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
   const policy = resolveRunPolicy(runId);
+  if(policy.toolApiVersion===4)throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','AC1 freezes autonomous authority only; v4 dispatch requires AC2');
   if (policy.toolApiVersion === 3) {
     const c = loadRuntimeContract(runId)?.features?.scopedCollaboration;
     if ((c?.capabilityPackage === 'scoped-control-v1' || (c?.capabilityPackage === 'scoped-release-v1' && c.releaseVersion === 1 && get('SELECT 1 FROM information_release_workflows WHERE run_id=?',runId))) && c.deliveryVersion === 1

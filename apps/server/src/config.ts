@@ -67,6 +67,11 @@ function scopedAdmissionMode(): 'closed' | 'preview' | 'execute' {
   if (mode !== 'closed' && mode !== 'preview' && mode !== 'execute') throw new Error('SCOPED_COLLABORATION_MODE 仅支持 closed / preview / execute');
   return mode;
 }
+function autonomousAdmissionMode(): 'closed' | 'preview' | 'execute' {
+  const mode=process.env.AUTONOMOUS_COLLABORATION_MODE??'closed';
+  if(!['closed','preview','execute'].includes(mode))throw new Error('AUTONOMOUS_COLLABORATION_MODE 仅支持 closed / preview / execute');
+  return mode as 'closed'|'preview'|'execute';
+}
 function scopedNativeDrivers():string[] {
   const names=(process.env.SCOPED_NATIVE_DRIVERS??'claude-sdk').split(',').map(v=>v.trim()).filter(Boolean);
   if(names.some(name=>!['claude-sdk','codex-app-server'].includes(name)))throw new Error('SCOPED_NATIVE_DRIVERS 仅支持 claude-sdk / codex-app-server');
@@ -116,6 +121,7 @@ export const config = {
   orchestrationRollout: parseOrchestrationRollout(process.env),
   scopedCollaborationMode: scopedAdmissionMode(),
   scopedNativeDrivers:scopedNativeDrivers(),
+  autonomousCollaborationMode:autonomousAdmissionMode(),
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),

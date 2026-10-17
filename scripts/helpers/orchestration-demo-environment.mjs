@@ -17,7 +17,7 @@ export async function createDemoEnvironment() {
     EXTERNAL_AGENT_TIMEOUT_MS: '15000', EXTERNAL_WORKSPACE_DIR: path.join(root, 'workspaces'), EXTERNAL_CLAUDE_SDK_WORKER_COMMAND: native,
     EXTERNAL_CODEX_COMMAND: native, EXTERNAL_CLAUDE_COMMAND: native, EXTERNAL_CODEX_HOME: path.join(root, 'codex'), EXTERNAL_CLAUDE_HOME: path.join(root, 'claude'),
     ANTHROPIC_API_KEY: '', ANTHROPIC_AUTH_TOKEN: '', LLM_OPENAI_API_KEY: '', LLM_ANTHROPIC_API_KEY: '',
-    ORCHESTRATION_ENTRY_MODE: 'execute', SCOPED_COLLABORATION_MODE:'execute', ORCHESTRATION_ENABLED_WORKFLOWS: 'routine,analysis_summary,development_review,supervisor_decomposition,bounded_debate',
+    ORCHESTRATION_ENTRY_MODE: 'execute', SCOPED_COLLABORATION_MODE:'execute', AUTONOMOUS_COLLABORATION_MODE:'closed', ORCHESTRATION_ENABLED_WORKFLOWS: 'routine,analysis_summary,development_review,supervisor_decomposition,bounded_debate',
     ORCHESTRATION_ENABLED_DRIVERS: 'builtin-llm,claude-sdk,codex-app-server', ORCHESTRATION_LEGACY_ENTRY_ENABLED: 'true',
     FAKE_D_LOG: path.join(root, 'native.jsonl'), FAKE_O2_SERVER_ROOT: path.join(repo, 'apps/server') });
   const originalFetch = globalThis.fetch;

@@ -141,7 +141,8 @@
     "scoped:native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/scoped-native-real-acceptance.mjs",
     "verify:scoped-native-real-selection": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-native-real-selection.mjs",
     "verify:scoped-native-files": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-native-files.mjs",
-    "verify:native-auth-timeout": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-native-auth-timeout.mjs"
+    "verify:native-auth-timeout": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-native-auth-timeout.mjs",
+    "verify:autonomous-ac1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac1.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

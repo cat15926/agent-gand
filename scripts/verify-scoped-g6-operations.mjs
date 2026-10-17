@@ -45,7 +45,7 @@ try{
     CREATE TABLE runtime_scope_attempts_g6(attempt_id TEXT PRIMARY KEY REFERENCES collaboration_attempts(id),scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id),context_sha256 TEXT NOT NULL,created_at TEXT NOT NULL);
     INSERT INTO runtime_scope_attempts_g6 SELECT * FROM runtime_scope_attempts;
     DROP TABLE runtime_scope_attempts;ALTER TABLE runtime_scope_attempts_g6 RENAME TO runtime_scope_attempts;
-    DELETE FROM orchestration_schema_migrations WHERE version=17;COMMIT;PRAGMA foreign_keys=ON;`);
+    DELETE FROM orchestration_schema_migrations WHERE version>=17;COMMIT;PRAGMA foreign_keys=ON;`);
   assert.equal(digest(v16),before);assert.equal(v16.pragma('foreign_key_check').length,0);v16.close();
   const {backupAccounts,verifyBackup}=await import('./accounts-maintenance.mjs');
   const bundle=path.join(env.root,'bundle');await backupAccounts(bundle,{...config,dbPath:v16Path});assert.equal((await verifyBackup(bundle)).ok,true);
@@ -57,12 +57,13 @@ try{
     const {confirmScopedDelivery}=await import('./apps/server/src/collaboration/scopedDelivery.ts');
     const saved=JSON.parse(process.env.G6_CONFIRMATION);
     assert.equal(confirmScopedDelivery(saved.confirmation,'owner'),saved.id);
-    assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,17);
+    const {ORCHESTRATION_MIGRATIONS}=await import('./apps/server/src/db/orchestrationMigrations.ts');
+    assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,ORCHESTRATION_MIGRATIONS.at(-1).version);
     assert.equal(db.db.pragma('foreign_key_check').length,0);db.closeDatabase();`;
   execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',child],{env:{...process.env,DB_PATH:path.join(restore,'database.sqlite'),AGENT_GAND_PRIVATE_DIR:path.join(restore,'private'),AGENTS_DIR:path.join(restore,'roles'),SCOPED_COLLABORATION_MODE:'closed',G6_CONFIRMATION:JSON.stringify(queued)},stdio:'pipe'});
   const restored=new Database(path.join(restore,'database.sqlite'),{readonly:true});
   assert.equal(digest(restored),before);assert.equal(calls,beforeCalls);
-  checks.push('账户备份实现保存匹配 DB/主密钥；隔离恢复后 v16→v17 启动迁移且密文预览幂等重试有效');
+  checks.push('账户备份实现保存匹配 DB/主密钥；隔离恢复后 v16→当前 schema 启动迁移且密文预览幂等重试有效');
   const previous=execFileSync('git',['show','66165b2:apps/server/src/db/orchestrationMigrations.ts'],{encoding:'utf8'});
   await writeFile(previousModule,previous);
   const oldWorker=await import(pathToFileURL(previousModule).href);
@@ -76,5 +77,5 @@ try{
   await assert.rejects(()=>verifyBackup(bundle),/不匹配|校验|无效/);
   checks.push('损坏备份在恢复前拒绝；演练不改写业务库、不降级真实契约、不调用模型');
   assert.equal(env.externalRequests,0);
-  console.log(JSON.stringify({passed:true,checks,schema:17,fixtureModelCalls:calls,migrationModelCalls:0,supplierRequests:0},null,2));
+  console.log(JSON.stringify({passed:true,checks,schema:(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version,fixtureModelCalls:calls,migrationModelCalls:0,supplierRequests:0},null,2));
 }finally{await rm(previousModule,{force:true});await env.close();}

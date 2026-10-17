@@ -78,9 +78,9 @@ const CONSULT_TOOL_V2_ANY: LlmToolSchema = {
   } },
 };
 
-export function collaborationControlTools(toolApiVersion: 1 | 2 | 3,
+export function collaborationControlTools(toolApiVersion: 1 | 2 | 3 | 4,
   options: { externalWaitVersion?: 1 | null; consultAnyVersion?: 1 | null; messageVisibilityVersion?: 1 | null } = {}): LlmToolSchema[] {
-  if (toolApiVersion === 3) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped tools are not enabled');
+  if (toolApiVersion === 3 || toolApiVersion === 4) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped/autonomous tools require their own executor');
   if (toolApiVersion !== 2) throw new Error('Tool API v1 的模型工具暴露已退役');
   return COLLABORATION_CONTROL_TOOLS_V2.map((tool) => {
     const selected = tool.name === 'agent.hold' && options.externalWaitVersion === 1 ? HOLD_TOOL_V2_EXTERNAL_WAIT

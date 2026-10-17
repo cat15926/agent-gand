@@ -147,7 +147,7 @@ export function answerCandidateControlAction(version: RuntimeControlActionVersio
 /** 无冻结标记的历史 Run 固定解释为 v1；不受部署后默认值变化影响。 */
 export function runtimeControlActionVersion(runId: string): RuntimeControlActionVersion {
   const version = loadRuntimeContract(runId)?.features?.controlActionVersion;
-  if (version === 3) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped actions are not executable in G1');
+  if (version === 3 || version === 4) throw new Error('RUNTIME_CAPABILITY_UNAVAILABLE: scoped/autonomous actions require their own executor');
   return version ?? 1;
 }
 
