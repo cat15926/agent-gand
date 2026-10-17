@@ -5,6 +5,7 @@ import type {
 } from '@agent-gand/shared';
 import { get } from '../db/database.ts';
 import { autonomousDigest, loadAutonomousTaskPolicy } from './autonomousPolicy.ts';
+import {config} from '../config.ts';
 
 export type RuntimePolicyErrorCode =
   | 'RUNTIME_CONTRACT_CORRUPT'
@@ -96,6 +97,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
   if(autonomous!==undefined||f?.controlActionVersion===4||contract.executionPolicy?.toolApiVersion===4){
     if(!autonomous||autonomous.version!==1||autonomous.capabilityPackage!=='autonomous-collaboration-v1'||autonomous.boundaryVersion!==2||autonomous.policyRevision!==1)
       throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous capability contract');
+    if(autonomous.delegationVersion!==undefined&&autonomous.delegationVersion!==1)throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delegation version');
     if(autonomous.rootRunId!==runId||autonomous.budgetRunId!==runId||f?.controlActionVersion!==4||contract.executionPolicy?.toolApiVersion!==4
       ||contract.executionPolicy.profile!=='execute'||contract.executionPolicy.implicitAnswerPolicy!=='explicit_only'||f.messageVisibilityVersion!==1||scoped||f.coordinationKernel||f.coordinationScopes)
       throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous authority requires an independent v4 root contract');
@@ -222,7 +224,10 @@ export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean
 /** 历史 Profile 仍可读取，但 Collaboration worker 只执行已冻结的 execute Run。 */
 export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
   const policy = resolveRunPolicy(runId);
-  if(policy.toolApiVersion===4)throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','AC1 freezes autonomous authority only; v4 dispatch requires AC2');
+  if(policy.toolApiVersion===4){
+    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1||config.autonomousCollaborationMode!=='execute')throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','Autonomous execution requires an AC2 root and execute mode');
+    return policy;
+  }
   if (policy.toolApiVersion === 3) {
     const c = loadRuntimeContract(runId)?.features?.scopedCollaboration;
     if ((c?.capabilityPackage === 'scoped-control-v1' || (c?.capabilityPackage === 'scoped-release-v1' && c.releaseVersion === 1 && get('SELECT 1 FROM information_release_workflows WHERE run_id=?',runId))) && c.deliveryVersion === 1

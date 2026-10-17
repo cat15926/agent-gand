@@ -18,11 +18,12 @@ import type {
   CollaborationUserDecision,
 } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
-import { CustodyConflictError, observeCancellation, observeClaim, observeTerminalInterruption } from '../runtime/shadow.ts';
+import { CustodyConflictError, observeAutonomousCancellation,observeCancellation, observeClaim, observeTerminalInterruption } from '../runtime/shadow.ts';
 import { emit } from '../messaging/bus.ts';
 import { config } from '../config.ts';
 import { READONLY_TOOLS } from '../tools/types.ts';
 import { reconcileInterruptedToolExecutions } from '../tools/executions.ts';
+import {assertAutonomousGrantReady,bindAutonomousAttempt} from '../runtime/autonomousTasks.ts';
 import {
   cancelRunObligations,
   openUserDecisionObligations,
@@ -182,7 +183,9 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
     if (globalRunning >= config.collaboration.maxConcurrency) return null;
     const row = get<DispatchRow>(`SELECT d.* FROM collaboration_dispatches d
       JOIN runs r ON r.id=d.run_id
+      LEFT JOIN autonomous_task_policies ap ON ap.run_id=d.run_id
       WHERE d.conversation_id=? AND d.status='queued' AND r.status='running'
+        AND (ap.run_id IS NULL OR (?='execute' AND (SELECT COUNT(*) FROM collaboration_attempts running WHERE running.run_id=d.run_id AND running.status='running') < json_extract(ap.record,'$.budget.maxConcurrency')))
         AND NOT EXISTS (SELECT 1 FROM collaboration_attempts a WHERE a.agent_id=d.target_agent_id AND a.status='running')
         AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=d.run_id AND (c.pause_requested=1 OR c.recovery_attention=1))
         AND NOT EXISTS (SELECT 1 FROM execution_member_tickets older JOIN runs prior_run ON prior_run.id=older.run_id
@@ -193,10 +196,14 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
             AND old_dispatch.status NOT IN ('queued','running'))
           AND older.seq < (SELECT seq FROM execution_member_tickets mine WHERE mine.ticket_key=d.run_id || ':' || d.target_agent_id || ':collaboration:' || d.id))
         AND (SELECT COUNT(*) FROM collaboration_attempts prior WHERE prior.dispatch_id=d.id) < ?
-      ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId, config.collaboration.maxAttempts);
+      ORDER BY CASE d.priority WHEN 'urgent' THEN 0 ELSE 1 END, r.turn_no, d.depth, d.created_at, d.rowid LIMIT 1`, conversationId,config.autonomousCollaborationMode, config.collaboration.maxAttempts);
     if (!row) return null;
     candidateId = row.id;
     assertExecutableCollaborationPolicy(row.run_id);
+    const autonomous=get<{grant_id:string}>('SELECT w.grant_id FROM autonomous_work_items w JOIN autonomous_dispatch_work d ON d.work_id=w.id WHERE d.dispatch_id=?',row.id);
+    if(resolveRunPolicy(row.run_id).toolApiVersion===4){
+      try{if(!autonomous)throw new Error('Missing autonomous graph binding');assertAutonomousGrantReady(autonomous.grant_id);}catch{throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','AUTONOMOUS_AUTHORITY_INVALID');}
+    }
     const now = new Date();
     const changed = run("UPDATE collaboration_dispatches SET status='running',started_at=? WHERE id=? AND status='queued'", now.toISOString(), row.id);
     if (changed === 0) return null;
@@ -207,6 +214,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       VALUES (?,?,?,?,?,?,'running',?,?,?,?)`, attemptId, row.id, row.run_id, row.conversation_id,
       row.target_agent_id, attemptNo, leaseOwner, new Date(now.getTime() + config.collaboration.attemptLeaseMs).toISOString(), now.toISOString(), now.toISOString());
     observeClaim(row.id, attemptId, row.target_agent_id);
+    if(autonomous)bindAutonomousAttempt(autonomous.grant_id,attemptId);
     return {
       dispatch: toDispatch(get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE id=?', row.id)!),
       attempt: toAttempt(get<AttemptRow>('SELECT * FROM collaboration_attempts WHERE id=?', attemptId)!),
@@ -535,6 +543,7 @@ export function cancelCollaborationRun(runId: string): void {
       const observe = () => observeCancellation(row.id, `run:${runId}`);
       observeRuntimeState(runId, observe);
     }
+    for(const work of all<{subject_id:string}>('SELECT g.subject_id FROM autonomous_work_items w JOIN autonomous_task_grants g ON g.id=w.grant_id WHERE w.run_id=?',runId))observeAutonomousCancellation(work.subject_id,`autonomous:stop:${runId}:${work.subject_id}`);
     cancelRunObligations(runId, `run:${runId}:cancelled`);
   });
   for (const row of dispatchRows) emit({ type: 'collaboration.dispatch.updated', dispatch: toDispatch({ ...row, status: 'cancelled', error: '用户停止运行', finished_at: now }) });
@@ -600,16 +609,17 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
       // Native effects are not replayable ToolExecution calls; phase D owns crash recovery.
       const external = get("SELECT 1 FROM external_agent_executions WHERE run_id=? AND json_extract(record,'$.attemptId')=?", item.run_id, item.id);
       const scoped = get<{record:string}>('SELECT record FROM scoped_delivery_plans WHERE run_id=?',item.run_id);
-      const unknownModel = !!scoped && (recoverScopedAttemptCalls(item.id) || (JSON.parse(scoped.record).recoveryVersion !== 1 && !!get('SELECT 1 FROM orchestration_model_calls WHERE attempt_id=?',item.id)));
-      const hasPossibleSideEffect = !!external || ledger.needsAttention || legacySideEffect;
-      if(scoped)run("UPDATE execution_member_tickets SET status=?,owner=NULL,finished_at=? WHERE attempt_id=? AND status IN ('active','waiting','interrupted','done')",unknownModel||hasPossibleSideEffect||item.attempt_no>=config.collaboration.maxAttempts?'interrupted':'waiting',now,item.id);
+      const autonomous=!!get('SELECT 1 FROM autonomous_work_items WHERE run_id=?',item.run_id);
+      const unknownModel = !!scoped ? (recoverScopedAttemptCalls(item.id) || (JSON.parse(scoped.record).recoveryVersion !== 1 && !!get('SELECT 1 FROM orchestration_model_calls WHERE attempt_id=?',item.id))) : autonomous&&recoverScopedAttemptCalls(item.id);
+      const hasPossibleSideEffect = !!external || ledger.needsAttention || legacySideEffect || autonomous&&!!get("SELECT 1 FROM tool_executions WHERE attempt_id=? AND replay_policy='manual' AND status='completed'",item.id);
+      if(scoped||autonomous)run("UPDATE execution_member_tickets SET status=?,owner=NULL,finished_at=? WHERE attempt_id=? AND status IN ('active','waiting','interrupted','done')",unknownModel||hasPossibleSideEffect||item.attempt_no>=config.collaboration.maxAttempts?'interrupted':'waiting',now,item.id);
       if (hasPossibleSideEffect || unknownModel || item.attempt_no >= config.collaboration.maxAttempts) {
         run("UPDATE collaboration_dispatches SET status='failed',error=?,finished_at=? WHERE id=? AND status='running'",
           unknownModel ? 'SCOPED_MODEL_USAGE_UNKNOWN：请求可能已发出，保留预算，未自动重试' : hasPossibleSideEffect ? '执行中断且存在不确定的工具副作用，未自动重试' : '执行中断且已达到最大重试次数', now, item.dispatch_id);
         const observe = () => observeTerminalInterruption(item.dispatch_id, item.id, item.agent_id);
         observeRuntimeState(item.run_id, observe);
       } else {
-        if (!scoped && resolveRunPolicy(item.run_id).profile === 'execute' && runtimeDurableHoldVersion(item.run_id) !== null) {
+        if (!scoped && !autonomous && resolveRunPolicy(item.run_id).profile === 'execute' && runtimeDurableHoldVersion(item.run_id) !== null) {
           createDurableHold({ runId: item.run_id, sourceDispatchId: item.dispatch_id, sourceAttemptId: item.id,
             holderAgentId: item.agent_id,
             condition: { kind: 'lease_recovery', attemptId: item.id, leaseExpiredAt: item.lease_expires_at ?? now },

@@ -46,7 +46,7 @@ export async function enterMember(input: { runId: string; agentId: string; attem
         WHERE agent_id=? AND t.status IN ('waiting','active') AND (t.status='active' OR r.status!='waiting_for_user') ORDER BY seq LIMIT 1`, input.agentId);
       if (first?.ticket_key !== key) return null;
       let release: () => void;
-      try { release = acquireDurableLease(`member:${input.agentId}`, input.attemptId&&get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',input.runId)?`${key}:attempt:${input.attemptId}`:key, false); }
+      try { release = acquireDurableLease(`member:${input.agentId}`, input.attemptId&&(get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',input.runId)||get('SELECT 1 FROM autonomous_work_items WHERE run_id=?',input.runId))?`${key}:attempt:${input.attemptId}`:key, false); }
       catch (error) { if (error instanceof ExecutionError && error.code === 'policy_rejected') return null; throw error; }
       run(`UPDATE execution_member_tickets SET status='active',owner=?,host=?,pid=?,identity=?,started_at=?
         WHERE ticket_key=? AND status='waiting'`, hostOwner.owner, hostOwner.host, hostOwner.pid, hostOwner.identity,
@@ -84,7 +84,7 @@ export function recoverMemberAdmissions(): void {
       // recovery interrupt it now instead of delaying a known approval boundary for 5 min.
       run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE id=? AND status='running'",new Date().toISOString(),source.attempt_id);
     }
-    if(get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',item.run_id)) {
+    if(get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',item.run_id)||get('SELECT 1 FROM autonomous_work_items WHERE run_id=?',item.run_id)) {
       const attempt=source?.attempt_id?get<{status:string}>('SELECT status FROM collaboration_attempts WHERE id=?',source.attempt_id):null;
       // Scoped recovery owns replay decisions and must not be blocked by the generic member fence.
       if(attempt?.status==='running')continue;

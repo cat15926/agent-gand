@@ -12,6 +12,8 @@ export interface AutonomousCollaborationContractV1 {
   policySha256: string;
   rootRunId: string;
   budgetRunId: string;
+  /** Absent on immutable AC1 roots. Only AC2-aware workers may execute this package. */
+  delegationVersion?: 1;
 }
 
 export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete';
@@ -77,4 +79,15 @@ export interface AutonomousGrantBinding {
 }
 export type AutonomousTaskErrorCode = 'AUTONOMOUS_CONTRACT_INVALID' | 'AUTONOMOUS_POLICY_DRIFT'
   | 'AUTONOMOUS_AUTHORITY_INVALID' | 'AUTONOMOUS_ACCESS_DENIED' | 'AUTONOMOUS_GRANT_REVOKED'
-  | 'AUTONOMOUS_TASK_EXPIRED' | 'AUTONOMOUS_LIMIT_EXCEEDED' | 'AUTONOMOUS_EXECUTOR_UNAVAILABLE';
+  | 'AUTONOMOUS_TASK_EXPIRED' | 'AUTONOMOUS_LIMIT_EXCEEDED' | 'AUTONOMOUS_EXECUTOR_UNAVAILABLE'
+  | 'AUTONOMOUS_GRAPH_INVALID' | 'AUTONOMOUS_DEPENDENCIES_UNSATISFIED' | 'AUTONOMOUS_EXPLICIT_ACTION_REQUIRED';
+
+/** Model-authored task intent. All authority and source fingerprints are server-bound. */
+export interface AutonomousDelegateIntentV1 {
+  commandKey: string;
+  items: Array<{
+    key: string; agentId: string; objective: string; inputIds: string[];
+    dependsOn: string[]; participantIds: string[]; allowedTools: string[];
+    delegableTools: string[]; outputAudience: string[];
+  }>;
+}

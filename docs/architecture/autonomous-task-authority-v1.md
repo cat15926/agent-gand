@@ -1,6 +1,6 @@
 # 自主协作任务契约与授权基础 v1（AC1）
 
-状态：2026-10-17，AC1 已实现。数据库 schema 18；新任务预留 Tool API/Control Action v4。**本阶段不开放自主调度，不改变普通聊天行为。** 对应[实施方案](../plans/agent-autonomous-collaboration-implementation-plan.md)与[AC1 验收记录](../reports/autonomous-collaboration-ac1-acceptance-2026-10-17.md)。
+状态：2026-10-17，AC1 已实现，引入 schema 18 与 Tool API/Control Action v4 基础。**本契约的 AC1 根不开放自主调度，不改变普通聊天行为。** 后续[AC2](./autonomous-dynamic-delegation-v1.md)在 schema 19 为新根追加显式 delegationVersion，不升级 AC1 根。对应[实施方案](../plans/agent-autonomous-collaboration-implementation-plan.md)与[AC1 验收记录](../reports/autonomous-collaboration-ac1-acceptance-2026-10-17.md)。
 
 ## 根任务与冻结契约
 
@@ -69,8 +69,8 @@ Grant 描述可授权范围，不是本回合“已经读入哪些内容”的�
 
 表包含绑定检查、父子血缘与跨 Run 检查、唯一根 Grant，以及禁止更新/删除的触发器。普通角色、账户密钥、原始材料正文不复制到授权记录中；原有账户 relay、加密产物与访问服务继续负责它们的边界。
 
-新增只读管理接口 `GET /api/accounts/autonomous-collaboration/capabilities`，沿用管理会话、Host/Origin 和 no-store。返回契约版本、配置模式、foundationImplemented=true、executionAvailable=false 及明确原因，不返回策略、材料或密钥。
+新增只读管理接口 `GET /api/accounts/autonomous-collaboration/capabilities`，沿用管理会话、Host/Origin 和 no-store，不返回策略、材料或密钥。AC1 时 executionAvailable=false；当前接口随 AC2 增加委派版本、支持驱动、配置执行状态和默认入口不可用声明，详见 AC2 契约。AC1 根自身始终不可执行。
 
-`AUTONOMOUS_COLLABORATION_MODE=closed|preview|execute` 默认 closed。**即使设置 execute，AC1 也不开放尚未实现的 v4 执行器**；完整新准入、动态工具与单入口依赖后续阶段。既有模型 API/SDK 的已开放 v3 能力不受该新开关影响。
+`AUTONOMOUS_COLLABORATION_MODE=closed|preview|execute` 默认 closed。**仅设置 execute 仍不开放没有 delegationVersion 的 AC1 根**；AC2 为新根接入显式准入与动态工具，单入口仍依赖后续阶段。既有模型 API/SDK 的已开放 v3 能力不受该新开关影响。
 
 v17 worker 不能读取迁移 18，必须在写入前拒绝新库。保持兼容 worker 排空历史任务；回退使用匹配源码和一致性备份，不删迁移号。当前日常服务是否已升级，以验收报告中的实际记录为准。

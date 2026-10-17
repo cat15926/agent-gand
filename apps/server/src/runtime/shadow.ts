@@ -245,6 +245,35 @@ export function observeAggregateLink(sourceDispatchId: string, aggregateDispatch
   });
 }
 
+/** AC2 uses the same custody event stream; graph/obligation facts must already exist. */
+export function observeAutonomousWaiting(dispatchId:string,attemptId:string,agentId:string,roundId:string):number {
+  const subject=subjectForDispatch(dispatchId);
+  if(!subject||loadRuntimeContract(subject.run_id)?.features?.autonomousCollaboration?.delegationVersion!==1)throw new CustodyConflictError('Invalid autonomous wait');
+  const custody=get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?',subject.id);
+  if(custody?.state!=='owned'||custody.holder_agent_id!==agentId)throw new CustodyConflictError('Autonomous wait holder changed');
+  return transition(subject,`autonomous:wait:${attemptId}`,'custody.autonomous_wait','waiting',agentId,null,{roundId,attemptId});
+}
+
+/** A never-started graph node can fail on an unsatisfied dependency without a fake Attempt. */
+export function observeAutonomousDependencyFailure(subjectId:string,sourceEventId:string):void {
+  const subject=get<SubjectRow>('SELECT * FROM runtime_subjects WHERE id=?',subjectId);
+  if(!subject||loadRuntimeContract(subject.run_id)?.features?.autonomousCollaboration?.delegationVersion!==1)throw new CustodyConflictError('Invalid autonomous dependency');
+  const custody=get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?',subjectId);
+  if(custody?.state!=='unassigned')throw new CustodyConflictError('Dependency target already acquired');
+  transition(subject,sourceEventId,'custody.dependency_failed','failed',null,null);
+  settleSubjectObligations({subjectId,status:'failed',resolutionSourceId:sourceEventId,resolution:{reason:'dependency_not_completed'}});
+}
+
+/** Stop also closes waiting parents and dependency-blocked nodes without a Dispatch. */
+export function observeAutonomousCancellation(subjectId:string,sourceEventId:string):void {
+  const subject=get<SubjectRow>('SELECT * FROM runtime_subjects WHERE id=?',subjectId);
+  if(!subject||loadRuntimeContract(subject.run_id)?.features?.autonomousCollaboration?.delegationVersion!==1)throw new CustodyConflictError('Invalid autonomous cancellation');
+  const custody=get<CustodyRow>('SELECT * FROM runtime_custody WHERE subject_id=?',subject.id);
+  if(!custody||['completed','failed','cancelled'].includes(custody.state))return;
+  transition(subject,sourceEventId,'custody.autonomous_cancelled','cancelled',custody.holder_agent_id,null);
+  settleSubjectObligations({subjectId,status:'cancelled',resolutionSourceId:sourceEventId,resolution:{reason:'run_stopped'}});
+}
+
 /** Wake 恢复沿用原 Subject，并冻结 Hold 创建时的 generation，拒绝迟到唤醒。 */
 export function observeWakeLink(sourceDispatchId: string, resumeDispatchId: string,
   holdId: string, expectedGeneration: number): void {

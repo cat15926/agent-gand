@@ -18,6 +18,7 @@ const {loadAutonomousTaskPolicy}=await import('../apps/server/src/runtime/autono
 const {observeClaim}=await import('../apps/server/src/runtime/shadow.ts'),{budgetedChat}=await import('../apps/server/src/orchestration/executionBudget.ts');
 const calls=await import('../apps/server/src/orchestration/modelCalls.ts'),nativeBudget=await import('../apps/server/src/execution/scopedNativeBudget.ts');
 const {config}=await import('../apps/server/src/config.ts');
+const latestSchema=(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version;
 const coordinator='ac-coordinator',reader='ac-reader',writer='ac-writer',sdk='ac-sdk';
 const ids=[coordinator,reader,writer,sdk];
 for(const id of ids.slice(0,3))registry.createAgent({id,name:id,description:'AC1 isolated fixture',systemPrompt:'Use the task authority only.',model:'mock:'+id,capabilities:['execute'],permissionMode:id===writer?'auto':'readonly',tools:['fs.read','search.files',...(id===writer?['fs.write']:[])],disallowedTools:[],color:'#4477aa',avatar:''});
@@ -49,13 +50,13 @@ try{
   const tables=['runs','messages','runtime_contracts','runtime_execution_scopes','runtime_context_manifests','runtime_scope_attempts','runtime_input_provenance','orchestration_token_reservations'];
   const digest=database=>createHash('sha256').update(JSON.stringify(tables.map(t=>database.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()))).digest('hex');
   const migrationFile=path.join(env.root,'v17.sqlite');await db.db.backup(migrationFile);const oldDb=new Database(migrationFile);
-  oldDb.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_attempt_grants;DROP TABLE autonomous_task_revocations;DROP TABLE autonomous_task_grants;DROP TABLE autonomous_task_policies;DELETE FROM orchestration_schema_migrations WHERE version=18;PRAGMA foreign_keys=ON');
+  oldDb.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_delegation_rounds;DROP TABLE autonomous_dispatch_work;DROP TABLE autonomous_work_dependencies;DROP TABLE autonomous_work_items;DROP TABLE autonomous_attempt_grants;DROP TABLE autonomous_task_revocations;DROP TABLE autonomous_task_grants;DROP TABLE autonomous_task_policies;DELETE FROM orchestration_schema_migrations WHERE version>=18;PRAGMA foreign_keys=ON');
   const oldDigest=digest(oldDb);await writeFile(previousModule,execFileSync('git',['show','0460b37:apps/server/src/db/orchestrationMigrations.ts'],{encoding:'utf8'}),{mode:0o600});
   const oldWorker=await import(pathToFileURL(previousModule).href);oldWorker.assertOrchestrationSchemaCompatible(oldDb);oldDb.close();
-  const migrate=`const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==18)throw new Error('SCHEMA_NOT_18');d.closeDatabase();`;
+  const migrate=`const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==${latestSchema})throw new Error('SCHEMA_NOT_CURRENT');d.closeDatabase();`;
   for(let i=0;i<2;i++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',migrate],{env:{...process.env,DB_PATH:migrationFile},stdio:'pipe'});
   const upgraded=new Database(migrationFile,{readonly:true});assert.equal(digest(upgraded),oldDigest);assert.deepEqual(upgraded.pragma('foreign_key_check'),[]);assert.throws(()=>oldWorker.assertOrchestrationSchemaCompatible(upgraded),/版本|migration|schema/i);upgraded.close();
-  checks.push('v17 → v18 twice preserves historical root/Scope/provenance/unknown bytes; actual v17 worker rejects v18');
+  checks.push('v17 → current twice preserves historical root/Scope/provenance/unknown bytes; actual v17 worker rejects current');
 
   const f=seed(),secret=post({runId:f.run.id,from:'user',to:reader,kind:'system',body:'PRIVATE_READER_ONLY',visibility:'private',audience:['user',reader]});
   const draft=rootDraft({inputs:[{kind:'message',id:secret.id,readers:[reader]}]}),frozen=tasks.freezeAutonomousTask(f.run.id,draft),binding=attempt(f,frozen.rootGrant);
@@ -175,6 +176,6 @@ try{
   assert.equal(metadata.statusCode,200);assert.equal(metadata.headers['cache-control'],'no-store');assert.equal(metadata.json().executionAvailable,false);
   checks.push('capability discovery uses management authentication/no-store and truthfully reports authority-only availability');
   assert.equal(env.externalRequests,0);assert.deepEqual(db.db.pragma('foreign_key_check'),[]);
-  const report={passed:true,checks,schema:18,fixtureApiCalls:providerCalls,realSupplierRequests:0,realNativeInvocations:0,ordinaryAutonomousAdmission:false};
+  const report={passed:true,checks,schema:latestSchema,fixtureApiCalls:providerCalls,realSupplierRequests:0,realNativeInvocations:0,ordinaryAutonomousAdmission:false};
   await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
 }finally{await rm(previousModule,{force:true});await env.close();}

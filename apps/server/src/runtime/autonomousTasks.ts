@@ -54,12 +54,13 @@ export function loadAutonomousTaskGrant(id:string):AutonomousTaskGrantV1 {
 
 /** Trusted server compiler, not an Agent tool or HTTP admission endpoint.
  * Freezes a fresh root only; creates no Dispatch and cannot start a v4 worker in AC1. */
-export function freezeAutonomousTask(runId:string,value:unknown):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
+export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
   return tx(()=>{
     const v=object(value,['coordinatorId','participantIds','inputs','outputAccess','budget']);
+    const admission=digest(options.delegationVersion?{draft:v,delegationVersion:1}:v);
     const previous=loadAutonomousTaskPolicy(runId);
     if(previous){
-      if(previous.admissionSha256!==digest(v))return fail('AUTONOMOUS_AUTHORITY_INVALID');
+      if(previous.admissionSha256!==admission)return fail('AUTONOMOUS_AUTHORITY_INVALID');
       loadRuntimeContract(runId);
       const root=get<{id:string}>('SELECT id FROM autonomous_task_grants WHERE run_id=? AND parent_grant_id IS NULL',runId);
       if(!root)return fail('AUTONOMOUS_CONTRACT_INVALID');
@@ -101,13 +102,14 @@ export function freezeAutonomousTask(runId:string,value:unknown):{policy:Autonom
     const preferences=room.preferences?JSON.parse(room.preferences):{};
     const costPolicy=normalizeCostPolicy(preferences.constraints?.costPolicy??{version:1,currency:'USD',mode:'estimate',maxCost:config.collaboration.maxCostUsd,unknownAction:'reserve',unknownReserve:0.01,prices:[]});
     if(costPolicy.mode!=='estimate')return fail('AUTONOMOUS_LIMIT_EXCEEDED');
-    const policy:AutonomousTaskPolicyV1={version:1,id:randomUUID(),revision:1,admissionSha256:digest(v),runId,conversationId:source.conversation_id,coordinatorId,participantIds,rootSource:initial.ref,rootAccess,outputAccess,inputs,members,
+    const policy:AutonomousTaskPolicyV1={version:1,id:randomUUID(),revision:1,admissionSha256:admission,runId,conversationId:source.conversation_id,coordinatorId,participantIds,rootSource:initial.ref,rootAccess,outputAccess,inputs,members,
       budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',createdAt:now};
     run('INSERT INTO autonomous_task_policies VALUES(?,?,?,?,?)',runId,policy.id,JSON.stringify(policy),digest(policy),now);
     const planned=planCollaborationAdmission({runId,objective:source.goal,participantIds,targetAgentIds:[coordinatorId],completionEngine:true,messageVisibilityVersion:1,completionCandidateVersion:1,successorObligationVersion:1,evidenceBundleVersion:1,contextContributorVersion:1,durableHoldVersion:2,
       exitGuard:{version:1,maxCorrections:0,correctionMaxTokens:512},executionPolicy:executionPolicyForProfile('execute',{toolApiVersion:4,implicitAnswerPolicy:'explicit_only'})});
     planned.contract.features!.controlActionVersion=4;
     planned.contract.features!.autonomousCollaboration={version:1,capabilityPackage:'autonomous-collaboration-v1',boundaryVersion:2,policyId:policy.id,policyRevision:1,policySha256:digest(policy),rootRunId:runId,budgetRunId:runId};
+    if(options.delegationVersion)planned.contract.features!.autonomousCollaboration.delegationVersion=1;
     freezeRuntimeContract(planned.contract);resolveRunPolicy(runId);
     const subjectId=randomUUID();
     run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,runId,'root:'+coordinatorId,'root',null,source.goal,now,now);
@@ -119,10 +121,11 @@ export function freezeAutonomousTask(runId:string,value:unknown):{policy:Autonom
   });
 }
 
-function activeGrant(id:string):{policy:AutonomousTaskPolicyV1;grant:AutonomousTaskGrantV1} {
+export function assertAutonomousGrantReady(id:string):{policy:AutonomousTaskPolicyV1;grant:AutonomousTaskGrantV1} {
   const grant=loadAutonomousTaskGrant(id),policy=loadAutonomousTaskPolicy(grant.runId);
   const contract=loadRuntimeContract(grant.runId);
   if(!policy||policy.id!==grant.policyId||contract?.features?.autonomousCollaboration?.policyId!==policy.id)return fail('AUTONOMOUS_AUTHORITY_INVALID');
+  if(contract.features.autonomousCollaboration.delegationVersion===1&&config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   const state=get<{status:string}>('SELECT status FROM runs WHERE id=?',grant.runId)?.status;
   if(state!=='running')return fail('AUTONOMOUS_AUTHORITY_INVALID');
   if(Date.now()>=Date.parse(grant.expiresAt)||Date.now()>=Date.parse(policy.budget.deadlineAt))return fail('AUTONOMOUS_TASK_EXPIRED');
@@ -141,7 +144,7 @@ function activeGrant(id:string):{policy:AutonomousTaskPolicyV1;grant:AutonomousT
 /** Binding is persisted once and is checked again against live custody/lease on every use. */
 export function bindAutonomousAttempt(grantId:string,attemptId:string):AutonomousGrantBinding {
   return tx(()=>{
-    const {grant}=activeGrant(grantId),authority=captureExecutionBinding(grant.runId,grant.agentId,attemptId);assertBindingAuthorized(authority);
+    const {grant}=assertAutonomousGrantReady(grantId),authority=captureExecutionBinding(grant.runId,grant.agentId,attemptId);assertBindingAuthorized(authority);
     if(authority.origin!=='collaboration_attempt'||authority.subjectId!==grant.subjectId)return fail('AUTONOMOUS_AUTHORITY_INVALID');
     const previous=get<{grant_id:string;generation:number}>('SELECT grant_id,generation FROM autonomous_attempt_grants WHERE attempt_id=?',attemptId);
     if(previous&&(previous.grant_id!==grant.id||previous.generation!==authority.generation))return fail('AUTONOMOUS_AUTHORITY_INVALID');
@@ -150,7 +153,7 @@ export function bindAutonomousAttempt(grantId:string,attemptId:string):Autonomou
   });
 }
 export function assertAutonomousGrant(binding:AutonomousGrantBinding,action?:AutonomousActionName):{grant:AutonomousTaskGrantV1;policy:AutonomousTaskPolicyV1} {
-  const value=activeGrant(binding.grantId),{grant}=value;
+  const value=assertAutonomousGrantReady(binding.grantId),{grant}=value;
   if(binding.runId!==grant.runId||action&&!grant.actions.includes(action))return fail('AUTONOMOUS_AUTHORITY_INVALID');
   const row=get<{grant_id:string;generation:number}>('SELECT grant_id,generation FROM autonomous_attempt_grants WHERE attempt_id=? AND run_id=?',binding.attemptId,binding.runId);
   const authority=captureExecutionBinding(binding.runId,grant.agentId,binding.attemptId);assertBindingAuthorized(authority);
@@ -181,7 +184,7 @@ export function deriveAutonomousGrant(binding:AutonomousGrantBinding,childSubjec
     if(typeof expiresAt!=='string'||!Number.isFinite(Date.parse(expiresAt))||Date.parse(expiresAt)>Date.parse(parent.expiresAt)||Date.parse(expiresAt)<=Date.now())return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const key=text(v.commandKey),intent={parentGrantId:parent.id,childSubjectId,agentId,participantIds,inputs,allowedTools,delegableTools,actions,outputAccess,expiresAt:new Date(expiresAt).toISOString()};
     const previous=get<{id:string;intent_sha256:string}>('SELECT id,intent_sha256 FROM autonomous_task_grants WHERE command_key=?',key);
-    if(previous){if(previous.intent_sha256!==digest(intent))return fail('AUTONOMOUS_AUTHORITY_INVALID');return activeGrant(previous.id).grant;}
+    if(previous){if(previous.intent_sha256!==digest(intent))return fail('AUTONOMOUS_AUTHORITY_INVALID');return assertAutonomousGrantReady(previous.id).grant;}
     if((get<{n:number}>('SELECT COUNT(*) n FROM autonomous_task_grants WHERE run_id=?',binding.runId)?.n??0)>=policy.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const grant:AutonomousTaskGrantV1={version:1,id:randomUUID(),runId:binding.runId,policyId:policy.id,parentGrantId:parent.id,subjectId:childSubjectId,agentId,participantIds,inputs,allowedTools,
       delegableTools,actions:actions as AutonomousActionName[],outputAccess,depth:parent.depth+1,expiresAt:new Date(expiresAt).toISOString(),createdAt:new Date().toISOString()};
@@ -196,6 +199,7 @@ export function revokeAutonomousAuthority(runId:string,grantId:string|null,reaso
 }
 
 export function autonomousCollaborationSupport(){
-  return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,executionAvailable:false,
-    reason:'AC1 authority and shared-budget foundation; autonomous dispatch and default UI require AC2–AC4'} as const;
+  return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,delegationVersion:1,
+    executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:false,
+    reason:'AC2 dynamic API delegation requires an explicit delegationVersion=1 root and execute mode; default UI and automatic delivery remain later stages'} as const;
 }

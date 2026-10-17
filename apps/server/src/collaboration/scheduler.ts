@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { executeScopedDispatch, reconcileScopedBatch } from './scopedRunner.ts';
+import {admitAutonomousGraph} from './autonomousGraph.ts';
+import {executeAutonomousDispatch,settleAutonomousRun} from './autonomousRunner.ts';
 import { intersectMessageAccess } from '@agent-gand/shared';
 import { assertMessageAccess, attemptAccess, messageAccess } from '../messaging/access.ts';
 import type {
@@ -206,10 +208,17 @@ export function kickCollaboration(conversationId: string): void {
   queueMicrotask(() => void drain(conversationId));
 }
 
+/** Explicit service admission for AC2; ordinary UI remains on its existing path until AC4. */
+export function admitAutonomousCollaboration(runId:string,draft:unknown){
+  const work=admitAutonomousGraph(runId,draft),item=getRun(runId)!;
+  ensureCollaborationSpan(item);kickCollaboration(item.conversationId);return work;
+}
+
 async function drain(conversationId: string): Promise<void> {
   try {
     do {
       dirtyConversations.delete(conversationId);
+      for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.conversation_id=? AND r.status='running'",conversationId))settleAutonomousRun(row.run_id);
       await pauseExceededRuns(conversationId);
       for (;;) {
         const claimed = claimNextDispatch(conversationId, leaseOwner);
@@ -232,6 +241,7 @@ async function pauseExceededRuns(conversationId: string): Promise<void> {
   for (const runId of runIds) {
     const item = getRun(runId);
     if (!item || item.status !== 'running' || hasPendingDecision(runId)) continue;
+    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration)continue;
     const dimension = budgetExceeded(runId);
     if (!dimension) continue;
     const snapshot = budgetSnapshot(runId);
@@ -357,6 +367,9 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     return;
   }
   const runtimePolicy = assertExecutableCollaborationPolicy(run.id);
+  if(runtimePolicy.toolApiVersion===4){
+    await executeAutonomousDispatch(dispatch,attemptId,agent);settleAutonomousRun(run.id);return;
+  }
   if (runtimePolicy.toolApiVersion === 3) {
     const batchId = await executeScopedDispatch(dispatch, attemptId, agent);
     if (batchId) { const batch = getBatch(batchId); if (batch) scheduleBatchTimeout(batchId, batch.timeoutAt); }
@@ -896,6 +909,7 @@ export function reconcileCollaborationBatches(runId?: string): void {
 export function finalizeCollaborationRun(runId: string, options: {
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated'; publishResult?: boolean;
 } = {}): void {
+  if(loadRuntimeContract(runId)?.features?.autonomousCollaboration){settleAutonomousRun(runId);return;}
   if (settleRequestedPause(runId)) return;
   const run = getRun(runId); if (!run || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
   const runtimePolicy = resolveRunPolicy(runId);

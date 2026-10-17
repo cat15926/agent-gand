@@ -28,6 +28,8 @@ export interface RuntimeActionCommandInput<T> {
   /** Server-only status projection; no model text may be published through this command. */
   projection?: { batchId: string; planFingerprint: string };
   releaseWake?: { holdId: string; claimToken: string };
+  /** AC2 status-only wake; authority comes from the persisted round and waiting generation. */
+  autonomousWake?: {roundId:string;generation:number};
   intentFingerprint?: string;
   execute: () => T;
 }
@@ -65,6 +67,7 @@ function assertSameCommand<T>(row: CommandRow, kind: RuntimeActionCommandKind,
 
 function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | null {
   const s = input.scope;
+  if(input.autonomousWake)return createHash('sha256').update(JSON.stringify(['autonomous-wake-v1',input.runId,input.autonomousWake.roundId,input.autonomousWake.generation])).digest('hex');
   if (input.releaseWake) return createHash('sha256').update(JSON.stringify(['release-wake-v1',input.runId,input.releaseWake.holdId])).digest('hex');
   if (input.projection) return createHash('sha256').update(JSON.stringify(['scoped-return-v1',input.runId,input.projection.batchId,input.projection.planFingerprint])).digest('hex');
   return s ? createHash('sha256').update(JSON.stringify([s.runId, s.scopeId, s.attemptId, s.agentId,
@@ -83,7 +86,15 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
     if (['completed', 'failed', 'cancelled'].includes(runRow.status)) {
       throw new Error(`Runtime 动作命令不能提交到终态 Run：${runRow.status}`);
     }
-    const scoped = loadRuntimeContract(input.runId)?.features?.scopedCollaboration;
+    const features=loadRuntimeContract(input.runId)?.features;
+    const scoped = features?.scopedCollaboration;
+    const autonomous=features?.autonomousCollaboration?.delegationVersion===1;
+    if(input.autonomousWake&&(!autonomous||kind!=='wake'||input.scope||input.attemptId||input.dispatchId||input.projection||input.releaseWake||!get(`SELECT 1 FROM autonomous_delegation_rounds r
+      JOIN autonomous_work_items w ON w.id=r.parent_work_id JOIN autonomous_task_grants g ON g.id=w.grant_id
+      JOIN runtime_custody c ON c.subject_id=g.subject_id JOIN runs task ON task.id=r.run_id
+      WHERE r.id=? AND r.run_id=? AND r.generation=? AND c.generation=r.generation AND c.state='waiting' AND task.status='running'
+        AND NOT EXISTS(SELECT 1 FROM json_each(r.work_ids) item JOIN autonomous_work_items child ON child.id=item.value
+          JOIN autonomous_task_grants cg ON cg.id=child.grant_id JOIN runtime_subjects s ON s.id=cg.subject_id WHERE s.status IN ('active','waiting'))`,input.autonomousWake.roundId,input.runId,input.autonomousWake.generation)))throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     const projection = input.projection;
     if (projection && (kind !== 'wake' || input.scope || input.attemptId || input.dispatchId
       || scoped?.deliveryVersion !== 1 || !get(`SELECT 1 FROM scoped_delivery_plans p
@@ -96,7 +107,8 @@ function commitAction<T>(kind: RuntimeActionCommandKind,
       || !get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?', input.attemptId, input.dispatchId))) {
       throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     }
-    if (!scoped && input.scope) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if(autonomous&&!input.autonomousWake&&(!input.scope||input.projection||input.releaseWake||input.scope.runId!==input.runId||input.scope.attemptId!==input.attemptId||!get('SELECT 1 FROM collaboration_attempts WHERE id=? AND dispatch_id=?',input.attemptId,input.dispatchId)))throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
+    if (!scoped && !autonomous && (input.scope||input.autonomousWake)) throw new ScopedCollaborationError('SCOPE_BINDING_INVALID');
     const result = input.scope ? commitScopedOutput(input.scope, input.execute) : input.execute();
     const encoded = JSON.stringify(result ?? null);
     const now = new Date().toISOString();

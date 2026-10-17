@@ -54,7 +54,7 @@ export interface ContextManifestV1 {
   dynamicInputs: ScopedSourceRef[];
   allowedTools: string[];
   policyRevision: number;
-  capabilityPackage: CollaborationCapabilityPackage;
+  capabilityPackage: CollaborationCapabilityPackage | 'autonomous-collaboration-v1';
   sha256: string;
 }
 export interface ExecutionScopeV1 {

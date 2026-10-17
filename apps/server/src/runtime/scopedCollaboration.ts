@@ -7,6 +7,7 @@ import { getManagedArtifact, readManagedArtifact } from '../artifacts/store.ts';
 import { loadRuntimeContract, resolveRunPolicy } from './runPolicy.ts';
 import { persistRuntimeContextAssembly } from './context.ts';
 import { captureExecutionBinding, assertBindingAuthorized } from '../execution/authority.ts';
+import {assertAutonomousGrant} from './autonomousTasks.ts';
 
 export class ScopedCollaborationError extends Error {
   readonly retryable = false;
@@ -25,6 +26,7 @@ function contract(runId: string) {
   const c = loadRuntimeContract(runId);
   resolveRunPolicy(runId);
   if ([1,2].includes(c?.features?.coordinationScopes ?? 0)) return c!;
+  if(c?.features?.autonomousCollaboration?.delegationVersion===1)return c;
   if (!c?.features?.scopedCollaboration || c.features.controlActionVersion !== 3 || c.executionPolicy?.toolApiVersion !== 3) fail('SCOPE_BINDING_INVALID');
   return c!;
 }
@@ -96,6 +98,14 @@ function assertScope(scope: ExecutionScopeV1) {
   if (!subject || subject.status !== 'active' || custody?.holder_agent_id !== scope.agentId
     || custody.generation !== scope.recoveryGeneration || custody.state !== 'owned') fail('SCOPE_BINDING_INVALID');
   if ((c.features!.scopedCollaboration?.policyRevision ?? 1) !== scope.policyRevision) fail('SCOPE_BINDING_INVALID');
+  if(c.features?.autonomousCollaboration){
+    const binding=get<{grant_id:string;attempt_id:string}>(`SELECT b.grant_id,b.attempt_id FROM autonomous_attempt_grants b
+      JOIN autonomous_task_grants g ON g.id=b.grant_id JOIN collaboration_attempts a ON a.id=b.attempt_id
+      WHERE b.run_id=? AND g.subject_id=? AND g.agent_id=? AND b.generation=? AND a.status='running'`,scope.runId,scope.subjectId,scope.agentId,scope.recoveryGeneration);
+    if(!binding)fail('SCOPE_BINDING_INVALID');
+    const {grant}=assertAutonomousGrant({runId:scope.runId,grantId:binding!.grant_id,attemptId:binding!.attempt_id});
+    if(!isMessageWithinScope(grant.outputAccess,scope.defaultOutputAccess))fail('SCOPE_NOT_READABLE');
+  }
   if (c.features!.scopedCollaboration?.deliveryVersion === 1) {
     const deadline = get<{ deadline: string }>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",scope.runId)?.deadline;
     if (!deadline || Date.now() >= Date.parse(deadline)) fail('SCOPE_BINDING_INVALID');
@@ -107,7 +117,8 @@ export function createExecutionScope(input: {
   objective: ScopedSourceRef; inputs: ScopedSourceRef[]; dynamicInputs?: ScopedSourceRef[]; allowedTools?: string[];
 }): ExecutionScopeV1 {
   return tx(() => {
-    const c = contract(input.runId).features!.scopedCollaboration ?? { policyRevision:1, capabilityPackage:'scoped-control-v1' as const };
+    const features=contract(input.runId).features!;
+    const c = features.autonomousCollaboration ?? features.scopedCollaboration ?? { policyRevision:1, capabilityPackage:'scoped-control-v1' as const };
     if (!['control', 'content'].includes(input.kind)) return fail('SCOPE_BINDING_INVALID');
     const id = randomUUID(), manifestId = randomUUID();
     const scope: ExecutionScopeV1 = { version: 1, id, runId: input.runId, subjectId: input.subjectId,
@@ -136,7 +147,7 @@ function bound(input: ScopedAttemptBinding, requireBound = true) {
   if (scope.agentId !== input.agentId) return fail('SCOPE_BINDING_INVALID');
   assertScope(scope);
   let attempt = get<{ subject_id: string; expected_generation: number; status: string; lease_expires_at: string }>(`SELECT s.subject_id,
-    CASE WHEN json_extract(c.payload,'$.features.scopedCollaboration.deliveryVersion')=1
+    CASE WHEN json_extract(c.payload,'$.features.scopedCollaboration.deliveryVersion')=1 OR json_extract(c.payload,'$.features.autonomousCollaboration.delegationVersion')=1
       THEN (SELECT generation FROM runtime_custody_events WHERE source_event_id='claim:' || a.id)
       ELSE s.expected_generation END expected_generation,a.status,a.lease_expires_at
     FROM collaboration_attempts a JOIN runtime_dispatch_subjects s ON s.dispatch_id=a.dispatch_id
@@ -161,6 +172,12 @@ function bound(input: ScopedAttemptBinding, requireBound = true) {
   const { sha256, ...unsigned } = manifest;
   if (hash(JSON.stringify(unsigned)) !== sha256 || manifest.scopeId !== scope.id || manifest.runId !== scope.runId
     || manifest.policyRevision !== scope.policyRevision) return fail('CONTEXT_MANIFEST_DRIFT');
+  if(contract(input.runId).features?.autonomousCollaboration){
+    const binding=get<{grant_id:string}>('SELECT grant_id FROM autonomous_attempt_grants WHERE attempt_id=? AND run_id=?',input.attemptId,input.runId);
+    if(!binding)fail('SCOPE_BINDING_INVALID');
+    const {grant}=assertAutonomousGrant({runId:input.runId,grantId:binding!.grant_id,attemptId:input.attemptId});
+    if(grant.subjectId!==scope.subjectId||manifest.capabilityPackage!=='autonomous-collaboration-v1'||manifest.allowedTools.some(name=>!grant.allowedTools.includes(name)))fail('SCOPE_BINDING_INVALID');
+  }
   return { scope, manifest };
 }
 function append(input: ScopedAttemptBinding, ref: ScopedSourceRef, channel: InputProvenanceV1['channel']) {

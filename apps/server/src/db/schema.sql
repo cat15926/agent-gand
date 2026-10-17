@@ -734,3 +734,49 @@ CREATE TRIGGER IF NOT EXISTS autonomous_attempts_immutable BEFORE UPDATE ON auto
 CREATE TRIGGER IF NOT EXISTS autonomous_attempts_no_delete BEFORE DELETE ON autonomous_attempt_grants BEGIN SELECT RAISE(ABORT,'immutable autonomous binding'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_revocations_immutable BEFORE UPDATE ON autonomous_task_revocations BEGIN SELECT RAISE(ABORT,'immutable autonomous revocation'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_revocations_no_delete BEFORE DELETE ON autonomous_task_revocations BEGIN SELECT RAISE(ABORT,'immutable autonomous revocation'); END;
+
+-- AC2: graph facts are immutable; Subject/Custody and Dispatch remain the state authority.
+CREATE TABLE IF NOT EXISTS autonomous_work_items (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  grant_id TEXT NOT NULL UNIQUE REFERENCES autonomous_task_grants(id),
+  parent_work_id TEXT REFERENCES autonomous_work_items(id), work_key TEXT NOT NULL,
+  objective_message_id TEXT NOT NULL REFERENCES messages(id), source_attempt_id TEXT REFERENCES collaboration_attempts(id),
+  created_at TEXT NOT NULL, UNIQUE(run_id,parent_work_id,work_key)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS autonomous_work_root ON autonomous_work_items(run_id) WHERE parent_work_id IS NULL;
+CREATE TABLE IF NOT EXISTS autonomous_work_dependencies (
+  work_id TEXT NOT NULL REFERENCES autonomous_work_items(id), dependency_id TEXT NOT NULL REFERENCES autonomous_work_items(id),
+  PRIMARY KEY(work_id,dependency_id), CHECK(work_id<>dependency_id)
+);
+CREATE TABLE IF NOT EXISTS autonomous_dispatch_work (
+  dispatch_id TEXT PRIMARY KEY REFERENCES collaboration_dispatches(id), work_id TEXT NOT NULL REFERENCES autonomous_work_items(id), created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS autonomous_delegation_rounds (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id),
+  parent_work_id TEXT NOT NULL REFERENCES autonomous_work_items(id), source_dispatch_id TEXT NOT NULL UNIQUE REFERENCES collaboration_dispatches(id),
+  source_attempt_id TEXT NOT NULL UNIQUE REFERENCES collaboration_attempts(id), command_key TEXT NOT NULL UNIQUE,
+  work_ids TEXT NOT NULL CHECK(json_valid(work_ids)), generation INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_work_lineage BEFORE INSERT ON autonomous_work_items
+WHEN NOT EXISTS(SELECT 1 FROM autonomous_task_grants g JOIN messages m ON m.id=NEW.objective_message_id
+  WHERE g.id=NEW.grant_id AND g.run_id=NEW.run_id AND m.run_id=NEW.run_id
+    AND ((NEW.parent_work_id IS NULL AND g.parent_grant_id IS NULL)
+      OR EXISTS(SELECT 1 FROM autonomous_work_items p WHERE p.id=NEW.parent_work_id AND p.run_id=NEW.run_id AND p.grant_id=g.parent_grant_id)))
+BEGIN SELECT RAISE(ABORT,'autonomous work lineage invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dependency_lineage BEFORE INSERT ON autonomous_work_dependencies
+WHEN NOT EXISTS(SELECT 1 FROM autonomous_work_items w JOIN autonomous_work_items d ON d.id=NEW.dependency_id
+  WHERE w.id=NEW.work_id AND w.run_id=d.run_id AND w.parent_work_id=d.parent_work_id)
+BEGIN SELECT RAISE(ABORT,'autonomous dependency lineage invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dispatch_lineage BEFORE INSERT ON autonomous_dispatch_work
+WHEN NOT EXISTS(SELECT 1 FROM autonomous_work_items w JOIN autonomous_task_grants g ON g.id=w.grant_id
+  JOIN collaboration_dispatches d ON d.id=NEW.dispatch_id JOIN runtime_dispatch_subjects s ON s.dispatch_id=d.id
+  WHERE w.id=NEW.work_id AND d.run_id=w.run_id AND d.target_agent_id=g.agent_id AND s.subject_id=g.subject_id)
+BEGIN SELECT RAISE(ABORT,'autonomous dispatch lineage invalid'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_work_immutable BEFORE UPDATE ON autonomous_work_items BEGIN SELECT RAISE(ABORT,'immutable autonomous work'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_work_no_delete BEFORE DELETE ON autonomous_work_items BEGIN SELECT RAISE(ABORT,'immutable autonomous work'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dependencies_immutable BEFORE UPDATE ON autonomous_work_dependencies BEGIN SELECT RAISE(ABORT,'immutable autonomous dependency'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dependencies_no_delete BEFORE DELETE ON autonomous_work_dependencies BEGIN SELECT RAISE(ABORT,'immutable autonomous dependency'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dispatch_immutable BEFORE UPDATE ON autonomous_dispatch_work BEGIN SELECT RAISE(ABORT,'immutable autonomous dispatch binding'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_dispatch_no_delete BEFORE DELETE ON autonomous_dispatch_work BEGIN SELECT RAISE(ABORT,'immutable autonomous dispatch binding'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_rounds_immutable BEFORE UPDATE ON autonomous_delegation_rounds BEGIN SELECT RAISE(ABORT,'immutable autonomous round'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_rounds_no_delete BEFORE DELETE ON autonomous_delegation_rounds BEGIN SELECT RAISE(ABORT,'immutable autonomous round'); END;
