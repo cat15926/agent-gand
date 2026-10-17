@@ -142,9 +142,10 @@ function MessageItem({
       setCopied(false); setCopyError('复制失败，请手动选择内容复制');
     }
   }
-  if (message.kind === 'system' || message.kind === 'tool') return <div id={`message-${message.id}`} data-read-anchor className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400" open={Boolean(decision)}>
+  if (message.kind === 'system' || message.kind === 'tool') return <div id={`message-${message.id}`} data-read-anchor className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400" open={Boolean(decision)||Boolean(message.meta?.collaborationRecovery)}>
     <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'}{message.visibility === 'private' ? ' · 私密' : ''} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-xs text-zinc-400">{message.body}</pre>
+    {Boolean(message.meta?.collaborationRecovery)&&<div className="mt-3 space-y-2 text-amber-200"><p>此权限错误不能重试，当前回合已停止。可以准备新的独立材料任务；原任务和既有授权会保留。</p><button type="button" className="rounded-lg bg-zinc-800 px-3 py-2 text-xs" onClick={()=>window.dispatchEvent(new CustomEvent('gand:prepare-scoped',{detail:{conversationId:state.runs.find(run=>run.id===message.runId)?.conversationId}}))}>准备独立材料与受控发布</button></div>}
   </details>{decision && <DecisionCard decision={decision} />}</div>;
 
   const meta = <>

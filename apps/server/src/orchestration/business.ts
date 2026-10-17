@@ -10,6 +10,8 @@ import { assertStageEvidence, businessQuiescent, canAcceptStage, stageExecutionS
 import { getRunCoordinationPlan } from '../coordination/store.ts';
 import { checkpointSummary, readBusinessCheckpoint } from './businessCheckpointStore.ts';
 import { buildArtifactSnapshot, saveArtifactSnapshot } from '../artifacts/snapshots.ts';
+import { getManagedArtifact } from '../artifacts/store.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 
 interface LedgerEvent {
   action: 'report' | 'decide' | 'resolve'; stageId?: string;
@@ -185,7 +187,17 @@ export function listBusinessEvidence(runId: string): BusinessEvidenceChoice[] {
         if (!step?.agentId || !stage) return [];
         const ref: RuntimeEvidenceRef = { kind: 'attempt_output', id: row.id };
         const evidence = resolveEvidence(runId, ref, 'user');
-        return evidence.trusted && evidence.excerpt?.trim() ? [{ ref, stageId: stage.id, label: `${stage.title} · ${names.get(step.agentId) ?? step.agentId} · ${row.created_at}`, excerpt: evidence.excerpt }] : [];
+        const choices: BusinessEvidenceChoice[] = evidence.trusted && evidence.excerpt?.trim() ? [{ ref, stageId: stage.id, label: `${stage.title} · ${names.get(step.agentId) ?? step.agentId} · ${row.created_at}`, excerpt: evidence.excerpt }] : [];
+        for (const file of loadRuntimeContract(runId)?.features?.coordinationScopes===2?all<{id:string}>("SELECT id FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.attemptId')=? ORDER BY version DESC",runId,row.id):[]) {
+          try {
+            const artifact=getManagedArtifact(file.id,'user');
+            if(artifact.stageId!==stage.id||artifact.createdBy!==step.agentId)continue;
+            const ref:RuntimeEvidenceRef={kind:'workspace_file',path:artifact.path,sha256:artifact.sha256,artifactId:artifact.id,artifactVersion:artifact.version};
+            const resolved=resolveEvidence(runId,ref,'user');
+            if(resolved.trusted&&resolved.excerpt?.trim())choices.push({ref,stageId:stage.id,label:`${stage.title} · ${artifact.path} · v${artifact.version}`,excerpt:resolved.excerpt});
+          } catch { /* Unavailable or tampered artifacts cannot become evidence. */ }
+        }
+        return choices;
       })];
   }
   const messages = all<{ id: string; from_agent: string; created_at: string }>("SELECT id,from_agent,created_at FROM messages WHERE run_id=? AND kind='agent' ORDER BY created_at DESC LIMIT 100", runId);

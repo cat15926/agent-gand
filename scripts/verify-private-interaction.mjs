@@ -177,6 +177,7 @@ try {
   assert.equal(pendingRecovery.continuationAllowed,false);
   assert.ok(pendingRecovery.reasonCodes.includes('LEGACY_CONTEXT_UNVERIFIED'),JSON.stringify(pendingRecovery));
   const models=calls.filter(call=>call.model==='mock:observer'); assert.equal(models.length,0);
-  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,11);
+  const {ORCHESTRATION_MIGRATIONS}=await import('../apps/server/src/db/orchestrationMigrations.ts');
+  assert.equal(db.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n,ORCHESTRATION_MIGRATIONS.at(-1).version);
   console.log(`R2 private interaction (${mode}) verified: owner preview, common-scope graph, alternating public/private context, files/read/search/evidence ACL, ciphertext, links, explicit publication, immutable versions and blocked private continuation.`);
 } finally { await app.close(); db.closeDatabase(); await rm(root,{recursive:true,force:true}); }

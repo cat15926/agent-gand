@@ -52,7 +52,8 @@
 
 ### 实施计划
 
-- [通用私密协作与受控信息发布实施指导（Issue #15，G0–G4 完成，G5 进行中、G6 待实施）](./plans/scoped-collaboration-implementation-guide.md)
+- [Agent 自主协作与单一任务入口实施方案（待评审，AC1–AC6）](./plans/agent-autonomous-collaboration-implementation-plan.md)
+- [通用私密协作与受控信息发布实施指导（Issue #15，G0–G6 当前开放组合已交付，Codex 真实补验暂缓）](./plans/scoped-collaboration-implementation-guide.md)
 - [平台协作剩余内容实施计划（R1–R8 已完成适用范围实现与验收）](./plans/platform-collaboration-remaining-implementation-plan.md)
 - [P1 实施路线与验收状态](./plans/p1-implementation-roadmap.md)
 - [完整编排功能实施方案](./plans/full-orchestration-implementation-plan.md)
@@ -78,6 +79,11 @@
 
 ### 测试与评估报告
 
+- [SDK 受控文件与原生 Coordination 接入收尾（2026-10-17）](./reports/scoped-collaboration-native-integration-2026-10-17.md)
+
+- [跳过 Codex：模型 API + Claude SDK 真实协作与发布验收（2026-10-17）](./reports/scoped-collaboration-api-sdk-acceptance-2026-10-17.md)
+- [nim 切换 Codex 后的 G5 真实验收（2026-10-17）](./reports/scoped-collaboration-nim-codex-acceptance-2026-10-17.md)
+- [普通入口、无效等待与 G5 原生验收收尾（2026-10-17）](./reports/scoped-collaboration-closure-2026-10-17.md)
 - [Issue #15 私密咨询后连续调度阻断分析](./reports/issue-15-private-consultation-analysis-2026-10-13.md)
 - [G0 基线与私密协作阻断验收记录](./reports/scoped-collaboration-g0-acceptance-2026-10-13.md)
 - [G1 Scope、输入来源与版本边界验收](./reports/scoped-collaboration-g1-acceptance-2026-10-14.md)
@@ -86,6 +92,13 @@
 - [G4 持久恢复、只读 any 与费用验收](./reports/scoped-collaboration-g4-acceptance-2026-10-16.md)
 - [G4 恢复契约](./architecture/scoped-collaboration-recovery-v1.md)
 - [G5 原生隔离与 Coordination 实施进展](./reports/scoped-collaboration-g5-progress-2026-10-16.md)
+- [G6 通用界面、灰度与恢复验收](./reports/scoped-collaboration-g6-acceptance-2026-10-17.md)
+- [模型 API 真实狼人杀验证（白天超时，未完成终局）](./reports/scoped-werewolf-real-acceptance-2026-10-17.md)
+- [同一轮真实狼人杀：扩大时限与预算后继续](./reports/scoped-werewolf-continuation-2026-10-17.md)
+- [日常服务回复时限与 Token 默认上限调整](./reports/execution-default-limits-2026-10-17.md)
+- [本地普通聊天室狼人杀失败分析](./reports/local-werewolf-chatroom-failure-2026-10-17.md)
+- [独立协作支持矩阵与产品契约](./architecture/scoped-collaboration-support-v1.md)
+- [独立协作灰度、排空与恢复手册](./operations/scoped-collaboration-runbook.md)
 - [G5 原生冷边界与 Coordination 范围契约](./architecture/scoped-native-coordination-v1.md)
 - [外部 Code Agent 阶段 A 验收记录](./reports/external-code-agent-phase-a-acceptance.md)
 - [外部 Code Agent 阶段 B 验收记录](./reports/external-code-agent-phase-b-acceptance.md)

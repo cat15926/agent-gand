@@ -24,7 +24,7 @@ function access(value: MessageAccess): MessageAccess {
 function contract(runId: string) {
   const c = loadRuntimeContract(runId);
   resolveRunPolicy(runId);
-  if (c?.features?.coordinationScopes === 1) return c;
+  if ([1,2].includes(c?.features?.coordinationScopes ?? 0)) return c!;
   if (!c?.features?.scopedCollaboration || c.features.controlActionVersion !== 3 || c.executionPolicy?.toolApiVersion !== 3) fail('SCOPE_BINDING_INVALID');
   return c!;
 }
@@ -137,7 +137,7 @@ function bound(input: ScopedAttemptBinding, requireBound = true) {
     FROM collaboration_attempts a JOIN runtime_dispatch_subjects s ON s.dispatch_id=a.dispatch_id
     JOIN runtime_contracts c ON c.run_id=a.run_id
     WHERE a.id=? AND a.run_id=? AND a.agent_id=?`, input.attemptId, input.runId, input.agentId);
-  if (!attempt && contract(input.runId).features?.coordinationScopes === 1) {
+  if (!attempt && [1,2].includes(contract(input.runId).features?.coordinationScopes ?? 0)) {
     try {
       const authority = captureExecutionBinding(input.runId,input.agentId,input.attemptId);
       assertBindingAuthorized(authority);
@@ -195,7 +195,8 @@ export function exposeScopedInput(input: ScopedAttemptBinding, ref: ScopedSource
     const producedHere = ref.kind === 'tool_execution' && ['tool_result', 'mcp_result'].includes(channel)
       && Boolean(get("SELECT 1 FROM tool_executions WHERE id=? AND run_id=? AND attempt_id=? AND agent_id=? AND tool_name=? AND status='completed'",
         ref.id, input.runId, input.attemptId, input.agentId, toolName));
-    if (!producedHere && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
+    const ownArtifact = ref.kind === 'artifact' && channel === 'file_read' && Boolean(get("SELECT 1 FROM managed_artifact_versions WHERE id=? AND run_id=? AND json_extract(record,'$.attemptId')=? AND json_extract(record,'$.createdBy')=?",ref.id,input.runId,input.attemptId,input.agentId));
+    if (!producedHere && !ownArtifact && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
     const value = checkedSource(scope, ref);
     append(input, ref, channel); // commit before returning bytes; crashes retain conservative exposure
     return value.bytes;
@@ -238,4 +239,10 @@ export function assertScopedTool(input: ScopedAttemptBinding, name: string): voi
   const { scope, manifest } = bound(input);
   if (!manifest.allowedTools.includes(name)) fail('SCOPE_NOT_READABLE');
   assertScopedOutput({ ...input, ledgerRevision: inputLedgerRevision(input.attemptId), outputAccess: scope.defaultOutputAccess });
+}
+
+/** Read server-frozen authority; callers cannot add tool names or source identities. */
+export function scopedToolPolicy(input: ScopedAttemptBinding) {
+  const {scope,manifest}=bound(input);
+  return {access:scope.defaultOutputAccess,tools:[...manifest.allowedTools],sources:[manifest.objective,...manifest.inputs,...manifest.dynamicInputs]};
 }

@@ -70,6 +70,7 @@ export interface ExternalAgentExecution {
   runId: string;
   agentId: string;
   scopeId: string;
+  scopedIsolation?: { version:1; scopeId:string; home:string };
   driver: ExternalDriverId;
   driverVersion: string | null;
   agentVersion: number;

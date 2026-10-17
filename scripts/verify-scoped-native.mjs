@@ -1,5 +1,6 @@
 // G5 boundary tests: real installed Claude SDK against loopback only; Codex stdio fixture.
 import assert from 'node:assert/strict';
+import {fork} from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, realpath, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -22,42 +23,16 @@ const {sdkOptions}=await import('../apps/server/src/execution/sdkOptions.ts');
 const {reserveScopedNativeTokens,settleScopedNativeTokens}=await import('../apps/server/src/execution/scopedNativeBudget.ts');
 const {queueModelCall}=await import('../apps/server/src/orchestration/modelCalls.ts');
 const now=new Date().toISOString(),privateAccess={visibility:'private',audience:['a','user']};
-function fixture(privateRoot = false) {
-  const runId = randomUUID(), roomId = randomUUID(), subjectId = randomUUID(), dispatchId = randomUUID();
-  db.run('INSERT INTO conversations(id,title,mode,agent_ids,created_at,updated_at) VALUES(?,?,?,?,?,?)', roomId, 'G1 fixture', 'collaboration', '["a","b"]', now, now);
-  db.run('INSERT INTO runs(id,goal,mode,conversation_id,status,agent_ids,created_at) VALUES(?,?,?,?,?,?,?)', runId, 'ROOT_MUST_NOT_BE_INJECTED', 'collaboration', roomId, 'running', '["a","b"]', now);
-  const rootMessage = post({ runId, from: 'user', to: 'a', kind: 'user', body: 'ROOT_MUST_NOT_BE_INJECTED', ...(privateRoot ? privateAccess : {}) });
-  const contract = { version: 1, runId, objective: 'ROOT_MUST_NOT_BE_INJECTED', participantIds: ['a', 'b'], requiredSubjectKeys: ['root:a'],
-    completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
-    executionPolicy: policy.executionPolicyForProfile('execute', { toolApiVersion: 3, implicitAnswerPolicy: 'explicit_only' }),
-    features: { completionEngine: true, controlActionVersion: 3, messageVisibilityVersion: 1,
-      completionCandidateVersion: 1, successorObligationVersion: 1, evidenceBundleVersion: 1, contextContributorVersion: 1,
-      durableHoldVersion: 2, exitGuard: { version: 1, maxCorrections: 1, correctionMaxTokens: 512 },
-      scopedCollaboration: { boundaryVersion: 2, manifestVersion: 1, provenanceVersion: 1, policyRevision: 1, capabilityPackage: 'scoped-control-v1' } } };
-  freezeRuntimeContract(contract);
-  db.run('INSERT INTO runtime_subjects VALUES(?,?,?,?,?,?,?,?,?)', subjectId, runId, 'root:a', 'root', null, 'active', 'review', now, now);
-  db.run('INSERT INTO runtime_custody VALUES(?,?,?,?,?,?,?)', subjectId, 'owned', 'a', null, 1, 1, now);
-  db.run('INSERT INTO collaboration_dispatches(id,run_id,conversation_id,source_message_id,kind,from_actor,target_agent_id,status,depth,idempotency_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', dispatchId, runId, roomId, rootMessage.id, 'initial', 'user', 'a', 'running', 0, dispatchId, now);
-  db.run('INSERT INTO runtime_dispatch_subjects VALUES(?,?,?)', dispatchId, subjectId, 1);
-  let attemptNo = 0;
-  const attempt = () => {
-    const id = randomUUID();
-    db.run('INSERT INTO collaboration_attempts(id,dispatch_id,run_id,conversation_id,agent_id,attempt_no,status,lease_owner,lease_expires_at,created_at,started_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)', id, dispatchId, runId, roomId, 'a', ++attemptNo, 'running', 'g1-fixture', new Date(Date.now() + 60000).toISOString(), now, now);
-    db.run('INSERT INTO runtime_custody_events(id,run_id,subject_id,source_event_id,kind,holder_agent_id,generation,payload,created_at) VALUES(?,?,?,?,?,?,?,?,?)',randomUUID(),runId,subjectId,'claim:'+id,'custody.acquired','a',1,'{}',now);
-    return id;
-  };
-  const message = (body, acl = privateAccess) => scopes.compileScopedSource(runId, 'message', post({ runId, from: 'user', to: acl.visibility === 'private' && !acl.audience.includes('a') ? 'b' : 'a', kind: 'agent', body, ...acl }).id);
-  const create = (objective, more = {}) => scopes.createExecutionScope({ runId, subjectId, agentId: 'a', kind: 'content', recoveryGeneration: 1, defaultOutputAccess: privateAccess, objective, inputs: [], ...more });
-  const binding = scope => ({ runId, scopeId: scope.id, attemptId: attempt(), agentId: 'a' });
-  return { runId, roomId, subjectId, dispatchId, contract, message, create, binding };
-}
-const requests=[];let providerError;let controlMode=false;let providerWait;
+const {nativeScopeFixture}=await import('./helpers/scoped-native-fixture.mjs');
+const fixture=(privateRoot=false)=>nativeScopeFixture({db,scopes,policy,freezeRuntimeContract,post},privateRoot);
+const requests=[];let crashSdkWorker;let providerError;let controlMode=false;let providerWait;
 let control={name:'agent_complete',arguments:{summary:'当前事项已完成，已核对事实、依据与限制。'}};
 const upstream=createServer(async(req,res)=>{try{
   assert.ok(req.url.startsWith('/v1/messages'));
   let raw='';for await(const chunk of req)raw+=chunk;const body=JSON.parse(raw);
   if(req.url.includes('count_tokens')){res.writeHead(200,{'content-type':'application/json'}).end('{"input_tokens":10}');return;}
   assert.equal(req.headers['x-api-key'],'fixture-scoped-key');requests.push(body);
+  if(crashSdkWorker){crashSdkWorker.kill('SIGKILL');res.destroy();return;}
   if(providerWait)await providerWait;
   if(res.destroyed)return;
   res.writeHead(200,{'content-type':'text/event-stream'});
@@ -197,6 +172,42 @@ try{
     assert.equal(db.get('SELECT COUNT(*) n FROM external_agent_sessions WHERE execution_id=?',execution.id).n,0);
     interruptedCases.push(template.execution.driver+':'+cause);
   }
+  // A denied v2 private route is terminal in both native transports, never a new prompt/hold.
+  const {CollaborationBoundaryError}=await import('../apps/server/src/collaboration/boundaryError.ts');
+  const {parseControlCall}=await import('../apps/server/src/collaboration/controlTools.ts');
+  const boundaryCases=[];
+  for(const template of [nativeAgent,sdkAgent]){
+    const current=fixture(),scope=current.create(current.message('PRIVATE_BOUNDARY_CASE'));
+    const binding=current.binding(scope),context=scopes.assembleScopedContext(binding);
+    db.run('INSERT INTO scoped_delivery_plans VALUES (?,?,?,?)',current.runId,'boundary-fixture',JSON.stringify({deadlineAt:new Date(Date.now()+60000).toISOString()}),2048);
+    freezeRunAccounts(current.runId,[template]);
+    controlMode=true;control={name:'agent_consult',arguments:{targets:['b'],objective:'仅依据你自己的材料审阅',reason:'尝试另一成员'}};await writeFile(controlFile,JSON.stringify(control));
+    const before=requests.length;
+    await assert.rejects(()=>runScopedNativeTurn({binding,agent:template,context,parentSpanId:startSpan(current.runId,{spanKind:'agent',name:'private-boundary'}).id,
+      tool:{name:'agent.consult',description:'Consult',parameters:{type:'object',required:['targets','objective','reason'],properties:{targets:{type:'array',items:{type:'string'}},objective:{type:'string'},reason:{type:'string'}},additionalProperties:false}},
+      parse:call=>parseControlCall(call,['a','b'],'a',2,{messageVisibilityVersion:1,messageAccess:{visibility:'private',audience:['a','user']}}),signal:new AbortController().signal}),error=>error instanceof CollaborationBoundaryError&&error.retryable===false);
+    assert.equal(db.get('SELECT COUNT(*) n FROM runtime_action_commands WHERE run_id=?',current.runId).n,0);
+    assert.equal(db.get('SELECT COUNT(*) n FROM runtime_holds WHERE run_id=?',current.runId).n,0);
+    const record=JSON.parse(db.get('SELECT record FROM external_agent_executions WHERE run_id=?',current.runId).record);
+    assert.equal(record.status,'failed');assert.equal(record.errorCode,'policy_rejected');await assert.rejects(()=>readdir(record.cwd));
+    if(template.execution.driver==='claude-sdk')assert.equal(requests.filter(r=>r.messages?.some(m=>JSON.stringify(m).includes('PRIVATE_BOUNDARY_CASE'))).length,1,JSON.stringify(requests.slice(before).map(r=>({model:r.model,tools:r.tools?.map(t=>t.name),last:r.messages?.at(-1)}))));
+    boundaryCases.push(template.execution.driver);
+  }
+  // Ordinary (non-ephemeral) SDK turns must also stop billing at this boundary.
+  {
+    const {runExternalAgentTurn}=await import('../apps/server/src/execution/runner.ts');
+    const {captureExecutionBinding}=await import('../apps/server/src/execution/authority.ts');
+    const trace=await import('../apps/server/src/runs/trace.ts');
+    const current=nativeScopeFixture({db,scopes,policy,freezeRuntimeContract,post},true,false),binding=current.binding({id:'ordinary-boundary'});
+    freezeRunAccounts(current.runId,[sdkAgent]);await mkdir(path.join(root,'ordinary-boundary-workspace'));
+    control={name:'agent_consult',arguments:{targets:['b'],objective:'独立审阅',reason:'尝试跨权限咨询'}};await writeFile(controlFile,JSON.stringify(control));
+    const before=requests.length;
+    await assert.rejects(()=>runExternalAgentTurn({run:trace.getRun(current.runId),agent:sdkAgent,parentSpanId:trace.startSpan(current.runId,{spanKind:'agent',name:'ordinary-boundary'}).id,attemptId:binding.attemptId,executionScopeId:'ordinary-boundary',executionBinding:captureExecutionBinding(current.runId,'a',binding.attemptId),privateContext:true,
+      messages:[{role:'user',content:'ORDINARY_PRIVATE_BOUNDARY_CASE'}],controlTools:[{name:'agent.consult',description:'Consult',parameters:{type:'object',required:['targets','objective','reason'],properties:{targets:{type:'array',items:{type:'string'}},objective:{type:'string'},reason:{type:'string'}},additionalProperties:false}}],
+      handleControlCalls:calls=>parseControlCall(calls[0],['a','b'],'a',2,{messageVisibilityVersion:1,messageAccess:{visibility:'private',audience:['a','user']}})}),error=>error instanceof CollaborationBoundaryError);
+    assert.equal(requests.length-before,1,'ordinary SDK must never forward another paid request after a boundary rejection');
+    boundaryCases.push('ordinary-claude-sdk');
+  }
   // A fixture-only frozen snapshot constructs combinations that product admission
   // deliberately still rejects. There is no production flag to bypass that gate.
   const registry=await import('../apps/server/src/agents/registry.ts');
@@ -212,23 +223,25 @@ try{
   const concurrency=config.collaboration.maxConcurrency;
   config.collaboration.maxConcurrency+=db.get("SELECT COUNT(*) n FROM collaboration_attempts WHERE status='running'").n;
   for(const id of ['mixed-owner','mixed-api','mixed-codex','mixed-sdk'])registry.createAgent({id,name:id,description:'isolated G5 combination fixture',systemPrompt:'Use only the current scope.',model:'mock:'+id,capabilities:['execute'],permissionMode:'readonly',tools:[],disallowedTools:[],color:'#4477aa',avatar:''});
-  const mixedCalls=[],mixedCases=[];
+  const mixedCalls=[],mixedCases=[];let activeMixedMode;
   mockProvider.chat=async req=>{
     const id=req.model.slice(5),attempt=db.get("SELECT * FROM collaboration_attempts WHERE agent_id=? AND status='running' ORDER BY rowid DESC LIMIT 1",id);
     assert.ok(attempt);const text=req.messages.map(m=>m.content).join('\n');mixedCalls.push({runId:attempt.run_id,id,text});
     assert.doesNotMatch(text,/MIXED_CODEX_PRIVATE|MIXED_SDK_PRIVATE/);
     const name=req.tools[0].name;
-    const expected=name==='agent.consult_batch'?plannedBatchAction(delivery.getDeliveryPlan(attempt.run_id).items):{version:3,type:'complete',summary:'已按当前事项核对事实、依据与限制，提交完整结论。'};
+    const expected=name==='agent.consult_batch'?plannedBatchAction(delivery.getDeliveryPlan(attempt.run_id).items,delivery.getDeliveryPlan(attempt.run_id).join):{version:3,type:'complete',summary:'已按当前事项核对事实、依据与限制，提交完整结论。'};
     const {version,type,...args}=expected;
+    if(activeMixedMode?.startsWith('any-native-')&&id==='mixed-api')args.summary='收到';
     return {content:'',toolCalls:[{name,input:JSON.stringify(args)}],usage:{tokensIn:3,tokensOut:8,costUsd:0,costKnown:true,outputKnown:true},stopReason:'end_turn',truncated:false};
   };
   controlMode=true;control={name:'agent_complete',arguments:{summary:'已核对本事项的事实、依据与限制，提交完整结论。'}};await writeFile(controlFile,JSON.stringify(control));
-  for(const mode of ['codex-api','all-backends','missing-final-usage']){
-    const includeSdk=mode==='all-backends',unknownExpected=mode==='missing-final-usage';
+  for(const mode of ['codex-api','all-backends','missing-final-usage','any-api','any-native-codex','any-native-sdk']){
+    activeMixedMode=mode;
+    const includeSdk=mode==='all-backends'||mode==='any-native-sdk',unknownExpected=mode==='missing-final-usage',any=mode.startsWith('any-');
     await writeFile(controlFile,JSON.stringify({...control,omitFinalUsage:unknownExpected}));
-    const members=['mixed-owner','mixed-api','mixed-codex',...(includeSdk?['mixed-sdk']:[])];
+    const members=['mixed-owner','mixed-api',...(mode==='any-native-sdk'?[]:['mixed-codex']),...(includeSdk?['mixed-sdk']:[])];
     const room=rooms.createConversation({title:'G5 local mixed fixture',mode:'collaboration',agentIds:members,workspace:null});
-    const draft={conversationId:room.id,coordinatorId:'mixed-owner',goal:'按已确认事项独立分析',join:'all',returnProfile:'status-only-v1',maxTokens:16000,
+    const draft={conversationId:room.id,coordinatorId:'mixed-owner',goal:'按已确认事项独立分析',join:any?'any':'all',returnProfile:'status-only-v1',maxTokens:16000,
       items:members.slice(1).map((target,i)=>({key:'mixed-'+i,target,batch:1,expectation:'result',material:target==='mixed-sdk'?'MIXED_SDK_PRIVATE':target==='mixed-codex'?'MIXED_CODEX_PRIVATE':'MIXED_API_PRIVATE'}))};
     const preview=delivery.previewScopedDelivery(draft,'g5-owner');
     const runId=delivery.confirmScopedDelivery({previewId:preview.id,fingerprint:preview.fingerprint,clientKey:randomUUID()},'g5-owner');
@@ -247,7 +260,8 @@ try{
     const states=store.listAttempts(runId);
     assert.equal(trace.getRun(runId).status,unknownExpected?'failed':'completed',JSON.stringify(states));
     const unknown=db.get("SELECT COUNT(*) n FROM orchestration_token_reservations WHERE run_id=? AND status='unknown'",runId).n;
-    assert.equal(unknown,unknownExpected?1:0);
+    if(any){assert.ok(unknown<=1);const batch=store.listBatches(runId)[0];assert.ok(batch.winnerDispatchId);assert.equal(store.listDispatches(runId).filter(d=>d.kind==='fanout'&&d.status==='completed').length,1);if(mode.startsWith('any-native-'))assert.notEqual(store.getDispatch(batch.winnerDispatchId).targetAgentId,'mixed-api');}
+    else assert.equal(unknown,unknownExpected?1:0);
     assert.equal(db.get("SELECT COUNT(*) n FROM external_agent_executions WHERE run_id=? AND record LIKE '%LATE_SEALED_PRIVATE_MUST_NOT_ESCAPE%'",runId).n,0);
     assert.equal(db.get("SELECT COUNT(*) n FROM run_events WHERE run_id=? AND output LIKE '%LATE_SEALED_PRIVATE_MUST_NOT_ESCAPE%'",runId).n,0);
     assert.ok(states.filter(a=>a.agentId==='mixed-sdk').length<=1,'unknown usage cannot replay the SDK');
@@ -258,7 +272,34 @@ try{
       assert.match(JSON.stringify(request),/MIXED_SDK_PRIVATE/);assert.doesNotMatch(JSON.stringify(request),/MIXED_API_PRIVATE|MIXED_CODEX_PRIVATE/);
     }
     assert.ok(mixedCalls.filter(c=>c.runId===runId&&c.id==='mixed-owner').every(c=>!c.text.includes('MIXED_API_PRIVATE')));
-    mixedCases.push({mode,backends:includeSdk?'API + Codex fixture + installed SDK':'API + Codex fixture',status:trace.getRun(runId).status,unknownReservations:unknown});
+    mixedCases.push({mode,runId,backends:includeSdk?'API + Codex fixture + installed SDK':'API + Codex fixture',status:trace.getRun(runId).status,unknownReservations:unknown});
+  }
+  const releases=await import('../apps/server/src/collaboration/informationRelease.ts');
+  const recovery=await import('../apps/server/src/runs/recovery.ts');
+  const releaseCases=[];
+  for(const template of [nativeAgent,sdkAgent]){
+    const source=mixedCases.find(c=>c.mode==='all-backends').runId;
+    const p=releases.previewPrivateAggregate({sourceRunId:source,itemKeys:['mixed-0','mixed-1','mixed-2'],aggregatorId:'mixed-owner',instruction:'提交含依据与限制的私密总评，等待专用发布授权。',maxTokens:16000},'g5-owner');
+    const created=releases.confirmPrivateAggregate({previewId:p.id,fingerprint:p.fingerprint,clientKey:randomUUID()},'g5-owner');
+    const run=trace.getRun(created.runId),claim=store.claimNextDispatch(run.conversationId,'g5-release-initial');assert.equal(claim.dispatch.runId,run.id);
+    const scopedRunner=await import('../apps/server/src/collaboration/scopedRunner.ts');
+    await scopedRunner.executeScopedDispatch(claim.dispatch,claim.attempt.id,trace.listRunAgentSnapshots(run.id).find(a=>a.id==='mixed-owner'));
+    const definition={...registry.getAnyAgent('mixed-owner'),model:template.model,accountRef:template.accountRef,execution:template.execution};
+    db.run('UPDATE run_agent_snapshots SET definition=? WHERE run_id=? AND agent_id=?',JSON.stringify(definition),run.id,'mixed-owner');
+    db.run('DELETE FROM run_planner_snapshots WHERE run_id=?',run.id);freezeRunAccounts(run.id,[definition]);
+    control={name:'agent_request_release',arguments:{summary:'PRIVATE_NATIVE_RELEASE_DRAFT：三项审阅均已完成，材料充分；结论仅限本次样本，需要 Owner 授权后发布。'}};await writeFile(controlFile,JSON.stringify(control));
+    scheduler.kickCollaboration(run.conversationId);
+    for(let n=0;n<1200&&trace.getRun(run.id).status!=='waiting_for_user';n++){if(['failed','cancelled'].includes(trace.getRun(run.id).status))throw new Error(JSON.stringify(store.listAttempts(run.id)));await new Promise(r=>setTimeout(r,20));}
+    assert.equal(trace.getRun(run.id).status,'waiting_for_user');assert.equal(releases.releaseState(run.id).records.length,0);
+    const preview=releases.previewInformationRelease(run.id,{expectedRevision:1,mode:'exact_content',access:{visibility:'public',audience:[]}},'g5-owner');
+    const grant=releases.confirmInformationRelease({previewId:preview.id,fingerprint:preview.fingerprint,clientKey:randomUUID()},'g5-owner');
+    const published=releases.publishInformationRelease(grant.grantId);assert.deepEqual(releases.publishInformationRelease(grant.grantId),published);
+    control={name:'agent_complete',arguments:{summary:'已核对固定状态与 Owner 授权发布记录，当前事项全部完成。'}};await writeFile(controlFile,JSON.stringify(control));
+    recovery.recoverDurableHolds(run.id);scheduler.kickCollaboration(run.conversationId);
+    for(let n=0;n<1200&&!['completed','failed','cancelled'].includes(trace.getRun(run.id).status);n++)await new Promise(r=>setTimeout(r,20));
+    assert.equal(trace.getRun(run.id).status,'completed',JSON.stringify(store.listAttempts(run.id)));assert.equal(releases.releaseState(run.id).records.length,1);
+    assert.equal(db.get("SELECT COUNT(*) n FROM orchestration_token_reservations WHERE run_id=? AND status='unknown'",run.id).n,0);
+    releaseCases.push({driver:template.execution.driver,runId:run.id,status:'completed',publications:1});
   }
   controlMode=false;
   config.collaboration.maxConcurrency=concurrency;
@@ -274,8 +315,42 @@ try{
   await reserveScopedNativeTokens(f.runId,next,new AbortController().signal);assert.equal(db.get('SELECT reserved FROM orchestration_token_reservations WHERE id=?',next).reserved,92);settleScopedNativeTokens(next,null);
   const blocked=queueModelCall(f.runId,'a','fixture','claude-sdk',environments[1].binding.attemptId);
   await assert.rejects(()=>reserveScopedNativeTokens(f.runId,blocked,new AbortController().signal),/USAGE_UNKNOWN/);
+  const crashCases=[];
+  const {recoverExternalExecutions}=await import('../apps/server/src/execution/recovery.ts');
+  // Protect still-live structural fixtures from the intentional lease sweep below.
+  db.run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE status='running'",new Date(Date.now()+600000).toISOString());
+  for(const template of [nativeAgent,sdkAgent])for(const phase of ['issued','after-terminal']){
+    const current=fixture(),scope=current.create(current.message('NATIVE_CRASH_PRIVATE_CANARY'));
+    const binding=current.binding(scope),expected={version:3,type:'complete',summary:''};
+    db.run('INSERT INTO scoped_delivery_plans VALUES (?,?,?,?)',current.runId,'native-crash-fixture',JSON.stringify({deadlineAt:new Date(Date.now()+60000).toISOString(),recoveryVersion:1}),2048);freezeRunAccounts(current.runId,[template]);
+    const dataFile=path.join(root,'crash-'+randomUUID()+'.json');await writeFile(dataFile,JSON.stringify({root,binding,agent:template,expected,codexCommand:command}),{mode:0o600});
+    controlMode=true;control={name:'agent_complete',arguments:{summary:'已核对本事项事实、依据与限制，形成完整结论。'},...(phase==='issued'&&template.execution.driver==='codex-app-server'?{wait:true}:{})};await writeFile(controlFile,JSON.stringify(control));
+    const beforeLog=(await readFile(log,'utf8')).trim().split('\n').length;
+    const child=fork(new URL('./helpers/scoped-native-crash-child.mjs',import.meta.url),[dataFile],{env:process.env,execArgv:['--import',path.resolve('apps/server/node_modules/tsx/dist/loader.mjs')],stdio:['ignore','ignore','pipe','ipc']});
+    let childError='',candidateSeen=false;child.stderr.on('data',chunk=>childError+=chunk.toString());
+    const done=new Promise(resolve=>child.once('exit',(code,signal)=>resolve({code,signal})));let timer;
+    try{
+      if(phase==='issued'&&template.execution.driver==='claude-sdk')crashSdkWorker=child;
+      child.on('message',m=>{if(m.type==='candidate'){candidateSeen=true;child.kill('SIGKILL');}if(m.type==='error')childError+=m.message;});
+      timer=setTimeout(()=>child.kill('SIGKILL'),20000);
+      if(phase==='issued'&&template.execution.driver==='codex-app-server'){
+        for(let n=0;n<1000;n++){if((await readFile(log,'utf8')).trim().split('\n').length>beforeLog){child.kill('SIGKILL');break;}if(child.exitCode!==null||child.signalCode!==null)break;await new Promise(r=>setTimeout(r,10));}
+      }
+      const exit=await done;assert.equal(exit.signal,'SIGKILL',childError);assert.equal(candidateSeen,phase==='after-terminal',childError);
+    }finally{clearTimeout(timer);crashSdkWorker=undefined;if(child.exitCode===null&&child.signalCode===null){child.kill('SIGKILL');await done;}}
+    const before=db.get('SELECT COUNT(*) n FROM orchestration_model_calls WHERE run_id=?',current.runId).n;assert.equal(before,1);
+    await recoverExternalExecutions();
+    db.run("UPDATE collaboration_attempts SET lease_expires_at='2000-01-01T00:00:00.000Z' WHERE id=?",binding.attemptId);store.interruptExpiredAttempts({onlyExpired:true});store.interruptExpiredAttempts({onlyExpired:true});
+    const record=JSON.parse(db.get('SELECT record FROM external_agent_executions WHERE run_id=?',current.runId).record);
+    await assert.rejects(()=>readdir(record.cwd));assert.equal(record.evidence,undefined,'cold recovery must not read any ancestor Git diff');
+    assert.equal(db.get('SELECT COUNT(*) n FROM external_native_processes WHERE execution_id=? AND status=\'active\'',record.id).n,0);
+    assert.equal(db.get('SELECT status FROM orchestration_token_reservations WHERE run_id=?',current.runId).status,phase==='issued'?'unknown':'settled');
+    assert.equal(store.getDispatch(current.dispatchId).status,'failed');assert.equal(db.get('SELECT COUNT(*) n FROM runtime_action_commands WHERE run_id=?',current.runId).n,0);
+    assert.equal(db.get('SELECT COUNT(*) n FROM orchestration_model_calls WHERE run_id=?',current.runId).n,before);
+    crashCases.push({driver:template.execution.driver,phase,ownerSignal:'SIGKILL',replayed:false});
+  }
   if(providerError)throw providerError;
-  console.log(JSON.stringify({passed:true,realSdkProcesses:3+db.get("SELECT COUNT(*) n FROM external_agent_executions WHERE json_extract(record,'$.driver')='claude-sdk'").n,codexFixtureProcesses:3+db.get("SELECT COUNT(*) n FROM external_agent_executions WHERE json_extract(record,'$.driver')='codex-app-server'").n,localMessages:requests.length,supplierRequests:0,controlCases,interruptedCases,mixedCases,requestKinds:requests.map(r=>({tools:r.tools?.length??0,lastRole:r.messages?.at(-1)?.role,stopFeedback:r.messages?.at(-1)?.content?.filter?.(c=>c.type==='tool_result').map(c=>c.is_error??false)})),cases:['same-audience-cold-home','private-to-public','no-native-tools','no-session-persistence','resume-rejected','source-drift-revocation','manifest-tool-denial','native-token-unknown-block']}));
+  console.log(JSON.stringify({passed:true,realSdkProcesses:3+db.get("SELECT COUNT(*) n FROM external_agent_executions WHERE json_extract(record,'$.driver')='claude-sdk'").n,codexFixtureProcesses:3+db.get("SELECT COUNT(*) n FROM external_agent_executions WHERE json_extract(record,'$.driver')='codex-app-server'").n,localMessages:requests.length,supplierRequests:0,controlCases,boundaryCases,interruptedCases,mixedCases,releaseCases,crashCases,requestKinds:requests.map(r=>({tools:r.tools?.length??0,lastRole:r.messages?.at(-1)?.role,stopFeedback:r.messages?.at(-1)?.content?.filter?.(c=>c.type==='tool_result').map(c=>c.is_error??false)})),cases:['same-audience-cold-home','private-to-public','no-native-tools','no-session-persistence','resume-rejected','source-drift-revocation','manifest-tool-denial','native-token-unknown-block']}));
 }finally{
   await Promise.all(environments.map(e=>e.close()));
   for(const e of environments){await assert.rejects(()=>readFile(path.join(e.cwd,'old-memory.txt')));assert.throws(()=>e.assertAuthorized());}

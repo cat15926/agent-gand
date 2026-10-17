@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createGame,resolve} from './helpers/scoped-werewolf-game.mjs';
+import {enlargedLimits,recoverCompletedActions,installCampaignLimits} from './helpers/scoped-werewolf-continuation.mjs';
+const original={maxStarts:36,maxOutputTokens:48000,maxDurationMs:600000,requestTimeoutMs:60000,perRequestMaxTokens:4096};
+const limits=enlargedLimits(original);assert.equal(limits.maxOutputTokens,144000);assert.equal(limits.perRequestMaxTokens,12288);assert.equal(limits.requestTimeoutMs,600000);assert.equal(limits.maxStarts,36);
+assert.throws(()=>enlargedLimits({...original,maxOutputTokens:144000}));
+const game=createGame(n=>n-1);resolve(game,'night-1',{'ww-a':{kind:'attack',target:'ww-d'},'ww-b':{kind:'inspect',target:'ww-a'}});
+const row=id=>{const output=JSON.stringify({kind:'statement',target:'ww-a',claim:'villager',confidence:'low'});return {id:'attempt-'+id,agent_id:id,status:'completed',output,body:output,output_message_id:'message-'+id,visibility:'private',audience:JSON.stringify(['user',id])};};
+const rows=[row('ww-b'),row('ww-c'),{agent_id:'ww-a',status:'failed'}],before=JSON.stringify(game);
+const recovered=recoverCompletedActions(game,'discussion',rows);assert.deepEqual(recovered.pending,['ww-a','ww-e']);assert.equal(recovered.recovered.length,2);assert.equal(JSON.stringify(game),before);
+assert.throws(()=>recoverCompletedActions(game,'discussion',[row('ww-b'),row('ww-b')]));
+assert.throws(()=>recoverCompletedActions(game,'discussion',[{...row('ww-b'),audience:'["user","ww-a"]'}]));
+assert.throws(()=>recoverCompletedActions(game,'discussion',[{...row('ww-b'),body:'different'}]));
+const require=createRequire(new URL('../apps/server/package.json',import.meta.url)),Database=require('better-sqlite3');
+const sqlite=new Database(':memory:');sqlite.pragma('foreign_keys=ON');
+const db={db:sqlite,get:(q,...p)=>sqlite.prepare(q).get(...p),all:(q,...p)=>sqlite.prepare(q).all(...p),run:(q,...p)=>sqlite.prepare(q).run(...p),tx:f=>sqlite.transaction(f)()};
+try{
+  sqlite.exec(`CREATE TABLE orchestration_model_calls(id TEXT PRIMARY KEY,started_at TEXT);
+    CREATE TABLE orchestration_token_reservations(id TEXT PRIMARY KEY,reserved INTEGER,used INTEGER,status TEXT);
+    INSERT INTO orchestration_token_reservations VALUES ('old-unknown',4096,0,'unknown'),('known',4096,4993,'settled');`);
+  installCampaignLimits(db,limits,Date.now()+1800000);
+  assert.throws(()=>db.run("INSERT INTO orchestration_token_reservations VALUES ('new',12288,0,'pending')"),/UNKNOWN_LIMIT/);
+  const old=db.get("SELECT * FROM orchestration_token_reservations WHERE id='old-unknown'");
+  installCampaignLimits(db,limits,Date.now()+1800000,{id:'owner-authorized-continuation',acknowledgedUnknownCallIds:['old-unknown']});
+  db.run("INSERT INTO orchestration_token_reservations VALUES ('new',12288,0,'pending')");
+  assert.deepEqual(db.get("SELECT * FROM orchestration_token_reservations WHERE id='old-unknown'"),old);
+  assert.throws(()=>db.run("INSERT INTO orchestration_token_reservations VALUES ('too-large',130000,0,'pending')"),/TOKEN_OR_UNKNOWN_LIMIT/);
+  db.run("UPDATE orchestration_token_reservations SET status='unknown' WHERE id='new'");
+  assert.throws(()=>db.run("INSERT INTO orchestration_token_reservations VALUES ('unexpected-retry',1,0,'pending')"),/TOKEN_OR_UNKNOWN_LIMIT/);
+  for(let n=0;n<35;n++)db.run('INSERT INTO orchestration_model_calls VALUES (?,?)','started-'+n,'already-started');
+  db.run("INSERT INTO orchestration_model_calls VALUES ('last',NULL),('extra',NULL)");
+  db.run("UPDATE orchestration_model_calls SET started_at='now' WHERE id='last'");
+  assert.throws(()=>db.run("UPDATE orchestration_model_calls SET started_at='now' WHERE id='extra'"),/START_LIMIT/);
+  installCampaignLimits(db,limits,Date.now()-1000);
+  assert.throws(()=>db.run("UPDATE orchestration_model_calls SET started_at='now' WHERE id='extra'"),/START_LIMIT/);
+  console.log('Werewolf continuation verified: exact 3x limits, completed decisions retained, private-source validation, old unknown charged, new unknown blocks, cumulative call cap, deadline. Supplier requests: 0.');
+}finally{sqlite.close();}

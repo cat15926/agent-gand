@@ -9,7 +9,7 @@ import { anthropicAuthHeaders } from './headers.ts';
 import { authenticationErrorDetail } from './upstreamError.ts';
 
 /** Execution-local relay: supplier credentials never enter native process environments. */
-export async function createCredentialRelay(account: ResolvedAccount, backend: 'anthropic' | 'openai', signal: AbortSignal, noTools = false, onAuthenticationFailure?: (status: number, detail: string | null) => void, connectionTest = false) {
+export async function createCredentialRelay(account: ResolvedAccount, backend: 'anthropic' | 'openai', signal: AbortSignal, noTools = false, onAuthenticationFailure?: (status: number, detail: string | null) => void, connectionTest = false, inferenceAllowed:()=>boolean=()=>true) {
   if (!account.apiKey) throw new AccountError(409, '账户缺少 API Key');
   const token = randomBytes(32).toString('hex'); rememberSecret(token);
   const lifetime = new AbortController(); const requests = new Set<Promise<void>>();
@@ -29,6 +29,9 @@ export async function createCredentialRelay(account: ResolvedAccount, backend: '
         const headers: Record<string, string> = { 'content-type': 'application/json', ...(backend === 'anthropic' ? { ...anthropicAuthHeaders(account.apiKey!, account.connection), 'anthropic-version': String(req.headers['anthropic-version'] ?? '2023-06-01') } : { authorization: `Bearer ${account.apiKey}` }) };
         if (backend === 'anthropic' && typeof req.headers['anthropic-beta'] === 'string') headers['anthropic-beta'] = req.headers['anthropic-beta'];
         const relative = backend === 'anthropic' && account.connection.baseUrl.endsWith('/v1') ? url.pathname.slice(3) : url.pathname;
+        // A local terminal control receipt must never become another paid model
+        // request, even if a native client races its interrupt/hook notification.
+        if(!inferenceAllowed()){res.writeHead(409,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify({error:{type:'control_boundary_stopped',message:'PRIVATE_ROUTE_REQUIRES_SCOPE: current turn stopped'}}));return;}
         const upstream = await upstreamFetch(account.connection.baseUrl.replace(/\/+$/, '') + relative + url.search, { method: 'POST', headers, body, redirect: 'error', signal: AbortSignal.any([signal, lifetime.signal, AbortSignal.timeout(account.connection.timeoutMs)]) });
         if ((upstream.status === 401 || upstream.status === 403) && onAuthenticationFailure) {
           const detail = await authenticationErrorDetail(upstream);

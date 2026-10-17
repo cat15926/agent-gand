@@ -132,6 +132,7 @@ try {
   const unrelated = seed('unrelated');
   assert.throws(() => holds.resolveRunDependencySubjectIds({ runId: unrelated.runId,
     requesterSubjectId: unrelated.subjectIds.get('a'), targetAgentIds: ['b'] }), /找不到成员 b/u);
+  store.cancelQueuedRun(unrelated.runId); // Lookup-only fixture must not retain an older FIFO member ticket.
 
   holds.registerRuntimeExternalEventReceiver({ id: 'test.artifact.v1', payloadSchemaVersion: 1,
     validatePayload: (payload) => typeof payload.artifact === 'string' && payload.status === 'ready' });
@@ -154,7 +155,7 @@ try {
     .map((item) => item.id), [beforeHold.id], 'event-before-hold 必须在订阅建立后匹配');
 
   const fenced = waitSubject(seed('event-fenced'));
-  const other = seed('event-other');
+  const other = seed('event-other');store.cancelQueuedRun(other.runId);
   const fencedHold = holds.createDurableHold({ runId: fenced.runId, subjectId: fenced.subjectId,
     sourceDispatchId: fenced.claim.dispatch.id, sourceAttemptId: fenced.claim.attempt.id, holderAgentId: 'a',
     condition: holds.registeredRuntimeExternalEventCondition({ receiverId: 'test.artifact.v1',

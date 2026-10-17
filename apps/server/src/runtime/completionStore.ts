@@ -89,8 +89,12 @@ export function loadCompletionSnapshot(runId: string): CompletionSnapshot | null
       hasOutput: finalOutput.length > 0, evidenceValid: outputEvidenceValid && capsuleEvidenceValid,
     };
   });
-  const dispatches = all<{ id: string; status: RuntimeCompletionInput['dispatches'][number]['status']; error: string | null }>(
-    'SELECT id,status,error FROM collaboration_dispatches WHERE run_id=? ORDER BY created_at,rowid', runId);
+  const dispatches = all<{ id: string; status: RuntimeCompletionInput['dispatches'][number]['status']; error: string | null; optionalAnyCandidate:number }>(
+    `SELECT d.id,d.status,d.error,CASE WHEN d.kind='fanout' AND b.join_policy='any'
+      AND b.status IN ('running','completed') AND (b.winner_dispatch_id IS NULL OR b.winner_dispatch_id<>d.id)
+      THEN 1 ELSE 0 END optionalAnyCandidate
+      FROM collaboration_dispatches d LEFT JOIN collaboration_batches b ON b.id=d.batch_id
+      WHERE d.run_id=? ORDER BY d.created_at,d.rowid`, runId).map(d=>({...d,optionalAnyCandidate:!!d.optionalAnyCandidate}));
   const pendingDecisions = get<{ n: number }>("SELECT COUNT(*) n FROM collaboration_user_decisions WHERE run_id=? AND status='pending'", runId)?.n ?? 0;
   const batchStatuses = all<{ status: string }>('SELECT status FROM collaboration_batches WHERE run_id=?', runId).map((item) => item.status);
   const partialReportParts = candidateOwned

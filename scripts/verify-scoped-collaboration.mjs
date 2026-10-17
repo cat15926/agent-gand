@@ -168,8 +168,8 @@ try {
   }
   for (const backend of ['builtin-llm', 'claude-sdk', 'codex-app-server', 'claude-cli', 'codex-exec']) {
     for (const cap of scopedCollaborationCapabilities(backend)) {
-      const g2 = backend === 'builtin-llm';
-      assert.equal(cap.implementationSupported, g2); assert.equal(cap.configuredAvailable, g2);
+      const available = ['builtin-llm','claude-sdk'].includes(backend);
+      assert.equal(cap.implementationSupported,['builtin-llm','claude-sdk','codex-app-server'].includes(backend)); assert.equal(cap.configuredAvailable, available);
       assert.equal(cap.connectionVerified, false); assert.equal(cap.verifiedAt, null);
     }
   }
@@ -184,7 +184,7 @@ try {
     assert.equal(body.toolApiVersion, 3);
     assert.equal(body.backends.length, 5);
     assert.deepEqual(body.allowedRecovery, []);
-    assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === (b.backend === 'builtin-llm') && !c.connectionVerified)));
+    assert.ok(body.backends.every(b => b.capabilities.every(c => c.configuredAvailable === ['builtin-llm','claude-sdk'].includes(b.backend) && !c.connectionVerified)));
     assert.doesNotMatch(response.body, /ONLY_TASK|APPROVED_SUPPLEMENT|ROOT_MUST_NOT|UNLISTED/);
   } finally { await app.close(); }
   db.run("INSERT INTO orchestration_schema_migrations VALUES(18,'future','unknown',?)", now);

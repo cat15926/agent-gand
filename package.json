@@ -61,6 +61,7 @@
     "verify:run-failures": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-failures.mjs",
     "verify:platform-network": "node scripts/verify-platform-network.mjs",
     "verify:execution-timeouts": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-timeouts.mjs",
+    "verify:execution-defaults": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-execution-defaults.mjs",
     "verify:run-continuation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-run-continuation.mjs",
     "verify:runtime-capsule-context-v2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-context.mjs",
     "verify:runtime-completion": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-runtime-completion.mjs",
@@ -125,11 +126,22 @@
     "verify:stage-scheduling": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-stage-scheduling.mjs",
     "verify:platform-real-acceptance": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-platform-real-acceptance.mjs",
     "collaboration:acceptance-real": "node scripts/platform-collaboration-real-acceptance.mjs",
+    "verify:scoped-g6": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-g6.mjs",
+    "verify:scoped-g6-operations": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-g6-operations.mjs",
+    "scoped:inventory": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/scoped-collaboration-maintenance.mjs",
+    "scoped:acceptance": "node scripts/scoped-collaboration-acceptance.mjs",
+    "verify:scoped-werewolf-rules": "node scripts/verify-scoped-werewolf-rules.mjs",
+    "verify:scoped-werewolf-continuation": "node scripts/verify-scoped-werewolf-continuation.mjs",
+    "scoped:werewolf-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/scoped-werewolf-real-acceptance.mjs",
     "verify:scoped-delivery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery.mjs",
     "verify:scoped-delivery-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-delivery-ui.mjs",
     "verify:information-release": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release.mjs",
     "verify:scoped-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-recovery.mjs",
-    "verify:information-release-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release-ui.mjs"
+    "verify:information-release-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-information-release-ui.mjs",
+    "scoped:native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/scoped-native-real-acceptance.mjs",
+    "verify:scoped-native-real-selection": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-native-real-selection.mjs",
+    "verify:scoped-native-files": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-scoped-native-files.mjs",
+    "verify:native-auth-timeout": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-native-auth-timeout.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

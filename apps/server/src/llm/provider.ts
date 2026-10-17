@@ -127,7 +127,7 @@ function llmFetch(url: string, init: LlmFetchInit, timeoutMs = config.llm.timeou
   const dispatcher = getDispatcher();
   return undiciFetch(url, {
     ...init,
-    // thinking 模型长生成：超时可经 LLM_TIMEOUT_MS 调整（默认 180s，见 config.ts）。
+    // thinking 模型长生成：超时可经 LLM_TIMEOUT_MS 调整（默认 600s，见 config.ts）。
     // AbortSignal 覆盖整个流式读取过程：中途超时已广播的 llm.delta 不回收，span 由调用方记 error（§8.1 R5）
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     redirect: 'error',

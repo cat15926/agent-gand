@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDemoEnvironment } from './helpers/orchestration-demo-environment.mjs';
+import { completeScopedCoordination } from './helpers/scoped-coordination-fixture.mjs';
 const output=path.resolve('apps/server/data/scoped-g3-ui-qa');await mkdir(output,{recursive:true});
 let env,web,browser,page;const errors=[],calls=[];const checks=[];
 try {
@@ -13,8 +14,9 @@ try {
   mockProvider.chat=async req=>{
     const body=req.messages.map(m=>m.content).join('\n');calls.push({model:req.model,body});
     if(body.includes('STOP_UI'))await new Promise(resolve=>setTimeout(resolve,1200));
+    if(!req.tools?.length)return {content:`G6_COORD_PRIVATE_${req.model.slice(5).toUpperCase()}：已核对独立材料的事实、依据与限制，提交完整审查结论。`,toolCalls:[],usage:{tokensIn:3,tokensOut:8,costUsd:0},stopReason:'end_turn',truncated:false};
     let name=req.tools[0].name,input;
-    if(name==='agent.consult_batch'){const action=JSON.parse(body.slice(body.lastIndexOf('{"version":3')));const {version,type,...args}=action;input=args;}
+    if(name==='agent.consult_batch'){const action=JSON.parse(body.slice(body.lastIndexOf('{"items":')));const {version,type,...args}=action;input=args;}
     else if(name==='agent.acknowledge')input={envelopeId:req.tools[0].parameters.properties.envelopeId.enum[0]};
     else if(name==='agent.request_release')input={summary:'PRIVATE_UI_AGGREGATE：报告已经核对，建议采用经过验证的方案。'};
     else input={summary:req.model==='mock:aa'?'PRIVATE_UI_RESULT：审查完成，材料和依据充分，事项已完成。':'全部固定状态已核对，独立材料交付完成。'};
@@ -31,7 +33,8 @@ try {
   page=await browser.newPage({viewport:{width:1440,height:960}});page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`${ui}/?room=${room.id}`);await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'独立材料协作',exact:true});await dialog.waitFor();
-  assert.equal(await dialog.locator('option[value="sdk"]').count(),0);
+  await dialog.getByLabel('独立材料组织者',{exact:true}).locator('option[value="sdk"]').waitFor({state:'attached'});
+  assert.equal(await dialog.getByLabel('独立材料组织者',{exact:true}).locator('option[value="sdk"]').count(),1);
   await dialog.getByLabel('独立材料组织目标',{exact:true}).fill('按确认计划完成独立审阅与送达');
   await dialog.getByLabel('独立材料组织者',{exact:true}).selectOption('planner');
   await dialog.getByLabel('材料 1 接收者',{exact:true}).selectOption('aa');
@@ -45,10 +48,17 @@ try {
   await page.screenshot({path:path.join(output,'desktop-preview.png')});
   await dialog.getByLabel('独立材料输出预算',{exact:true}).fill('8000');assert.equal(await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).count(),0);
   await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();
-  checks.push('正常聊天室打开；外部 SDK 不可选；逐项材料和批次可编辑；编辑后旧预览失效');
+  checks.push('正常聊天室打开；已开放 SDK 可选；逐项材料和批次可编辑；编辑后旧预览失效');
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'mobile-preview.png')});
   assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  let lostConfirm=false,allowResponse;const heldResponse=new Promise(resolve=>{allowResponse=resolve;});
+  await page.route('**/api/accounts/scoped-delivery/confirm',async route=>{
+    if(!lostConfirm){const response=await route.fetch();assert.equal(response.status(),200);lostConfirm=true;await heldResponse;await route.abort('failed');}else await route.continue();
+  });
+  await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();await page.keyboard.press('Escape');assert.equal(await dialog.isVisible(),true);allowResponse();await dialog.getByRole('alert').waitFor();
   await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();await dialog.getByRole('status').filter({hasText:'已启动'}).waitFor();
+  await page.unroute('**/api/accounts/scoped-delivery/confirm');
+  assert.equal(env.database.get('SELECT COUNT(*) n FROM scoped_delivery_plans').n,1);checks.push('提交中 Escape 不丢失抽屉状态；响应丢失后同一预览重试只创建一个任务');
   const panel=dialog.getByRole('region',{name:'独立材料运行面板'});
   await panel.getByText(/费用已计入/).waitFor();
   await panel.getByText(/已完成 · 已计入输出/).waitFor();assert.ok((await panel.innerText()).includes('已确认收到'));assert.ok((await panel.innerText()).includes('已投递'));
@@ -91,6 +101,54 @@ try {
   await page.reload();await page.getByRole('button',{name:'独立材料协作',exact:true}).click();await dialog.getByRole('status').filter({hasText:'发布完成'}).waitFor();
   await page.setViewportSize({width:1440,height:960});await dialog.getByRole('status').filter({hasText:'发布完成'}).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'desktop-published.png')});
   checks.push('390px 无水平溢出；刷新保留草稿版本、撤销和发布事实');
+  // G6: a source completed through normal stage admission and its Owner gate can
+  // be selected through the same UI, without reading another reviewer's result.
+  const coordination=await completeScopedCoordination(room);
+  await page.reload();await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
+  await releasePanel.getByLabel('汇总来源任务',{exact:true}).selectOption(coordination.run.id);
+  await releasePanel.getByLabel('授权结果 stage-1-work-1',{exact:true}).check();
+  await releasePanel.getByLabel('私密汇总者',{exact:true}).selectOption('summary');
+  await releasePanel.getByRole('button',{name:'预览汇总授权',exact:true}).click();
+  const intakePreview=releasePanel.getByRole('region',{name:'汇总读取授权预览'});await intakePreview.waitFor();
+  await intakePreview.getByText('查看将授权的结果 stage-1-work-1',{exact:true}).click();
+  assert.match(await intakePreview.innerText(),/G6_COORD_PRIVATE_AA/);assert.doesNotMatch(await intakePreview.innerText(),/G6_COORD_PRIVATE_BB/);
+  await releasePanel.getByRole('button',{name:'授权读取并生成私密草稿',exact:true}).click();
+  const coordCard=releasePanel.getByRole('article').filter({has:page.getByLabel('确切发布文字',{exact:true})});
+  await coordCard.getByLabel('确切发布文字',{exact:true}).waitFor();
+  await coordCard.getByLabel('发布内容',{exact:true}).selectOption('deterministic_projection');
+  await coordCard.getByLabel('发布范围',{exact:true}).selectOption('public');
+  await coordCard.getByRole('button',{name:'预览确切发布内容',exact:true}).click();
+  const projectionPreview=coordCard.getByRole('region',{name:'发布批准预览'});await projectionPreview.waitFor();
+  assert.doesNotMatch(await projectionPreview.innerText(),/G6_COORD_PRIVATE|PRIVATE_UI_AGGREGATE/);
+  await page.screenshot({path:path.join(output,'g6-coordination-desktop.png')});
+  await page.setViewportSize({width:390,height:844});await projectionPreview.scrollIntoViewIfNeeded();
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:path.join(output,'g6-coordination-mobile.png')});
+  await coordCard.getByRole('button',{name:'批准此版本（暂不发布）',exact:true}).click();
+  let lostPublish=false;
+  await page.route('**/api/accounts/information-releases/grants/*/publish',async route=>{const response=await route.fetch();assert.equal(response.status(),200);lostPublish=true;await route.abort('failed');});
+  await coordCard.getByRole('button',{name:'发布已批准内容',exact:true}).click();
+  await releasePanel.getByRole('status').filter({hasText:'发布完成'}).nth(1).waitFor();assert.equal(lostPublish,true);
+  await page.unroute('**/api/accounts/information-releases/grants/*/publish');
+  assert.equal(env.database.get('SELECT COUNT(*) n FROM information_release_records').n,2);
+  checks.push('阶段结果经正常界面授权读取与公开固定状态；另一成员原文未进入汇总；发布响应丢失不重复发布');
+  await page.context().setOffline(true);await dialog.getByRole('status').filter({hasText:'连接中断'}).waitFor();
+  await page.context().setOffline(false);await dialog.getByRole('status').filter({hasText:'连接中断'}).waitFor({state:'detached'});
+  assert.equal(env.database.get('SELECT COUNT(*) n FROM information_release_records').n,2);
+  await page.reload();await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
+  await releasePanel.getByRole('status').filter({hasText:'发布完成'}).nth(1).waitFor();
+  checks.push('断网后显示重连提示；恢复和刷新均从服务端恢复两次发布事实，无额外任务');
+  const {config}=await import('../apps/server/src/config.ts');config.scopedCollaborationMode='preview';
+  await dialog.getByText('当前仅开放预览，确认执行暂不可用。',{exact:true}).waitFor();
+  const beforePreview=calls.length;
+  await dialog.getByLabel('独立材料组织目标',{exact:true}).fill('G6 仅预览灰度验收');
+  await dialog.getByLabel('材料 1 正文',{exact:true}).fill('仅预览的独立材料');
+  await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();
+  await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();assert.equal(await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).isDisabled(),true);assert.equal(calls.length,beforePreview);
+  config.scopedCollaborationMode='closed';await dialog.getByText('新任务入口已关闭，既有任务仍可查看与处理。',{exact:true}).waitFor();
+  assert.equal(await dialog.getByLabel('独立材料组织目标',{exact:true}).isDisabled(),true);
+  assert.equal(await releasePanel.getByRole('status').filter({hasText:'发布完成'}).count(),2);
+  checks.push('支持范围说明可见；仅预览/关闭模式不误导执行且历史发布仍可查看');
+  config.scopedCollaborationMode='execute';
   assert.deepEqual(errors,[]);assert.equal(env.externalRequests,0);assert.equal((await env.nativeCalls()).length,0);
   const report={checks,modelCalls:calls.length,externalRequests:env.externalRequests,pageErrors:errors};await writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
 } catch(error) {if(page){console.error('UI alerts:',await page.getByRole('alert').allTextContents());await page.screenshot({path:path.join(output,'failure.png')});}throw error;} finally {await browser?.close();await web?.close();await env?.close();}

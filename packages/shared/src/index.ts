@@ -1,6 +1,7 @@
 export * from './agent.ts';
 export * from './account.ts';
 export * from './execution.ts';
+export * from './executionDefaults.ts';
 export * from './failure.ts';
 export * from './message.ts';
 export * from './task.ts';

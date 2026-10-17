@@ -2,7 +2,7 @@
 
 状态：已实现，2026-10-14；数据库迁移 v14。对应[实施指导](../plans/scoped-collaboration-implementation-guide.md)与[G2 验收报告](../reports/scoped-collaboration-g2-acceptance-2026-10-14.md)。
 
-G3 已在独立 Owner 授权入口开放文字汇总与发布，详见[发布契约](scoped-information-release-v1.md)。下文记录 G2 基线；G4 新增单批只读 any 和 Attempt 恢复，差异以[恢复契约](scoped-collaboration-recovery-v1.md)为准。
+G3 已在独立 Owner 授权入口开放文字汇总与发布，详见[发布契约](scoped-information-release-v1.md)。G5 现已开放托管 API Key 的 SDK 组织者/接收者，默认关闭 Codex 新 Scope；当前配置及真实验证范围见[支持矩阵](scoped-collaboration-support-v1.md)。下文记录 G2 基线；G4 新增单批只读 any 和 Attempt 恢复，差异以[恢复契约](scoped-collaboration-recovery-v1.md)为准。
 
 ## 1. 产品入口与适用范围
 
@@ -48,6 +48,8 @@ v3 协议经严格解析后显式映射到责任引擎既有的内部 v2 动作�
 ## 4. 预算、停止与恢复
 
 所有批次和组织者调用共用 Run 的输出 Token 预留账本及既有费用预留账本。确认时冻结全局派发/Token/费用/时长限制、表单输出上限及房间请求超时；房间费用政策存在时一并冻结。预览和运行面板展示该政策与费用状态。
+
+模型 API 的单次输出上限由 `COLLAB_SCOPED_MAX_TOKENS_PER_CALL` 配置，默认 12288；确认时以不超过该 Run 输出预算的值冻结在 `DeliveryPlan.maxTokensPerCall`，实际请求仍受剩余预留预算限制。该配置变化使尚未确认的预览失效；已确认计划不随服务配置改变。历史计划没有此字段时继续使用 4096，不回写旧计划。新计划缺省首响应和空闲时限各为 600 秒，显式房间限制优先。界面独立材料/私密汇总默认总预算分别为 48000/24000。
 
 模型 API 不承诺供应商账单硬上限，因此 strict 费用模式在预览拒绝；要求未知价格停止时，所有实际调用成员必须有完整价格。未知用量保留占额并阻止自动重放。该版本不允许通过预算修订或跨 Run 后继修改冻结计划，需要重新预览新任务。
 

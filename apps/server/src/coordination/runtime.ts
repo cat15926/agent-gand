@@ -51,6 +51,7 @@ import { createCoordinationScopedContext, runCoordinationScopedTurn } from './sc
 import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { all } from '../db/database.ts';
 import { isAcknowledgementOutput } from '../runtime/exitGuard.ts';
+import {scopedStepArtifactEvidence} from '../runtime/scopedFileTools.ts';
 
 interface RuntimeMessageInput {
   recipientIds?: string[];
@@ -210,11 +211,11 @@ function coordinationTerminalReport(plan: CoordinationPlan, states: Coordination
 async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationPlanStep, agents: Map<string, AgentDefinition>, rootSpanId: string, contextGoal: string,runSignal:AbortSignal): Promise<'paused' | void> {
   if(runSignal.aborted||getRunCoordinationPlan(run.id)?.status==='pause_requested'||listCoordinationStepStates(plan.id).some(s=>s.status==='failed'))return;
   const before = listCoordinationStepStates(plan.id);
-  const hasScope = loadRuntimeContract(run.id)?.features?.coordinationScopes===1;
+  const hasScope = [1,2].includes(loadRuntimeContract(run.id)?.features?.coordinationScopes??0);
   const baseInput = step.type === 'completion_gate' ? '检查全部依赖是否完成' : stepPrompt(run, plan, step, before, hasScope ? run.goal : contextGoal);
   const claimed = claimCoordinationStep(plan, step, baseInput);
   if (!claimed) return;
-  const useScope = loadRuntimeContract(run.id)?.features?.coordinationScopes===1 && step.type!=='completion_gate';
+  const useScope = hasScope && step.type!=='completion_gate';
   const input = step.type === 'completion_gate' || useScope ? baseInput
     : hasRuntimeContextAssembly(claimed.attempt.id) && claimed.attempt.input
       ? claimed.attempt.input
@@ -250,7 +251,10 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
       const required = plan.steps
         .filter((item) => ancestors.includes(item.id))
         .flatMap((item) => item.expectedArtifacts ?? []);
-      const missing = missingArtifacts(run, plan, required);
+      const missing = loadRuntimeContract(run.id)?.features?.coordinationScopes===2?plan.steps.filter(s=>ancestors.includes(s.id)).flatMap(s=>{
+        const a=get<{id:string}>("SELECT id FROM coordination_step_attempts WHERE plan_id=? AND revision=? AND step_id=? AND status='completed' ORDER BY attempt_no DESC LIMIT 1",plan.id,plan.revision,s.id);
+        if(s.expectedArtifacts?.length){if(!a)return s.expectedArtifacts;scopedStepArtifactEvidence(run.id,a.id,s.expectedArtifacts);}return [];
+      }):missingArtifacts(run, plan, required);
       if (missing.length > 0) {
         throw new Error(`终局屏障阻止：前序产物缺失或过短（${missing.join('、')}），不能进入 ${step.id}`);
       }
@@ -266,7 +270,8 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     const stage = stageForStep(run.id, step);
     const visibleSteps=new Set(ancestorIds(plan,step).filter(id=>visibleDependency(run,step,plan.steps.find(s=>s.id===id)!)));
     const sourceMessageIds=useScope?all<{id:string;step_id:string}>("SELECT id,json_extract(payload,'$.coordinationStepId') step_id FROM messages WHERE run_id=? AND json_extract(payload,'$.coordinationPlanId')=?",run.id,plan.id).filter(m=>visibleSteps.has(m.step_id)).map(m=>m.id):[];
-    const scoped=useScope?createCoordinationScopedContext({runId:run.id,plan,step,attemptId:claimed.attempt.id,agent:stepAgent,context:input,access:stepAccess(run.id,step),sourceMessageIds}):undefined;
+    const sourceAttemptIds=useScope?all<{id:string;step_id:string}>("SELECT a.id,a.step_id FROM coordination_step_attempts a JOIN coordination_step_states s ON s.plan_id=a.plan_id AND s.revision=a.revision AND s.step_id=a.step_id AND s.attempt_no=a.attempt_no WHERE a.plan_id=? AND a.revision=? AND a.status='completed'",plan.id,plan.revision).filter(a=>visibleSteps.has(a.step_id)).map(a=>a.id):[];
+    const scoped=useScope?createCoordinationScopedContext({runId:run.id,plan,step,attemptId:claimed.attempt.id,agent:stepAgent,context:input,access:stepAccess(run.id,step),sourceMessageIds,sourceAttemptIds}):undefined;
     if(scoped)setCoordinationAttemptInput(claimed.attempt.id,scoped.context);
     const invoke = (executionSignal?: AbortSignal) => scoped ? runCoordinationScopedTurn({...scoped,agent:stepAgent,parentSpanId:span.id,maxTokens:step.tokenBudget,signal:executionSignal?AbortSignal.any([executionSignal,runSignal]):runSignal}) : runAgentTurn({
       run,
@@ -307,6 +312,7 @@ async function executeStep(run: Run, plan: CoordinationPlan, step: CoordinationP
     if (!output) throw new Error(`步骤 ${step.id} 返回空结果`);
     if(step.metadata.stageBatchVersion===1&&isAcknowledgementOutput(output))throw new Error('ACK_ONLY_OUTPUT：确认收到不能替代成员实质交付。');
     if(scoped) {
+      if(step.expectedArtifacts?.length)scopedStepArtifactEvidence(run.id,claimed.attempt.id,step.expectedArtifacts);
       const completion=scoped.commitOutput(()=>{
         const completed=completeCoordinationStep(plan,step.id,claimed.attempt.id,output,{version:2,type:'complete',summary:output});
         if(completed.accepted)post({runId:run.id,from:agent.id,to:'all',kind:'agent',body:output,messageType:messageType(step),

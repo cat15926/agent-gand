@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { AccountInput, AccountProtocol, AccountProvider, AccountView } from '@agent-gand/shared';
+import { DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import * as api from '../services/accounts';
 import { ApiError } from '../services/api';
 
@@ -17,7 +18,7 @@ export function AccountForm({ account, mode, onClose, onSaved, preset }: { accou
   const titleId = useId(); const panel = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<AccountInput>({ displayName: account?.displayName ?? '', provider: account?.provider ?? preset?.provider ?? 'anthropic',
     apiKey: '', baseUrl: account?.connection.baseUrl ?? presets[preset?.provider ?? 'anthropic'].baseUrl, protocols: account?.connection.protocols ?? presets[preset?.provider ?? 'anthropic'].protocols,
-    models: account?.connection.models ?? [], defaultModel: account?.connection.defaultModel ?? null, timeoutMs: account?.connection.timeoutMs ?? 180000,
+    models: account?.connection.models ?? [], defaultModel: account?.connection.defaultModel ?? null, timeoutMs: account?.connection.timeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS,
     authHeader: account?.connection.authHeader ?? 'x-api-key' });
   const [authType, setAuthType] = useState<'api_key' | 'native_login'>(account?.authType ?? preset?.authType ?? 'api_key');
   const [nativeClient, setNativeClient] = useState<'claude' | 'codex'>(account?.nativeClient ?? preset?.nativeClient ?? 'codex');
@@ -37,7 +38,7 @@ export function AccountForm({ account, mode, onClose, onSaved, preset }: { accou
     event.preventDefault(); setBusy(true); setError(''); setFields({});
     try {
       let saved: AccountView | undefined;
-      if (authType === 'native_login') saved = mode === 'create' ? await api.createAccount({ displayName: form.displayName, authType, nativeClient }) : await api.updateAccount(account!.id, { displayName: form.displayName, expectedVersion: account!.version });
+      if (authType === 'native_login') saved = mode === 'create' ? await api.createAccount({ displayName: form.displayName, authType, nativeClient }) : await api.updateAccount(account!.id, { displayName: form.displayName, timeoutMs:form.timeoutMs, expectedVersion: account!.version });
       else if (mode === 'key') await api.replaceAccountKey(account!.id, form.apiKey, account!.version);
       else {
         const input = { ...form, models, defaultModel: models.includes(form.defaultModel ?? '') ? form.defaultModel : models[0] ?? null };
@@ -61,6 +62,7 @@ export function AccountForm({ account, mode, onClose, onSaved, preset }: { accou
       <form onSubmit={(event) => void save(event)} className="space-y-4">
         {mode === 'create' && <Field label="认证方式"><select aria-label="认证方式" value={authType} onChange={(event) => setAuthType(event.target.value as typeof authType)} className="input"><option value="api_key">API Key</option><option value="native_login">登录账户</option></select></Field>}
         {authType === 'native_login' && <><Field label="账户名称" error={fields.displayName}><input aria-label="账户名称" required maxLength={80} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} placeholder="例如：个人 Codex、团队 Claude" className="input" /></Field><Field label="登录客户端"><select aria-label="登录客户端" value={nativeClient} disabled={mode === 'edit'} onChange={(event) => setNativeClient(event.target.value as typeof nativeClient)} className="input"><option value="codex">Codex</option><option value="claude">Claude Code · 只读分析</option></select></Field><p className="text-xs leading-6 text-zinc-400">创建独立的登录身份，在供应商页面完成授权。{nativeClient === 'claude' ? 'Claude 登录通过本地终端引导，目前支持只读 CLI 分析。完整执行请使用 API Key。' : 'Codex 使用设备码授权；无需填写 Token 或认证目录。'}</p></>}
+        {authType === 'native_login' && mode === 'edit' && <Field label="请求超时（秒）" error={fields.timeoutMs}><input aria-label="请求超时（秒）" type="number" min={1} max={600} step={1} value={form.timeoutMs / 1000} onChange={event=>setForm({...form,timeoutMs:Number(event.target.value)*1000})} className="input" /></Field>}
         {authType === 'api_key' && mode !== 'key' && <>
           <Field label="连接名称" error={fields.displayName}><input aria-label="连接名称" required maxLength={80} value={form.displayName} onChange={(event) => setForm({ ...form, displayName: event.target.value })} placeholder="例如：团队 Claude、公司模型网关" className="input" /></Field>
           <Field label="服务类型" error={fields.provider}><select aria-label="服务类型" disabled={mode === 'edit'} value={form.provider} onChange={(event) => providerChanged(event.target.value as AccountProvider)} className="input disabled:opacity-60"><option value="anthropic">Anthropic / Claude</option><option value="openai">OpenAI / Codex</option><option value="custom">兼容服务 / 自定义网关</option></select></Field>

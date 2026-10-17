@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import {sourceRoleDigest} from './scoped-native-source-roles.mjs';
 import { chmod, copyFile, lstat, mkdir } from 'node:fs/promises';
 import {execFileSync}from'node:child_process';
 import {authDigest}from'./platform-native-refresh.mjs';
@@ -7,7 +8,9 @@ import { AcceptanceError } from './orchestration-acceptance.mjs';
 
 const root = process.env.R8_ROOT;
 if (!root || process.env.AGENT_GAND_ISOLATED_WORKER !== '1' || process.env.DB_PATH !== path.join(root, 'acceptance.sqlite')) throw new Error('ISOLATED_ENVIRONMENT_REQUIRED');
-const [mode, sourceDb, claudeAgent, codexAccount, apiAgent] = process.argv.slice(2);
+const [mode, sourceDb, claudeAgent, codexAccount, apiAgent, codexAgent, selectionScope] = process.argv.slice(2);
+const skipCodex = selectionScope === 'skip-codex';
+if (selectionScope && !skipCodex || skipCodex && (codexAccount || codexAgent || process.env.R8_CAMPAIGN !== 'g5')) throw new Error('INVALID_CODEX_SELECTION_SCOPE');
 const { config } = await import('../../apps/server/src/config.ts');
 config.sandboxDir = path.join(root, 'sandbox');
 if (mode === 'serve') {
@@ -39,6 +42,7 @@ if (mode === 'serve') {
       if (selected.some(a => a.accountId === id)) return id;
       const account = source.prepare('SELECT * FROM accounts WHERE id=?').get(id);
       if (!account || !account.enabled || account.archived || source.prepare('SELECT 1 FROM account_revocations WHERE account_id=?').get(id)) throw new AcceptanceError('SOURCE_ACCOUNT_UNAVAILABLE');
+      if (skipCodex && account.auth_type !== 'api_key') throw new AcceptanceError('SKIPPED_CODEX_REQUIRES_API_KEY_ACCOUNTS');
       copyRow('accounts', account);
       copyRow('account_versions', source.prepare('SELECT * FROM account_versions WHERE account_id=? AND version=?').get(id, account.config_version));
       if (account.auth_type === 'api_key') {
@@ -64,7 +68,10 @@ if (mode === 'serve') {
     const sdkSource = source.prepare('SELECT definition FROM agents WHERE id=? AND enabled=1').get(claudeAgent);
     const sdk = sdkSource && JSON.parse(sdkSource.definition);
     if (!sdk?.accountRef || sdk.execution?.driver !== 'claude-sdk') throw new AcceptanceError('SELECTED_CLAUDE_ROLE_REQUIRED');
-    const sdkAccount = await copyAccount(sdk.accountRef), codexAccountId = await copyAccount(codexAccount);
+    const codexRow=codexAgent?source.prepare('SELECT definition FROM agents WHERE id=? AND enabled=1').get(codexAgent):null;
+    const selectedCodex=codexRow?JSON.parse(codexRow.definition):null;
+    if(codexAgent&&(!selectedCodex?.accountRef||selectedCodex.execution?.driver!=='codex-app-server'||selectedCodex.accountRef!==codexAccount))throw new AcceptanceError('SELECTED_CODEX_ROLE_REQUIRED');
+    const sdkAccount = await copyAccount(sdk.accountRef), codexAccountId = skipCodex ? null : await copyAccount(codexAccount);
     const apiSource = source.prepare('SELECT definition FROM agents WHERE id=? AND enabled=1').get(apiAgent), api = apiSource && JSON.parse(apiSource.definition);
     if (!api || api.execution?.kind === 'external' || /^(mock|fail):/.test(api.model)) throw new AcceptanceError('SELECTED_REAL_API_ROLE_REQUIRED');
     let apiAccount;
@@ -85,8 +92,11 @@ if (mode === 'serve') {
       execution: driver ? { kind: 'external', driver, nativeTools: [], platformTools: writing ? ['fs.read', 'fs.write', 'search.files'] : [], sessionPolicy: 'conversation' } : { kind: 'builtin-llm' } });
     registry.createAgent(role('r8-sdk', sdk.model, sdkAccount, 'claude-sdk'));
     // Enabling a role does not refresh native tokens or initiate a model turn.
-    registry.createAgent({ ...role('r8-codex', 'default', codexAccountId, 'codex-app-server'), enabled: false });
-    db.prepare('UPDATE agents SET enabled=1 WHERE id=?').run('r8-codex');
+    if (!skipCodex) {
+      const codexDefinition=role('r8-codex',selectedCodex?.model??'default',codexAccountId,'codex-app-server');
+      registry.createAgent({ ...codexDefinition,...(selectedCodex?{systemPrompt:selectedCodex.systemPrompt,execution:{...codexDefinition.execution,sessionPolicy:selectedCodex.execution.sessionPolicy}}:{}),enabled: false });
+      db.prepare('UPDATE agents SET enabled=1 WHERE id=?').run('r8-codex');
+    }
     registry.createAgent(role('r8-api', api.model, apiAccount));
     registry.createAgent(role('r8-writer', sdk.model, sdkAccount, 'claude-sdk', true));
     if(process.env.R8_CAMPAIGN==='codex-write'){registry.createAgent({...role('r8-codex-writer','default',codexAccountId,'codex-app-server',true),enabled:false});db.prepare('UPDATE agents SET enabled=1 WHERE id=?').run('r8-codex-writer');}
@@ -105,7 +115,8 @@ if (mode === 'serve') {
       for(const args of [['init','-q',sourceRoot],['-C',sourceRoot,'add','.'],['-C',sourceRoot,'-c','core.hooksPath=/dev/null','-c','user.name=R8 Acceptance','-c','user.email=r8@example.invalid','commit','-qm','R8 baseline']])execFileSync('git',args,{stdio:'ignore'});
       const {registerExternal}=await import('../../apps/server/src/workspaces/external.ts');workspace='ext:'+registerExternal({path:sourceRoot,trusted:true}).id;
     }
-    process.send?.({ type: 'prepared', accounts: selected,workspace,nativeRefresh });
+    const sourceRoles=[{id:claudeAgent,definition:sdk},...(selectedCodex?[{id:codexAgent,definition:selectedCodex}]:[]),{id:apiAgent,definition:api}].map(({id,definition})=>({id,version:definition.version,model:definition.model,accountRef:definition.accountRef,driver:definition.execution?.driver??'builtin-llm',definitionDigest:sourceRoleDigest(definition)}));
+    process.send?.({ type: 'prepared', accounts: selected,workspace,nativeRefresh,sourceRoles });
   } catch (error) { process.send?.({ type: 'error', code: error instanceof AcceptanceError ? error.code : 'PREPARATION_CHECK_FAILED',details:error.fieldErrors??null }); process.exitCode = 1; }
   finally { source.close(); closeDatabase(); }
 } else throw new Error('INVALID_WORKER_MODE');

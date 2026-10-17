@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { DEFAULT_RESPONSE_TIMEOUT_MS, DEFAULT_MODEL_MAX_TOKENS, DEFAULT_SCOPED_MAX_TOKENS_PER_CALL, DEFAULT_COLLABORATION_MAX_TOKENS } from '@agent-gand/shared';
 import { parseOrchestrationRollout } from './orchestration/rolloutPolicy.ts';
 
 /** apps/server/src → apps/server */
@@ -61,6 +62,17 @@ function collaborationAdmissionProfile(): 'execute' {
   return 'execute';
 }
 
+function scopedAdmissionMode(): 'closed' | 'preview' | 'execute' {
+  const mode = process.env.SCOPED_COLLABORATION_MODE ?? 'execute';
+  if (mode !== 'closed' && mode !== 'preview' && mode !== 'execute') throw new Error('SCOPED_COLLABORATION_MODE 仅支持 closed / preview / execute');
+  return mode;
+}
+function scopedNativeDrivers():string[] {
+  const names=(process.env.SCOPED_NATIVE_DRIVERS??'claude-sdk').split(',').map(v=>v.trim()).filter(Boolean);
+  if(names.some(name=>!['claude-sdk','codex-app-server'].includes(name)))throw new Error('SCOPED_NATIVE_DRIVERS 仅支持 claude-sdk / codex-app-server');
+  return [...new Set(names)];
+}
+
 export interface ModelPrice {
   inputPerMillion: number;
   outputPerMillion: number;
@@ -102,6 +114,8 @@ export const config = {
   dataDir: path.join(serverRoot, 'data'),
   dbPath,
   orchestrationRollout: parseOrchestrationRollout(process.env),
+  scopedCollaborationMode: scopedAdmissionMode(),
+  scopedNativeDrivers:scopedNativeDrivers(),
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),
@@ -119,7 +133,7 @@ export const config = {
     claudeHome: process.env.EXTERNAL_CLAUDE_HOME ?? path.join(path.dirname(dbPath), 'external', 'claude'),
     workspaceMode: (process.env.EXTERNAL_WORKSPACE_MODE === 'registered' ? 'registered' : 'isolated') as 'registered' | 'isolated',
     workspaceDir: process.env.EXTERNAL_WORKSPACE_DIR ?? path.join(path.dirname(dbPath), 'external', 'workspaces'),
-    timeoutMs: Math.max(1_000, firstInt(process.env.EXTERNAL_AGENT_TIMEOUT_MS, 180_000)),
+    timeoutMs: Math.max(1_000, firstInt(process.env.EXTERNAL_AGENT_TIMEOUT_MS, DEFAULT_RESPONSE_TIMEOUT_MS)),
   },
   llm: {
     ...collectLlmEnv(),
@@ -131,9 +145,9 @@ export const config = {
     /** 可选出站代理（如 http://127.0.0.1:7897）；不设则直连 */
     proxy: process.env.LLM_PROXY ?? null,
     /** 单次响应 max_tokens（thinking 模型思考也耗预算，过小会导致正文为空） */
-    maxTokens: firstInt(process.env.LLM_MAX_TOKENS, 8192),
+    maxTokens: firstInt(process.env.LLM_MAX_TOKENS, DEFAULT_MODEL_MAX_TOKENS),
     /** 单次请求超时毫秒（thinking 模型长生成需要更长时间） */
-    timeoutMs: firstInt(process.env.LLM_TIMEOUT_MS, 180_000),
+    timeoutMs: firstInt(process.env.LLM_TIMEOUT_MS, DEFAULT_RESPONSE_TIMEOUT_MS),
     /** 每百万 token 美元价格；支持完整路由名或 openai:* / anthropic:* 兜底。 */
     pricing: parsePricing(process.env.LLM_PRICING_JSON),
   },
@@ -158,9 +172,11 @@ export const config = {
     maxTargets: Math.min(3, Math.max(1, firstInt(process.env.COLLAB_MAX_TARGETS, 3))),
     maxConcurrency: Math.max(1, firstInt(process.env.COLLAB_MAX_CONCURRENCY, 3)),
     maxAttempts: Math.max(1, firstInt(process.env.COLLAB_MAX_ATTEMPTS, 2)),
-    batchTimeoutMs: Math.max(10_000, firstInt(process.env.COLLAB_BATCH_TIMEOUT_MS, 300_000)),
+    batchTimeoutMs: Math.max(10_000, firstInt(process.env.COLLAB_BATCH_TIMEOUT_MS, DEFAULT_RESPONSE_TIMEOUT_MS*2)),
     runTimeoutMs: Math.max(60_000, firstInt(process.env.COLLAB_RUN_TIMEOUT_MS, 1_800_000)),
-    maxTokens: Math.max(1_000, firstInt(process.env.COLLAB_MAX_TOKENS, 100_000)),
+    maxTokens: Math.max(1_000, firstInt(process.env.COLLAB_MAX_TOKENS, DEFAULT_COLLABORATION_MAX_TOKENS)),
+    /** 新独立材料任务冻结此单次上限；旧计划仍按 4096 执行。 */
+    scopedMaxTokensPerCall: Math.max(256, firstInt(process.env.COLLAB_SCOPED_MAX_TOKENS_PER_CALL, DEFAULT_SCOPED_MAX_TOKENS_PER_CALL)),
     maxCostUsd: Math.max(0.01, Number(process.env.COLLAB_MAX_COST_USD ?? 5) || 5),
     maxBudgetMultiplier: Math.max(1, Number(process.env.COLLAB_MAX_BUDGET_MULTIPLIER ?? 4) || 4),
     pingPongWarn: Math.max(1, firstInt(process.env.COLLAB_PINGPONG_WARN, 2)),

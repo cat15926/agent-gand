@@ -75,7 +75,7 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   let admission:{callId:string;cost:CostReservationRow|null}|undefined;
   try {
     const policy=executionPolicy(opts.run.id);
-    if(opts.agent.execution?.kind==='external'&&policy?.request.businessContract?.version===3&&policy.request.constraints.costPolicy&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
+    if(!opts.scopedNative&&opts.agent.execution?.kind==='external'&&policy?.request.businessContract?.version===3&&policy.request.constraints.costPolicy&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
       admission={callId:queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,opts.attemptId),cost:null};
       admission.cost=await reserveCostWhenReady(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,undefined,opts.executionSignal,admission.callId,opts.modelAdmissionHooks?.onWaiting);
       opts.modelAdmissionHooks?.onFinished?.();
@@ -92,8 +92,10 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   if (opts.scopedNative) {
     opts.scopedNative.assertAuthorized();
     if (opts.scopedNative.binding.runId !== opts.run.id || opts.scopedNative.binding.attemptId !== opts.attemptId || opts.scopedNative.binding.agentId !== opts.agent.id) throw new ExecutionError('policy_rejected', 'Scope 与原生执行主体不一致');
-    opts = { ...opts, privateContext: true, disableTools: true, reviewExit: undefined,
-      agent: { ...opts.agent, permissionMode: 'readonly', tools: [], ...(opts.agent.execution?.kind === 'external' ? { execution: { ...opts.agent.execution, nativeTools: [], platformTools: [], sessionPolicy: 'turn' } } : {}) } };
+    const tools=opts.scopedNative.tools;
+    opts = { ...opts, privateContext: true, disableTools: !tools.length, reviewExit: undefined,
+      agent: { ...opts.agent, permissionMode: tools.includes('fs.write')?opts.agent.permissionMode:'readonly', tools: opts.agent.tools.filter(name=>tools.includes(name)),
+        ...(opts.agent.execution?.kind === 'external' ? { execution: { ...opts.agent.execution, nativeTools: [], platformTools: opts.agent.execution.platformTools?.filter(name=>tools.includes(name))??[], sessionPolicy: 'turn' } } : {}) } };
   }
   assertExternalPolicy(opts.agent);
   if (opts.agent.execution?.kind !== 'external') throw new ExecutionError('policy_rejected', '缺少外部执行配置');
@@ -103,7 +105,7 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   if (coordination && !duplex) throw new ExecutionError('policy_rejected', 'Coordination 步骤仅开放 Claude SDK 和 Codex app-server；只读 CLI 请使用流水线');
   const collaboration = duplex && !coordination && opts.run.mode === 'collaboration';
   if (!coordination && opts.run.mode !== 'pipeline' && !(duplex && opts.run.mode === 'supervisor' && opts.agent.id !== opts.run.supervisorId) && !collaboration) throw new ExecutionError('policy_rejected', '外部执行支持流水线；双向后端还支持内置主管 worker/reviewer 和自由协作');
-  if ((opts.controlTools?.length || opts.reviewExit) && !collaboration) throw new ExecutionError('policy_rejected', '当前编排模式未开放 Runtime 控制');
+  if ((opts.controlTools?.length || opts.reviewExit) && !collaboration && !(coordination&&opts.scopedNative)) throw new ExecutionError('policy_rejected', '当前编排模式未开放 Runtime 控制');
   const responsibility = collaboration && opts.attemptId ? loadResponsibilitySnapshot({ runId: opts.run.id, attemptId: opts.attemptId }) : null;
   if (collaboration && (!responsibility || !opts.controlTools?.length || !opts.handleControlCalls)) throw new ExecutionError('policy_rejected', '自由协作缺少冻结的 Runtime 执行上下文');
   if (terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已终止');
@@ -129,6 +131,7 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   const account = resolveAccount(opts.agent, opts.run.id);
   const execution = createExecution({ runId: opts.run.id, agentId: opts.agent.id, scopeId, driver: opts.agent.execution.driver, agentVersion: opts.agent.version, cwd });
   execution.sourceCwd = getIsolatedWorkspace(opts.run.id)?.sourceRoot;
+  if(opts.scopedNative)updateExecution(execution.id,{scopedIsolation:{version:1,scopeId:opts.scopedNative.binding.scopeId,home:opts.scopedNative.home}});
   updateExecution(execution.id, { sourceCwd: execution.sourceCwd });
   updateExecution(execution.id, { attemptId: opts.attemptId ?? null, executionBinding: opts.executionBinding, permissionMode: opts.displayKind === 'review_protocol' ? 'readonly' : opts.agent.permissionMode });
   execution.executionBinding = opts.executionBinding;
@@ -139,7 +142,13 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
     updateExecution(execution.id, { runtimeBinding: execution.runtimeBinding });
   }
   const controller = new AbortController();
-  const abortFromTurn = () => controller.abort(opts.executionSignal?.reason instanceof ExecutionError ? opts.executionSignal.reason : new ExecutionError('cancelled', '本轮执行权已撤销'));
+  const abortFromTurn = () => {
+    const reason = opts.executionSignal?.reason;
+    controller.abort(reason instanceof ExecutionError ? reason
+      : reason instanceof Error && reason.name === 'TimeoutError'
+        ? new ExecutionError('timeout', '外部 Agent 执行超时：上游请求时限已到', { phase: 'deadline', timeoutKind: 'total' })
+        : new ExecutionError('cancelled', '本轮执行权已撤销'));
+  };
   if (opts.executionSignal?.aborted) abortFromTurn();
   else opts.executionSignal?.addEventListener('abort', abortFromTurn, { once: true });
   const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
@@ -278,6 +287,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         startModelCall(callId);
         content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           scopedNative: opts.scopedNative,
+          scopedToolTurns:opts.scopedNative?.tools.length?8:undefined,
           authorized: () => { try { opts.scopedNative?.assertAuthorized(); return executionAuthorized(execution); } catch { return false; } },
           permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
           requestApproval: async (id, tool, args, reason) => {
@@ -296,7 +306,9 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
           onProcessStopped: markNativeProcessStopped }));
         const part = usage.get(correction)!;
         finishModelCall(callId,true);
-        tx(() => { settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }); if(opts.scopedNative)settleScopedNativeTokens(callId,part.tokensOut); });
+        const withinBudget=tx(() => { settleCost(cost, { tokensIn: part.tokensIn ?? 0, tokensOut: part.tokensOut ?? 0, inputKnown: part.tokensIn !== null, outputKnown: part.tokensOut !== null, costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }); return opts.scopedNative?settleScopedNativeTokens(callId,part.tokensOut):true; });
+        if(!withinBudget)throw new ExecutionError('policy_rejected','原生客户端报告用量超过预留预算，已停止后续调用');
+        if(opts.scopedNative&&part.tokensOut===null)throw new ExecutionError('protocol_error','SCOPED_NATIVE_USAGE_UNKNOWN');
       } catch (error) {
         finishModelCall(callId,false);
         const part = usage.get(correction)!;
@@ -304,8 +316,9 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         else settleCost(cost, { costUsd: part.costUsd ?? 0, costKnown: part.costUsd !== null, costSource: 'reported' }, true);
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
-        } else throw error;
+        } else throw bridge?.failure() ?? error;
       } finally { activity.stop(); await bridge?.close(); }
+      if (bridge?.failure()) throw bridge.failure();
       if (retryCold) continue;
       if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '原生回合停止后执行权已撤销');
       result = { ...asResult(content, toolsStarted), controlAction: bridge?.action() ?? null, exitCorrectionAttempts: correction };

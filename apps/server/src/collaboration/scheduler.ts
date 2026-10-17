@@ -19,6 +19,7 @@ import { listByConversation, listByRun, post, postSystem, updateRunUserMessageSt
 import { endSpan, getRun, listEvents, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { runAgentTurn, SESSION_BOUNDARY_DIRECTIVE, type AgentTurnResult } from '../orchestration/agentStep.ts';
 import { collaborationControlTools, parseControlCall } from './controlTools.ts';
+import { CollaborationBoundaryError } from './boundaryError.ts';
 import { classifyCollaborationTurnExit } from './turnExit.ts';
 import { planCollaborationAdmission } from '../runtime/subjectContract.ts';
 import { observeAction, observeAdmission, observeAggregateLink, observeTechnicalBlock, observeTerminalInterruption } from '../runtime/shadow.ts';
@@ -111,7 +112,7 @@ const dirtyConversations = new Set<string>();
 const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 
 class CollaborationGuardError extends Error {
-  constructor(message: string, readonly code: 'depth' | 'targets' | 'ping_pong' | 'action',
+  constructor(message: string, readonly code: 'depth' | 'targets' | 'ping_pong' | 'action' | 'private_boundary',
     readonly preservedOutput: string | null = null,
     readonly routeGuard: RuntimeRouteGuardEvent | null = null) { super(message); }
 }
@@ -635,7 +636,9 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
     endSpan(agentSpan, { output: JSON.stringify({ dispatchId: dispatch.id, outputMessageId: applied.outputMessageId,
       controlAction: action, controlActionSource: normalized.source }), status: 'ok' });
     endSpan(dispatchSpan, { output: JSON.stringify(applied), status: 'ok' });
-  } catch (err) {
+  } catch (caught) {
+    const boundary = caught instanceof CollaborationBoundaryError ? caught : null;
+    const err = boundary ? new CollaborationGuardError(boundary.message, 'private_boundary') : caught;
     const message = err instanceof Error ? err.message : String(err);
     if (err instanceof StaleAttemptError || !isActiveAttempt(attemptId, dispatch.id)) {
       if (controlSpan) endSpan(controlSpan, { output: message, status: 'error' });
@@ -655,7 +658,8 @@ async function executeDispatch(dispatch: CollaborationDispatch, attemptId: strin
             ...(err.routeGuard ? { routeGuardEventId: err.routeGuard.id,
               evidenceFingerprint: err.routeGuard.evidenceFingerprint, repeatedCount: err.routeGuard.repeatedCount } : {}) } });
       }
-      post({ runId: run.id, from: 'system', to: agent.id, kind: 'system', body: `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`, ...attemptAccess(attemptId) });
+      post({ runId: run.id, from: 'system', to: agent.id, kind: 'system', body: `${blocked ? '协作路由已阻断' : '协作执行失败'}：${message}`, ...attemptAccess(attemptId),
+        ...(boundary ? { meta: { collaborationRecovery: { code: boundary.recoveryCode, retryable: boundary.retryable, allowedRecovery: boundary.allowedRecovery } } } : {}) });
       if (dispatch.batchId) maybeCompleteBatch(dispatch.batchId);
       finalizeRun(run.id);
       observeTerminalInterruption(dispatch.id, attemptId, agent.id);

@@ -1,4 +1,5 @@
-import { InformationReleaseError, previewPrivateAggregate, confirmPrivateAggregate, previewInformationRelease, confirmInformationRelease, publishInformationRelease, revokeInformationRelease, editReleaseDraft, releaseState, roomReleaseStates } from '../collaboration/informationRelease.ts';
+import { InformationReleaseError, previewPrivateAggregate, confirmPrivateAggregate, previewInformationRelease, confirmInformationRelease, publishInformationRelease, revokeInformationRelease, editReleaseDraft, releaseState, roomReleaseStates, roomAggregateSources } from '../collaboration/informationRelease.ts';
+import { scopedCollaborationSupport } from '../runtime/scopedCapabilities.ts';
 import { recoverDurableHolds } from '../runs/recovery.ts';
 import type { AccountBackend } from '@agent-gand/shared';
 import type { FastifyInstance } from 'fastify';
@@ -36,6 +37,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.get('/api/accounts/access', async () => accessMode());
     accounts.post('/api/accounts/session', { bodyLimit: 1024 }, async (request, reply) => createManagementSession(request, reply));
     accounts.delete('/api/accounts/session', async (request, reply) => { await cancelSessionLogins(managementOwner(request)); return deleteManagementSession(request, reply); });
+    accounts.get('/api/accounts/scoped-delivery/capabilities', async () => scopedCollaborationSupport());
     accounts.post('/api/accounts/scoped-delivery/preview', { bodyLimit: 100_000 }, async request => previewScopedDelivery(request.body,managementOwner(request)));
     accounts.post('/api/accounts/scoped-delivery/confirm', { bodyLimit: 1024 }, async request => {
       const runId=confirmScopedDelivery(request.body,managementOwner(request));
@@ -47,6 +49,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
     accounts.post('/api/accounts/information-releases/aggregate/preview', {bodyLimit:4096}, async request=>previewPrivateAggregate(request.body,managementOwner(request)));
     accounts.post('/api/accounts/information-releases/aggregate/confirm', {bodyLimit:1024}, async request=>{const result=confirmPrivateAggregate(request.body,managementOwner(request));kickCollaboration(getRun(result.runId)!.conversationId);return result;});
     accounts.get<{Params:{roomId:string}}>('/api/accounts/information-releases/rooms/:roomId', async request=>roomReleaseStates(request.params.roomId));
+    accounts.get<{Params:{roomId:string}}>('/api/accounts/information-releases/rooms/:roomId/sources', async request=>roomAggregateSources(request.params.roomId));
     accounts.get<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId', async request=>releaseState(request.params.runId));
     accounts.patch<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId/draft', {bodyLimit:100_000}, async request=>editReleaseDraft(request.params.runId,request.body));
     accounts.post<{Params:{runId:string}}>('/api/accounts/information-releases/runs/:runId/preview', {bodyLimit:4096}, async request=>previewInformationRelease(request.params.runId,request.body,managementOwner(request)));

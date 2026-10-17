@@ -1,4 +1,5 @@
 import type { CoordinationPlanStep } from '@agent-gand/shared';
+import { DEFAULT_COORDINATION_STEP_TOKENS, DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import { all, get } from '../db/database.ts';
 import { getRun, listRunAgentSnapshots } from '../runs/trace.ts';
 import { getRunCoordinationPlan, listCoordinationStepStates, listCoordinationStepAttempts } from '../coordination/store.ts';
@@ -44,7 +45,7 @@ export function buildGraphCheckpoint(runId:string):BusinessCheckpoint {
   const steps:CoordinationPlanStep[]=[];
   const add=(id:string,actor:string|null,deps:string[],objective:string,type:CoordinationPlanStep['type']='agent_turn',meta:CoordinationPlanStep['metadata']={})=>{
     const agent=listRunAgentSnapshots(runId).find(a=>a.id===actor);
-    steps.push({id,protocol:'sequential_pipeline',type,actorRole:id,actorCapability:type==='review'?'review':'execute',agentId:actor,dependsOn:deps,completion:'提供实质结果；审查步骤须通过独立审查',maxAttempts:1,tokenBudget:Math.min(snapshot?.request.constraints.maxTokens??4000,4000),timeoutMs:Math.min(snapshot?.request.constraints.deadlineMs??300000,300000),onFailure:'fail_plan',toolPolicy:{allowedTools:agent?toolsForAgent(agent).map(t=>t.name):[],requiresApproval:false},metadata:{...meta,objective,readonly:true}});
+    steps.push({id,protocol:'sequential_pipeline',type,actorRole:id,actorCapability:type==='review'?'review':'execute',agentId:actor,dependsOn:deps,completion:'提供实质结果；审查步骤须通过独立审查',maxAttempts:1,tokenBudget:Math.min(snapshot?.request.constraints.maxTokens??DEFAULT_COORDINATION_STEP_TOKENS,DEFAULT_COORDINATION_STEP_TOKENS),timeoutMs:Math.min(snapshot?.request.constraints.deadlineMs??DEFAULT_RESPONSE_TIMEOUT_MS,DEFAULT_RESPONSE_TIMEOUT_MS),onFailure:'fail_plan',toolPolicy:{allowedTools:agent?toolsForAgent(agent).map(t=>t.name):[],requiresApproval:false},metadata:{...meta,objective,readonly:true}});
   };
   const confirm=(id:string,attemptId:string,output:string)=>{
     const step=steps.find(s=>s.id===id)!;

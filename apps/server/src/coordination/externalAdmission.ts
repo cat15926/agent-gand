@@ -1,6 +1,7 @@
 import type { AgentDefinition, CoordinationPlan, CoordinationProtocolId, CoordinationValidationIssue } from '@agent-gand/shared';
 import { config } from '../config.ts';
 import { bidirectional } from '../execution/policy.ts';
+import {scopedNativeAgentSupported} from '../runtime/scopedCapabilities.ts';
 
 /** Only protocols with an execute kernel and O2 fixtures may admit external steps. */
 export const EXTERNAL_STEP_PROTOCOLS = new Set<CoordinationProtocolId>([
@@ -17,11 +18,12 @@ export function externalCoordinationIssues(plan: CoordinationPlan, agents: Agent
       error('EXTERNAL_PROTOCOL_NOT_VERIFIED', `${agent.name} 尚未开放 ${selected.protocol} 的步骤执行；需要已验证的 execute Runtime 协议`, 'protocols');
     }
     for (const step of plan.steps.filter(item => item.agentId === agent.id)) {
+      if(step.metadata.scopedFilesOnly===true&&!scopedNativeAgentSupported(agent))error('SCOPED_BACKEND_UNAVAILABLE','独立 Scope 需要已启用的托管原生账户；Codex 的真实补验暂缓，默认关闭',`steps.${step.id}`);
       if (step.actorCapability === 'coordinate' || ['supervisor', 'planner'].includes(step.actorRole)) error('EXTERNAL_COORDINATOR_UNSUPPORTED', `${agent.name} 不能承担主管规划；请选择内置协调角色`, `steps.${step.id}`);
       if ((step.expectedArtifacts?.length ?? 0) > 0 && (!execution.platformTools?.includes('fs.write') || !agent.tools.includes('fs.write') || agent.permissionMode === 'readonly' || agent.disallowedTools.includes('fs.write'))) {
         error('EXTERNAL_ARTIFACT_TOOL_REQUIRED', `${agent.name} 的步骤需要冻结产物，请开放平台 fs.write 并配置写入权限`, `steps.${step.id}`);
       }
-      if (step.type !== 'review' && step.metadata.readonly !== true && agent.permissionMode !== 'readonly' && config.externalAgents.workspaceMode !== 'isolated') error('EXTERNAL_ISOLATED_WORKSPACE_REQUIRED', `${agent.name} 的编码步骤需要隔离 Git 工作区`, `steps.${step.id}`);
+      if (step.metadata.scopedFilesOnly!==true&&step.type !== 'review' && step.metadata.readonly !== true && agent.permissionMode !== 'readonly' && config.externalAgents.workspaceMode !== 'isolated') error('EXTERNAL_ISOLATED_WORKSPACE_REQUIRED', `${agent.name} 的编码步骤需要隔离 Git 工作区`, `steps.${step.id}`);
     }
   }
   return issues;

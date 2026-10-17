@@ -1,4 +1,5 @@
 import { listManagedArtifacts } from '../artifacts/store.ts';
+import { CollaborationBoundaryError } from '../collaboration/boundaryError.ts';
 import { attemptAccess, runSourceAccess, assertMessageAccess } from '../messaging/access.ts';
 import { businessContractInstructions } from './businessContract.ts';
 import { businessStageContext } from './businessStageExecution.ts';
@@ -547,6 +548,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         if (result) return result;
         continue;
       } catch (err) {
+        if (err instanceof CollaborationBoundaryError) throw err;
         const message = err instanceof Error ? err.message : String(err);
         if (!controlNudged && !exitCorrectionActive) {
           controlNudged = true;

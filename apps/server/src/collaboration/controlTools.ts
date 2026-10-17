@@ -1,6 +1,7 @@
 import { isMessageVisibleTo, type MessageAccess, type CollaborationStoredControlAction, type RuntimeControlActionVersion } from '@agent-gand/shared';
 import type { LlmToolCall, LlmToolSchema } from '../llm/provider.ts';
 import { config } from '../config.ts';
+import { CollaborationBoundaryError } from './boundaryError.ts';
 
 const COMPLETE_TOOL: LlmToolSchema = {
   name: 'agent.complete',
@@ -135,11 +136,16 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
     throw new Error('当前 Run 的消息可见性参数无效或尚未启用');
   }
   const visibility = input.visibility === undefined ? {} : { visibility: input.visibility as 'public' | 'private' };
+  const recipient = (value:unknown, field:string) => {
+    if(options.messageAccess?.visibility==='private' && typeof value==='string' && !members.has(value))
+      throw new CollaborationBoundaryError('私密路由的目标不在当前任务获准成员内，不能通过重试扩大范围');
+    return member(value,members,field);
+  };
   const validateRecipientAccess = (targets: string[]) => {
     if (!options.messageAccess || options.messageAccess.visibility !== 'private') return;
-    if (input.visibility === 'public') throw new Error('私密来源不能改为公开投递，请由所有者提供授权摘要');
+    if (input.visibility === 'public') throw new CollaborationBoundaryError('私密来源不能改为公开投递，请由所有者提供授权摘要');
     if (targets.some(target => !isMessageVisibleTo(options.messageAccess!, target))) {
-      throw new Error('私密来源不在目标成员的可见范围内，即使再次声明 private 也不能扩大授权');
+      throw new CollaborationBoundaryError('私密来源不在目标成员的可见范围内，即使再次声明 private 也不能扩大授权');
     }
   };
   if (call.name === 'agent.complete') {
@@ -147,7 +153,7 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
     return version === 1 ? { type: 'finish' } : { version: 2, type: 'complete', summary };
   }
   if (call.name === 'agent.send_message' || call.name === 'agent.handoff') {
-    const targetAgentId = member(input.target, members, 'target');
+    const targetAgentId = recipient(input.target, 'target');
     if (targetAgentId === senderId) throw new Error('不能把工作交给自己');
     validateRecipientAccess([targetAgentId]);
     const objective = text(call.name === 'agent.handoff' ? input.objective : input.message,
@@ -159,7 +165,7 @@ export function parseControlCall(call: LlmToolCall, memberIds: string[], senderI
   }
   if (call.name === 'agent.ask_many' || call.name === 'agent.consult') {
     if (!Array.isArray(input.targets)) throw new Error('targets 必须是数组');
-    const targetAgentIds = [...new Set(input.targets.map((id) => member(id, members, 'targets')))].filter((id) => id !== senderId);
+    const targetAgentIds = [...new Set(input.targets.map((id) => recipient(id, 'targets')))].filter((id) => id !== senderId);
     if (targetAgentIds.length === 0 || targetAgentIds.length > config.collaboration.maxTargets) throw new Error(`targets 必须包含 1～${config.collaboration.maxTargets} 位其他成员`);
     validateRecipientAccess(targetAgentIds);
     const objective = text(call.name === 'agent.consult' ? input.objective : input.question,

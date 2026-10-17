@@ -91,7 +91,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
     throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown tool API version');
   }
   const scoped = f?.scopedCollaboration;
-  if (f?.coordinationScopes !== undefined && (f.coordinationScopes !== 1 || f.coordinationKernel !== 'execute' || f.controlActionVersion !== 2 || scoped)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown coordination scope version');
+  if (f?.coordinationScopes !== undefined && (![1,2].includes(f.coordinationScopes) || f.coordinationKernel !== 'execute' || f.controlActionVersion !== 2 || scoped)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown coordination scope version');
   if (scoped?.recoveryVersion !== undefined && (scoped.recoveryVersion !== 1 || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped recovery version');
   if (scoped?.releaseVersion !== undefined && (scoped.releaseVersion !== 1 || scoped.capabilityPackage !== 'scoped-release-v1' || scoped.deliveryVersion !== 1)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped release version');
   if (scoped?.deliveryVersion !== undefined && scoped.deliveryVersion !== 1) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown scoped delivery version');

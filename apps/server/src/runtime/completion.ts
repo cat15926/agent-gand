@@ -11,8 +11,8 @@ export function evaluateCompletion(input: RuntimeCompletionInput): RuntimeComple
       ? { status: 'accepted', reasons: ['USER_ACCEPTED_PARTIAL_RESULT'], disposition }
       : { status: 'rejected', reasons: ['PARTIAL_RESULT_HAS_NO_OUTPUT'] };
   }
-  if (input.dispatches.some((item) => item.status === 'failed' || item.status === 'blocked'
-    || (item.status === 'cancelled' && !item.error?.startsWith('CONSULT_ANY_NOT_SELECTED:')))) {
+  if (input.dispatches.some((item) => !item.optionalAnyCandidate && (item.status === 'failed' || item.status === 'blocked'
+    || (item.status === 'cancelled' && !item.error?.startsWith('CONSULT_ANY_NOT_SELECTED:'))))) {
     reasons.push('FAILED_DISPATCH');
   }
   if (input.batchStatuses.some((status) => status === 'failed' || status === 'partial' || status === 'timeout')) {

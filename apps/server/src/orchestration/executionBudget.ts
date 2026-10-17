@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { DEFAULT_COORDINATION_STEP_TOKENS } from '@agent-gand/shared';
 import { reconcileModelCallReservations } from './modelCallRecovery.ts';
 import { queueModelCall, startModelCall, finishModelCall, modelCallWaiting } from './modelCalls.ts';
 import { get, run, tx } from '../db/database.ts';
@@ -72,7 +73,7 @@ async function budgetedChatImpl(runId: string, provider: LLMProvider, request: L
     try { const response = await modelChat(runId, provider, request, delta); settleCost(cost, response.usage); return response; }
     catch (error) { reconcileModelCallReservations(modelCallContext.getStore()!); throw error; }
   }
-  const desired = Math.max(1, Math.min(...scopes.map(s => s.limit), request.maxTokens ?? 4000));
+  const desired = Math.max(1, Math.min(...scopes.map(s => s.limit), request.maxTokens ?? DEFAULT_COORDINATION_STEP_TOKENS));
   let reservation: { id: string; tokens: number; cost: CostReservationRow | null } | undefined;
   while (!reservation) {
     throwIfStopped(runId,request.signal);

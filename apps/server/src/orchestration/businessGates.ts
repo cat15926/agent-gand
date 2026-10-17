@@ -6,6 +6,7 @@ import { getRunOrchestrationSnapshot } from './store.ts';
 import { OrchestrationError } from './normalize.ts';
 import { checkpointOutput, readBusinessCheckpoint } from './businessCheckpointStore.ts';
 import { getManagedArtifact } from '../artifacts/store.ts';
+import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 
 export function stageForStep(runId: string, step: CoordinationPlanStep): BusinessStage | undefined {
   const contract = getRunOrchestrationSnapshot(runId)?.request.businessContract;
@@ -60,6 +61,10 @@ export function assertStageEvidence(runId: string, stageId: string, ref: Runtime
     if (ref.artifactId) {
       const file=getManagedArtifact(ref.artifactId);
       if (file.runId!==runId || file.stageId!==stageId || file.version!==ref.artifactVersion || file.sha256!==ref.sha256) invalid();
+      if(loadRuntimeContract(runId)?.features?.coordinationScopes===2){
+        const attempt=file.attemptId?get<{step_id:string}>("SELECT step_id FROM coordination_step_attempts WHERE id=? AND run_id=? AND plan_id=? AND revision=? AND status='completed'",file.attemptId,runId,plan.id,plan.revision):undefined;
+        if(!attempt||!plan.steps.some(step=>step.id===attempt.step_id&&step.agentId===file.createdBy&&step.metadata.businessStageId===stageId))invalid();
+      }
       return;
     }
     if (ref.workspaceScope !== plan.id.slice(0, 8)) invalid();

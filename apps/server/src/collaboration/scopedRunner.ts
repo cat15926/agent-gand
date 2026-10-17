@@ -143,8 +143,9 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
     const next=item?[]:nextItems(plan);
     const expected:ScopedControlActionV3=item?.expectation==='acknowledged'?{version:3,type:'acknowledge',envelopeId:item.payloadRef}
       :!item&&next.length?plannedBatchAction(next,plan.join):{version:3,type:item&&releaseTask?'request_release':'complete',summary:''};
+    const {version:actionVersion,type:actionType,...toolArguments}=expected;
     const instruction=item?`这是一个独立事项，仅使用本上下文中的材料。交付要求：${item.expectation}。${item.expectation==='acknowledged'?`请调用 agent.acknowledge，envelopeId=${item.payloadRef}`:releaseTask?'请以 agent.request_release 提交完整私密汇总草稿，等待 Owner 授权。':'请以 agent.complete 提交完整结果。'}`
-      :`你是独立材料组织者，只能按确认的计划推进。不得请求或推测私密正文。${next.length?'本轮唯一允许的动作（工具参数不含 version/type）：'+JSON.stringify(expected):'所有已授权批次完成。请调用 agent.complete，说明固定状态核对完成。'}`;
+      :`你是独立材料组织者，只能按确认的计划推进。不得请求或推测私密正文。${next.length?'本轮唯一允许的工具参数（原样提交，不添加 version/type）：'+JSON.stringify(toolArguments):'所有已授权批次完成。请调用 agent.complete，说明固定状态核对完成。'}`;
     const directive=post({runId:plan.runId,from:'system',to:agent.id,kind:'system',body:instruction,meta:{scopedInternal:true},...access(agent.id),clientMessageId:`scoped:instruction:${attemptId}`});
     const scope=createExecutionScope({runId:plan.runId,subjectId:row.subject_id,agentId:agent.id,kind:item?'content':'control',defaultOutputAccess:access(agent.id),recoveryGeneration:row.generation,
       objective:item?.source??compileScopedSource(plan.runId,'message',dispatch.sourceMessageId),inputs:[plan.roleSources[agent.id]!,compileScopedSource(plan.runId,'message',directive.id)]});
@@ -177,7 +178,7 @@ export async function executeScopedDispatch(dispatch:CollaborationDispatch,attem
         action=await runScopedNativeTurn({binding:scoped,agent,context,parentSpanId:span.id,tool:scopedControlTool(expected),parse:call=>parseScopedControlCall(call,expected),signal:controller.signal});
         endSpan(span,{output:'范围动作候选已校验',usageKnown:false,costKnown:false});span=undefined;
       } else {
-      const response=await budgetedChat(plan.runId,providerForAgent(agent,plan.runId),{model:agent.model,messages:[{role:'system',content:'严格遵循本事项的独立材料边界。使用所提供的唯一控制工具结束本轮。'},{role:'user',content:context}],tools:[scopedControlTool(expected)],maxTokens:Math.min(4096,plan.maxTokens),signal:controller.signal},undefined,agent.id,attemptId);
+      const response=await budgetedChat(plan.runId,providerForAgent(agent,plan.runId),{model:agent.model,messages:[{role:'system',content:'严格遵循本事项的独立材料边界。使用所提供的唯一控制工具结束本轮。'},{role:'user',content:context}],tools:[scopedControlTool(expected)],maxTokens:Math.min(plan.maxTokensPerCall??4096,plan.maxTokens),signal:controller.signal},undefined,agent.id,attemptId);
       endSpan(span,{tokensIn:response.usage.tokensIn,tokensOut:response.usage.tokensOut,costUsd:response.usage.costUsd,usageKnown:response.usage.outputKnown!==false,costKnown:response.usage.costKnown!==false});span=undefined;
       assertBindingAuthorized(binding);
       if(response.truncated||response.toolCalls.length!==1)fail('SCOPED_EXPLICIT_ACTION_REQUIRED');

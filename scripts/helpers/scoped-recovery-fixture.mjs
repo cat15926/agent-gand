@@ -27,7 +27,7 @@ export const {mockProvider}=await import('../../apps/server/src/llm/provider.ts'
 export const response=req=>{
   const name=req.tools[0].name,text=req.messages.map(m=>m.content).join('\n');
   let args={summary:`PRIVATE_${req.model}: 已完成材料审阅，结论与证据完整。`};
-  if(name==='agent.consult_batch'){const {version,type,...action}=JSON.parse(text.slice(text.lastIndexOf('{"version":3')));args=action;}
+  if(name==='agent.consult_batch'){const {version,type,...action}=JSON.parse(text.slice(text.lastIndexOf('{"items":')));args=action;}
   if(name==='agent.acknowledge')args={envelopeId:req.tools[0].parameters.properties.envelopeId.enum[0]};
   return {content:'',toolCalls:[{name,input:JSON.stringify(args)}],usage:{tokensIn:3,tokensOut:8,costUsd:0},stopReason:'tool_use',truncated:false};
 };

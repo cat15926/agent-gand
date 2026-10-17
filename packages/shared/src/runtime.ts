@@ -43,7 +43,7 @@ export interface RuntimeRunContract {
     controlActionVersion?: 1 | 2 | 3;
     scopedCollaboration?: import('./scopedCollaboration.ts').ScopedCollaborationContract;
     /** Static Coordination text scopes; preserves v2 graph control and Owner stage gates. */
-    coordinationScopes?: 1;
+    coordinationScopes?: 1 | 2;
     /** 缺失表示历史兼容路径；存在时冻结 ExitGuard 行为和纠偏预算。 */
     exitGuard?: { version: 1; maxCorrections: number; correctionMaxTokens: number };
     /** 缺失表示历史 Attempt 推断路径；1 表示必须经持久化 Candidate 验收。 */
@@ -310,6 +310,8 @@ export interface RuntimeCompletionDispatch {
   id: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'blocked' | 'cancelled';
   error: string | null;
+  /** Server projection from a running/satisfied any join, never a model assertion. */
+  optionalAnyCandidate?: boolean;
 }
 
 export interface RuntimeCompletionInput {

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_COORDINATION_STEP_TOKENS, DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import type {
   CapabilitySnapshot,
   CoordinationDraft,
@@ -41,8 +42,8 @@ function makeStep(
     id, protocol, type, actorRole, actorCapability: capability, agentId, dependsOn, completion,
     // AG-COORD-02：默认 2——截断/产物校验失败给一次重试（真机 35 字符 stub 单次即"成功"的实证）
     maxAttempts: options.maxAttempts ?? 2,
-    tokenBudget: Math.min(4_000, snapshot.policy.maximumTokensPerStep),
-    timeoutMs: 300_000,
+    tokenBudget: Math.min(DEFAULT_COORDINATION_STEP_TOKENS, snapshot.policy.maximumTokensPerStep),
+    timeoutMs: DEFAULT_RESPONSE_TIMEOUT_MS,
     onFailure: options.onFailure ?? 'fail_plan',
     toolPolicy: actorTools(agentId, snapshot),
     ...(options.expectedArtifacts && options.expectedArtifacts.length > 0 ? { expectedArtifacts: options.expectedArtifacts } : {}),

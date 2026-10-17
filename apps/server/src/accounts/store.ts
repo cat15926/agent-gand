@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AccountBackend, AccountCheck, AccountConnection, AccountProvider, AccountReferences, AccountView } from '@agent-gand/shared';
+import { DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
 import { compatibleBackends } from './compatibility.ts';
@@ -94,7 +95,7 @@ function createNativeAccount(value: unknown): AccountView {
   const id = randomUUID(); const now = new Date().toISOString();
   tx(() => {
     run("INSERT INTO accounts (id,display_name,provider,auth_type,source,enabled,archived,version,config_version,credential_version,created_at,updated_at) VALUES (?,?,?,'native_login','managed',1,0,1,1,NULL,?,?)", id, validateName(input.displayName), input.nativeClient === 'claude' ? 'anthropic' : 'openai', now, now);
-    run('INSERT INTO account_versions (account_id,version,connection,created_at) VALUES (?,1,?,?)', id, JSON.stringify({ baseUrl: '', protocols: [], models: [], defaultModel: null, timeoutMs: 180000 }), now);
+    run('INSERT INTO account_versions (account_id,version,connection,created_at) VALUES (?,1,?,?)', id, JSON.stringify({ baseUrl: '', protocols: [], models: [], defaultModel: null, timeoutMs: DEFAULT_RESPONSE_TIMEOUT_MS }), now);
     changed(id, 1);
   });
   return getAccount(id);
@@ -106,8 +107,10 @@ export function updateAccount(id: string, value: unknown): AccountView {
     const current = mutable(id, input.expectedVersion); const previous = connection(current);
     const displayName = input.displayName === undefined ? current.display_name : validateName(input.displayName);
     if (input.enabled !== undefined && typeof input.enabled !== 'boolean') throw new AccountError(400, '启用状态必须为布尔值');
-    if (current.auth_type === 'native_login' && Object.keys(input).some((key) => !['expectedVersion', 'displayName', 'enabled'].includes(key))) throw new AccountError(400, '登录账户只能修改名称与启用状态');
-    const config = current.auth_type === 'native_login' ? previous : validateConnection({ ...previous, ...input }, current.provider);
+    if (current.auth_type === 'native_login' && Object.keys(input).some((key) => !['expectedVersion', 'displayName', 'enabled', 'timeoutMs'].includes(key))) throw new AccountError(400, '登录账户只能修改名称、启用状态与请求超时');
+    const timeoutMs=input.timeoutMs??previous.timeoutMs;
+    if(current.auth_type==='native_login'&&(!Number.isSafeInteger(timeoutMs)||Number(timeoutMs)<1000||Number(timeoutMs)>600000))throw new AccountError(400,'请求超时无效',{timeoutMs:'超时应为 1000–600000 毫秒的整数'});
+    const config = current.auth_type === 'native_login' ? {...previous,timeoutMs:Number(timeoutMs)} : validateConnection({ ...previous, ...input }, current.provider);
     const configChanged = JSON.stringify(config) !== JSON.stringify(previous);
     const nextConfig = current.config_version + (configChanged ? 1 : 0); const now = new Date().toISOString();
     if (configChanged) run('INSERT INTO account_versions (account_id,version,connection,created_at) VALUES (?,?,?,?)', id, nextConfig, JSON.stringify(config), now);

@@ -94,9 +94,10 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
         if (!input.signal.aborted) peer.send({ id: message.id, result: { allow: accepted && input.authorized?.() !== false && !input.bridge?.sealed() } });
       } else throw new ExecutionError('protocol_error', 'SDK worker 返回未准入的消息');
     });
-    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext,recoveryFilesOnly:input.recoveryFilesOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session } });
+    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext,recoveryFilesOnly:input.recoveryFilesOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session,scopedToolTurns:input.scopedToolTurns } });
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
     if (ending === 'control') {
+      if (input.bridge?.failure()) peer.send({method:'sdk/interrupt',params:{}});
       if (input.scopedNative) {
         // The scoped PostToolUse hook stops at the tool boundary, before another
         // model request. A forced interrupt here would lose reliable final usage.
@@ -247,7 +248,10 @@ export async function invokeCodexAppServer(input: DriverInput): Promise<string> 
       }
       return handleMessage(message);
     });
-    await peer.request('initialize', { clientInfo: { name: 'agent_gand', title: 'Agent Gand', version: '0.1.0' }, capabilities: { experimentalApi: false } });
+    // Installed app-server gates token-only login behind this handshake. Enable
+    // it solely for the frozen scoped native-login combination; the accepted
+    // methods/tools and all approval checks remain explicitly enumerated below.
+    await peer.request('initialize', { clientInfo: { name: 'agent_gand', title: 'Agent Gand', version: '0.1.0' }, capabilities: { experimentalApi: !!input.scopedNative && !!input.externalAuth } });
     peer.send({ method: 'initialized', params: {} });
     if (input.scopedNative) {
       input.scopedNative.assertAuthorized();

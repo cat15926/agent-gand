@@ -1,5 +1,6 @@
 import { createManagedArtifact } from '../artifacts/store.ts';
 import { randomUUID } from 'node:crypto';
+import {scopedNativeAgentSupported,scopedCollaborationAdmission} from '../runtime/scopedCapabilities.ts';
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import type { OrchestrationPreview, OrchestrationPreviewInput, OrchestrationSource, RunOrchestrationSnapshot } from '@agent-gand/shared';
@@ -90,7 +91,11 @@ function prepare(value: Record<string, unknown>, source: OrchestrationSource, ch
   }
   if(checkpoint?.archive?.manifest.files.some(f=>f.storage==='managed')) for(const id of decision.execution!.participantIds)
     if(!old.capabilities.agents.find(a=>a.id===id)?.supports.controlledFiles) add('ATTACHMENT_BACKEND_UNSUPPORTED','续跑归档包含受控文件，执行成员需开放平台 fs.read 或 search.files');
-  const nativeWriter = old.request.visibility!=='private'&&!decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm');
+  const controlledStageFiles=!checkpoint&&old.request.businessContract?.version===3&&old.request.businessContract.executionMode==='stage_gated'&&scopedCollaborationAdmission()==='execute'
+    &&decision.execution!.participantIds.some(id=>scopedNativeAgentSupported(getAnyAgent(id)!))
+    &&decision.execution!.participantIds.every(id=>getAnyAgent(id)?.execution?.kind!=='external'||scopedNativeAgentSupported(getAnyAgent(id)!));
+  if(controlledStageFiles){decision.requiresConfirmation=true;decision.issues.push({code:'SCOPED_STAGE_CONTROLLED_FILES',severity:'warning',message:'本轮仅处理已上传及获准的受控文件，生成独立文件版本；不修改本地代码仓库。每阶段仍需你验收。'});}
+  const nativeWriter = !controlledStageFiles&&old.request.visibility!=='private'&&!decision.execution!.readonly && decision.execution!.participantIds.some(id => old.capabilities.agents.find(a => a.id === id)?.driver !== 'builtin-llm');
   const needsGit = nativeWriter || !decision.execution!.readonly && ['development_review','supervisor_decomposition'].includes(old.request.workflow);
   if (needsGit && checkpoint?.version===3) {
     if(!checkpoint.archive?.manifest.git)add('REGISTERED_GIT_WORKSPACE_REQUIRED','写入恢复缺少可验证 Git 基线，不能启动原生编码');

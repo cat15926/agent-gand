@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import type { InformationReleasePreview, InformationReleaseState, MessageAccess, PrivateAggregateDraft, PrivateAggregatePreview, ScopedSourceRef } from '@agent-gand/shared';
+import type { InformationReleasePreview, InformationReleaseState, MessageAccess, PrivateAggregateDraft, PrivateAggregatePreview, PrivateAggregateSource, ScopedSourceRef } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { AccountError } from '../accounts/errors.ts';
 import { object, assertFields } from '../accounts/validation.ts';
@@ -10,7 +10,7 @@ import { post } from '../messaging/inbox.ts';
 import { compileScopedSource } from '../runtime/scopedCollaboration.ts';
 import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { registerRuntimeExternalEventReceiver, registeredRuntimeExternalEventCondition, recordRegisteredRuntimeExternalEvent } from '../runtime/holds.ts';
-import { confirmScopedDelivery, getDeliveryPlan, previewScopedDelivery, scopedDeliveryStatus } from './scopedDelivery.ts';
+import { confirmScopedDelivery, getDeliveryPlan, previewScopedDelivery } from './scopedDelivery.ts';
 
 const hash = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export class InformationReleaseError extends AccountError {
@@ -37,10 +37,53 @@ export function hasPublishedRelease(runId: string): boolean { return Boolean(get
 function latestDraft(runId: string) { return get<DraftRow>('SELECT * FROM information_release_drafts WHERE run_id=? ORDER BY revision DESC LIMIT 1',runId); }
 function ledger(attemptId: string) { return all<{record:string}>('SELECT record FROM runtime_input_provenance WHERE attempt_id=? ORDER BY sequence',attemptId).map(r=>JSON.parse(r.record)); }
 function ledgerSnapshot(attemptId: string) { const entries=ledger(attemptId); return {ledger:hash(entries),inputs:entries.map(e=>e.source as ScopedSourceRef)}; }
+/** The same authoritative result selection is used by discovery, intake and projection. */
+function aggregateResult(runId:string,key:string): {source:SourceSnapshot;target:string} {
+  const task=getRun(runId),plan=getDeliveryPlan(runId);
+  const coordination=[1,2].includes(loadRuntimeContract(runId)?.features?.coordinationScopes??0);
+  if(!task||task.deletedAt||task.status!=='completed'||(!plan&&!coordination)||releaseWorkflow(runId))return fail('RELEASE_SOURCE_INVALID','请选择已完成且具有输入账本的独立材料或 Coordination 任务');
+  let candidate: {id:string;message_id:string;agent_id:string}|undefined;
+  if(coordination)candidate=get(`SELECT a.id,m.id message_id,m.from_agent agent_id FROM coordination_step_attempts a
+    JOIN coordination_plans p ON p.id=a.plan_id AND p.revision=a.revision
+    JOIN json_each(p.payload,'$.steps') step ON json_extract(step.value,'$.id')=a.step_id
+    JOIN coordination_step_states s ON s.plan_id=a.plan_id AND s.revision=a.revision AND s.step_id=a.step_id AND s.attempt_no=a.attempt_no
+    JOIN messages m ON m.run_id=a.run_id AND m.client_message_id=a.idempotency_key AND m.kind='agent' AND m.from_agent=json_extract(step.value,'$.agentId')
+    JOIN runtime_scope_attempts b ON b.attempt_id=a.id
+    WHERE a.run_id=? AND a.step_id=? AND a.status='completed' AND s.status='completed'`,runId,key);
+  else {
+    if(!plan!.items.some(i=>i.key===key&&i.expectation==='result'))return fail('RELEASE_SOURCE_INVALID','只能选择提交结果的事项');
+    candidate=get(`SELECT a.id,d.output_message_id message_id,a.agent_id FROM scoped_delivery_envelopes e
+      JOIN collaboration_dispatches d ON d.id=e.dispatch_id AND d.status='completed'
+      JOIN collaboration_attempts a ON a.dispatch_id=d.id AND a.status='completed'
+      JOIN runtime_scope_attempts b ON b.attempt_id=a.id
+      WHERE e.run_id=? AND e.item_key=? AND d.output_message_id IS NOT NULL ORDER BY a.rowid DESC LIMIT 1`,runId,key);
+  }
+  if(!candidate)return fail('RELEASE_SOURCE_INVALID','结果尚未完成或缺少范围输入账本');
+  const snapshot=ledgerSnapshot(candidate.id);
+  if(!snapshot.inputs.length)return fail('RELEASE_SOURCE_INVALID','结果缺少可验证的输入来源');
+  return {target:candidate.agent_id,source:{key,ref:compileScopedSource(runId,'message',candidate.message_id),attemptId:candidate.id,...snapshot}};
+}
+export function roomAggregateSources(roomId:string): PrivateAggregateSource[] {
+  const room=getConversation(roomId);if(!room||room.archivedAt)throw new AccountError(404,'聊天室不存在或已归档');
+  return all<{id:string;goal:string}>(`SELECT r.id,r.goal FROM runs r JOIN runtime_contracts c ON c.run_id=r.id
+    WHERE r.conversation_id=? AND r.status='completed' AND r.deleted_at IS NULL
+      AND NOT EXISTS (SELECT 1 FROM information_release_workflows w WHERE w.run_id=r.id)
+      AND (json_extract(c.payload,'$.features.coordinationScopes') IN (1,2) OR EXISTS (SELECT 1 FROM scoped_delivery_plans d WHERE d.run_id=r.id))
+    ORDER BY r.created_at DESC,r.id DESC`,roomId).flatMap(task=>{
+      const coordination=[1,2].includes(loadRuntimeContract(task.id)?.features?.coordinationScopes??0);
+      const keys=coordination?all<{step_id:string}>('SELECT DISTINCT step_id FROM coordination_step_attempts WHERE run_id=? ORDER BY step_id',task.id).map(s=>s.step_id)
+        :getDeliveryPlan(task.id)!.items.filter(i=>i.expectation==='result').map(i=>i.key);
+      const items=keys.flatMap(key=>{try{return [{key,target:aggregateResult(task.id,key).target}];}catch(error){if(error instanceof AccountError)return [];throw error;}});
+      return items.length?[{runId:task.id,goal:task.goal,engine:coordination?'coordination' as const:'independent-material' as const,items}]:[];
+    });
+}
 function currentRef(runId:string,ref:ScopedSourceRef) { try{return compileScopedSource(runId,ref.kind,ref.id);}catch{return fail('RELEASE_STALE','来源已删除、变更或不可读取');} }
 function validateSources(runId: string, sources: SourceSnapshot[]) {
-  if(getRun(runId)?.status !== 'completed') fail('RELEASE_STALE','原始任务不再处于已完成状态');
+  const task=getRun(runId);
+  if(!task||task.deletedAt||task.status !== 'completed') fail('RELEASE_STALE','原始任务已删除或不再处于已完成状态');
   for(const s of sources) {
+    const selected=aggregateResult(runId,s.key).source;
+    if(selected.attemptId!==s.attemptId||hash(selected.ref)!==hash(s.ref))fail('RELEASE_STALE','原始完成结果已改变');
     if(hash(currentRef(runId,s.ref))!==hash(s.ref) || ledgerSnapshot(s.attemptId).ledger!==s.ledger) fail('RELEASE_STALE','来源或完整输入账本已改变');
     for(const ref of s.inputs) if(hash(currentRef(runId,ref))!==hash(ref)) fail('RELEASE_STALE','来源上下文已改变');
   }
@@ -87,27 +130,11 @@ export function previewPrivateAggregate(value:unknown,owner:string):PrivateAggre
   const v=object(value);assertFields(v,['sourceRunId','itemKeys','aggregatorId','instruction','maxTokens']);
   const sourceRunId=text(v.sourceRunId,100),aggregatorId=text(v.aggregatorId,100),instruction=text(v.instruction,2000);
   const task=getRun(sourceRunId),plan=getDeliveryPlan(sourceRunId);
-  const coordination=loadRuntimeContract(sourceRunId)?.features?.coordinationScopes===1;
+  const coordination=[1,2].includes(loadRuntimeContract(sourceRunId)?.features?.coordinationScopes??0);
   if(!task||task.status!=='completed'||(!plan&&!coordination)||releaseWorkflow(sourceRunId))fail('RELEASE_SOURCE_INVALID','请选择已完成且具有输入账本的独立材料或 Coordination 任务');
   if(!Array.isArray(v.itemKeys)||!v.itemKeys.length||v.itemKeys.length>6||v.itemKeys.some(k=>typeof k!=='string')||new Set(v.itemKeys).size!==v.itemKeys.length)throw new AccountError(400,'请选择不重复的结果项');
   const itemKeys=v.itemKeys as string[];
-  const sources=itemKeys.map(key=>{
-    if(coordination) {
-      const candidate=get<{id:string;message_id:string}>(`SELECT a.id,m.id message_id FROM coordination_step_attempts a
-        JOIN coordination_plans p ON p.id=a.plan_id AND p.revision=a.revision
-        JOIN coordination_step_states s ON s.plan_id=a.plan_id AND s.revision=a.revision AND s.step_id=a.step_id AND s.attempt_no=a.attempt_no
-        JOIN messages m ON m.run_id=a.run_id AND m.client_message_id=a.idempotency_key AND m.kind='agent'
-        JOIN runtime_scope_attempts b ON b.attempt_id=a.id
-        WHERE a.run_id=? AND a.step_id=? AND a.status='completed' AND s.status='completed'`,sourceRunId,key);
-      if(!candidate)fail('RELEASE_SOURCE_INVALID','Coordination 结果尚未完成或缺少范围输入账本');
-      return {key,ref:compileScopedSource(sourceRunId,'message',candidate!.message_id),attemptId:candidate!.id,...ledgerSnapshot(candidate!.id)};
-    }
-    if(!plan!.items.some(i=>i.key===key&&i.expectation==='result'))fail('RELEASE_SOURCE_INVALID','只能选择提交结果的事项');
-    const d=get<{id:string;output_message_id:string}>(`SELECT d.id,d.output_message_id FROM scoped_delivery_envelopes e JOIN collaboration_dispatches d ON d.id=e.dispatch_id WHERE e.run_id=? AND e.item_key=? AND d.status='completed'`,sourceRunId,key);
-    const attempt=get<{id:string}>('SELECT id FROM collaboration_attempts WHERE dispatch_id=? AND status=\'completed\' ORDER BY rowid DESC LIMIT 1',d?.id);
-    if(!d?.output_message_id||!attempt)fail('RELEASE_SOURCE_INVALID','结果尚未通过完成验收');
-    return {key,ref:compileScopedSource(sourceRunId,'message',d!.output_message_id),attemptId:attempt!.id,...ledgerSnapshot(attempt!.id)};
-  });
+  const sources=itemKeys.map(key=>aggregateResult(sourceRunId,key).source);
   const bodies=sources.map(s=>({key:s.key,body:get<{body:string}>('SELECT body FROM messages WHERE id=?',s.ref.id)!.body}));
   const draft:PrivateAggregateDraft={sourceRunId,itemKeys,aggregatorId,instruction,maxTokens:Number(v.maxTokens)};
   const delivery=previewScopedDelivery({conversationId:task!.conversationId,coordinatorId:aggregatorId,goal:'私密汇总与授权发布',join:'all',returnProfile:'status-only-v1',maxTokens:v.maxTokens,items:[{key:'aggregate',target:aggregatorId,batch:1,material:aggregateMaterial(instruction,bodies),expectation:'result'}]},owner);
@@ -168,8 +195,10 @@ export function previewInformationRelease(runId:string,value:unknown,owner:strin
     const snapshot=draftInputs(runId,d!),access=releaseAccess(v.access,room.id),w=releaseWorkflow(runId)!;
     const intake=JSON.parse(w.intake) as Intake;
     // Registry v1: fixed key/state fields, frozen source selection, no expressions/templates/model text.
-    const statuses=scopedDeliveryStatus(w.source_run_id).items;
-    const body=v.mode==='exact_content'?d!.body:JSON.stringify({version:1,items:intake.draft.itemKeys.map(key=>({key,state:statuses.find(i=>i.key===key)!.status}))});
+    const body=v.mode==='exact_content'?d!.body:JSON.stringify({version:1,items:intake.draft.itemKeys.map(key=>{
+      aggregateResult(w.source_run_id,key); // Only an accepted, still-current result projects as completed.
+      return {key,state:'completed'};
+    })});
     const policyId=randomUUID();
     const payload={runId,draftRevision:d!.revision,body,access,mode:v.mode,projectionId:v.mode==='deterministic_projection'?'status-receipts-v1':null,sourceSummary:intake.sources.map(s=>({key:s.key,ref:s.ref,inputCount:s.inputs.length})),sourceCount:intake.sources.length,inputCount:snapshot.inputs.length+intake.sources.reduce((n,s)=>n+s.inputs.length,0),maxUses:1 as const,policyId,policyVersion:1,inputs:d!.inputs,membersVersion:room.membersVersion,owner};
     const p=savePreview('release',payload,owner,plan.deadlineAt);

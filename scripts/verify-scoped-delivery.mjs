@@ -13,6 +13,8 @@ const {MockAgent,setGlobalDispatcher}=requireServer('undici');const network=new 
 let networkAttempts=0;globalThis.fetch=async()=>{networkAttempts++;throw new Error('G2 forbids network');};
 const dispatchNetwork=network.dispatch.bind(network);network.dispatch=(...args)=>{networkAttempts++;return dispatchNetwork(...args);};
 const {config}=await import('../apps/server/src/config.ts');config.dataDir=root;config.sandboxDir=path.join(root,'sandbox');
+// Keep the legacy 4096 fixture to verify explicit overrides and compatibility with old limits.
+config.collaboration.scopedMaxTokensPerCall=4096;
 const db=await import('../apps/server/src/db/database.ts');
 const registry=await import('../apps/server/src/agents/registry.ts');
 const rooms=await import('../apps/server/src/conversations/service.ts');
@@ -39,7 +41,7 @@ mockProvider.chat=async req=>{
     const attempt=db.get("SELECT * FROM collaboration_attempts WHERE agent_id=? AND status='running' ORDER BY rowid DESC LIMIT 1",id);assert.ok(attempt);
     const plan=delivery.getDeliveryPlan(attempt.run_id),scenario=scenarios.get(attempt.run_id)??{};
     const dispatch=store.getDispatch(attempt.dispatch_id),item=plan.items.find(i=>i.source.id===dispatch.sourceMessageId);
-    const text=req.messages.map(m=>m.content).join('\n');calls.push({runId:attempt.run_id,attemptId:attempt.id,agentId:id,kind:dispatch.kind,text});
+    const text=req.messages.map(m=>m.content).join('\n');calls.push({runId:attempt.run_id,attemptId:attempt.id,agentId:id,kind:dispatch.kind,text,maxTokens:req.maxTokens});
     assert.equal(req.tools.length,1);assert.ok(!text.includes('UNRELATED_ROOM_HISTORY'));
     for(const i of plan.items){const marker=`PRIVATE_MATERIAL_${i.key.split('-')[1]}`;assert.equal(text.includes(marker),i===item,`scope leak: ${id}/${i.key}`);}
     if(item){
@@ -64,6 +66,17 @@ const successful=id=>assert.equal(trace.getRun(id).status,'completed',JSON.strin
 let app;
 try{
   const first=await execute(draft());successful(first.id);cases.push('A → B/C; clean control resumes');
+  assert.ok(calls.filter(c=>c.runId===first.id).every(c=>c.maxTokens===4096));
+  config.collaboration.scopedMaxTokensPerCall=12288;
+  const changedPreview=delivery.previewScopedDelivery(draft([['aa',1,'result']]),'owner');
+  config.collaboration.scopedMaxTokensPerCall=4096;
+  assert.throws(()=>delivery.confirmScopedDelivery({previewId:changedPreview.id,fingerprint:changedPreview.fingerprint,clientKey:randomUUID()},'owner'),/重新预览/);
+  config.collaboration.scopedMaxTokensPerCall=12288;
+  const enlarged=admit(draft([['aa',1,'result']]));config.collaboration.scopedMaxTokensPerCall=4096;
+  scheduler.kickCollaboration(room.id);await waitFor(()=>trace.getRun(enlarged.id).status==='completed');
+  assert.equal(delivery.getDeliveryPlan(enlarged.id).maxTokensPerCall,12288);
+  assert.ok(calls.filter(c=>c.runId===enlarged.id).every(c=>c.maxTokens===12288));
+  cases.push('default per-call cap remains 4096; cap frozen at confirm; config drift invalidates preview');
   assert.equal(store.listBatches(first.id).length,2);
   const parentContexts=calls.filter(c=>c.runId===first.id&&c.agentId==='coordinator').map(c=>c.text);assert.equal(parentContexts.length,3);
   assert.ok(parentContexts[1].includes('"state":"completed"'));

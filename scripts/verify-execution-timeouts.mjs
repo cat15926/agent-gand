@@ -188,6 +188,27 @@ try {
   const controller = new AbortController(); controller.abort();
   await assert.rejects(runAgentTurn(options(cancelled, { executionSignal: controller.signal })), error => error.code === 'cancelled');
   record = executions.listExecutions(cancelled.run.id)[0]; assert.equal(record.status, 'cancelled'); assert.equal(record.progress.nativeInvokedAt, undefined, 'upstream cancellation cannot launch a native process');
+  // AbortSignal.timeout uses a DOMException, unlike the platform's typed errors.
+  // Reproduce the native real-acceptance path after the client binds its session.
+  const upstreamDeadline = await fixture('cli', {}, 'first-timeout');
+  const upstream = new AbortController();
+  let deadlineArmed = false;
+  const unsubscribeDeadline = subscribe(event => {
+    if (event.type !== 'execution.updated' || event.execution.runId !== upstreamDeadline.run.id || !event.execution.progress?.sessionBoundAt || deadlineArmed) return;
+    deadlineArmed = true;
+    const deadline = AbortSignal.timeout(20);
+    deadline.addEventListener('abort', () => upstream.abort(deadline.reason), { once: true });
+  });
+  try {
+    await assert.rejects(runAgentTurn(options(upstreamDeadline, { executionSignal: upstream.signal })), timeout('total'));
+    record = executions.listExecutions(upstreamDeadline.run.id)[0];
+    assert.equal(deadlineArmed, true); assert.equal(record.status, 'failed'); assert.equal(record.errorCode, 'timeout');
+    assert.equal(record.failureDetails.phase, 'deadline'); assert.equal(record.failureDetails.limitMs, undefined, 'do not invent an upstream timer duration');
+    assert.ok(record.progress.sessionBoundAt); assert.equal(record.tokensOut, null);
+    assert.equal(database.get("SELECT COUNT(*) n FROM external_native_processes WHERE execution_id=? AND status='running'", record.id).n, 0);
+    await assert.rejects(runExternalAgentTurn(options(upstreamDeadline)), error => error.code === 'timeout');
+    assert.equal(executions.listExecutions(upstreamDeadline.run.id).length, 1, 'upstream deadline cannot replay the uncertain request');
+  } finally { unsubscribeDeadline(); }
   console.log('Model timeouts verified: frozen limits, preview drift, provider streams, late-output fencing, unknown-budget retention, native process cleanup, slow tools/reasoning, durable pre-launch failures, queue isolation and primary error selection.');
 } finally {
   setGlobalDispatcher(originalDispatcher); await dispatcher.close();

@@ -13,6 +13,8 @@ import { nativeApprovalGate } from './approvals.ts';
 import { ExecutionError, diagnostic } from './errors.ts';
 import { assertScopedTool, compileScopedSource, exposeScopedInput } from '../runtime/scopedCollaboration.ts';
 import { get } from '../db/database.ts';
+import { CollaborationBoundaryError } from '../collaboration/boundaryError.ts';
+import { scopedFileTool, runScopedFileTool } from '../runtime/scopedFileTools.ts';
 
 export const BRIDGE_NAME = 'agent_gand';
 export interface BridgeLaunch { command: string; args: string[]; env: Record<string, string>; toolNames: string[] }
@@ -20,6 +22,7 @@ export interface ExecutionBridge {
   launch: BridgeLaunch;
   candidate: Promise<void>;
   action(): CollaborationStoredControlAction | null;
+  failure(): CollaborationBoundaryError | ExecutionError | null;
   sealed(): boolean;
   close(): Promise<void>;
 }
@@ -37,7 +40,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
   const exposed = !controlOnly && opts.agent.execution?.kind === 'external' ? (opts.agent.execution.platformTools ?? []).filter(name => !opts.privateContext || ['fs.read','fs.write','search.files'].includes(name)) : [];
   const ordinary = exposed.flatMap((name) => {
     if (opts.scopedNative) { try { assertScopedTool(opts.scopedNative.binding, name); } catch { return []; } }
-    const tool = getTool(name);
+    const tool = opts.scopedNative?scopedFileTool(name):getTool(name);
     return tool && checkPermission(agent, name) !== 'deny' ? [{ name: 'platform_' + Buffer.from(name).toString('hex'), original: name,
       description: `${name}: ${tool.description}`, inputSchema: tool.inputSchema, control: false }] : [];
   });
@@ -45,10 +48,12 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
   const entries = new Map(tools.map((tool) => [tool.name, { ...tool, validate: validator.getValidator(tool.inputSchema) }]));
   const token = randomBytes(32).toString('hex');
   let closed = false; let action: CollaborationStoredControlAction | null = null;
+  let failure: CollaborationBoundaryError | ExecutionError | null = null;
   let resolveCandidate!: () => void;
   const candidate = new Promise<void>((resolve) => { resolveCandidate = resolve; });
   const requests = new Map<string, { hash: string; result: Promise<unknown> }>();
   let ordinaryActive = false;
+  let ordinaryCalls=0;
   const approval = nativeApprovalGate(execution, signal);
   const valid = () => { try { opts.scopedNative?.assertAuthorized(); return !closed && !signal.aborted && executionAuthorized(execution); } catch { return false; } };
   const assertValid = () => { if (!valid()) throw new ExecutionError('cancelled', '执行凭据或责任代际已失效'); };
@@ -58,7 +63,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
     const hash = createHash('sha256').update(JSON.stringify([body.name, body.arguments])).digest('hex');
     const existing = requests.get(body.requestId);
     if (existing) { if (existing.hash !== hash) throw new Error('同一请求 ID 不能替换操作'); return existing.result; }
-    if (action) throw new Error('本回合已提交动作候选，不能继续调用工具');
+    if (action || failure) throw new Error('本回合已收敛，不能继续调用工具');
     if (requests.size >= 128) throw new Error('执行桥请求次数超限');
     if (controlOnly && Buffer.byteLength(JSON.stringify(body.arguments ?? {})) > (opts.exitCorrectionMaxTokens ?? 2048)) throw new Error('纠偏参数超过平台输出限制');
     const tool = entries.get(body.name);
@@ -81,9 +86,10 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
           return { content: [{ type: 'text', text: '动作候选已接收。当前原生回合将结束；平台会在进程收敛后校验并提交。' }] };
         }
         if (ordinaryActive) throw new Error('执行桥业务工具串行执行，请等待当前工具完成');
+        if(opts.scopedNative&&++ordinaryCalls>6)throw new Error('SCOPED_TOOL_LIMIT');
         ordinaryActive = true;
         try {
-          const nativeTool = getTool(tool.original);
+          const nativeTool = opts.scopedNative?scopedFileTool(tool.original):getTool(tool.original);
           if (opts.scopedNative) assertScopedTool(opts.scopedNative.binding, tool.original);
           const decision = checkPermission(agent, tool.original);
           if (!nativeTool || decision === 'deny') throw new Error('业务工具权限已拒绝');
@@ -92,7 +98,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
           const value = await executeToolOnce({ runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, taskId: opts.taskId,
             toolName: tool.original, input: JSON.stringify(body.arguments), idempotencyKey: `external:${execution.id}:${body.requestId}`,
             replayPolicy: nativeTool.replayPolicy ?? 'manual', spanId: span.id,
-            execute: () => { assertValid(); return nativeTool.run(body.arguments, { runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot }); } });
+            execute: () => { assertValid(); return opts.scopedNative?runScopedFileTool(opts.scopedNative.binding,tool.original,body.arguments):nativeTool.run(body.arguments, { runId: execution.runId, agentId: execution.agentId, attemptId: opts.attemptId, workspace: opts.run.workspace, workspaceScope: opts.workspaceScope, workspaceRoot: opts.workspaceRoot }); } });
           assertValid();
           let output = value.output;
           if (opts.scopedNative) {
@@ -103,9 +109,14 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
           return { content: [{ type: 'text', text: output }] };
         } finally { ordinaryActive = false; }
       } catch (error) {
+        if (error instanceof CollaborationBoundaryError) failure = error;
+        else if(opts.scopedNative)failure=new ExecutionError('policy_rejected','SCOPED_TOOL_REJECTED');
         const message = diagnostic(error instanceof Error ? error.message : String(error));
         endSpan(span, { status: 'error', output: message });
-        return { isError: true, content: [{ type: 'text', text: opts.scopedNative ? 'SCOPED_TOOL_REJECTED' : message }] };
+        // This is a successfully delivered terminal boundary receipt. Reporting
+        // an MCP transport error lets the SDK retry before its success hook runs.
+        const recovery=failure instanceof CollaborationBoundaryError?{code:failure.recoveryCode,allowedRecovery:failure.allowedRecovery}:{code:'SCOPED_TOOL_REJECTED',allowedRecovery:[]};
+        return { isError: !failure, ...(failure ? { ...recovery, retryable: false } : {}), content: [{ type: 'text', text: failure ? JSON.stringify({status:'blocked',...recovery,retryable:false,message:opts.scopedNative?'SCOPED_TOOL_REJECTED':message}) : message }] };
       }
     })();
     requests.set(body.requestId, { hash, result }); return result;
@@ -123,7 +134,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求必须为对象');
       const result = await invoke(body as Record<string, unknown>);
       response.setHeader('content-type', 'application/json');
-      if (action) response.once('finish', resolveCandidate);
+      if (action || failure) response.once('finish', resolveCandidate);
       response.end(JSON.stringify(result));
     } catch (error) { response.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: diagnostic(error instanceof Error ? error.message : String(error)) })); }
   })(); });
@@ -134,7 +145,7 @@ export async function createExecutionBridge(opts: AgentTurnOptions, execution: E
   return {
     launch: { command: process.execPath, args: ['--import', import.meta.resolve('tsx'), fileURLToPath(new URL('./bridgeWorker.ts', import.meta.url))],
       env: { AGENT_GAND_BRIDGE_URL: `http://127.0.0.1:${address.port}/`, AGENT_GAND_BRIDGE_TOKEN: token }, toolNames: tools.map((tool) => tool.name) },
-    candidate, action: () => action, sealed: () => !!action || !valid(),
+    candidate, action: () => action, failure: () => failure, sealed: () => !!action || !!failure || !valid(),
     async close() {
       closed = true; lifetime.abort();
       // Native process has already been reaped by the caller. Settle any owned business operation too.

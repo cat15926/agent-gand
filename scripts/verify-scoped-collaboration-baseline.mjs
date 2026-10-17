@@ -1,4 +1,4 @@
-// G0: lock down the CURRENT v2 boundary, not the future scoped-collaboration behavior.
+// G0 authorization baseline + fail-fast regression: v2 ACLs stay frozen; denied routing cannot retry or hold.
 // Only model responses are stubbed. Admission, attempts, commands, completion,
 // aggregation, durable timer recovery and user-decision resolution are production code.
 import assert from 'node:assert/strict';
@@ -186,31 +186,18 @@ try {
   record(rewritten);
 
   const resumed = start('private-timer-answer');
-  await until(resumed, () => holds.listDurableHolds(resumed).length === 1);
-  const timer = holds.listDurableHolds(resumed)[0];
-  assert.equal(timer.condition.kind, 'timer');
-  await until(resumed, () => store.listDecisions(resumed).some(d => d.kind === 'agent_question' && d.status === 'pending'), () => recoverDurableHolds(resumed));
-  assert.ok(Date.now() >= Date.parse(timer.condition.wakeAt), 'use the actual timer deadline, never a seeded wake');
-  const firstResume = dispatches(resumed).find(d => d.kind === 'resume');
-  assert.equal(firstResume.sourceMessageId, timer.recoveryPolicy.sourceMessageId);
-  assert.ok(Date.parse(firstResume.createdAt) >= Date.parse(timer.condition.wakeAt), 'resume cannot be created before the deadline');
-  const question = store.listDecisions(resumed).find(d => d.kind === 'agent_question' && d.status === 'pending');
-  scope(messageAccess(question.promptMessageId), ['coordinator', 'user']);
-  const resolved = resolveCollaborationDecision(question.id, { action: 'answer', message: answer });
-  scope(messageAccess(resolved.decision.resolution.messageId), ['coordinator', 'user']);
-  await until(resumed, () => store.listDecisions(resumed).some(d => d.id !== question.id && d.status === 'pending'));
+  await until(resumed, () => trace.getRun(resumed).status === 'failed');
   privateBaseline(resumed);
-  assert.equal(trace.getRun(resumed).status, 'waiting_for_user');
-  assert.equal(dispatches(resumed).filter(d => d.kind === 'resume').length, 2);
-  assert.ok(dispatches(resumed).some(d => d.kind === 'resume' && d.sourceMessageId === resolved.decision.resolution.messageId));
-  assert.equal(listRuntimeActionCommands(resumed).filter(c => c.kind === 'wake').length, 2);
-  assert.equal(holds.listDurableHolds(resumed).filter(h => h.status === 'resumed').length, 2);
-  const commandCount = listRuntimeActionCommands(resumed).length;
-  resolveCollaborationDecision(question.id, { action: 'answer', message: answer });
+  assert.equal(holds.listDurableHolds(resumed).length, 0, 'permission denial cannot become a fake timer/user wait');
+  assert.equal(store.listDecisions(resumed).length, 0);
+  assert.equal(dispatches(resumed).filter(d => d.kind === 'resume').length, 0);
+  assert.equal(calls.filter(c => c.runId === resumed && c.kind === 'aggregate').length, 1, 'do not ask the model to reword a denied route');
+  const recovery = inbox.listByRun(resumed).find(m => m.meta?.collaborationRecovery)?.meta.collaborationRecovery;
+  assert.equal(recovery.code, 'PRIVATE_ROUTE_REQUIRES_SCOPE');
+  assert.equal(recovery.retryable, false);
+  assert.deepEqual(recovery.allowedRecovery, ['new_scoped_delivery', 'owner_controlled_release']);
   recoverDurableHolds(resumed);
-  assert.equal(listRuntimeActionCommands(resumed).length, commandCount, 'duplicate recovery and answer must not dispatch again');
-  assert.equal(holds.listRuntimeWakeEvents(resumed).length, 2);
-  assert.equal(holds.listRuntimeWakeEvents(resumed).filter(event => event.kind === 'user_decision').length, 1);
+  assert.equal(dispatches(resumed).filter(d => d.kind === 'resume').length, 0);
   record(resumed);
 
   const publicRun = start('public-control', 'public');
@@ -230,7 +217,7 @@ try {
   report.networkAttempts = networkAttempts;
   report.nativeExecutions = 0;
   report.modelCalls = calls.length;
-  report.status = 'current-v2-baseline-reproduced';
+  report.status = 'v2-authorization-preserved-and-denial-fails-fast';
 } finally {
   if (store && trace) for (const id of scenarios.keys()) {
     store.cancelCollaborationRun(id);

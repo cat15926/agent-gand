@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_COORDINATION_STEP_TOKENS, DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import type { AgentDefinition, CoordinationDraft, CoordinationPlan, CoordinationPlanStep, CoordinationPreview,
   OrchestrationDecision, OrchestrationRequest } from '@agent-gand/shared';
 import { createCapabilitySnapshot } from '../coordination/capabilities.ts';
@@ -8,6 +9,8 @@ import { READONLY_TOOLS } from '../tools/types.ts';
 import type { DecomposedTask } from './supervisor.ts';
 import { assignmentScopeMetadata } from './businessScheduling.ts';
 import { config } from '../config.ts';
+import { scopedCollaborationAdmission, scopedNativeAgentSupported } from '../runtime/scopedCapabilities.ts';
+import { SCOPED_FILE_TOOLS } from '../runtime/scopedFileTools.ts';
 
 /** Stable, inspectable templates. There is no planner invocation in compilation. */
 export function compileWorkflow(request: OrchestrationRequest, decision: OrchestrationDecision, agents: AgentDefinition[],
@@ -23,8 +26,8 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
     if (actor) bindings[id] = actor;
     steps.push({ id, protocol: stepProtocol, type, actorRole: id, actorCapability: type === 'review' ? 'review' : type === 'aggregate' && !agent?.capabilities.includes('execute') ? 'coordinate' : 'execute',
       agentId: actor, dependsOn: [...deps], completion: type === 'review' ? '独立评审通过，失败必须返工并重新评审' : '提供完整且可验收的结果',
-      maxAttempts: stepProtocol === 'review_revision' ? 3 : 2, tokenBudget: Math.min(4000, request.constraints.maxTokens ?? 4000),
-      timeoutMs: Math.min(300000, request.constraints.deadlineMs ?? 300000),
+      maxAttempts: stepProtocol === 'review_revision' ? 3 : 2, tokenBudget: Math.min(DEFAULT_COORDINATION_STEP_TOKENS, request.constraints.maxTokens ?? DEFAULT_COORDINATION_STEP_TOKENS),
+      timeoutMs: Math.min(DEFAULT_RESPONSE_TIMEOUT_MS, request.constraints.deadlineMs ?? DEFAULT_RESPONSE_TIMEOUT_MS),
       onFailure: type === 'review' && stepProtocol === 'review_revision' ? 'retry_dependencies' : 'fail_plan',
       toolPolicy: { allowedTools: agent?.tools.filter(name => snapshot.tools.some(t => t.name === name) && (!readonly || READONLY_TOOLS.has(name))) ?? [],
         requiresApproval: !readonly }, metadata: { ...meta, readonly, templateVersion: 'o4-workflows-v1' } });
@@ -42,6 +45,7 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
     }
     tail=[...checkpoint.graph.terminalSteps];
   } else if (request.businessContract?.executionMode === 'stage_gated') {
+    const nativeScopes=request.businessContract.version===3&&!checkpoint&&scopedCollaborationAdmission()==='execute'&&agents.some(agent=>scopedNativeAgentSupported(agent));
     const scopedBatch=request.businessContract.version===3&&(request.visibility==='private'||request.businessContract.stages.some(s=>[...s.execution!.assignments,...(s.execution!.join?[s.execution!.join]:[])].some(t=>t.visibility==='private')));
     for (const [index, stage] of request.businessContract.stages.entries()) {
       if (checkpoint?.acceptedStageIds.includes(stage.id)) continue;
@@ -57,12 +61,13 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
         add(id, assignment.agentId, deps, 'agent_turn', { businessStageId: stage.id, title: stage.title,
           objective: assignment.objective, acceptanceCriteria: stage.criteria,...(batch?{stageBatchVersion:1,stageContextIsolation:scopedBatch,concurrencyLimit:decision.execution!.readonly?concurrency:1,...assignmentScopeMetadata(assignment,parent)}:{}) }, 'sequential_pipeline');
         steps.at(-1)!.maxAttempts = 1; // Never replay a failed stage as an implicit revision.
+        if(nativeScopes){steps.at(-1)!.metadata.scopedFilesOnly=true;steps.at(-1)!.toolPolicy.allowedTools=steps.at(-1)!.toolPolicy.allowedTools.filter(name=>SCOPED_FILE_TOOLS.includes(name));}
         tail = [id];
         workers.push(id);
       }
       const join=stage.execution!.join;
       if(join){const id=`stage-${index+1}-work-${stage.execution!.assignments.length+1}`;
-        if(!checkpoint?.completedStepIds.includes(id)){add(id,join.agentId,[...stageTail,...workers],'aggregate',{businessStageId:stage.id,businessStageJoin:true,joinSourceAgentIds:join.sourceAgentIds,title:stage.title,objective:join.objective,acceptanceCriteria:stage.criteria,stageBatchVersion:1,stageContextIsolation:scopedBatch,concurrencyLimit:1,...assignmentScopeMetadata(join,parent)},'sequential_pipeline');steps.at(-1)!.maxAttempts=1;workers.push(id);tail=[id];}
+        if(!checkpoint?.completedStepIds.includes(id)){add(id,join.agentId,[...stageTail,...workers],'aggregate',{businessStageId:stage.id,businessStageJoin:true,joinSourceAgentIds:join.sourceAgentIds,title:stage.title,objective:join.objective,acceptanceCriteria:stage.criteria,stageBatchVersion:1,stageContextIsolation:scopedBatch,concurrencyLimit:1,...assignmentScopeMetadata(join,parent)},'sequential_pipeline');steps.at(-1)!.maxAttempts=1;if(nativeScopes){steps.at(-1)!.metadata.scopedFilesOnly=true;steps.at(-1)!.toolPolicy.allowedTools=steps.at(-1)!.toolPolicy.allowedTools.filter(name=>SCOPED_FILE_TOOLS.includes(name));}workers.push(id);tail=[id];}
       }
       const gate = `stage-${index + 1}-accept`;
       add(gate, null, explicit?[...stageTail,...workers]:tail, 'completion_gate', { businessStageId: stage.id, businessAcceptanceGate: true, title: `验收：${stage.title}` }, 'sequential_pipeline');
@@ -129,7 +134,7 @@ export function compileWorkflow(request: OrchestrationRequest, decision: Orchest
     ] : [{ protocolIndex: 0, protocol, inputStepIds: [], stepIds: steps.map(s => s.id), outputStepIds: tail }],
     runtimeMode: 'pipeline', actorBindings: bindings, hardConstraintBindings: [], steps,
     completion: { requiredSteps: steps.map(s => s.id), terminalSteps: checkpoint?.graph?tail:['complete'] },
-    budget: { maximumSteps: 64, maximumAttemptsPerStep: 3, maximumTokensPerStep: Math.min(4000, request.constraints.maxTokens ?? 4000) },
+    budget: { maximumSteps: 64, maximumAttemptsPerStep: 3, maximumTokensPerStep: Math.min(DEFAULT_COORDINATION_STEP_TOKENS, request.constraints.maxTokens ?? DEFAULT_COORDINATION_STEP_TOKENS) },
     validationIssues: [], createdAt: now, updatedAt: now };
   plan.validationIssues = [...validateCoordinationPlan(plan, draft, snapshot), ...externalCoordinationIssues(plan, agents)];
   draft.validationIssues = plan.validationIssues; draft.validationErrors = [...new Set(plan.validationIssues.filter(i => i.severity === 'error').map(i => i.code))];

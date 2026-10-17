@@ -6,6 +6,8 @@ import type {
   RuntimeExecutionPolicyV1, RuntimeRunContract, RuntimeSubjectCompletionEvaluation,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
+import { scopedCollaborationAdmission } from './scopedCapabilities.ts';
+import {scopedStepArtifactEvidence} from './scopedFileTools.ts';
 import { all, get, run, tx } from '../db/database.ts';
 import {
   createEvidenceBundle,
@@ -80,10 +82,12 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode, executionPolicy: 
   if (!plan.runId) throw new Error('Coordination Plan 尚未绑定 Run');
   const steps = plan.steps.filter((step) => step.type !== 'completion_gate');
   const prior = loadRuntimeContract(plan.runId);
-  const staticScopes = prior ? prior.features?.coordinationScopes === 1
-    : !admission.checkpointContinuation && mode === 'execute' && steps.length > 0 && steps.every(step => step.metadata.stageBatchVersion===1 && step.metadata.readonly===true && step.toolPolicy.allowedTools.length===0 && !step.expectedArtifacts?.length
+  const enhancedScopes=!prior&&!admission.checkpointContinuation&&mode==='execute'&&scopedCollaborationAdmission()==='execute'&&steps.length>0&&steps.every(step=>step.metadata.stageBatchVersion===1&&step.metadata.scopedFilesOnly===true)&&!get('SELECT 1 FROM business_run_checkpoints WHERE run_id=?',plan.runId);
+  const scopeVersion=prior?.features?.coordinationScopes??(enhancedScopes?2:undefined);
+  const staticScopes = prior ? [1,2].includes(prior.features?.coordinationScopes??0)
+    : scopedCollaborationAdmission()==='execute' && !admission.checkpointContinuation && mode === 'execute' && steps.length > 0 && steps.every(step => step.metadata.stageBatchVersion===1 && step.metadata.readonly===true && step.toolPolicy.allowedTools.length===0 && !step.expectedArtifacts?.length
       && !!get("SELECT 1 FROM run_agent_snapshots WHERE run_id=? AND agent_id=? AND COALESCE(json_extract(definition,'$.execution.kind'),'builtin-llm')='builtin-llm'",plan.runId,step.agentId))
-      && !get('SELECT 1 FROM business_run_checkpoints WHERE run_id=?',plan.runId);
+      && !get('SELECT 1 FROM business_run_checkpoints WHERE run_id=?',plan.runId) || enhancedScopes;
   return {
     version: 1, runtimeRevision: plan.revision, runId: plan.runId,
     objective: `Coordination Plan ${plan.id} revision ${plan.revision}`,
@@ -92,7 +96,7 @@ function contractFor(plan: CoordinationPlan, mode: KernelMode, executionPolicy: 
     requiredSubjectKeys: steps.map((step) => subjectKey(plan, step.id)),
     completionPolicy: 'all_required', partialFailurePolicy: 'needs_attention',
     executionPolicy,
-    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2, ...(staticScopes ? {coordinationScopes:1 as const}:{}),
+    features: { completionEngine: mode === 'execute', coordinationKernel: mode, controlActionVersion: 2, ...(staticScopes ? {coordinationScopes:scopeVersion??1}:{}),
       ...(mode === 'execute' ? {
         exitGuard: { version: 1 as const, maxCorrections: 0, correctionMaxTokens: 512 },
         completionCandidateVersion: 1 as const,
@@ -260,9 +264,8 @@ function saveEvidence(plan: CoordinationPlan, step: CoordinationPlanStep, attemp
   if (!plan.runId) return { refs: [], bundleId: null, valid: false };
   const link = linkFor(plan, step.id); if (!link) return { refs: [], bundleId: null, valid: false };
   const refs: RuntimeEvidenceRef[] = [{ kind: 'attempt_output', id: attemptId }];
-  for (const artifactPath of step.expectedArtifacts ?? []) {
-    refs.push(createWorkspaceFileEvidence(plan.runId, artifactPath, plan.id.slice(0, 8)));
-  }
+  if(loadRuntimeContract(plan.runId)?.features?.coordinationScopes===2)refs.push(...scopedStepArtifactEvidence(plan.runId,attemptId,step.expectedArtifacts??[]));
+  else for (const artifactPath of step.expectedArtifacts ?? []) refs.push(createWorkspaceFileEvidence(plan.runId, artifactPath, plan.id.slice(0, 8)));
   const encoded = JSON.stringify(refs);
   const bundle = runtimeEvidenceBundleVersion(plan.runId) === 1
     ? createEvidenceBundle({ runId: plan.runId, subjectId: link.subject_id,

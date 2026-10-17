@@ -1,9 +1,11 @@
 # 通用私密协作与受控信息发布实施指导
 
-状态：**实施中（正式实施指导 v1.4，G0–G3 已完成，新增契约在对应阶段冻结）**。
+> 2026-10-17 产品方向补充：G0–G6 的固定计划与人工授权基础已经按开放范围交付；将默认交互进一步改为“用户提出目标、Agent 自主委派与交付”的需求，进入新的[自主协作实施方案（待评审）](agent-autonomous-collaboration-implementation-plan.md)。新方案尚未实施，不能把底层机制验收当作一句话全自动协作已可用。
+
+状态：**基础能力按开放范围已交付（正式实施指导 v1.7；Codex 真实补验按用户要求暂缓）**。
 编制日期：2026-10-13。关联：[Issue #15](https://github.com/cat15926/agent-gand/issues/15)。
-G3 开发基线：`main@cbb13e1`；本报告随 G3 实现提交，迁移清单至 **v15**。
-阶段状态：**G0–G3 已完成，G4–G6 待实施**；详见 [G3 验收记录](../reports/scoped-collaboration-g3-acceptance-2026-10-15.md)。新入口支持独立文字材料连续协作、私密汇总与单次受控发布；旧 v2 私密正文汇总的阻断行为仍保留，历史故障任务未迁移，Issue #15 未关闭。
+当前开发基线：`main@7f7d826` 加 G5/G6 与 SDK 接入收尾的工作区变更；迁移清单至 **v17**。
+阶段状态：**G0–G6 当前开放组合已交付；SDK 文件工具与原生 Coordination 的接入和真实选定账户验收完成，Codex 默认关闭且真实补验暂缓**；详见[接入收尾报告](../reports/scoped-collaboration-native-integration-2026-10-17.md)和 [G6 验收记录](../reports/scoped-collaboration-g6-acceptance-2026-10-17.md)。新入口支持独立文字材料连续协作、私密汇总与单次受控发布；旧 v2 私密正文汇总的阻断行为仍保留，历史故障任务未迁移，Issue #15 未关闭。
 
 本文规定实施范围、契约、改造位置、交付顺序和验收门槛。阶段交付、真实账户验收、现有故障任务迁移及发布分别记录实际执行结果。未完成阶段中的类型、工具、路由、能力包和表名仍为拟定设计；G2/G3 已实现接口以[独立材料协作契约](../architecture/scoped-collaboration-control-v1.md)及[私密汇总与发布契约](../architecture/scoped-information-release-v1.md)为准。
 
@@ -394,7 +396,7 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### G0：核实基线并固化失败
 
-**已完成（2026-10-13）**：[基线与验收报告](../reports/scoped-collaboration-g0-acceptance-2026-10-13.md)。仓库命令 `pnpm verify:scoped-collaboration-baseline` 通过正常准入和真实调度复现 v2 拒绝、timer/answer 继承及公开成功对照；17 次模型桩调用，零网络请求/原生执行，业务库快照不变。原现场不可访问的限制保留，未交付新的连续私密协作能力。
+**已完成（2026-10-13）**：[基线与验收报告](../reports/scoped-collaboration-g0-acceptance-2026-10-13.md)。仓库命令 `pnpm verify:scoped-collaboration-baseline` 通过正常准入和真实调度复现 v2 拒绝、timer/answer 继承及公开成功对照；历史基线为 17 次模型桩调用，零网络请求/原生执行，业务库快照不变。2026-10-17 的收尾将权限拒绝改为不可重试；当前回归为 11 次模型桩调用，拒绝后无 Hold/恢复，合法等待由独立脚本回归；v2 ACL 与旧契约不升级。
 
 建议提交：`test: capture private consultation continuation failures`。
 
@@ -473,7 +475,7 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 
 ### G5：外部 Agent 与 Coordination
 
-**进行中（更新于 2026-10-17）**：[G5 实施与验证进展](../reports/scoped-collaboration-g5-progress-2026-10-16.md)、[当前范围契约](../architecture/scoped-native-coordination-v1.md)。已实现原生冷边界、受控桥、最终用量结算与未知占额、schema 17，以及无工具模型 API 静态 Coordination 的公共 Scope 和授权汇总来源。四种控制动作、all 混合调度、运行中取消/来源漂移与检查点兼容已有本地证据；原生 any/发布矩阵、原生 Coordination 与真实账户验收未完成，原生能力包准入继续关闭。
+**实现收尾（更新于 2026-10-17）**：已补齐托管 API Key 的 SDK 普通预览/确认、受控文件工具及 `coordinationScopes=2` 静态阶段图，保留 R7/R5 与 Owner 文件验收；旧 Run 和检查点不升级。Codex 共用实现和本机协议已接入，真实验证按用户要求暂缓，默认关闭新 Scope 准入。完整证据与剩余限制见[接入收尾报告](../reports/scoped-collaboration-native-integration-2026-10-17.md)，历史收尾、进展和失败记录保留。
 
 建议拆分：`feat: isolate native collaboration scopes`、`feat: integrate scoped returns into coordination`。
 
@@ -487,6 +489,8 @@ G2 的“自动继续”仅指既定计划内的状态调度。涉及秘密决�
 完成门槛：每个开放组合均有独立证据；不支持组合预览阻断；原生会话和工作目录隔离负向验证通过。
 
 ### G6：通用验收、灰度与文档发布
+
+**当前开放组合已交付（2026-10-17）**：[G6 报告](../reports/scoped-collaboration-g6-acceptance-2026-10-17.md)、[支持矩阵](../architecture/scoped-collaboration-support-v1.md)、[运维手册](../operations/scoped-collaboration-runbook.md)。统一来源目录与 Coordination 发布闭环、三级准入、桌面/390px、响应丢失/重连、匹配备份恢复与旧 worker 拒绝新库已覆盖。G5 尚未验收的原生组合继续阻断，整体原生上线不随 G6 完成而放行。
 
 建议提交：`docs: publish scoped collaboration contracts and acceptance`。
 
@@ -580,7 +584,7 @@ pnpm verify:docs
 
 ### 13.1 迁移
 
-G4 当前迁移清单至 v16；后续迁移从 v17 追加，实际编号以落库前基线为准。既有 migration descriptor/checksum 不得修改。
+当前迁移清单至 G5 v17；G6 不追加迁移。后续迁移从 v18 追加，实际编号以落库前基线为准。既有 migration descriptor/checksum 不得修改。
 
 先停止新准入并等待活动工作到安全边界，按[账户备份规范](../architecture/accounts-migration-phase-e4.md)保存数据库、主密钥、认证目录；同时保留适用产物、工作区、部署配置及匹配源码。验证备份完整性，并在隔离位置演练恢复。
 
@@ -621,9 +625,12 @@ G0–G6 不自动承诺迁移任意旧私密 Run。若旧 Run 缺少可验证来
 - [x] G2：模型 API 独立材料分批、明确回执和干净父恢复，最小 UI 与基础竞态通过。
 - [x] G3：确切发布、有限投影、私密汇总、专用批准/撤销/过期闭环通过。
 - [x] G4：崩溃、Stop、只读 any、未知副作用和费用矩阵通过。
-- [ ] G5：每个宣称支持的 SDK/Codex/Coordination 组合分别完成适用验证。
-- [ ] G6：通用场景、正常界面、灰度、兼容排空、文档和证据完成。
-- [ ] 原始消息/文件/证据权限保持原含义；所有新发布可追溯。
-- [ ] 未实现能力及自由文本自动披露边界在 UI、API 和文档中一致。
+- [x] G5：SDK/Codex 的范围与受控文件实现、当前开放 SDK + API + Coordination 组合验收完成；旧契约和检查点兼容通过。
+- [ ] Codex 真实组合补验：按用户要求暂缓；默认关闭新 Scope，旧失败和 unknown 保留。
+- [x] G6：当前开放模型 API/有限 Coordination 组合的通用场景、正常界面、灰度、兼容排空、文档和证据完成；原生组合仍依赖 G5。
+- [x] 原始消息/文件/证据权限保持原含义；所有已开放的新发布可追溯。
+- [x] 未实现能力及自由文本自动披露边界在 UI、API 和文档中一致。
 
-**下一实施入口：完成 G5 剩余验收。** 补齐原生 any 竞争/端到端发布/崩溃恢复矩阵、获准账户的真实验证和原生 Coordination 接入；只开放有证据支持的组合，保留 G0 的 v2 基线。最终产品验收同时检查协作能继续、信息没有越界、责任没有提前完成，以及重试没有重复副作用。
+**本轮收尾：G5 受控文件工具与 Coordination 原生成员的新 Scope 接入已实现。** 普通入口衔接、权限错误不可重试与本机原生 any/发布/崩溃矩阵已完成，见[收尾报告](../reports/scoped-collaboration-closure-2026-10-17.md)。不含 Codex 的模型 API + Claude SDK 真实协作、私密汇总和受控发布闭环已通过，见 [API + SDK 验收](../reports/scoped-collaboration-api-sdk-acceptance-2026-10-17.md)。Codex 的真实补验按用户要求暂缓，不阻塞其他实施，历史失败与 unknown 保留。完整本机验收命令 `pnpm scoped:acceptance` 含 Codex 协议夹具；逐项验证时应区分本机协议与真实账户调用，仍只开放有完整实现及证据的能力包。
+
+nim 切换为 Codex 后的新轮见 [nim 真实验收报告](../reports/scoped-collaboration-nim-codex-acceptance-2026-10-17.md)：nim 身份检查与会话建立通过，但模型列表刷新网络超时。用户随后要求先跳过 Codex 角色验证；其真实 ACK、发布请求及含 Codex 的混合发布暂缓，旧 unknown 不清除，不再等待代理信息。`--skip-codex` 新轮完成 12 次真实调用、无新增 unknown；该历史结果仅为所选 API + SDK 文本范围通过；后续工具/Coordination 的实现和验收见[接入收尾报告](../reports/scoped-collaboration-native-integration-2026-10-17.md)，真实 Codex 暂缓且默认关闭。

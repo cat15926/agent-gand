@@ -14,7 +14,7 @@ try {
     const body=req.messages.map(m=>m.content).join('\n');calls.push({model:req.model,body});
     if(body.includes('STOP_UI'))await new Promise(resolve=>setTimeout(resolve,1200));
     let name=req.tools[0].name,input;
-    if(name==='agent.consult_batch'){const action=JSON.parse(body.slice(body.lastIndexOf('{"version":3')));const {version,type,...args}=action;input=args;}
+    if(name==='agent.consult_batch'){const action=JSON.parse(body.slice(body.lastIndexOf('{"items":')));const {version,type,...args}=action;input=args;}
     else if(name==='agent.acknowledge')input={envelopeId:req.tools[0].parameters.properties.envelopeId.enum[0]};
     else input={summary:req.model==='mock:aa'?'PRIVATE_UI_RESULT：审查完成，材料和依据充分，事项已完成。':'全部固定状态已核对，独立材料交付完成。'};
     return {content:'',toolCalls:[{name,input:JSON.stringify(input)}],usage:{tokensIn:3,tokensOut:8,costUsd:0},stopReason:'tool_use',truncated:false};
@@ -28,9 +28,11 @@ try {
   const {chromium}=await import(process.env.PLAYWRIGHT_MODULE?pathToFileURL(path.resolve(process.env.PLAYWRIGHT_MODULE)).href:'playwright');
   browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{})});
   page=await browser.newPage({viewport:{width:1440,height:960}});page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`${ui}/?room=${room.id}`);await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
+  await page.goto(`${ui}/?room=${room.id}`);await page.getByLabel('任务目标',{exact:true}).fill('PUBLIC_ENTRY_GOAL');await page.getByRole('button',{name:'独立材料协作',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'独立材料协作',exact:true});await dialog.waitFor();
-  assert.equal(await dialog.locator('option[value="sdk"]').count(),0);
+  assert.equal(await dialog.getByLabel('独立材料组织目标',{exact:true}).inputValue(),'PUBLIC_ENTRY_GOAL');checks.push('普通输入区公开目标可衔接独立材料预览，仍需逐项授权');
+  await dialog.getByLabel('独立材料组织者',{exact:true}).locator('option[value="sdk"]').waitFor({state:'attached'});
+  assert.equal(await dialog.getByLabel('独立材料组织者',{exact:true}).locator('option[value="sdk"]').count(),1);
   await dialog.getByLabel('独立材料组织目标',{exact:true}).fill('按确认计划完成独立审阅与送达');
   await dialog.getByLabel('独立材料组织者',{exact:true}).selectOption('planner');
   await dialog.getByLabel('材料 1 接收者',{exact:true}).selectOption('aa');
@@ -44,7 +46,7 @@ try {
   await page.screenshot({path:path.join(output,'desktop-preview.png')});
   await dialog.getByLabel('独立材料输出预算',{exact:true}).fill('8000');assert.equal(await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).count(),0);
   await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();
-  checks.push('正常聊天室打开；外部 SDK 不可选；逐项材料和批次可编辑；编辑后旧预览失效');
+  checks.push('正常聊天室打开；已开放的 SDK 可选；逐项材料和批次可编辑；编辑后旧预览失效');
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'mobile-preview.png')});
   assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();await dialog.getByRole('status').filter({hasText:'已启动'}).waitFor();
@@ -63,6 +65,35 @@ try {
   await dialog.getByRole('button',{name:'预览材料分发',exact:true}).click();await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).waitFor();await dialog.getByText('第 1 批 · 首个有效结果后继续（只读）',{exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:path.join(output,'mobile-any-preview.png')});
   await dialog.getByRole('button',{name:'确认授权并执行',exact:true}).click();const anyCard=panel.locator('article').filter({hasText:'只读取首个有效结果'});await anyCard.getByText(/已完成 · 已计入输出/).waitFor();assert.ok((await anyCard.innerText()).includes('已停止'));assert.equal(await anyCard.getByText('查看该项私密结果',{exact:true}).count(),1);checks.push('只读 any 预览和 390px 交互；一个胜出结果，未胜出项停止');
+  // Use the production ordinary admission/parser/scheduler to render an actual boundary failure.
+  const {previewExecutionOrchestration,submitExecutionOrchestration}=await import('../apps/server/src/orchestration/entry.ts');
+  const {getRun}=await import('../apps/server/src/runs/trace.ts');
+  mockProvider.chat=async()=>({content:'',toolCalls:[{name:'agent.consult',input:JSON.stringify({targets:['aa'],objective:'请独立审阅',reason:'跨越私密授权'})}],usage:{tokensIn:3,tokensOut:8,costUsd:0},stopReason:'tool_use',truncated:false});
+  const recoveryRoom=createConversation({title:'普通入口恢复验收',mode:'collaboration',agentIds:room.agentIds,workspace:null});
+  const input={conversationId:recoveryRoom.id,agentIds:recoveryRoom.agentIds,recipientIds:['planner'],goal:'UI_PRIVATE_BOUNDARY',visibility:'private',audience:['planner'],strategy:'auto',workflow:'routine',constraints:{readonly:true},clientRequestId:crypto.randomUUID()};
+  const ordinary=await previewExecutionOrchestration(input);
+  const admitted=submitExecutionOrchestration({...input,entryVersion:1,previewId:ordinary.previewId,orchestrationFingerprint:ordinary.fingerprint},recoveryRoom.id);
+  const {enqueueConversationRun}=await import('../apps/server/src/conversations/dispatcher.ts');enqueueConversationRun(admitted.run.id);
+  for(let n=0;n<200&&getRun(admitted.run.id).status!=='failed';n++)await new Promise(r=>setTimeout(r,25));
+  assert.equal(getRun(admitted.run.id).status,'failed');
+  const {listByRun}=await import('../apps/server/src/messaging/inbox.ts');assert.ok(listByRun(admitted.run.id).some(m=>m.meta?.collaborationRecovery),JSON.stringify(listByRun(admitted.run.id)));
+  await page.goto(`${ui}/?room=${recoveryRoom.id}`);await page.getByRole('button',{name:'准备独立材料与受控发布',exact:true}).click();await dialog.waitFor();
+  assert.equal(await dialog.getByLabel('独立材料组织目标',{exact:true}).inputValue(),'');assert.equal(await dialog.getByLabel('材料 1 正文',{exact:true}).inputValue(),'');
+  checks.push('真实普通入口权限拒绝卡可进入独立材料表单，原私密目标和历史结果不自动复制');
+  await page.keyboard.press('Escape');const composer=page.getByTestId('task-composer');
+  await composer.getByRole('button',{name:'私密',exact:true}).click();await composer.getByLabel('任务目标',{exact:true}).fill('PRIVATE_ENTRY_DRAFT');
+  await composer.getByRole('button',{name:'独立材料协作',exact:true}).click();
+  assert.equal(await dialog.getByLabel('独立材料组织目标',{exact:true}).inputValue(),'');
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));await page.screenshot({path:path.join(output,'mobile-entry-recovery.png')});
+  checks.push('私密输入不预填组织目标；390px 恢复入口无溢出');
+  await page.keyboard.press('Escape');
+  const sdkRoom=createConversation({title:'SDK 成员初始化验收',mode:'collaboration',agentIds:['sdk','codex'],workspace:null});
+  await page.goto(`${ui}/?room=${sdkRoom.id}`);await page.getByRole('button',{name:'独立材料协作',exact:true}).click();await dialog.waitFor();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="独立材料组织者"]')?.value==='sdk');
+  assert.equal(await dialog.getByLabel('材料 1 接收者',{exact:true}).inputValue(),'sdk');
+  assert.equal(await dialog.getByLabel('独立材料组织者',{exact:true}).locator('option[value="codex"]').count(),0);
+  assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+  checks.push('能力异步加载后 SDK 房间正确初始化；未开放的 Codex 不可选');
   assert.deepEqual(errors,[]);assert.equal(env.externalRequests,0);assert.equal((await env.nativeCalls()).length,0);
   const report={checks,modelCalls:calls.length,externalRequests:env.externalRequests,pageErrors:errors};await writeFile(path.join(output,'result.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
 } catch(error) {if(page){console.error('UI alerts:',await page.getByRole('alert').allTextContents());await page.screenshot({path:path.join(output,'failure.png')});}throw error;} finally {await browser?.close();await web?.close();await env?.close();}

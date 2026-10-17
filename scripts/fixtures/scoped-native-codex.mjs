@@ -41,8 +41,11 @@ createInterface({input:process.stdin}).on('line',line=>{void(async()=>{
    if(process.env.AGENT_GAND_BRIDGE_URL){
     await new Promise(resolve=>setTimeout(resolve,20));
     const action=process.env.G5_FIXTURE_CONTROL?JSON.parse(process.env.G5_FIXTURE_CONTROL):{name:'agent_complete',arguments:{summary:'当前事项已完成，已核对事实、依据与限制。'}};
-    const response=await fetch(new URL('call',process.env.AGENT_GAND_BRIDGE_URL),{method:'POST',headers:{authorization:'Bearer '+process.env.AGENT_GAND_BRIDGE_TOKEN,'content-type':'application/json'},body:JSON.stringify({requestId:randomUUID(),name:action.name,arguments:action.arguments})});
-    assert.equal(response.status,200);const result=await response.json();assert.notEqual(result.isError,true);return;
+    for(const step of action.actions??[action]){
+      const response=await fetch(new URL('call',process.env.AGENT_GAND_BRIDGE_URL),{method:'POST',headers:{authorization:'Bearer '+process.env.AGENT_GAND_BRIDGE_TOKEN,'content-type':'application/json'},body:JSON.stringify({requestId:randomUUID(),name:step.name,arguments:step.arguments})});
+      assert.equal(response.status,200);const result=await response.json();assert.notEqual(result.isError,true);
+      if(step.expect)assert.ok(JSON.stringify(result).includes(step.expect));
+    }return;
    }
    send({method:'turn/completed',params:{threadId,turn:{id:turnId,status:'completed'}}});
   },20);

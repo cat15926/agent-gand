@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {createGame,actors,material,parseAction,resolve,seats} from './helpers/scoped-werewolf-game.mjs';
+const game=createGame(n=>n-1);assert.equal(game.roles['ww-a'],'wolf');assert.equal(game.roles['ww-b'],'seer');
+assert.deepEqual(actors(game,'night-1'),['ww-a','ww-b']);
+assert.throws(()=>parseAction(game,'ww-a','night-1','{"kind":"attack","target":"ww-a"}'),/INVALID/);
+assert.throws(()=>parseAction(game,'ww-b','night-1','{"kind":"inspect","target":"ww-a","role":"wolf"}'),/INVALID/);
+assert.deepEqual(parseAction(game,'ww-a','night-1','{"action":{"kind":"attack","target":"ww-e"},"statement":{"claim":"villager","target":"ww-b"}}'),{kind:'attack',target:'ww-e'});
+assert.throws(()=>parseAction(game,'ww-a','night-1','{"action":{"kind":"attack","target":"ww-e","secret":"PRIVATE_ROLE_GUARD"},"statement":{"claim":"villager","target":"ww-b"}}'),/INVALID/);
+assert.throws(()=>parseAction(game,'ww-a','night-1','{"action":{"kind":"attack","target":"ww-e"},"statement":{"claim":"villager","target":"ww-b","secret":"PRIVATE_ROLE_GUARD"}}'),/INVALID/);
+const night=resolve(game,'night-1',{'ww-a':{kind:'attack',target:'ww-e'},'ww-b':{kind:'inspect',target:'ww-a'}});
+assert.doesNotMatch(night,/预言家|查验|PRIVATE_ROLE/);assert.equal(game.clues['ww-b'][0].result,'wolf');
+for(const id of game.alive){const data=material(game,id,'discussion');for(const other of seats.filter(other=>other!==id))assert.ok(!data.includes(game.privateTags[other]));}
+const discussion=Object.fromEntries(game.alive.map(id=>[id,{kind:'statement',target:id==='ww-a'?'ww-b':'ww-a',claim:'seer',confidence:'high'}]));
+assert.doesNotMatch(resolve(game,'discussion',discussion),/PRIVATE_ROLE_GUARD/);
+const vote=Object.fromEntries(game.alive.map(id=>[id,{kind:'vote',target:id==='ww-a'?'ww-b':'ww-a'}]));
+assert.match(resolve(game,'vote',vote),/好人阵营获胜/);assert.equal(game.winner,'villagers');assert.throws(()=>actors(game,'night-2'),/FINISHED/);
+const wolfWin=createGame(n=>n-1);resolve(wolfWin,'night-1',{'ww-a':{kind:'attack',target:'ww-e'},'ww-b':{kind:'inspect',target:'ww-c'}});
+resolve(wolfWin,'vote',{'ww-a':{kind:'vote',target:'ww-c'},'ww-b':{kind:'vote',target:'ww-c'},'ww-c':{kind:'vote',target:'ww-b'},'ww-d':{kind:'vote',target:'ww-b'}});
+assert.ok(!wolfWin.alive.includes('ww-b'),'tied vote uses announced seat ordering');
+assert.match(resolve(wolfWin,'night-2',{'ww-a':{kind:'attack',target:'ww-c'}}),/狼人获胜/);
+console.log('Structured werewolf rules verified: both factions can win, legal targets, private inspection, deterministic tie break, public field projection and terminal fence.');

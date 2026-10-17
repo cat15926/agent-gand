@@ -2,6 +2,8 @@
 
 状态：已实现，2026-10-15，迁移 v15。基于 [G2 独立材料契约](scoped-collaboration-control-v1.md)；对应[实施指导](../plans/scoped-collaboration-implementation-guide.md)与[G3 验收报告](../reports/scoped-collaboration-g3-acceptance-2026-10-15.md)。
 
+G6 将相同界面与发布闭环扩展到已完成、具有新 Scope 输入账本的 Coordination 结果；当前支持和专项准入开关见[支持契约](scoped-collaboration-support-v1.md)。下文保留 G3 初始范围及授权事务规则。
+
 ## 1. 支持范围与交互
 
 在聊天室“独立材料协作”抽屉中打开“私密汇总与发布”：
@@ -76,4 +78,4 @@ G3 Run 必须声明 `scopedCollaboration.releaseVersion=1`、`deliveryVersion=1`
 
 v15 新增 `information_release_previews/workflows/drafts/policies/grants/records`。预览使用既有主密钥加密，并纳入主密钥缺失保护；workflow、草稿版本及发布事实通过触发器禁止更新和删除。授权状态依靠事务 CAS，ReleaseRecord 对 Grant、Run 和消息具有唯一约束。
 
-草稿正文及授权记录是受管理接口保护的数据库内容，未声明端到端加密；消息继续使用既有 ACL。旧 v2 和 G2 契约保持原行为，历史故障任务不迁移。能力接口区分实现支持、配置可用和真实连接验证；模型 API 的 G3 已实现，真实连接仍未验证，SDK/Codex/CLI 仍关闭。
+草稿正文及授权记录是受管理接口保护的数据库内容，未声明端到端加密；消息继续使用既有 ACL。旧 v2 和 G2 契约保持原行为，历史故障任务不迁移。能力接口区分实现支持、配置可用和真实连接验证；模型 API 的 G3 已实现，真实连接仍未验证，G5 已开放托管 API Key 的 SDK 汇总者；Codex 默认关闭且真实验证暂缓，CLI 不支持。当前账户证据见[接入收尾报告](../reports/scoped-collaboration-native-integration-2026-10-17.md)。

@@ -77,6 +77,16 @@ export interface ScopedCollaborationCapability {
   foundationImplemented: boolean; implementationSupported: boolean; configuredAvailable: boolean;
   connectionVerified: boolean; verifiedAt: string | null; reason: string;
 }
+export interface ScopedCollaborationSupport {
+  admissionMode: 'closed' | 'preview' | 'execute';
+  backends: Array<{ backend: string; label: string; capabilities: ScopedCollaborationCapability[] }>;
+  limits: { maxBatchItems: number; maxItems: number; maxTokens: number };
+}
+/** Owner-only source catalog; bodies are disclosed only in the exact intake preview. */
+export interface PrivateAggregateSource {
+  runId: string; goal: string; engine: 'independent-material' | 'coordination';
+  items: Array<{ key: string; target: string }>;
+}
 
 /** G3 publishes text only. Source references and input ledgers are resolved by the server. */
 export interface PrivateAggregateDraft {

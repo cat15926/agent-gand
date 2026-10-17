@@ -18,7 +18,7 @@ export function codexCredentialPolicy(): string[] {
     '-c', 'shell_environment_policy.inherit="none"', '-c', 'shell_environment_policy.ignore_default_excludes=false',
     '-c', `shell_environment_policy.set={${Object.entries(cleanEnvironment()).filter(([key]) => /^(PATH|LANG|LC_.*|TMPDIR|TMP|TEMP|TZ)$/.test(key)).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(',')}}`];
 }
-export async function prepareAccountLaunch(driver: ExternalDriverId, account: ResolvedAccount | null | undefined, signal: AbortSignal, noTools = false, connectionTest = false, scoped?: ScopedNativeEnvironment) {
+export async function prepareAccountLaunch(driver: ExternalDriverId, account: ResolvedAccount | null | undefined, signal: AbortSignal, noTools = false, connectionTest = false, scoped?: ScopedNativeEnvironment, inferenceAllowed?:()=>boolean) {
   let env = cleanEnvironment(); let home: string | undefined; let args: string[] = []; let close = async () => {};
   let externalAuth: { accessToken: string; chatgptAccountId: string } | undefined;
   scoped?.assertAuthorized();
@@ -30,7 +30,12 @@ export async function prepareAccountLaunch(driver: ExternalDriverId, account: Re
   if (account?.managed) {
     home = scoped?.home ?? await privateDirectory(account.runtimeHome!);
     if (account.authType === 'native_login') {
-      try { await verifyIdentity(account.accountId, account.binding!.identityGeneration!, signal); } catch (error) { if (error instanceof AccountError && error.status === 409) throw new ExecutionError('auth_required', error.message); throw error; }
+      try { await verifyIdentity(account.accountId, account.binding!.identityGeneration!, signal); }
+      catch (error) {
+        if(error instanceof ExecutionError&&error.code==='timeout')throw new ExecutionError('timeout','原生账户身份检查超时（15 秒），尚未进入模型回复阶段。',{...error.details,phase:'initialization',initializationStep:'client',timeoutKind:'total',limitMs:15000});
+        if (error instanceof AccountError && error.status === 409) throw new ExecutionError('auth_required', error.message);
+        throw error;
+      }
       if (scoped) {
         // Refresh stays in the account authority above. Only a short-lived access token is
         // handed to the child over stdio; no refresh token, auth file or shared home copy.
@@ -45,7 +50,7 @@ export async function prepareAccountLaunch(driver: ExternalDriverId, account: Re
       const relay = await createCredentialRelay(account, driver.startsWith('claude') ? 'anthropic' : 'openai', launchSignal, noTools, (status, detail) => {
         authenticationError ??= new ExecutionError('auth_required', `所选账户的模型服务返回 HTTP ${status}${detail ? `（${detail}）` : ''}。请检查密钥、认证方式及模型权限。`);
         authenticationAbort.abort();
-      }, connectionTest); close = () => relay.close();
+      }, connectionTest, inferenceAllowed); close = () => relay.close();
       if (driver.startsWith('claude')) env = cleanEnvironment({ HOME: home, CLAUDE_CONFIG_DIR: home, ANTHROPIC_API_KEY: relay.token, ANTHROPIC_BASE_URL: relay.baseUrl, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' });
       else {
         env = cleanEnvironment({ HOME: home, CODEX_HOME: home, GAND_INFERENCE_TOKEN: relay.token });

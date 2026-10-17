@@ -64,7 +64,7 @@ try {
     correctionMaxTokens: 2048, signal: new AbortController().signal, timeoutMs: 30000, onEvent: (event) => observed.push(event),
     bridge: { launch: { command: process.execPath, args: ['--import', fileURLToPath(new URL('../apps/server/node_modules/tsx/dist/loader.mjs', import.meta.url)), fileURLToPath(new URL('../apps/server/src/execution/bridgeWorker.ts', import.meta.url))],
       env: { AGENT_GAND_BRIDGE_URL: `http://127.0.0.1:${callback.address().port}/`, AGENT_GAND_BRIDGE_TOKEN: token }, toolNames: ['agent_complete'] }, candidate,
-      action: () => null, sealed: () => sealed, close: async () => {} } });
+      action: () => null, failure: () => null, sealed: () => sealed, close: async () => {} } });
   assert.equal(callbackCalls, 1); assert.ok(modelRequests >= 1); assert.ok(observed.some((event) => event.type === 'session.bound'));
   const permissionFrames = (await readFile(gateLog, 'utf8')).split('\n').filter(Boolean).map(JSON.parse);
   assert.ok(permissionFrames.some((frame) => frame.tool === nativeTool), 'Real PreToolUse hook must reach the platform permission gate');

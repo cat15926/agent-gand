@@ -1,4 +1,5 @@
 import type { AccountConnection, AccountInput, AccountProtocol, AccountProvider } from '@agent-gand/shared';
+import { DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import { AccountError } from './errors.ts';
 
 const protocols: AccountProtocol[] = ['anthropic-messages', 'openai-chat-completions', 'openai-responses'];
@@ -41,7 +42,7 @@ export function validateConnection(value: Record<string, unknown>, provider: Acc
   const normalizedModels = Array.isArray(models) ? [...new Set(models.filter((model): model is string => typeof model === 'string').map((model) => model.trim()))] : [];
   const defaultModel = value.defaultModel === null || value.defaultModel === undefined || value.defaultModel === '' ? null : value.defaultModel;
   if (defaultModel !== null && (typeof defaultModel !== 'string' || !normalizedModels.includes(defaultModel))) errors.defaultModel = '默认模型必须在模型列表中';
-  const timeoutMs = value.timeoutMs ?? 180_000;
+  const timeoutMs = value.timeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS;
   const authHeader = value.authHeader;
   if (authHeader !== undefined && authHeader !== 'x-api-key' && authHeader !== 'bearer') errors.authHeader = '请选择 x-api-key 或 Bearer 认证';
   if (!Number.isSafeInteger(timeoutMs) || Number(timeoutMs) < 1_000 || Number(timeoutMs) > 600_000) errors.timeoutMs = '超时应为 1000–600000 毫秒的整数';

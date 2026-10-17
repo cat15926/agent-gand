@@ -9,6 +9,7 @@ export interface SdkWorkerInput {
   cwd: string; model: string; instructions: string; prompt: string; permissionMode: PermissionMode; nativeTools: string[];
   bridge?: BridgeLaunch; controlOnly?: boolean; privateContext?: boolean; recoveryFilesOnly?:boolean; connectionTest?: boolean; correctionMaxTokens?: number;
   session?: NativeSessionInput;
+  scopedToolTurns?: number;
 }
 
 /** No broad allow rules. Every native call waits for the server-owned PreToolUse gate. */
@@ -18,6 +19,19 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
     const accepted = !!id && await gate(id, event.tool_name, event.tool_input as Record<string, unknown>);
     return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: accepted ? 'allow' : 'deny', permissionDecisionReason: accepted ? '平台已允许当前操作' : '平台拒绝当前操作，禁止绕过或重试同一操作' } };
   };
+  const afterControl: HookCallback = async (event) => {
+    if (event.hook_event_name !== 'PostToolUse' && event.hook_event_name !== 'PostToolUseFailure') return {};
+    if (!input.bridge?.toolNames.some(name => event.tool_name === `mcp__agent_gand__${name}`)) return {};
+    // Ephemeral scopes end on their control action, after any allowed file tools.
+    // In ordinary turns only the
+    // typed nonretryable boundary failure ends the query; syntax errors retain
+    // their existing bounded correction path.
+    const receipt=event.hook_event_name === 'PostToolUseFailure'?event.error:JSON.stringify(event.tool_response??null);
+    const boundaryFailure=['PRIVATE_ROUTE_REQUIRES_SCOPE','SCOPED_TOOL_REJECTED'].some(code=>receipt.includes(code));
+    const control=input.bridge?.toolNames.some(name=>name.startsWith('agent_')&&event.tool_name===`mcp__agent_gand__${name}`);
+    return input.session?.ephemeral&&control || boundaryFailure
+      ? { continue:false, stopReason:'平台控制回合已结束，请查看平台记录中的结果或恢复入口。' } : {};
+  };
   return {
     cwd: input.cwd, ...(input.model === 'default' ? {} : { model: input.model }),
     systemPrompt: { type: 'preset', preset: 'claude_code', append: input.instructions },
@@ -25,19 +39,13 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
     allowedTools: input.bridge?.toolNames.map((name) => `mcp__agent_gand__${name}`) ?? [], disallowedTools: input.bridge ? [] : ['mcp__*'], permissionMode: 'default',
     settingSources: [], mcpServers: input.bridge ? { agent_gand: { command: input.bridge.command, args: input.bridge.args, env: { ...cleanEnvironment() as Record<string, string>, ...Object.fromEntries(protectedEnvironmentNames.map((name) => [name, ''])), ...input.bridge.env } } } : {}, strictMcpConfig: true, plugins: [],
     env: { ...process.env, ENABLE_TOOL_SEARCH: 'false', ...(input.controlOnly ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.correctionMaxTokens ?? 2048) } : {}) },
-    ...(input.controlOnly || input.session?.ephemeral ? { maxTurns: 2 } : {}),
+    ...(input.session?.ephemeral ? { maxTurns:Math.min(8,Math.max(1,input.scopedToolTurns??1)) } : input.controlOnly ? { maxTurns: 2 } : {}),
     ...(input.connectionTest ? { thinking: { type: 'disabled' as const }, effort: 'low' as const, maxTurns: 1 } : {}),
     settings: { ...(input.session?.ephemeral ? { autoMemoryEnabled:false, claudeMdExcludes:['**'] } : {}), syncClaudeAiSkills: false, syncClaudeAiPlugins: false, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] } },
     includePartialMessages: true, persistSession: !!input.session && !input.session.ephemeral,
     ...(input.session?.id ? input.session.resume ? { resume: input.session.id } : { sessionId: input.session.id } : {}),
     hooks: { PreToolUse: [{ hooks: [pre], timeout: 86400 }],
-      ...(input.session?.ephemeral && input.bridge ? { PostToolUse: [{ hooks: [async (event) => {
-        // Scoped native turns expose only one control tool. End at its return,
-        // before another model request, allowing the SDK to emit final usage.
-        if (event.hook_event_name === 'PostToolUse' && input.bridge!.toolNames.some(name => event.tool_name === `mcp__agent_gand__${name}`))
-          return { continue:false, stopReason:'平台控制动作已提交，本回合结束。' };
-        return {};
-      }] }] } : {}),
+      ...(input.bridge ? { PostToolUse:[{hooks:[afterControl]}], PostToolUseFailure:[{hooks:[afterControl]}] } : {}),
     },
     canUseTool: async () => ({ behavior: 'deny', message: '权限必须由平台工具前检查裁定' }),
     sandbox: { enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: false, allowUnsandboxedCommands: false,

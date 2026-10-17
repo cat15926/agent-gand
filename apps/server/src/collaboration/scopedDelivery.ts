@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { ScopedDeliveryDraft, ScopedDeliveryPreview, ScopedDeliveryStatus, ScopedSourceRef, CollaborationBudgetLimits, CostPolicy } from '@agent-gand/shared';
+import { DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
 import { config } from '../config.ts';
 import { getConversation, nextTurnNo, touchConversation } from '../conversations/service.ts';
@@ -18,6 +19,7 @@ import { executionPolicyForProfile } from '../runtime/runPolicy.ts';
 import { freezeRuntimeContract } from '../runtime/controlAction.ts';
 import { observeAdmission } from '../runtime/shadow.ts';
 import { createDispatch } from './store.ts';
+import { scopedCollaborationAdmission, scopedNativeAgentSupported } from '../runtime/scopedCapabilities.ts';
 
 export interface DeliveryItem extends Omit<ScopedDeliveryDraft['items'][number], 'material'> {
   payloadRef: string; source: ScopedSourceRef;
@@ -27,7 +29,7 @@ export interface DeliveryPlan {
   costPolicy: CostPolicy | null;
   requestLimits: { firstResponseTimeoutMs?: number; idleTimeoutMs?: number };
   limits: CollaborationBudgetLimits; deadlineAt: string;
-  maxTokens: number; maxBatchItems: number; maxDispatches: number; items: DeliveryItem[];
+  maxTokens: number; maxTokensPerCall?: number; maxBatchItems: number; maxDispatches: number; items: DeliveryItem[];
   roleSources: Record<string, ScopedSourceRef>;
   returnProfile: 'status-only-v1'; join: 'all' | 'any';
   recoveryVersion?: 1;
@@ -44,7 +46,7 @@ function roomCostPolicy(conversationId:string):CostPolicy|null {
   try{return normalizeCostPolicy(raw);}catch{throw new AccountError(400,'房间费用政策无效，请先修正房间默认设置');}
 }
 export function validateDeliveryDraft(value: unknown): ScopedDeliveryDraft {
-  if(config.orchestrationRollout.entryMode==='closed'||!config.orchestrationRollout.enabledDrivers.includes('builtin-llm')) throw new AccountError(503,'独立材料协作入口当前未开放');
+  if(scopedCollaborationAdmission()==='closed') throw new AccountError(503,'独立材料协作入口当前未开放；既有任务仍可查看与处理');
   const v = object(value);
   assertFields(v, ['conversationId','coordinatorId','goal','join','returnProfile','maxTokens','items']);
   if (!['all','any'].includes(String(v.join)) || v.returnProfile !== 'status-only-v1') invalid('仅支持 all / 只读 any 和已授权的固定状态返回');
@@ -76,7 +78,7 @@ export function validateDeliveryDraft(value: unknown): ScopedDeliveryDraft {
   for (const id of new Set([coordinatorId, ...items.map(i => i.target)])) {
     const agent = getAgent(id);
     if (!room!.agentIds.includes(id) || !agent?.enabled) invalid('选择的成员不在当前聊天室或已停用');
-    if ((agent!.execution?.kind ?? 'builtin-llm') !== 'builtin-llm') invalid('当前独立材料协作仅开放模型 API；Claude SDK / Codex 的 G5 隔离验收尚未完成，不能仅凭账户连接测试放行');
+    if ((agent!.execution?.kind ?? 'builtin-llm') !== 'builtin-llm'&&!scopedNativeAgentSupported(agent!)) invalid('该原生接入组合尚未开放：Claude SDK 需要已启用的托管 API Key 账户；Codex 真实补验暂缓，默认关闭；只读 CLI 不支持独立 Scope');
     if (agent!.systemPrompt.length > 6_000) invalid('角色提示词超过独立上下文限制（6000 字符）');
     resolveAccount(agent!); // validate configuration without making a model request
   }
@@ -94,7 +96,8 @@ function fingerprint(draft: ScopedDeliveryDraft) {
     return [agent, agent.accountRef ? get('SELECT version,config_version,credential_version,enabled,archived FROM accounts WHERE id=?', agent.accountRef) : null];
   });
   return digest({ draft, costPolicy:roomCostPolicy(draft.conversationId), membersVersion: getConversation(draft.conversationId)!.membersVersion, roles,
-    maxBatchItems: config.collaboration.maxTargets, maxDispatches: config.collaboration.maxDispatches });
+    maxBatchItems: config.collaboration.maxTargets, maxDispatches: config.collaboration.maxDispatches,
+    maxTokensPerCall: config.collaboration.scopedMaxTokensPerCall });
 }
 export function previewScopedDelivery(value: unknown, owner: string): ScopedDeliveryPreview {
   const draft = validateDeliveryDraft(value), id = randomUUID(), fp = fingerprint(draft);
@@ -114,7 +117,7 @@ export function confirmScopedDelivery(value: unknown, owner: string, releaseVers
     if (!row || row.owner !== owner || row.fingerprint !== fp) throw new AccountError(409,'预览不存在、已改变或不属于当前管理会话，请重新预览');
     if (row.run_id) { if (row.client_key !== key) throw new AccountError(409,'该预览已提交，不能更换提交编号'); return row.run_id; }
     if (get('SELECT 1 FROM scoped_delivery_previews WHERE client_key=?',key)) throw new AccountError(409,'提交编号已用于其他预览');
-    if(config.orchestrationRollout.entryMode!=='execute') throw new AccountError(503,'入口当前仅允许预览');
+    if(scopedCollaborationAdmission()!=='execute') throw new AccountError(503,'入口当前仅允许预览或已关闭，请查看既有任务');
     if (Date.parse(row.expires_at) <= Date.now()) throw new AccountError(409,'预览已过期，请重新预览');
     const draft = validateDeliveryDraft(JSON.parse(openManagedContent(row.payload,`scoped-preview:${id}:${fp}`).toString()));
     if (fingerprint(draft) !== fp) throw new AccountError(409,'成员、账户或配置已改变，请重新预览');
@@ -143,7 +146,8 @@ export function confirmScopedDelivery(value: unknown, owner: string, releaseVers
     });
     const constraints=getConversation(draft.conversationId)!.preferences?.constraints;
     const duration=Math.min(constraints?.deadlineMs??config.collaboration.runTimeoutMs,config.collaboration.runTimeoutMs);
-    const plan: DeliveryPlan={requestLimits:{firstResponseTimeoutMs:constraints?.firstResponseTimeoutMs,idleTimeoutMs:constraints?.idleTimeoutMs},costPolicy:roomCostPolicy(draft.conversationId),limits:{maxDispatches:config.collaboration.maxDispatches,maxTokens:config.collaboration.maxTokens,maxCostUsd:config.collaboration.maxCostUsd,maxDurationMs:duration},deadlineAt:new Date(Date.now()+duration).toISOString(),version:1,runId:task.id,coordinatorId:draft.coordinatorId,fingerprint:fp,goal:draft.goal,maxTokens:draft.maxTokens,
+    const plan: DeliveryPlan={requestLimits:{firstResponseTimeoutMs:constraints?.firstResponseTimeoutMs??DEFAULT_RESPONSE_TIMEOUT_MS,idleTimeoutMs:constraints?.idleTimeoutMs??DEFAULT_RESPONSE_TIMEOUT_MS},costPolicy:roomCostPolicy(draft.conversationId),limits:{maxDispatches:config.collaboration.maxDispatches,maxTokens:config.collaboration.maxTokens,maxCostUsd:config.collaboration.maxCostUsd,maxDurationMs:duration},deadlineAt:new Date(Date.now()+duration).toISOString(),version:1,runId:task.id,coordinatorId:draft.coordinatorId,fingerprint:fp,goal:draft.goal,maxTokens:draft.maxTokens,
+      maxTokensPerCall:Math.min(config.collaboration.scopedMaxTokensPerCall,draft.maxTokens),
       maxBatchItems:Math.min(3,config.collaboration.maxTargets),maxDispatches:items.length+new Set(items.map(i=>i.batch)).size+1+(releaseVersion?1:0),
       items,roleSources,returnProfile:'status-only-v1',join:draft.join,recoveryVersion:1};
     run('INSERT INTO scoped_delivery_plans VALUES (?,?,?,?)',task.id,fp,JSON.stringify(plan),draft.maxTokens);
