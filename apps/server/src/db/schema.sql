@@ -838,3 +838,25 @@ CREATE TABLE IF NOT EXISTS autonomous_tool_receipts (
 );
 CREATE TRIGGER IF NOT EXISTS autonomous_tool_receipts_immutable BEFORE UPDATE ON autonomous_tool_receipts BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_tool_receipts_no_delete BEFORE DELETE ON autonomous_tool_receipts BEGIN SELECT RAISE(ABORT,'immutable autonomous delivery'); END;
+
+-- AC4: ordinary entry, versioned human instructions and safe pause points.
+CREATE TABLE IF NOT EXISTS autonomous_submissions (
+  scope TEXT NOT NULL, client_key TEXT NOT NULL, run_id TEXT NOT NULL UNIQUE REFERENCES autonomous_task_policies(run_id),
+  digest TEXT NOT NULL, record TEXT NOT NULL CHECK(json_valid(record)), created_at TEXT NOT NULL, PRIMARY KEY(scope,client_key)
+);
+CREATE TABLE IF NOT EXISTS autonomous_user_instructions (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id), revision INTEGER NOT NULL,
+  client_key TEXT NOT NULL, message_id TEXT NOT NULL UNIQUE REFERENCES messages(id), record TEXT NOT NULL CHECK(json_valid(record)),
+  sha256 TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(run_id,revision), UNIQUE(run_id,client_key)
+);
+CREATE TABLE IF NOT EXISTS autonomous_pause_points (
+  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES autonomous_task_policies(run_id), work_id TEXT NOT NULL REFERENCES autonomous_work_items(id),
+  source_attempt_id TEXT NOT NULL UNIQUE REFERENCES collaboration_attempts(id), source_dispatch_id TEXT NOT NULL REFERENCES collaboration_dispatches(id),
+  scope_id TEXT NOT NULL REFERENCES runtime_execution_scopes(id), generation INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_submissions_no_update BEFORE UPDATE ON autonomous_submissions BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_submissions_no_delete BEFORE DELETE ON autonomous_submissions BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_user_instructions_no_update BEFORE UPDATE ON autonomous_user_instructions BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_user_instructions_no_delete BEFORE DELETE ON autonomous_user_instructions BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_pause_points_no_update BEFORE UPDATE ON autonomous_pause_points BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_pause_points_no_delete BEFORE DELETE ON autonomous_pause_points BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;

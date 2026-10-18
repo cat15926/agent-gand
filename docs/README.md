@@ -22,6 +22,7 @@
 ### 架构与协议
 
 - [自主协作 AC1：任务契约、授权派生与根预算](./architecture/autonomous-task-authority-v1.md)
+- [自主协作 AC4：普通入口、同任务补充与持久暂停](./architecture/autonomous-default-entry-v1.md)
 - [自主协作 AC3：自动收集、合法交付与必要决策](./architecture/autonomous-result-delivery-v1.md)
 - [自主协作 AC2：动态委派、独立上下文与依赖唤醒](./architecture/autonomous-dynamic-delegation-v1.md)
 - [P0 权威架构规格](./architecture/scaffold-plan.md)
@@ -55,7 +56,7 @@
 
 ### 实施计划
 
-- [Agent 自主协作与单一任务入口实施方案（AC1–AC3 已实施模型 API 适用范围，AC4–AC6 待实施）](./plans/agent-autonomous-collaboration-implementation-plan.md)
+- [Agent 自主协作与单一任务入口实施方案（AC1–AC4 已实施模型 API 适用范围，AC5–AC6 待实施）](./plans/agent-autonomous-collaboration-implementation-plan.md)
 - [通用私密协作与受控信息发布实施指导（Issue #15，G0–G6 当前开放组合已交付，Codex 真实补验暂缓）](./plans/scoped-collaboration-implementation-guide.md)
 - [平台协作剩余内容实施计划（R1–R8 已完成适用范围实现与验收）](./plans/platform-collaboration-remaining-implementation-plan.md)
 - [P1 实施路线与验收状态](./plans/p1-implementation-roadmap.md)
@@ -83,6 +84,7 @@
 ### 测试与评估报告
 
 - [AC1 任务契约、授权与根预算验收（2026-10-17）](./reports/autonomous-collaboration-ac1-acceptance-2026-10-17.md)
+- [AC4 默认单入口验收（2026-10-18）](./reports/autonomous-collaboration-ac4-acceptance-2026-10-18.md)
 - [AC3 自动收集与交付验收（2026-10-18）](./reports/autonomous-collaboration-ac3-acceptance-2026-10-18.md)
 - [AC2 动态委派与依赖唤醒验收（2026-10-17）](./reports/autonomous-collaboration-ac2-acceptance-2026-10-17.md)
 - [SDK 受控文件与原生 Coordination 接入收尾（2026-10-17）](./reports/scoped-collaboration-native-integration-2026-10-17.md)

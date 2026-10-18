@@ -229,7 +229,8 @@ export function exposeScopedInput(input: ScopedAttemptBinding, ref: ScopedSource
     const ownArtifact = ref.kind === 'artifact' && channel === 'file_read' && Boolean(get("SELECT 1 FROM managed_artifact_versions WHERE id=? AND run_id=? AND json_extract(record,'$.attemptId')=? AND json_extract(record,'$.createdBy')=?",ref.id,input.runId,input.attemptId,input.agentId));
     const receipt=ref.kind==='message'&&channel==='supplement'&&contract(input.runId).features?.autonomousCollaboration?.deliveryVersion===1&&get<{record:string;sha256:string}>('SELECT record,sha256 FROM autonomous_tool_receipts WHERE message_id=? AND attempt_id=? AND scope_id=?',ref.id,input.attemptId,input.scopeId);
     if(receipt&&(autonomousDigest(JSON.parse(receipt.record))!==receipt.sha256||autonomousDigest(ref)!==receipt.sha256))return fail('SOURCE_VERSION_CHANGED');
-    if (!producedHere && !ownArtifact && !receipt && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
+    const instruction=ref.kind==='message'&&channel==='supplement'&&contract(input.runId).features?.autonomousCollaboration?.entryVersion===1&&get('SELECT 1 FROM autonomous_user_instructions WHERE run_id=? AND message_id=?',input.runId,ref.id);
+    if (!producedHere && !ownArtifact && !receipt && !instruction && ![manifest.objective, ...manifest.inputs, ...manifest.dynamicInputs].some(item => key(item) === key(ref))) return fail('SCOPE_NOT_READABLE');
     const value = checkedSource(scope, ref);
     append(input, ref, channel); // commit before returning bytes; crashes retain conservative exposure
     return value.bytes;

@@ -16,6 +16,8 @@ export interface AutonomousCollaborationContractV1 {
   delegationVersion?: 1;
   /** AC3 result intake, exact emission and necessary decisions; absent on AC2 roots. */
   deliveryVersion?: 1;
+  /** AC4 ordinary entry and versioned same-task instructions. */
+  entryVersion?:1;
 }
 
 export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete';
@@ -106,4 +108,20 @@ export interface AutonomousQuestionIntentV1 {
 export interface AutonomousDecisionPreview {
   id:string;runId:string;kind:'release'|'intake';fingerprint:string;status:string;
   body:string;access:MessageAccess;reason:string;expiresAt:string;
+}
+
+/** Ordinary AC4 task entry; old orchestration entryVersion=1 remains explicit/manual. */
+export interface AutonomousTaskInput {
+  entryVersion:2;goal:string;clientRequestId:string;conversationId?:string;roomTitle?:string;agentIds?:string[];
+  coordinatorId?:string;participantIds?:string[];visibility?:'public'|'private';audience?:string[];replyTo?:string;
+  constraints?:import('./orchestration.ts').OrchestrationConstraints;
+  attachments?:import('./orchestration.ts').OrchestrationPreviewInput['attachments'];
+}
+export interface AutonomousTaskView {
+  coordinatorId:string;participantIds:string[];instructionRevision:number;entry:boolean;
+  budget:{maxOutputTokens:number;chargedOutputTokens:number;deadlineAt:string};
+  works:Array<{id:string;key:string;agentId:string;objective:string;state:string;dependsOn:string[];resultMessageId:string|null}>;
+}
+export interface AutonomousEntryOptions {
+  available:boolean;mode:'closed'|'preview'|'execute';supportedDrivers:string[];maxOutputTokens:number;
 }

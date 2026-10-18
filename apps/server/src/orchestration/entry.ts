@@ -1,3 +1,4 @@
+import {submitAutonomousTask} from '../collaboration/autonomousEntry.ts';
 import { createManagedArtifact } from '../artifacts/store.ts';
 import { randomUUID } from 'node:crypto';
 import {scopedNativeAgentSupported,scopedCollaborationAdmission} from '../runtime/scopedCapabilities.ts';
@@ -197,6 +198,7 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
 export function submitExecutionOrchestration(value: unknown, conversationId?: string,
   source: 'room_create' | 'conversation_message' | 'direct_run' = conversationId ? 'conversation_message' : 'room_create', checkpoint?: BusinessCheckpoint): LegacySubmissionResult {
   const body = objectInput(value);
+  if(body.entryVersion===2&&!checkpoint)return submitAutonomousTask(value,conversationId,source);
   if (conversationId && body.conversationId !== undefined && body.conversationId !== conversationId) invalid('ROOM_REFERENCE_CONFLICT','conversationId 与请求路径不一致',400);
   conversationId ??= typeof body.conversationId === 'string' ? body.conversationId : undefined;
   const allowed = [...fields,'entryVersion','previewId','orchestrationFingerprint','body','clientMessageId','mode','roomTitle','roomPreferences'];
@@ -215,6 +217,7 @@ export function submitExecutionOrchestration(value: unknown, conversationId?: st
   const submissionDigest = stableDigest({ entryVersion: 1, input, previewId: body.previewId ?? null, roomTitle: body.roomTitle, roomPreferences,
     ...(checkpoint ? { businessCheckpointDigest: checkpointDigest(checkpoint) } : {}) });
   return tx(() => {
+    if(get('SELECT 1 FROM autonomous_submissions WHERE scope=? AND client_key=?',scope,input.clientRequestId))invalid('IDEMPOTENCY_CONFLICT','该提交标识已用于自主任务，不能换契约重新执行');
     const existing = getSubmissionSnapshot(scope, input.clientRequestId as string);
     if (existing) {
       if (existing.submissionDigest !== submissionDigest) invalid('IDEMPOTENCY_CONFLICT','同一请求 ID 已用于不同任务或计划');

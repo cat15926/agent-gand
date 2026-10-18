@@ -407,7 +407,7 @@ async function loadConversationDetail(conversationId: string, dispatch: (a: Acti
   if (latest && detail) dispatch({ type: 'runDetail', runId: latest.id, messages: [], events: detail.events, attempts: detail.attempts, reviews: detail.reviews, coordination, executions });
 }
 
-const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void>; loadHistory: (direction: HistoryDirection, around?: string) => Promise<boolean>; detailsOpen: boolean; setDetailsOpen: (open: boolean) => void; loading: boolean; loadError: string; retryLoad: () => void }>({
+const StoreContext = createContext<{ state: State; setActiveRun: (id: string | null, options?: {openDetails?:boolean}) => void; setActiveConversation: (id: string | null) => void; refreshConversation: () => Promise<void>; loadHistory: (direction: HistoryDirection, around?: string) => Promise<boolean>; detailsOpen: boolean; setDetailsOpen: (open: boolean) => void; loading: boolean; loadError: string; retryLoad: () => void }>({
   state: initialState, detailsOpen: false, setDetailsOpen: () => {}, loading: true, loadError: '', retryLoad: () => {},
   setActiveRun: () => {},
   setActiveConversation: () => {},
@@ -509,10 +509,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [hydrateAll]);
 
   const setActiveRun = useCallback(
-    (id: string | null) => {
+    (id: string | null, options?: {openDetails?:boolean}) => {
       activeRunRef.current = id;
       writeChatLocation(activeConversationRef.current, id);
-      setDetailsOpen(Boolean(id));
+      setDetailsOpen(options?.openDetails!==false&&Boolean(id));
       dispatch({ type: 'setActiveRun', runId: id });
       if (id) void loadRunDetail(id, dispatch).catch(reason => setLoadError(reason instanceof Error ? reason.message : String(reason)));
     },

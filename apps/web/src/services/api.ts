@@ -1,3 +1,4 @@
+import type {AutonomousEntryOptions,AutonomousTaskView,AutonomousTaskInput} from '@agent-gand/shared';
 /**
  * REST 客户端：对应 server §4.3 的 API 表（dev 经 vite proxy）
  */
@@ -114,9 +115,9 @@ export interface CoordinationRunDetail {
 
 export const getConversations = () => request<Conversation[]>('/api/conversations');
 export interface OrchestrationAdmission { entryMode: 'execute' | 'preview' | 'closed'; legacyEntryEnabled: boolean; enabledWorkflows: RoomPreferences['workflow'][]; enabledDrivers: string[]; existingRunsContinue: true }
-export const getOrchestrationOptions = () => request<{ admission: OrchestrationAdmission }>('/api/orchestration/options');
+export const getOrchestrationOptions = () => request<{ admission: OrchestrationAdmission;autonomous?:AutonomousEntryOptions }>('/api/orchestration/options');
 export interface MemberReservation { runId: string; agentId: string; attemptId: string | null; status: string; position: number }
-export interface TaskState { runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment; business?: { version: number; outcome: BusinessOutcome; contractPresent: boolean; acceptedStages: number; totalStages: number } }
+export interface TaskState { autonomous?:AutonomousTaskView|null;runId: string; revisedGoal: string | null; revisionBlockedReason: string | null; snapshot: RunOrchestrationSnapshot | null; planStatus: string | null; revision: number | null; pauseRequested: boolean; paused: boolean; attention: boolean; reason: string | null; reservations: MemberReservation[]; recovery?: RunRecoveryAssessment; business?: { version: number; outcome: BusinessOutcome; contractPresent: boolean; acceptedStages: number; totalStages: number } }
 export const getBusinessState = (id: string) => managementRequest<BusinessState>(`/api/accounts/business/${encodeURIComponent(id)}`);
 export const getSchedulingState=(id:string)=>managementRequest<import('@agent-gand/shared').SchedulingState>(`/api/accounts/business/${encodeURIComponent(id)}/scheduling`);
 export const getCostBudget = (id: string) => managementRequest<{budget:CostBudgetState|null;records:Array<{id:string;stageId:string|null;agentId:string;model:string;backend:string;currency:string;reserved:number;known:number|null;status:string;costSource:string|null;pricing:CostPrice|null;sourceReservationId:string|null}>}>(`/api/accounts/business/${encodeURIComponent(id)}/cost-budget`);
@@ -397,3 +398,6 @@ export interface ManagedArtifact { id: string; conversationId: string; runId: st
 export const getManagedArtifacts = (roomId: string) => managementRequest<{files:ManagedArtifact[]}>(`/api/accounts/artifacts/rooms/${encodeURIComponent(roomId)}`);
 export const getManagedArtifactContent = (id: string) => managementRequest<{file:ManagedArtifact;contentBase64:string}>(`/api/accounts/artifacts/${encodeURIComponent(id)}/content`);
 export const releaseManagedArtifact = (id: string, input: {expectedVersion:number;visibility:'public'|'private';audience:string[];reason:string}) => managementRequest<ManagedArtifact>(`/api/accounts/artifacts/${encodeURIComponent(id)}/release`,'POST',input);
+
+export const submitAutonomousTask=(input:AutonomousTaskInput)=>request<{conversation:Conversation;run:Run}>(input.conversationId?`/api/conversations/${encodeURIComponent(input.conversationId)}/requests`:'/api/conversations',{method:'POST',body:JSON.stringify(input)});
+export const appendTaskInstruction=(id:string,input:{text:string;clientRequestId:string;expectedRevision:number})=>request<{runId:string;revision:number;deduplicated:boolean}>(`/api/runs/${encodeURIComponent(id)}/instructions`,{method:'POST',body:JSON.stringify(input)});

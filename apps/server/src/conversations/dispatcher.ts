@@ -9,6 +9,8 @@ import { ownOrchestration } from '../orchestration/ownership.ts';
 import { supervisorOrchestrator } from '../orchestration/supervisor.ts';
 import { endSpan, finishRun, getRun, listPendingRunsByConversation, listRunAgentSnapshots, setRunStatus, startSpan } from '../runs/trace.ts';
 import { latestCheckpoint, saveCheckpoint } from '../runs/checkpoints.ts';
+import {loadRuntimeContract} from '../runtime/runPolicy.ts';
+import {kickCollaboration} from '../collaboration/scheduler.ts';
 import { admitCollaborationRun } from '../collaboration/scheduler.ts';
 import { conversationHasCoordinationPlan, getRunCoordinationPlan } from '../coordination/store.ts';
 import { runCoordinationPlan } from '../coordination/runtime.ts';
@@ -24,6 +26,7 @@ export function enqueueConversationRun(runId: string, input?: RuntimeMessageInpu
   if (input) inputs.set(runId, input);
   const item = getRun(runId);
   if (!item) return;
+  if(loadRuntimeContract(runId)?.features?.autonomousCollaboration){kickCollaboration(item.conversationId);return;}
   void drain(item.conversationId);
 }
 
@@ -187,6 +190,7 @@ export async function resumeFastPathRun(runId: string): Promise<void> {
 
 
 async function dispatchRun(current: Run): Promise<void> {
+  if(loadRuntimeContract(current.id)?.features?.autonomousCollaboration){kickCollaboration(current.conversationId);return;}
   const conversationId = current.conversationId;
       const conversation = getConversation(conversationId);
       if (!conversation) return;

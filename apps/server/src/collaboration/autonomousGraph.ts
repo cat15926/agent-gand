@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {isMessageVisibleTo,type AutonomousInputV1,type AutonomousDelegateIntentV1,type AutonomousGrantBinding,type MessageAccess,type ScopedSourceRef} from '@agent-gand/shared';
+import {isMessageVisibleTo,type AutonomousInputV1,type AutonomousDelegateIntentV1,type AutonomousGrantBinding,type MessageAccess,type ScopedSourceRef,type CostPolicy} from '@agent-gand/shared';
 import {all,get,run,tx} from '../db/database.ts';
 import {config} from '../config.ts';
 import {post} from '../messaging/inbox.ts';
@@ -37,8 +37,9 @@ export function assertPlanCapacity(runId:string,newItems:number):void {
     JOIN autonomous_task_grants g ON g.id=w.grant_id JOIN runtime_custody c ON c.subject_id=g.subject_id
     WHERE p.run_id=? AND c.state='waiting' AND c.generation=p.generation
       AND NOT EXISTS(SELECT 1 FROM runtime_action_commands command WHERE command.command_key='delivery:decision-wake:' || p.id)`,runId)!.n;
+  const pauses=get<{n:number}>(`SELECT COUNT(*) n FROM autonomous_pause_points p JOIN autonomous_work_items w ON w.id=p.work_id JOIN autonomous_task_grants g ON g.id=w.grant_id JOIN runtime_custody c ON c.subject_id=g.subject_id WHERE p.run_id=? AND c.state='waiting' AND c.generation=p.generation AND NOT EXISTS(SELECT 1 FROM runtime_action_commands a WHERE a.command_key='autonomous:pause-wake:' || p.id)`,runId)!.n;
   // Reserve the future parent wake and every dependency-blocked child before admitting a plan.
-  if(listDispatches(runId).length+pending+wakes+decisions+newItems+1>policy.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
+  if(listDispatches(runId).length+pending+wakes+decisions+pauses+newItems+1>policy.budget.maxDispatches)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
 }
 function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
   const {grant,policy}=assertAutonomousGrantReady(work.grant_id);assertAutonomousDispatchLimit(work.run_id);
@@ -51,7 +52,7 @@ function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
 }
 
 /** Explicit trusted admission only. Ordinary chat does not call this until AC4. */
-export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1}={}){
+export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1;entryVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}){
   if(config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   return tx(()=>{
     const frozen=freezeAutonomousTask(runId,draft,{delegationVersion:1,...options});

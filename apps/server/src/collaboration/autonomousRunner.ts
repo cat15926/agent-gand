@@ -1,8 +1,9 @@
+import {autonomousEntryEnabled,autonomousInstructionRefs,instructionRevision,pauseAutonomousAttempt,reconcileAutonomousPauses} from '../runtime/autonomousInstructions.ts';
 import {intersectMessageAccess,type AgentDefinition,type AutonomousGrantBinding,type CollaborationDispatch,type MessageAccess,type RuntimeControlAction} from '@agent-gand/shared';
 import {get,tx} from '../db/database.ts';
 import {config} from '../config.ts';
 import {getRun,setRunStatus,startSpan,endSpan} from '../runs/trace.ts';
-import {post} from '../messaging/inbox.ts';
+import {post,updateRunUserMessageStatus} from '../messaging/inbox.ts';
 import {subscribe} from '../messaging/bus.ts';
 import {providerForAgent} from '../llm/router.ts';
 import type {LlmMessage} from '../llm/provider.ts';
@@ -67,12 +68,13 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
       const {grant,policy}=assertAutonomousGrant(binding);
       const custody=get<{generation:number}>('SELECT generation FROM runtime_custody WHERE subject_id=?',grant.subjectId)!;
       const prior=previousWorkInputs(work.id);
-      const delivery=autonomousDeliveryEnabled(binding.runId);
+      const delivery=autonomousDeliveryEnabled(binding.runId),entry=autonomousEntryEnabled(binding.runId);
       if(delivery)prior.push(...aggregateReturnInputs(work));
       const wake=get<{result:string}>("SELECT result FROM runtime_action_commands WHERE run_id=? AND kind='wake' AND json_extract(result,'$.dispatchId')=?",binding.runId,dispatch.id);
       if(wake)prior.push(compileScopedSource(binding.runId,'message',JSON.parse(wake.result).sourceMessageId));
       // A coordinator sees opaque handles, not every source it is permitted to delegate.
-      const refs=[...prior,...(work.parent_work_id?grant.inputs.map(i=>i.source):[]),compileScopedSource(binding.runId,'message',work.objective_message_id)];
+      const initialInstructions=entry?autonomousInstructionRefs(binding.runId):[];
+      const refs=[...prior,...initialInstructions,...(work.parent_work_id||entry?grant.inputs.filter(i=>i.readers.includes(agent.id)).map(i=>i.source):[]),compileScopedSource(binding.runId,'message',work.objective_message_id)];
       const access=intersectMessageAccess([grant.outputAccess,...refs.map(ref=>{
         const source=inspectScopedSource(binding.runId,ref.kind,ref.id);
         if(JSON.stringify(source.ref)!==JSON.stringify(ref))return fail('AUTONOMOUS_POLICY_DRIFT');return source.access;
@@ -80,23 +82,32 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
       const receipts=childWorks(work.id).map(w=>({key:w.work_key,state:workState(w)}));
       const catalog=grant.inputs.map(i=>({id:i.source.id,readers:i.readers}));
       const directive=post({runId:binding.runId,from:'system',to:agent.id,kind:'system',...access,meta:{autonomousInternal:true},clientMessageId:`autonomous:directive:${attemptId}`,
-        body:`你只处理当前责任，按实际需要选择不同成员及依赖，不要照抄固定计划。使用 agent.delegate 后本轮结束并持久等待；子任务结束会自动唤醒，无需轮询。追加任务必须使用新的 key，已提交任务不可改写。依赖只代表执行顺序，不自动转交结果正文。完成时调用 agent.complete。只有原授权范围内的文本可进入子任务；无权读取的输入只可通过句柄转交。当前仅模型 API 可执行。${delivery?'可用 agent.aggregate 选择已完成子工作的 key，在新内容 Scope 中汇总，可选自己。结果权限由材料与任务范围共同限定，自动传入有权读取的汇总成员；无权的组织者只读固定状态。agent.emit 可提交合法阶段更新/最终候选，或 result_bundle 将确切结果直接交付给有权用户，task_status_v1 只允许服务端计数；final 在完成验收后发布。真正缺少业务信息时用 agent.request_user 一次合并问题，禁止例行询问是否继续。普通回答不等于权限批准。':''}\n角色定义（冻结）：${agent.systemPrompt}\n可选成员：${JSON.stringify(policy.members.filter(m=>grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm').map(m=>({id:m.agentId,tools:m.allowedTools})))}\n输入句柄：${JSON.stringify(catalog)}\n已提交子工作固定状态：${JSON.stringify(receipts)}`});
+        body:`你只处理当前责任，按实际需要选择不同成员及依赖，不要照抄固定计划。使用 agent.delegate 后本轮结束并持久等待；子任务结束会自动唤醒，无需轮询。追加任务必须使用新的 key，已提交任务不可改写。依赖只代表执行顺序，不自动转交结果正文。完成时调用 agent.complete。只有原授权范围内的文本可进入子任务；无权读取的输入只可通过句柄转交。当前仅模型 API 可执行。已完成的工具效果和已验收子工作不要重复执行；用户补充只影响尚未执行的工作，确需重做时追加新工作并说明原因，仍使用根预算。${delivery?'可用 agent.aggregate 选择已完成子工作的 key，在新内容 Scope 中汇总，可选自己。结果权限由材料与任务范围共同限定，自动传入有权读取的汇总成员；无权的组织者只读固定状态。agent.emit 可提交合法阶段更新/最终候选，或 result_bundle 将确切结果直接交付给有权用户，task_status_v1 只允许服务端计数；final 在完成验收后发布。真正缺少业务信息时用 agent.request_user 一次合并问题，禁止例行询问是否继续。普通回答不等于权限批准。':''}\n角色定义（冻结）：${agent.systemPrompt}\n可选成员：${JSON.stringify(policy.members.filter(m=>grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm').map(m=>({id:m.agentId,tools:m.allowedTools})))}\n输入句柄：${JSON.stringify(catalog)}\n已提交子工作固定状态：${JSON.stringify(receipts)}`});
       const scope=createExecutionScope({runId:binding.runId,subjectId:grant.subjectId,agentId:agent.id,kind:work.parent_work_id?'content':'control',defaultOutputAccess:access,
-        recoveryGeneration:custody.generation,objective:compileScopedSource(binding.runId,'message',work.objective_message_id),inputs:[...refs,compileScopedSource(binding.runId,'message',directive.id)],allowedTools:grant.allowedTools});
+        recoveryGeneration:custody.generation,objective:compileScopedSource(binding.runId,'message',work.objective_message_id),inputs:[...refs.filter(ref=>!(entry&&ref.kind==='message'&&ref.id===work.objective_message_id)),compileScopedSource(binding.runId,'message',directive.id)],allowedTools:grant.allowedTools});
       const scoped:ScopedAttemptBinding={runId:binding.runId,scopeId:scope.id,agentId:agent.id,attemptId};
       const context=assembleScopedContext(scoped);setAttemptInputContext(attemptId,context);
       release=await enterMember({runId:binding.runId,agentId:agent.id,attemptId,scope:`collaboration:${dispatch.id}`,signal:controller.signal,
         authorized:()=>{try{assertAutonomousGrant(binding);return true;}catch{return false;}}});
+      if(entry)updateRunUserMessageStatus(binding.runId,'processing');
       const messages:LlmMessage[]=[{role:'system',content:'执行服务端冻结的当前独立任务。任何完成或委派必须实际调用已提供的工具；不要输出平台凭据或伪造执行事实。'},{role:'user',content:context}];
+      let seenInstructionRevision=initialInstructions.length;
       const tools=[...[...AUTONOMOUS_TOOLS,...(delivery?AUTONOMOUS_DELIVERY_TOOLS:[])].filter(t=>grant.actions.includes(t.name.slice('agent.'.length) as typeof grant.actions[number])
         &&(t.name!=='agent.delegate'||grant.depth<policy.budget.maxDepth&&policy.members.some(m=>m.agentId!==agent.id&&grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm'))),
         ...grant.allowedTools.map(name=>scopedFileTool(name)).filter(t=>!!t).map(t=>({name:t.name,description:t.description,parameters:t.inputSchema}))];
       for(let round=0;round<8;round++){
+        if(entry&&pauseAutonomousAttempt(binding,scoped))return;
+        if(entry&&instructionRevision(binding.runId)>seenInstructionRevision){
+          for(const ref of autonomousInstructionRefs(binding.runId)){if(get("SELECT 1 FROM runtime_input_provenance WHERE attempt_id=? AND json_extract(record,'$.source.id')=?",attemptId,ref.id))continue;messages.push({role:'user',content:`【用户补充要求】${exposeScopedInput(scoped,ref,'supplement').toString('utf8')}`});}
+          seenInstructionRevision=instructionRevision(binding.runId);
+        }
         assertAutonomousGrant(binding);assertScopedOutput({...scoped,ledgerRevision:inputLedgerRevision(attemptId),outputAccess:access});
         span=startSpan(binding.runId,{spanKind:'llm',name:`autonomous:${agent.id}`,input:JSON.stringify(messages),attributes:{'agent.id':agent.id,'collaboration.attempt.id':attemptId,'collaboration.dispatch.id':dispatch.id}});
         const response=await budgetedChat(binding.runId,providerForAgent(agent,binding.runId),{model:agent.model,messages,tools,maxTokens:policy.budget.maxTokensPerCall,signal:controller.signal},undefined,agent.id,attemptId);
         endSpan(span,{tokensIn:response.usage.tokensIn,tokensOut:response.usage.tokensOut,costUsd:response.usage.costUsd,usageKnown:response.usage.outputKnown!==false,costKnown:response.usage.costKnown!==false});span=undefined;
         assertAutonomousGrant(binding);
+        if(entry&&pauseAutonomousAttempt(binding,scoped))return;
+        if(entry&&instructionRevision(binding.runId)>seenInstructionRevision)continue; // Replan against new instructions before committing a stale tool action.
         if(response.truncated||response.toolCalls.length!==1)return fail('AUTONOMOUS_EXPLICIT_ACTION_REQUIRED');
         const call=response.toolCalls[0]!;
         if(call.name.startsWith('agent.')){
@@ -135,11 +146,15 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
 /** AC2 completes internal responsibility only. Automatic result aggregation/publication is AC3. */
 export function settleAutonomousRun(runId:string):void {
   const status=getRun(runId)?.status;
-  if(config.autonomousCollaborationMode!=='execute'||loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1||!status||!['running','waiting_for_user'].includes(status)||settleRequestedPause(runId))return;
+  if(config.autonomousCollaborationMode!=='execute'||loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1||!status||!['running','waiting_for_user'].includes(status))return;
   const terminate=(reason:string)=>commitRunTerminal({runId,status:'failed',disposition:'failed',source:'autonomous_delegation',closeExecution:()=>cancelCollaborationRun(runId),userMessageStatus:'failed',prepare:()=>({reasonCodes:[reason]})});
   try{
     const root=get<{grant_id:string}>('SELECT grant_id FROM autonomous_work_items WHERE run_id=? AND parent_work_id IS NULL',runId);if(!root)return;
     assertAutonomousGrantReady(root.grant_id,{allowWaitingForUser:true});
+    const rootState=get<{status:string}>('SELECT status FROM runtime_subjects WHERE id=?',loadAutonomousTaskGrant(root.grant_id).subjectId)!.status;
+    if(rootState==='failed'||rootState==='cancelled'){terminate('AUTONOMOUS_ROOT_FAILED');return;}
+    if(settleRequestedPause(runId))return;
+    reconcileAutonomousPauses(runId);
     if(autonomousDeliveryEnabled(runId))reconcileAutonomousDecisions(runId);
     reconcileAutonomousGraph(runId);
     const grant=loadAutonomousTaskGrant(root.grant_id),state=get<{status:string}>('SELECT status FROM runtime_subjects WHERE id=?',grant.subjectId)!.status;

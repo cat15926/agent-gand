@@ -1,3 +1,6 @@
+import {loadRuntimeContract} from '../runtime/runPolicy.ts';
+import {settleAutonomousRun} from '../collaboration/autonomousRunner.ts';
+import {kickCollaboration} from '../collaboration/scheduler.ts';
 import { assertReadonlyRecovery } from './graphCheckpoint.ts';
 import { businessQuiescent } from './businessGates.ts';
 import { taskAdapterEnabled } from '../runtime/taskAdapter.ts';
@@ -57,6 +60,7 @@ export async function applyRunAction(runId: string, action: 'cancel' | 'pause' |
   } else {
     if (item.status !== 'waiting_for_user' || !control?.pause_requested) return reject('只有用户暂停的任务可恢复；待回答的问题需由原决定入口处理');
     run('UPDATE orchestration_run_controls SET pause_requested=0 WHERE run_id=?', runId);
+    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration?.entryVersion===1){setRunStatus(runId,'running');settleAutonomousRun(runId);kickCollaboration(item.conversationId);return getRun(runId)!;}
     const started = get('SELECT id FROM run_checkpoints WHERE run_id=? LIMIT 1', runId);
     setRunStatus(runId, started ? 'running' : 'pending');
     if (!started) enqueueConversationRun(runId);

@@ -99,6 +99,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
       throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous capability contract');
     if(autonomous.delegationVersion!==undefined&&autonomous.delegationVersion!==1)throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delegation version');
     if(autonomous.deliveryVersion!==undefined&&(autonomous.deliveryVersion!==1||autonomous.delegationVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delivery version');
+    if(autonomous.entryVersion!==undefined&&(autonomous.entryVersion!==1||autonomous.deliveryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous entry version');
     if(autonomous.rootRunId!==runId||autonomous.budgetRunId!==runId||f?.controlActionVersion!==4||contract.executionPolicy?.toolApiVersion!==4
       ||contract.executionPolicy.profile!=='execute'||contract.executionPolicy.implicitAnswerPolicy!=='explicit_only'||f.messageVisibilityVersion!==1||scoped||f.coordinationKernel||f.coordinationScopes)
       throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous authority requires an independent v4 root contract');

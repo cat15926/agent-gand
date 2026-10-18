@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {isMessageVisibleTo,isMessageWithinScope,DEFAULT_RESPONSE_TIMEOUT_MS,DEFAULT_SCOPED_RUN_TOKENS,
-  type AutonomousTaskPolicyV1,type AutonomousTaskGrantV1,type AutonomousGrantBinding,type AutonomousActionName,type MessageAccess,type AutonomousInputV1} from '@agent-gand/shared';
+  type AutonomousTaskPolicyV1,type AutonomousTaskGrantV1,type AutonomousGrantBinding,type AutonomousActionName,type MessageAccess,type AutonomousInputV1,type CostPolicy} from '@agent-gand/shared';
 import {get,run,tx} from '../db/database.ts';
 import {config} from '../config.ts';
 import {listRunAgentSnapshots} from '../runs/trace.ts';
@@ -14,6 +14,7 @@ import {captureExecutionBinding,assertBindingAuthorized} from '../execution/auth
 import {scopedNativeAgentSupported} from './scopedCapabilities.ts';
 import {normalizeCostPolicy} from '../orchestration/costPolicy.ts';
 import {autonomousDigest as digest,autonomousFail as fail,autonomousObject as object,autonomousStrings as strings,loadAutonomousTaskPolicy} from './autonomousPolicy.ts';
+import {validateAutonomousEntrySources} from './autonomousInstructions.ts';
 import {validateAutonomousDerivedSource} from './autonomousResults.ts';
 
 const ACTIONS:AutonomousActionName[]=['delegate','aggregate','emit','request_user','complete'];
@@ -56,10 +57,10 @@ export function loadAutonomousTaskGrant(id:string):AutonomousTaskGrantV1 {
 
 /** Trusted server compiler, not an Agent tool or HTTP admission endpoint.
  * Freezes a fresh root only; creates no Dispatch and cannot start a v4 worker in AC1. */
-export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
+export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1;entryVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
   return tx(()=>{
     const v=object(value,['coordinatorId','participantIds','inputs','outputAccess','budget']);
-    const admission=digest(options.deliveryVersion?{draft:v,delegationVersion:1,deliveryVersion:1}:options.delegationVersion?{draft:v,delegationVersion:1}:v);
+    const admission=digest(options.entryVersion?{draft:v,...options}:options.deliveryVersion?{draft:v,delegationVersion:1,deliveryVersion:1}:options.delegationVersion?{draft:v,delegationVersion:1}:v);
     const previous=loadAutonomousTaskPolicy(runId);
     if(previous){
       if(previous.admissionSha256!==admission)return fail('AUTONOMOUS_AUTHORITY_INVALID');
@@ -84,7 +85,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
       const agent=snapshots.find(a=>a.id===agentId);
       if(!agent||agent.enabled===false||agent.execution?.kind==='external'&&!scopedNativeAgentSupported(agent))return fail('AUTONOMOUS_ACCESS_DENIED');
       return {agentId,roleVersion:agent.version??1,model:agent.model,driver:agent.execution?.kind==='external'?agent.execution.driver:'builtin-llm',
-        allowedTools:agent.tools.filter(name=>SCOPED_FILE_TOOLS.includes(name)&&checkPermission(agent,name)==='allow'&&(agent.execution?.kind!=='external'||agent.execution.platformTools?.includes(name)))};
+        allowedTools:agent.tools.filter(name=>(!options.readonly||name!=='fs.write')&&SCOPED_FILE_TOOLS.includes(name)&&checkPermission(agent,name)==='allow'&&(agent.execution?.kind!=='external'||agent.execution.platformTools?.includes(name)))};
     });
     if(v.inputs!==undefined&&!Array.isArray(v.inputs))return fail('AUTONOMOUS_CONTRACT_INVALID');
     const inputs=[{source:initial.ref,readers:participantIds},...((v.inputs??[]) as unknown[]).map(i=>sourceInput(runId,i,participantIds))];
@@ -102,7 +103,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     const deadlineAt=b.deadlineAt??new Date(Date.parse(now)+config.collaboration.runTimeoutMs).toISOString();
     if(typeof deadlineAt!=='string'||!Number.isFinite(Date.parse(deadlineAt))||Date.parse(deadlineAt)<=Date.parse(now)||Date.parse(deadlineAt)>Date.parse(now)+config.collaboration.runTimeoutMs)return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const preferences=room.preferences?JSON.parse(room.preferences):{};
-    const costPolicy=normalizeCostPolicy(preferences.constraints?.costPolicy??{version:1,currency:'USD',mode:'estimate',maxCost:config.collaboration.maxCostUsd,unknownAction:'reserve',unknownReserve:0.01,prices:[]});
+    const costPolicy=normalizeCostPolicy(options.costPolicy??preferences.constraints?.costPolicy??{version:1,currency:'USD',mode:'estimate',maxCost:config.collaboration.maxCostUsd,unknownAction:'reserve',unknownReserve:0.01,prices:[]});
     if(costPolicy.mode!=='estimate')return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const policy:AutonomousTaskPolicyV1={version:1,id:randomUUID(),revision:1,admissionSha256:admission,runId,conversationId:source.conversation_id,coordinatorId,participantIds,rootSource:initial.ref,rootAccess,outputAccess,inputs,members,
       budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',createdAt:now};
@@ -113,6 +114,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     planned.contract.features!.autonomousCollaboration={version:1,capabilityPackage:'autonomous-collaboration-v1',boundaryVersion:2,policyId:policy.id,policyRevision:1,policySha256:digest(policy),rootRunId:runId,budgetRunId:runId};
     if(options.delegationVersion)planned.contract.features!.autonomousCollaboration.delegationVersion=1;
     if(options.deliveryVersion)planned.contract.features!.autonomousCollaboration.deliveryVersion=1;
+    if(options.entryVersion)planned.contract.features!.autonomousCollaboration.entryVersion=1;
     freezeRuntimeContract(planned.contract);resolveRunPolicy(runId);
     const subjectId=randomUUID();
     run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,runId,'root:'+coordinatorId,'root',null,source.goal,now,now);
@@ -139,6 +141,7 @@ export function assertAutonomousGrantReady(id:string,options:{allowWaitingForUse
     if(get('SELECT 1 FROM autonomous_task_revocations WHERE run_id=? AND grant_id=?',grant.runId,current.id))return fail('AUTONOMOUS_GRANT_REVOKED');
     current=current.parentGrantId?loadAutonomousTaskGrant(current.parentGrantId):null;
   }
+  if(contract.features.autonomousCollaboration.entryVersion===1)validateAutonomousEntrySources(grant.runId);
   checkInput(grant.runId,{source:policy.rootSource,readers:policy.participantIds},grant.agentId);
   for(const input of grant.inputs)if(input.readers.includes(grant.agentId))checkInput(grant.runId,input,grant.agentId,grant.parentGrantId?grant.outputAccess:undefined);
   return {grant,policy};
@@ -206,6 +209,6 @@ export function revokeAutonomousAuthority(runId:string,grantId:string|null,reaso
 
 export function autonomousCollaborationSupport(){
   return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,delegationVersion:1,
-    deliveryVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:false,
-    reason:'API delegation and automatic result delivery require explicit versioned roots and execute mode; default chat entry remains AC4'} as const;
+    deliveryVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:config.autonomousCollaborationMode==='execute'&&config.orchestrationRollout.entryMode==='execute'&&config.orchestrationRollout.enabledDrivers.includes('builtin-llm'),
+    reason:'API delegation and automatic result delivery require explicit versioned roots and execute mode; ordinary API entry requires entryVersion=2; native autonomous execution remains closed'} as const;
 }

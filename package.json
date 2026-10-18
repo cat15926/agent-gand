@@ -145,7 +145,9 @@
     "verify:autonomous-ac1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac1.mjs",
     "verify:autonomous-ac2": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac2.mjs",
     "verify:autonomous-ac3": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac3.mjs",
-    "verify:autonomous-ac3-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac3-ui.mjs"
+    "verify:autonomous-ac3-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac3-ui.mjs",
+    "verify:autonomous-ac4": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac4.mjs",
+    "verify:autonomous-ac4-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac4-ui.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

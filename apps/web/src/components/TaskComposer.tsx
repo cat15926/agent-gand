@@ -1,3 +1,4 @@
+import {AutonomousTaskComposer} from './AutonomousTaskComposer';
 import { ScopedDeliveryComposer } from './ScopedDeliveryComposer';
 import { CostPolicyEditor } from './CostPolicyEditor';
 import { BusinessContractEditor } from './BusinessContractEditor';
@@ -53,7 +54,7 @@ export function PlanPreview({ preview, children }: { preview: OrchestrationPrevi
 }
 
 /** One per-turn composer for first task, later tasks and confirmed safe revisions. */
-export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reservations = [], revisionTask, onRevisionClose }: {
+function LegacyTaskComposer({ room, reply, onReplyClear, onManageRoles, reservations = [], revisionTask, onRevisionClose }: {
   room?: Conversation; reply?: Message | null; onReplyClear?: () => void; onManageRoles?: () => void;
   reservations?: api.MemberReservation[]; revisionTask?: api.TaskState | null; onRevisionClose?: () => void;
 }) {
@@ -239,4 +240,15 @@ export function TaskComposer({ room, reply, onReplyClear, onManageRoles, reserva
       <label className="block text-xs text-zinc-400">发送快捷键<select aria-label="发送快捷键" value={shortcut} className="input mt-1" onChange={e => { setShortcut(e.target.value); try { localStorage.setItem('gand:send-shortcut',e.target.value); } catch { /* preference remains active */ } }}><option value="enter">Enter 发送，Shift+Enter 换行</option><option value="ctrl-enter">Ctrl/⌘+Enter 发送，Enter 换行</option></select></label><button type="button" className={primary} onClick={() => setSettingsOpen(false)}>完成设置</button></div></Drawer>}
     <WorkspacePanel open={workspaceOpen} onClose={() => setWorkspaceOpen(false)} current={workspace} onSelect={value => { invalidate(); setWorkspace(value); }} goal={goal} />
   </div>;
+}
+
+/** The rollout chooses the default once; explicit advanced entry keeps historical contracts. */
+export function TaskComposer(props:Parameters<typeof LegacyTaskComposer>[0]){
+ const {state}=useStore();
+ const [options,setOptions]=useState<Awaited<ReturnType<typeof api.getOrchestrationOptions>>|null>(null),[advanced,setAdvanced]=useState(false);
+ useEffect(()=>{let live=true;void api.getOrchestrationOptions().then(value=>{if(live)setOptions(value);}).catch(()=>{});return()=>{live=false;};},[]);
+ if(!options)return <p role="status" className="p-3 text-xs text-zinc-400">正在读取任务入口…</p>;
+ const answering=Boolean(props.reply&&state.collaborationDecisions.some(d=>d.promptMessageId===props.reply!.id&&d.kind==='agent_question'&&d.status==='pending'));
+ if(props.revisionTask||answering||!options.autonomous?.available)return <LegacyTaskComposer {...props}/>;
+ return <><div hidden={advanced}><AutonomousTaskComposer room={props.room} reply={props.reply} onReplyClear={props.onReplyClear} options={options.autonomous} onAdvanced={()=>setAdvanced(true)}/></div>{advanced&&<><button type="button" className="m-3 text-xs text-violet-200" onClick={()=>setAdvanced(false)}>返回需求输入</button><LegacyTaskComposer {...props}/></>}</>;
 }

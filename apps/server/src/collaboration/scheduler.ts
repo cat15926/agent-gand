@@ -969,6 +969,7 @@ export function recoverCollaborationRuns(): void {
   for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.status='waiting_for_user'"))settleAutonomousRun(row.run_id);
   for (const runId of listRunningCollaborationRunIds()) {
     const run = getRun(runId); if (run) ensureCollaborationSpan(run);
+    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration){settleAutonomousRun(runId);continue;}
     if (hasPendingDecision(runId)) setRunStatus(runId, 'waiting_for_user');
     else finalizeRun(runId);
   }

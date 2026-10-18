@@ -69,7 +69,7 @@ export async function budgetedChat(runId: string, provider: LLMProvider, request
   try{
     const response=await modelCallHooks.run(hooks??{},()=>modelCallContext.run(id,()=>budgetedChatImpl(runId,provider,request,guardedDelta,agentId)));
     finishModelCall(id,true);
-    if(autonomous)assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm');
+    if(autonomous)assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm',{allowPause:true});
     return response;
   }catch(error){reconcileModelCallReservations(id);finishModelCall(id,false);throw error;}finally{hooks?.onFinished?.();}
 }

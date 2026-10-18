@@ -1,3 +1,4 @@
+import {instructionRevision,autonomousEntryEnabled} from '../runtime/autonomousInstructions.ts';
 import {randomUUID} from 'node:crypto';
 import {intersectMessageAccess,isMessageVisibleTo,isMessageWithinScope,type AutonomousAggregateIntentV1,type AutonomousEmitIntentV1,type AutonomousQuestionIntentV1,type AutonomousGrantBinding,type AutonomousDecisionPreview,type MessageAccess,type ScopedSourceRef} from '@agent-gand/shared';
 import {all,get,run,tx} from '../db/database.ts';
@@ -17,7 +18,7 @@ import {autonomousWork,childWorks,commitAutonomousDelegation,getScopeAccess,asse
 interface SourceSelection {workId:string;refs:ScopedSourceRef[];}
 interface Plan {
   id:string;runId:string;workId:string;grantId:string;attemptId:string;kind:'update'|'final';format:AutonomousEmitIntentV1['format'];
-  body:string;access:MessageAccess;exposure:AutonomousExposure;refs:ScopedSourceRef[];intentSha256:string;decisionId?:string;
+  body:string;access:MessageAccess;exposure:AutonomousExposure;refs:ScopedSourceRef[];intentSha256:string;decisionId?:string;instructionRevision?:number;
 }
 interface Proposal {
   id:string;runId:string;workId:string;grantId:string;kind:'question'|'intake'|'release';fingerprint:string;
@@ -123,7 +124,7 @@ function loadPlan(id:string):Plan{
   const row=get<{record:string;sha256:string}>('SELECT record,sha256 FROM autonomous_emission_plans WHERE id=?',id);if(!row)return fail('AUTONOMOUS_AUTHORITY_INVALID');
   const p=JSON.parse(row.record) as Plan;if(digest(p)!==row.sha256||p.id!==id)return fail('AUTONOMOUS_POLICY_DRIFT');assertAutonomousResultAuthority(p.grantId,p.runId);validateAutonomousExposure(p.runId,p.exposure);validateRefs(p.runId,[...p.refs,...p.exposure.inputs]);return p;
 }
-function savePlan(plan:Plan,key:string):void {run('INSERT INTO autonomous_emission_plans VALUES(?,?,?,?,?,?,?,?,?)',plan.id,plan.runId,plan.workId,plan.attemptId,key,plan.kind,JSON.stringify(plan),digest(plan),now());}
+function savePlan(plan:Plan,key:string):void {if(autonomousEntryEnabled(plan.runId))plan.instructionRevision=instructionRevision(plan.runId);run('INSERT INTO autonomous_emission_plans VALUES(?,?,?,?,?,?,?,?,?)',plan.id,plan.runId,plan.workId,plan.attemptId,key,plan.kind,JSON.stringify(plan),digest(plan),now());}
 function publishPlan(plan:Plan,approved=false){
   const prior=get<{message_id:string}>('SELECT message_id FROM autonomous_emission_records WHERE plan_id=?',plan.id);if(prior)return prior.message_id;
   loadPlan(plan.id);targetAccess(plan.runId,plan.access);
@@ -239,7 +240,7 @@ export function aggregateReturnInputs(work:AutonomousWork):ScopedSourceRef[]{
 export function prepareAutonomousFinal(runId:string):{messageId:string;body:string;access:MessageAccess}{
   const root=get<AutonomousWork>('SELECT * FROM autonomous_work_items WHERE run_id=? AND parent_work_id IS NULL',runId)!;
   const latest=get<{id:string}>('SELECT id FROM autonomous_emission_plans WHERE work_id=? AND kind=\'final\' ORDER BY created_at DESC,rowid DESC LIMIT 1',root.id);
-  if(latest){const plan=loadPlan(latest.id);if(!plan.decisionId||decisionOutcome(plan.decisionId)?.outcome==='approved'){return {messageId:publishPlan(plan),body:plan.body,access:plan.access};}}
+  if(latest){const plan=loadPlan(latest.id);if((!autonomousEntryEnabled(runId)||plan.instructionRevision===instructionRevision(runId))&&(!plan.decisionId||decisionOutcome(plan.decisionId)?.outcome==='approved')){return {messageId:publishPlan(plan),body:plan.body,access:plan.access};}}
   const result=loadAutonomousResult(root.id),sources=childWorks(root.id).map(w=>({workId:w.id,refs:[loadAutonomousResult(w.id).message,...loadAutonomousResult(w.id).artifacts]}));
   const refs=[result.message,...result.artifacts,...sources.flatMap(s=>s.refs)],policy=loadAutonomousTaskPolicy(runId)!;
   const intersection=intersectMessageAccess([policy.outputAccess,...refs.map(ref=>inspectScopedSource(runId,ref.kind,ref.id).access)]);

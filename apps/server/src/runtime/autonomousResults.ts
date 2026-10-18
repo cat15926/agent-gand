@@ -39,7 +39,7 @@ export function assertAutonomousResultAuthority(grantId:string,runId:string):voi
 /** Called inside the accepted completion transaction. No new read/disclosure authority is issued. */
 export function sealAutonomousResult(input:{runId:string;workId:string;grantId:string;attemptId:string;candidateId:string;messageId:string;exposure:AutonomousExposure}):void {
   const result:AutonomousResult={version:1,runId:input.runId,workId:input.workId,grantId:input.grantId,attemptId:input.attemptId,candidateId:input.candidateId,
-    message:compileScopedSource(input.runId,'message',input.messageId),artifacts:all<{id:string}>("SELECT id FROM managed_artifact_versions WHERE run_id=? AND json_extract(record,'$.attemptId')=?",input.runId,input.attemptId).map(r=>compileScopedSource(input.runId,'artifact',r.id)),exposure:input.exposure};
+    message:compileScopedSource(input.runId,'message',input.messageId),artifacts:all<{id:string}>("SELECT f.id FROM managed_artifact_versions f JOIN collaboration_attempts a ON a.id=json_extract(f.record,'$.attemptId') JOIN autonomous_dispatch_work w ON w.dispatch_id=a.dispatch_id WHERE f.run_id=? AND w.work_id=?",input.runId,input.workId).map(r=>compileScopedSource(input.runId,'artifact',r.id)),exposure:input.exposure};
   run('INSERT INTO autonomous_results VALUES(?,?,?,?,?,?,?)',input.workId,input.runId,input.attemptId,input.candidateId,JSON.stringify(result),digest(result),new Date().toISOString());
 }
 export function loadAutonomousResult(workId:string,visited=new Set<string>()):AutonomousResult {

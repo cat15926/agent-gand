@@ -1,3 +1,4 @@
+import {AutonomousTaskCard} from './AutonomousTaskCard';
 import { BusinessAcceptancePanel, BUSINESS_OUTCOME_LABEL } from './BusinessAcceptancePanel';
 import { useEffect, useState } from 'react';
 import type { Run, RunFailureReport } from '@agent-gand/shared';
@@ -13,7 +14,7 @@ import { BusinessRecoveryPanel, CheckpointRecoveryScope } from './BusinessRecove
 import { SnapshotManifest } from './ArtifactSnapshotPanel';
 import { SchedulingPanel } from './SchedulingPanel';
 export const STATUS_LABEL: Record<string,string> = { pending: '已排队', running: '执行中', awaiting_approval: '等待审批', waiting_for_user: '等待你的处理', completed: '已完成', failed: '失败（保留已确认结果）', cancelled: '已取消' };
-export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; detail?: api.TaskState; onRevise: (task: api.TaskState) => void; onRetryDraft: (newRoom: boolean) => void }) {
+function LegacyTaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; detail?: api.TaskState; onRevise: (task: api.TaskState) => void; onRetryDraft: (newRoom: boolean) => void }) {
   const { state, refreshConversation, setActiveRun } = useStore(); const [busy, setBusy] = useState(false); const [error,setError] = useState(''); const [expanded,setExpanded] = useState(false);
   const [coordination,setCoordination] = useState<api.CoordinationRunDetail | null>(null);
   const [continuation,setContinuation] = useState<api.ContinuationPreview | null>(null);
@@ -109,3 +110,5 @@ export function TaskCard({ run, detail, onRevise, onRetryDraft }: { run: Run; de
     {error && <p role="alert" className="mt-2 text-red-300">{error}</p>}
   </section>;
 }
+
+export function TaskCard(props:Parameters<typeof LegacyTaskCard>[0]){return props.detail?.autonomous?<AutonomousTaskCard run={props.run} view={props.detail.autonomous} detail={props.detail}/>:<LegacyTaskCard {...props}/>;}

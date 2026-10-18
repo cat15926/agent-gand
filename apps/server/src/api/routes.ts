@@ -1,3 +1,6 @@
+import {autonomousEntryOptions,autonomousTaskView} from '../collaboration/autonomousEntry.ts';
+import {appendAutonomousInstruction} from '../runtime/autonomousInstructions.ts';
+import {AutonomousTaskError} from '../runtime/autonomousPolicy.ts';
 import { scopedCollaborationCapabilities } from '../runtime/scopedCapabilities.ts';
 import { loadRuntimeContract } from '../runtime/runPolicy.ts';
 import { registerArtifactRoutes } from './artifactRoutes.ts';
@@ -156,12 +159,12 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (req.method === 'POST' && entryEndpoints.has(endpoint)) recordEntryStatistics(endpoint,format(endpoint,req.body),reply.statusCode);
   });
   app.setErrorHandler((err, req, reply) => {
-    const status = (err as { status?: number }).status;
+    const status = err instanceof AutonomousTaskError?409:(err as { status?: number }).status;
     const code = typeof status === 'number' ? status : 500;
     if (code >= 500) req.log.error({ message: redactSecrets(err instanceof Error ? err.message : String(err)) });
     reply.code(code).send({ error: redactSecrets(err instanceof Error ? err.message : String(err)), ...(
       (err instanceof AgentValidationError || err instanceof AccountError) ? { fieldErrors: err.fieldErrors } : {}),
-      ...(err instanceof OrchestrationError ? { code: err.code } : {}) });
+      ...(err instanceof OrchestrationError || err instanceof AutonomousTaskError ? { code: err.code } : {}) });
   });
 
   app.get('/api/health', async () => ({
@@ -256,6 +259,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (action !== 'pause' && action !== 'resume' && action !== 'cancel') throw httpError(400, 'action 必须是 pause、resume、cancel 或 retry');
     return applyRunAction(req.params.runId, action);
   });
+  app.post<{Params:{runId:string}}>('/api/runs/:runId/instructions',{bodyLimit:20000},async req=>appendAutonomousInstruction(req.params.runId,req.body));
   app.post<{ Params: { runId: string } }>('/api/runs/:runId/stop', async req => applyRunAction(req.params.runId, 'cancel'));
   app.get<{ Params: { runId: string } }>('/api/runs/:runId/recovery', async req => assessRunRecovery(req.params.runId));
   app.get<{ Params: { runId: string } }>('/api/runs/:runId/failures', async req => runFailureReport(req.params.runId));
@@ -278,7 +282,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: unknown }>('/api/orchestration/preview', { bodyLimit: 2 * 1024 * 1024 }, async (req) => previewExecutionOrchestration(req.body));
   app.get('/api/orchestration/options', async () => ({ version: 'o4-workflows-v1', templateVersion: 'o4-workflows-v1', resolverVersion: 'o4-rules-v1',
     strategies: ['auto','parallel','serial'], workflows: ['routine','analysis_summary','development_review','supervisor_decomposition','bounded_debate'],
-    admission: config.orchestrationRollout,
+    admission: config.orchestrationRollout, autonomous:autonomousEntryOptions(),
     verificationEnvironment: { fixture: process.env.NODE_ENV === 'test', claudeSdkWorker: config.externalAgents.sdkWorkerCommand ? 'custom' : 'bundled' },
     detailedPlanning: { explicitOnly: true, consumesQuota: true, maximumTasks: 5 }, maximumDebateRounds: 10 }));
   app.get('/api/orchestration/entry-statistics', async () => ({ statistics: entryStatistics(), containsRequestContent: false }));
@@ -439,7 +443,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       const snapshot = getRunOrchestrationSnapshot(item.id);
       const writeStarted = snapshot?.execution?.readonly === false && Boolean(get('SELECT id FROM coordination_step_attempts WHERE run_id=? LIMIT 1',item.id));
       const latestPreview = plan && plan.revision > 1 ? get<{ payload: string }>("SELECT p.payload FROM orchestration_previews p JOIN coordination_plan_revisions r ON p.id=json_extract(r.payload,'$.confirmationPreviewId') WHERE r.plan_id=? AND r.revision=?",plan.id,plan.revision) : null;
-      return { runId: item.id, revisedGoal: latestPreview ? JSON.parse(latestPreview.payload).preview.request.goal as string : null, revisionBlockedReason: snapshot?.request.businessContract?.executionMode === 'stage_gated' ? '逐阶段任务与门禁已冻结；请验收当前阶段，补充工作请新建任务。' : writeStarted ? '写入任务已经开始，不能重建图；请检查变更后创建新任务。' : null, snapshot, planStatus: plan?.status ?? null,
+      return { runId: item.id, autonomous:autonomousTaskView(item.id), revisedGoal: latestPreview ? JSON.parse(latestPreview.payload).preview.request.goal as string : null, revisionBlockedReason: snapshot?.request.businessContract?.executionMode === 'stage_gated' ? '逐阶段任务与门禁已冻结；请验收当前阶段，补充工作请新建任务。' : writeStarted ? '写入任务已经开始，不能重建图；请检查变更后创建新任务。' : null, snapshot, planStatus: plan?.status ?? null,
         revision: plan?.revision ?? null, pauseRequested: Boolean(control?.pause_requested || plan?.status === 'pause_requested'),
         paused: item.status === 'waiting_for_user' && (plan?.status === 'paused' || Boolean(control?.pause_requested)),
         attention: unknown, reason: control?.reason ?? (unknown ? '原生执行结果未知，请核对工作区后创建新任务' : null),

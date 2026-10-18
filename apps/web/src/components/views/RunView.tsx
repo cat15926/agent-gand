@@ -144,6 +144,7 @@ function MessageItem({
       setCopied(false); setCopyError('复制失败，请手动选择内容复制');
     }
   }
+  if(message.kind==='agent'&&message.meta?.autonomousInternal===true)return <div id={`message-${message.id}`} data-read-anchor className="mx-auto w-full max-w-3xl"><details className="rounded-lg bg-zinc-900/60 p-3 text-xs text-zinc-400" open={fullReport}><summary>{author?.name??message.from} · 内部交付已保存</summary><div className="mt-2"><MarkdownBody text={message.body}/></div></details></div>;
   if (message.kind === 'system' || message.kind === 'tool') return <div id={`message-${message.id}`} data-read-anchor className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400" open={Boolean(decision)||Boolean(message.meta?.collaborationRecovery)}>
     <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'}{message.visibility === 'private' ? ' · 私密' : ''} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-xs text-zinc-400">{message.body}</pre>
@@ -304,6 +305,7 @@ export function RunView({ onManageRoles }: { onManageRoles?: () => void }) {
   async function locateMessage(id: string) {
     scrollControllerRef.current?.pauseFollowing(); setFollowing(false);
     if (!document.getElementById(`message-${id}`) && !await pageHistory('replace',id)) return false;
+    for(let parent=document.getElementById(`message-${id}`)?.parentElement;parent;parent=parent.parentElement)if(parent instanceof HTMLDetailsElement)parent.open=true;
     revealMessage(id); return true;
   }
   async function jumpLatest() {
@@ -361,10 +363,11 @@ export function RunView({ onManageRoles }: { onManageRoles?: () => void }) {
           <div className="mx-auto max-w-4xl space-y-1">
             {taskStateError && <p role="alert" className="text-xs text-amber-200">任务状态获取失败：{taskStateError}</p>}
             {state.history && <div className="flex items-center justify-center gap-3 py-2 text-xs text-zinc-400"><span>消息 {state.history.oldestSeq ?? 0}–{state.history.newestSeq ?? 0} · 共 {state.history.total} 条</span>{state.history.hasOlder && <button disabled={historyBusy} onClick={() => void pageHistory('older')} className="rounded-lg bg-zinc-800 px-3 py-2 text-violet-200 disabled:opacity-40">加载更早消息</button>}</div>}
-            {visibleRuns.map(run => { const messages = state.messages.filter(message => message.runId === run.id && message.meta?.scopedInternal !== true); return <div key={run.id}>
+            {visibleRuns.map(run => { const all=state.messages.filter(message=>message.runId===run.id&&message.meta?.scopedInternal!==true);const autonomous=Boolean(taskStates.find(t=>t.runId===run.id)?.autonomous?.entry)||all.some(m=>m.meta?.autonomousEntryVersion===1);const internal=autonomous?all.filter(m=>m.meta?.autonomousInternal===true):[];const messages=autonomous?all.filter(m=>m.meta?.autonomousInternal!==true):all;return <div key={run.id}>
               <TaskCard onRetryDraft={newRoom => retryDraft(run.id,newRoom)} run={run} detail={taskStates.find(item => item.runId === run.id)} onRevise={task => { setReply(null); setRevisionTask(task); }} />
               {state.collaborationDecisions.filter(d => d.runId === run.id && d.status === 'pending' && !messages.some(m => m.id === d.promptMessageId)).map(decision => <div key={decision.id} className="my-3 rounded-lg border border-violet-500/30 p-3"><p className="text-sm text-violet-200">此任务有待处理的问题或决定</p><button disabled={historyBusy} onClick={() => void locateMessage(decision.promptMessageId)} className="mt-2 rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300">查看原问题</button><DecisionCard decision={decision} /></div>)}
               {messages.map((message,index) => <MessageItem key={message.id} message={message} allMessages={state.messages} onLocate={locateMessage} onReply={message => { setRevisionTask(null); setReply(message); requestAnimationFrame(() => document.getElementById('goal-input')?.focus()); }} groupStart={!belongsToSameVisualGroup(messages[index - 1],message)} groupEnd={!belongsToSameVisualGroup(message,messages[index + 1])} />)}
+              {internal.length>0&&<details aria-label="内部协作记录" className="mx-auto my-2 max-w-3xl rounded-lg border border-zinc-800 p-2 text-xs text-zinc-500"><summary>内部协作记录 · 按需查看</summary><div className="mt-2 space-y-2">{internal.map(message=><MessageItem key={message.id} message={message} allMessages={state.messages} onLocate={locateMessage} onReply={message=>setReply(message)} groupStart groupEnd/>)}</div></details>}
             </div>; })}
             {state.history?.hasNewer && <div className="flex justify-center py-3"><button disabled={historyBusy} onClick={() => void pageHistory('newer')} className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-violet-200 disabled:opacity-40">加载后续消息</button></div>}
             {!state.history?.hasNewer && Object.entries(state.streams).map(([id, text]) => <StreamingItem key={id} spanId={id} text={text} />)}
@@ -372,7 +375,7 @@ export function RunView({ onManageRoles }: { onManageRoles?: () => void }) {
           </div>
         </div>
         {(historyBusy || historyError) && <div className="absolute left-2 right-2 top-1 z-10 rounded-lg bg-zinc-900/95 p-2 text-xs shadow-lg">{historyBusy ? <span role="status" className="text-zinc-300">正在加载消息…</span> : <span role="alert" className="text-red-300">{historyError}<button onClick={() => setHistoryError('')} className="float-right px-2 text-zinc-300">关闭提示</button></span>}</div>}
-        {(!following || state.history?.hasNewer) && <nav aria-label="消息阅读导航" className="flex shrink-0 justify-center border-t border-zinc-800 bg-zinc-950/90 px-2 py-1"><button disabled={historyBusy} onClick={() => void jumpLatest()} className="min-h-11 rounded-full px-4 text-sm text-violet-200 hover:bg-zinc-800 disabled:opacity-40">{unread ? `${unread} 条新消息 · ` : ''}跳到最新 ↓</button></nav>}</div>
+        {(!following || state.history?.hasNewer) && <nav aria-label="消息阅读导航" className="flex shrink-0 justify-center border-t border-zinc-800 bg-zinc-950/90 px-2 py-1"><button disabled={historyBusy} onClick={() => void jumpLatest()} className="min-h-11 rounded-full px-4 text-sm text-violet-200 hover:bg-zinc-800 disabled:opacity-40">{unread ? taskStates.some(t=>t.autonomous?.entry)?'协作有更新 · ':`${unread} 条新消息 · ` : ''}跳到最新 ↓</button></nav>}</div>
         <div className="chat-composer-footer shrink-0 max-h-[35%] overflow-y-auto border-t border-zinc-800 bg-zinc-950/90 [scrollbar-gutter:stable]">
           <TaskComposer key={`${room.id}:${revisionTask?.runId ?? 'new-task'}:${composerVersion}`} room={room} reply={reply} onReplyClear={() => setReply(null)} reservations={reservations} revisionTask={revisionTask} onRevisionClose={() => setRevisionTask(null)} />
         </div>
