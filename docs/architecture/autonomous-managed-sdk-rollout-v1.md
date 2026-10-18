@@ -1,6 +1,6 @@
 # AC6 托管 SDK、自主准入与排空契约
 
-日期：2026-10-18。对应[实施方案](../plans/agent-autonomous-collaboration-implementation-plan.md) AC6。本文件描述生效实现，实际开放组合和验证结果见[验收记录](../reports/autonomous-collaboration-ac6-acceptance-2026-10-18.md)。
+日期：2026-10-18。对应[实施方案](../plans/agent-autonomous-collaboration-implementation-plan.md) AC6。本文件描述生效实现，实际组合验证见[验收记录](../reports/autonomous-collaboration-ac6-acceptance-2026-10-18.md)。用户批准后的业务环境开放范围与迁移证据见[灰度切换记录](../reports/autonomous-collaboration-service-cutover-2026-10-18.md)。
 
 ## 新根与执行器
 
@@ -49,7 +49,7 @@ AC6 的关闭准入、移出房间或移除后端只阻止新根。已冻结根�
 
 `pnpm autonomous:inventory [数据库路径]` 只读检查当前/期望 Schema、是否需要迁移、活动根、执行者/原生进程、队列、决策、未知 token/费用和回退条件。自主根统计之外，`database` 单列全库活动任务、原生/工具未知效果及未知用量；整库回退就绪必须同时满足这些条件，不能因自主根为0而忽略旧手动任务。该脚本不导入应用数据库初始化模块，不加载账户凭据，不调用模型。它也可读取尚未迁移的业务库。
 
-切换前保存匹配版本的 SQLite 一致性备份及受保护账户密钥目录，记录应用 revision 和配置。先在复制库执行迁移、兼容检查及恢复演练；业务库切换须使用 schema24 兼容 worker。日常服务没有因本阶段实现而自动重启或开放。
+切换前保存匹配版本的 SQLite 一致性备份及受保护账户密钥目录，记录应用 revision 和配置。先在复制库执行迁移、兼容检查及恢复演练；业务库切换须使用 schema24 兼容 worker。实现本身不自动重启或开放日常服务；本地业务环境已在用户后续批准后完成指定房间灰度切换。
 
 关闭新准入后先排空活动根；存在未知费用/效果时保留原账本和兼容 worker，按真实证据处理。需要回退时恢复匹配应用版本与切换前一致性备份；禁止删迁移行/新表或清空 unknown 来假装降级成功。专项在隔离 v22 备份和升级副本中验证旧 worker 拒绝新库、接受原备份；它不代表已经替用户恢复日常业务库。
 

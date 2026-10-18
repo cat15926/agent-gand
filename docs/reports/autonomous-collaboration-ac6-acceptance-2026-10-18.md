@@ -2,6 +2,8 @@
 
 日期：2026-10-18。对应[实施计划](../plans/agent-autonomous-collaboration-implementation-plan.md)与[生效契约](../architecture/autonomous-managed-sdk-rollout-v1.md)。
 
+后续状态：本报告记录切换前验收。之后按用户批准，代码提交为 `fe03c97`，业务库升级至 schema24，指定房间的 API 负责人 / SDK 成员灰度已开放并通过实际页面验收；详见[业务服务灰度切换记录](autonomous-collaboration-service-cutover-2026-10-18.md)。下文的“未提交/未切换”描述保留为当时的历史事实。
+
 ## 提交和范围
 
 AC5 已按用户要求先独立提交推送 `66dfe19`（`feat(collaboration): add validated multi-round autonomous workflows`）到 `origin/main`。AC6 为之后的本地变更，尚未提交推送。
