@@ -26,3 +26,10 @@ export function assertAutonomousModelAdmission(runId:string,agentId:string,attem
   if(get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND (recovery_attention=1 OR (pause_requested=1 AND ?=0))',runId,options.allowPause&&get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.entryVersion')=1",runId)?1:0))return autonomousFail('AUTONOMOUS_AUTHORITY_INVALID');
   return policy;
 }
+
+/** Unknown token or fee usage fences protocol adjudication and terminal completion alike. */
+export function assertAutonomousUsageKnown(runId:string):void {
+  if(get(`SELECT 1 FROM orchestration_model_calls c WHERE c.run_id=? AND (c.status='unknown'
+    OR EXISTS(SELECT 1 FROM orchestration_token_reservations t WHERE t.id=c.id AND t.status='unknown')
+    OR EXISTS(SELECT 1 FROM execution_cost_reservations money WHERE money.id=c.id AND money.status='unknown'))`,runId))return autonomousFail('AUTONOMOUS_DEPENDENCIES_UNSATISFIED');
+}

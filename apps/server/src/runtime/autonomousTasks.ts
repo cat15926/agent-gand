@@ -1,3 +1,4 @@
+import {flowCatalog} from '../collaboration/protocols/definitions.ts';
 import {randomUUID} from 'node:crypto';
 import {isMessageVisibleTo,isMessageWithinScope,DEFAULT_RESPONSE_TIMEOUT_MS,DEFAULT_SCOPED_RUN_TOKENS,
   type AutonomousTaskPolicyV1,type AutonomousTaskGrantV1,type AutonomousGrantBinding,type AutonomousActionName,type MessageAccess,type AutonomousInputV1,type CostPolicy} from '@agent-gand/shared';
@@ -17,7 +18,7 @@ import {autonomousDigest as digest,autonomousFail as fail,autonomousObject as ob
 import {validateAutonomousEntrySources} from './autonomousInstructions.ts';
 import {validateAutonomousDerivedSource} from './autonomousResults.ts';
 
-const ACTIONS:AutonomousActionName[]=['delegate','aggregate','emit','request_user','complete'];
+const ACTIONS:AutonomousActionName[]=['delegate','aggregate','emit','request_user','complete','flow','flow_action'];
 const list=(value:unknown):string[]=>{if(!strings(value))return fail('AUTONOMOUS_CONTRACT_INVALID');return [...value];};
 const text=(value:unknown):string=>{if(typeof value!=='string'||!value.trim()||value.length>240)return fail('AUTONOMOUS_CONTRACT_INVALID');return value;};
 const subset=(values:string[],ceiling:string[]):void=>{if(values.some(id=>!ceiling.includes(id)))fail('AUTONOMOUS_ACCESS_DENIED');};
@@ -57,7 +58,7 @@ export function loadAutonomousTaskGrant(id:string):AutonomousTaskGrantV1 {
 
 /** Trusted server compiler, not an Agent tool or HTTP admission endpoint.
  * Freezes a fresh root only; creates no Dispatch and cannot start a v4 worker in AC1. */
-export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1;entryVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
+export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1;entryVersion?:1;flowVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
   return tx(()=>{
     const v=object(value,['coordinatorId','participantIds','inputs','outputAccess','budget']);
     const admission=digest(options.entryVersion?{draft:v,...options}:options.deliveryVersion?{draft:v,delegationVersion:1,deliveryVersion:1}:options.delegationVersion?{draft:v,delegationVersion:1}:v);
@@ -106,7 +107,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     const costPolicy=normalizeCostPolicy(options.costPolicy??preferences.constraints?.costPolicy??{version:1,currency:'USD',mode:'estimate',maxCost:config.collaboration.maxCostUsd,unknownAction:'reserve',unknownReserve:0.01,prices:[]});
     if(costPolicy.mode!=='estimate')return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const policy:AutonomousTaskPolicyV1={version:1,id:randomUUID(),revision:1,admissionSha256:admission,runId,conversationId:source.conversation_id,coordinatorId,participantIds,rootSource:initial.ref,rootAccess,outputAccess,inputs,members,
-      budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',createdAt:now};
+      budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',...(options.flowVersion?{protocols:flowCatalog()}:{}),createdAt:now};
     run('INSERT INTO autonomous_task_policies VALUES(?,?,?,?,?)',runId,policy.id,JSON.stringify(policy),digest(policy),now);
     const planned=planCollaborationAdmission({runId,objective:source.goal,participantIds,targetAgentIds:[coordinatorId],completionEngine:true,messageVisibilityVersion:1,completionCandidateVersion:1,successorObligationVersion:1,evidenceBundleVersion:1,contextContributorVersion:1,durableHoldVersion:2,
       exitGuard:{version:1,maxCorrections:0,correctionMaxTokens:512},executionPolicy:executionPolicyForProfile('execute',{toolApiVersion:4,implicitAnswerPolicy:'explicit_only'})});
@@ -114,13 +115,14 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     planned.contract.features!.autonomousCollaboration={version:1,capabilityPackage:'autonomous-collaboration-v1',boundaryVersion:2,policyId:policy.id,policyRevision:1,policySha256:digest(policy),rootRunId:runId,budgetRunId:runId};
     if(options.delegationVersion)planned.contract.features!.autonomousCollaboration.delegationVersion=1;
     if(options.deliveryVersion)planned.contract.features!.autonomousCollaboration.deliveryVersion=1;
+    if(options.flowVersion)planned.contract.features!.autonomousCollaboration.flowVersion=1;
     if(options.entryVersion)planned.contract.features!.autonomousCollaboration.entryVersion=1;
     freezeRuntimeContract(planned.contract);resolveRunPolicy(runId);
     const subjectId=randomUUID();
     run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,runId,'root:'+coordinatorId,'root',null,source.goal,now,now);
     run("INSERT INTO runtime_custody VALUES(?,'unassigned',NULL,NULL,0,0,?)",subjectId,now);
     const rootGrant:AutonomousTaskGrantV1={version:1,id:randomUUID(),runId,policyId:policy.id,parentGrantId:null,subjectId,agentId:coordinatorId,participantIds,inputs,
-      allowedTools:members.find(m=>m.agentId===coordinatorId)!.allowedTools,delegableTools:[...new Set(members.flatMap(m=>m.allowedTools))].sort(),actions:[...ACTIONS],outputAccess:rootAccess,depth:0,expiresAt:policy.budget.deadlineAt,createdAt:now};
+      allowedTools:members.find(m=>m.agentId===coordinatorId)!.allowedTools,delegableTools:[...new Set(members.flatMap(m=>m.allowedTools))].sort(),actions:ACTIONS.filter(a=>options.flowVersion||!['flow','flow_action'].includes(a)),outputAccess:rootAccess,depth:0,expiresAt:policy.budget.deadlineAt,createdAt:now};
     persistGrant(rootGrant,'autonomous:root:'+runId,policy);
     return {policy,rootGrant};
   });
@@ -209,6 +211,6 @@ export function revokeAutonomousAuthority(runId:string,grantId:string|null,reaso
 
 export function autonomousCollaborationSupport(){
   return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,delegationVersion:1,
-    deliveryVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:config.autonomousCollaborationMode==='execute'&&config.orchestrationRollout.entryMode==='execute'&&config.orchestrationRollout.enabledDrivers.includes('builtin-llm'),
+    deliveryVersion:1,flowVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:config.autonomousCollaborationMode==='execute'&&config.orchestrationRollout.entryMode==='execute'&&config.orchestrationRollout.enabledDrivers.includes('builtin-llm'),
     reason:'API delegation and automatic result delivery require explicit versioned roots and execute mode; ordinary API entry requires entryVersion=2; native autonomous execution remains closed'} as const;
 }

@@ -145,6 +145,7 @@ function MessageItem({
     }
   }
   if(message.kind==='agent'&&message.meta?.autonomousInternal===true)return <div id={`message-${message.id}`} data-read-anchor className="mx-auto w-full max-w-3xl"><details className="rounded-lg bg-zinc-900/60 p-3 text-xs text-zinc-400" open={fullReport}><summary>{author?.name??message.from} · 内部交付已保存</summary><div className="mt-2"><MarkdownBody text={message.body}/></div></details></div>;
+  if(message.kind==='system'&&message.meta?.authorizedBy==='frozen_protocol'&&message.meta?.autonomousInternal!==true)return <section id={`message-${message.id}`} data-read-anchor aria-label="流程公告" className="mx-auto w-full min-w-0 max-w-3xl rounded-xl border border-sky-500/20 bg-sky-500/5 p-3 text-sm [overflow-wrap:anywhere]"><p className="mb-2 text-xs text-sky-300">流程公告 · 按已声明规则裁决{message.visibility==='private'?' · 私密':''}</p><MarkdownBody text={message.body}/></section>;
   if (message.kind === 'system' || message.kind === 'tool') return <div id={`message-${message.id}`} data-read-anchor className="mx-auto max-w-3xl"><details className="rounded-lg bg-zinc-900/60 px-3 py-2 text-xs text-zinc-400" open={Boolean(decision)||Boolean(message.meta?.collaborationRecovery)}>
     <summary className="cursor-pointer">{message.kind === 'tool' ? '🔧 工具活动' : '⚙ 系统消息'}{message.visibility === 'private' ? ' · 私密' : ''} · {message.body.slice(0, 90)}</summary>
     <pre className="mt-2 whitespace-pre-wrap text-xs text-zinc-400">{message.body}</pre>

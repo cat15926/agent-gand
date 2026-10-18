@@ -1,11 +1,11 @@
-import type {AutonomousDelegateIntentV1,AutonomousAggregateIntentV1,AutonomousEmitIntentV1,AutonomousQuestionIntentV1,MessageAccess} from '@agent-gand/shared';
+import type {AutonomousDelegateIntentV1,AutonomousAggregateIntentV1,AutonomousEmitIntentV1,AutonomousQuestionIntentV1,AutonomousFlowIntent,MessageAccess} from '@agent-gand/shared';
 import type {LlmToolCall,LlmToolSchema} from '../llm/provider.ts';
 import {autonomousFail as fail,autonomousObject as object,autonomousStrings as strings} from '../runtime/autonomousPolicy.ts';
 import {isAcknowledgementOutput} from '../runtime/exitGuard.ts';
 
 const key=(value:unknown):string=>{if(typeof value!=='string'||!value.trim()||value.length>120)return fail('AUTONOMOUS_CONTRACT_INVALID');return value;};
 const list=(value:unknown):string[]=>{if(!strings(value))return fail('AUTONOMOUS_CONTRACT_INVALID');return [...value];};
-export type AutonomousControlCall={type:'delegate';intent:AutonomousDelegateIntentV1}|{type:'complete';summary:string}
+export type AutonomousControlCall={type:'flow';intent:AutonomousFlowIntent}|{type:'flow_action';action:unknown}|{type:'delegate';intent:AutonomousDelegateIntentV1}|{type:'complete';summary:string}
   |{type:'aggregate';intent:AutonomousAggregateIntentV1}|{type:'emit';intent:AutonomousEmitIntentV1}|{type:'request_user';intent:AutonomousQuestionIntentV1};
 const body=(value:unknown,max=24000):string=>{if(typeof value!=='string'||!value.trim()||value.length>max)return fail('AUTONOMOUS_CONTRACT_INVALID');return value.trim();};
 const outputAccess=(value:unknown):MessageAccess=>{
@@ -18,6 +18,13 @@ const outputAccess=(value:unknown):MessageAccess=>{
 export function parseAutonomousControlCall(call:LlmToolCall):AutonomousControlCall {
   if(call.input.length>96_000)return fail('AUTONOMOUS_CONTRACT_INVALID');
   let raw:unknown;try{raw=JSON.parse(call.input);}catch{return fail('AUTONOMOUS_CONTRACT_INVALID');}
+  if(call.name==='agent.flow_action')return {type:'flow_action',action:raw};
+  if(call.name==='agent.flow'){
+    const v=object(raw,['commandKey','protocol','players','flowId','expectedStep']);
+    if(v.flowId!==undefined){if(typeof v.flowId!=='string'||!Number.isSafeInteger(v.expectedStep)||v.protocol!==undefined||v.players!==undefined)return fail('AUTONOMOUS_FLOW_INVALID');return {type:'flow',intent:{commandKey:key(v.commandKey),flowId:key(v.flowId),expectedStep:Number(v.expectedStep)}};}
+    if(v.expectedStep!==undefined)return fail('AUTONOMOUS_FLOW_INVALID');
+    return {type:'flow',intent:{commandKey:key(v.commandKey),protocol:key(v.protocol),players:list(v.players)}};
+  }
   if(call.name==='agent.aggregate'){
     const v=object(raw,['commandKey','key','agentId','objective','resultKeys','allowedTools']);
     const resultKeys=list(v.resultKeys);if(!resultKeys.length||resultKeys.length>16)return fail('AUTONOMOUS_CONTRACT_INVALID');
@@ -73,4 +80,9 @@ export const AUTONOMOUS_DELIVERY_TOOLS:LlmToolSchema[]=[
   {name:'agent.aggregate',description:'选择本责任已经完成的 resultKeys，交给有权成员在新内容 Scope 中汇总；可选择自己。输入只由服务端解析，仍用同一根预算；确需新增读者时只提出一次确切授权。',parameters:fields(['commandKey','key','agentId','objective','resultKeys'],{commandKey:{type:'string'},key:{type:'string'},agentId:{type:'string'},objective:{type:'string'},resultKeys:stringList,allowedTools:stringList})},
   {name:'agent.emit',description:'提交阶段更新或最终交付候选。text 受实际已读来源约束；result_bundle 由平台按确切结果组装，不把正文回传给无权的组织者；task_status_v1 只计算固定计数。合法范围自动执行，越界只生成具体决策。final 在任务完成验收后交付。',parameters:fields(['commandKey','kind','format'],{commandKey:{type:'string'},kind:{type:'string',enum:['update','final']},format:{type:'string',enum:['text','result_bundle','task_status_v1']},text:{type:'string'},resultKeys:stringList,access:fields(['visibility','audience'],{visibility:{type:'string',enum:['public','private']},audience:stringList})})},
   {name:'agent.request_user',description:'一次合并真正缺失的业务信息：逐项给出问题和阻塞的工作。不能询问是否继续或代替确切权限批准。回答后恢复同一责任和根预算。',parameters:fields(['commandKey','questions'],{commandKey:{type:'string'},questions:{type:'array',minItems:1,maxItems:6,items:fields(['key','question','requiredFor'],{key:{type:'string'},question:{type:'string'},requiredFor:{type:'string'}})}})},
+];
+
+export const AUTONOMOUS_FLOW_TOOLS:LlmToolSchema[]=[
+ {name:'agent.flow',description:'启动受支持的可校验流程：protocol + players（不同启用成员的 ID，按座次）。身份由平台私密分配。阶段子义务结束自动唤醒后，用 flowId + expectedStep 推进。终局回执后调用 agent.complete；不能编造行动、替玩家投票、修改规则或中途扩大披露。',parameters:fields(['commandKey'],{commandKey:{type:'string'},protocol:{type:'string',enum:['werewolf-five-v1','review-ballot-v1']},players:stringList,flowId:{type:'string'},expectedStep:{type:'integer',minimum:0}})},
+ {name:'agent.flow_action',description:'只提交当前私密材料 requiredAction 中本人的结构化行动。字段必须完全匹配：夜间 kind/target；声明 kind/target/claim/confidence；投票 kind/target；评审 kind/verdict。平台验证并完成本责任，无自由文字和额外字段。',parameters:{type:'object',properties:{kind:{type:'string',enum:['attack','inspect','statement','vote','review']},target:{type:'string'},claim:{type:'string',enum:['seer','villager','unspecified']},confidence:{type:'string',enum:['low','medium','high']},verdict:{type:'string',enum:['approve','revise','reject']}},required:['kind'],additionalProperties:false}},
 ];

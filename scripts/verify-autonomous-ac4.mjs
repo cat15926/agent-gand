@@ -20,17 +20,18 @@ const send=body=>env.app.inject({method:'POST',url:body.conversationId?`/api/con
 const seed=(goal,extra={})=>({entryVersion:2,goal,agentIds:['planner','aa','bb','summary'],clientRequestId:randomUUID(),...extra});
 const final=id=>db.get('SELECT m.* FROM messages m JOIN autonomous_emission_records e ON e.message_id=m.id WHERE e.run_id=?',id);
 const done=async id=>{await until(()=>['completed','failed','cancelled'].includes(trace.getRun(id).status),'task terminal');assert.equal(trace.getRun(id).status,'completed',JSON.stringify(db.all('SELECT status,error FROM collaboration_dispatches WHERE run_id=?',id)));assert.deepEqual(auditShadowRun(id),[]);};
+const latestSchema=(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version;
 const oldModule=path.join(qa,'v20-'+randomUUID()+'.ts');
 try{
  // Genuine AC3 contract in a schema20 fixture, accepted by an actual v20 module.
  const oldRoom=rooms.createConversation({title:'AC4 historical',mode:'collaboration',agentIds:['planner'],supervisorId:null,workspace:null});const oldRun=trace.createRun('完整历史任务用于迁移保留。','collaboration',['planner'],null,null,oldRoom.id);post({runId:oldRun.id,from:'user',to:'planner',kind:'user',body:oldRun.goal});
  freezeAutonomousTask(oldRun.id,{coordinatorId:'planner',participantIds:['planner']},{delegationVersion:1,deliveryVersion:1});
  assert.throws(()=>freezeAutonomousTask(oldRun.id,{coordinatorId:'planner',participantIds:['planner']},{delegationVersion:1,deliveryVersion:1,entryVersion:1}),/AUTONOMOUS_AUTHORITY_INVALID/);
- const migrationDb=path.join(env.root,'v20.sqlite');await db.db.backup(migrationDb);const historical=new Database(migrationDb);historical.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_pause_points;DROP TABLE autonomous_user_instructions;DROP TABLE autonomous_submissions;DELETE FROM orchestration_schema_migrations WHERE version>=21;PRAGMA foreign_keys=ON');
+ const migrationDb=path.join(env.root,'v20.sqlite');await db.db.backup(migrationDb);const historical=new Database(migrationDb);historical.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_flow_actions;DROP TABLE autonomous_flow_jobs;DROP TABLE autonomous_flow_sources;DROP TABLE autonomous_flow_steps;DROP TABLE autonomous_flows;DROP TABLE autonomous_pause_points;DROP TABLE autonomous_user_instructions;DROP TABLE autonomous_submissions;DELETE FROM orchestration_schema_migrations WHERE version>=21;PRAGMA foreign_keys=ON');
  // The backup is created before any AC4 root; the v20 fixture contains only an actual AC3 contract.
  const tables=historical.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('orchestration_schema_migrations','sqlite_sequence') ORDER BY name").all().map(r=>r.name);const sha=d=>createHash('sha256').update(JSON.stringify(tables.map(t=>d.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()))).digest('hex');const before=sha(historical);
  await writeFile(oldModule,execFileSync('git',['show','4b583be:apps/server/src/db/orchestrationMigrations.ts'],{encoding:'utf8'}),{mode:0o600});const old=await import(pathToFileURL(oldModule).href);old.assertOrchestrationSchemaCompatible(historical);historical.close();
- for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',"const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==21)throw new Error('schema');d.closeDatabase();"],{env:{...process.env,DB_PATH:migrationDb},stdio:'pipe'});
+ for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',`const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==${latestSchema})throw new Error('schema');d.closeDatabase();`],{env:{...process.env,DB_PATH:migrationDb},stdio:'pipe'});
  const upgraded=new Database(migrationDb,{readonly:true});assert.equal(sha(upgraded),before);assert.throws(()=>old.assertOrchestrationSchemaCompatible(upgraded),/版本|migration|schema/i);assert.deepEqual(upgraded.pragma('foreign_key_check'),[]);upgraded.close();
  checks.push('schema20 to21 preserves all historical rows twice, actual v20 worker refuses new schema, frozen AC3 root cannot upgrade');
  const initialRuns=db.get('SELECT COUNT(*) n FROM runs').n;
@@ -103,5 +104,5 @@ try{
 
  for(const table of ['autonomous_submissions','autonomous_user_instructions','autonomous_pause_points'])assert.throws(()=>db.run(`DELETE FROM ${table}`),/immutable/);
  assert.deepEqual(db.db.pragma('foreign_key_check'),[]);assert.equal(env.externalRequests,0);assert.equal((await env.nativeCalls()).length,0);
- const report={passed:true,checks,schema:21,fixtureModelCalls:calls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,rolloutDefault:'closed'};await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
+ const report={passed:true,checks,schema:latestSchema,fixtureModelCalls:calls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,rolloutDefault:'closed'};await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
 }finally{await rm(oldModule,{force:true});await env.close();}

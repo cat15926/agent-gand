@@ -1,3 +1,4 @@
+import {flowCatalog} from '../collaboration/protocols/definitions.ts';
 import {createHash} from 'node:crypto';
 import {isMessageWithinScope,readCostPolicy,type AutonomousTaskPolicyV1,type AutonomousTaskErrorCode} from '@agent-gand/shared';
 import {get} from '../db/database.ts';
@@ -32,6 +33,7 @@ export function loadAutonomousTaskPolicy(runId:string):AutonomousTaskPolicyV1|nu
     ||!p.budget||(['maxOutputTokens','maxTokensPerCall','maxConcurrency','maxDispatches','maxDepth','firstResponseTimeoutMs','idleTimeoutMs'] as const).some(key=>!Number.isSafeInteger(p.budget[key])||p.budget[key]<=0)
     ||!Number.isFinite(Date.parse(p.budget.deadlineAt))||p.budget.maxTokensPerCall>p.budget.maxOutputTokens
     ||!readCostPolicy(p.costPolicy)||p.costPolicy.mode!=='estimate'||!Array.isArray(p.inputs)||!Array.isArray(p.members))return autonomousFail('AUTONOMOUS_CONTRACT_INVALID');
+  if(p.protocols!==undefined&&autonomousDigest(p.protocols)!==autonomousDigest(flowCatalog()))return autonomousFail('AUTONOMOUS_CONTRACT_INVALID');
   if(p.members.length!==p.participantIds.length||new Set(p.members.map(m=>m.agentId)).size!==p.members.length||p.members.some(m=>!p.participantIds.includes(m.agentId)||!Number.isSafeInteger(m.roleVersion)||m.roleVersion<1||typeof m.model!=='string'||!m.model||!['builtin-llm','claude-sdk','codex-app-server'].includes(m.driver)||!autonomousStrings(m.allowedTools)))return autonomousFail('AUTONOMOUS_CONTRACT_INVALID');
   if(p.inputs.some(i=>!i.source||!['message','artifact','tool_execution'].includes(i.source.kind)||!Number.isSafeInteger(i.source.version)||i.source.version<1||!/^[a-f0-9]{64}$/.test(i.source.sha256)||!autonomousStrings(i.readers)||i.readers.some(id=>!p.participantIds.includes(id))))return autonomousFail('AUTONOMOUS_CONTRACT_INVALID');
   if(!p.rootSource||!p.inputs.some(i=>autonomousDigest(i.source)===autonomousDigest(p.rootSource)))return autonomousFail('AUTONOMOUS_CONTRACT_INVALID');

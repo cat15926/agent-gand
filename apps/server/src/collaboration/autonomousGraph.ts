@@ -52,7 +52,7 @@ function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
 }
 
 /** Explicit trusted admission only. Ordinary chat does not call this until AC4. */
-export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1;entryVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}){
+export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1;entryVersion?:1;flowVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}){
   if(config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   return tx(()=>{
     const frozen=freezeAutonomousTask(runId,draft,{delegationVersion:1,...options});
@@ -67,7 +67,7 @@ export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliver
 }
 
 /** Model intent -> immutable DAG, Grants, obligations, wait and command receipt in one transaction. */
-export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,intent:AutonomousDelegateIntentV1,options:{aggregateInputs?:AutonomousInputV1[];sources?:Array<{workId:string;refs:ScopedSourceRef[]}>}={}){
+export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,intent:AutonomousDelegateIntentV1,options:{aggregateInputs?:AutonomousInputV1[];sources?:Array<{workId:string;refs:ScopedSourceRef[]}>;flowJobs?:boolean}={}){
   const aggregate=options.aggregateInputs!==undefined;
   const {grant:parent,policy}=assertAutonomousGrant(binding,aggregate?'aggregate':'delegate');
   const dispatch=get<{dispatch_id:string}>('SELECT dispatch_id FROM collaboration_attempts WHERE id=?',binding.attemptId)!;
@@ -104,7 +104,7 @@ export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:
         run("INSERT INTO runtime_subjects VALUES(?,?,?,?,?,'active',?,?,?)",subjectId,binding.runId,'autonomous:'+byKey.get(item.key),'consultation',parent.subjectId,item.objective,now,now);
         run("INSERT INTO runtime_custody VALUES(?,'unassigned',NULL,NULL,0,0,?)",subjectId,now);
         const child=deriveAutonomousGrant(binding,subjectId,{agentId:item.agentId,participantIds:item.participantIds,inputIds:item.inputIds,
-          allowedTools:item.allowedTools,delegableTools:item.delegableTools,actions:parent.actions,outputAccess,commandKey:`autonomous:grant:${digest([commandKey,item.key])}`},options);
+          allowedTools:item.allowedTools,delegableTools:item.delegableTools,actions:options.flowJobs?['flow_action','complete']:parent.actions,outputAccess,commandKey:`autonomous:grant:${digest([commandKey,item.key])}`},options);
         const objective=post({runId:binding.runId,from:parent.agentId,to:item.agentId,kind:'system',messageType:'collaboration_routing',body:item.objective,
           ...outputAccess,meta:{autonomousInternal:true},clientMessageId:`autonomous:objective:${child.id}`});
         const next:AutonomousWork={id:byKey.get(item.key)!,run_id:binding.runId,grant_id:child.id,parent_work_id:work.id,work_key:item.key,objective_message_id:objective.id,source_attempt_id:binding.attemptId};

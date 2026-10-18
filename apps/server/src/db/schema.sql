@@ -860,3 +860,38 @@ CREATE TRIGGER IF NOT EXISTS autonomous_user_instructions_no_update BEFORE UPDAT
 CREATE TRIGGER IF NOT EXISTS autonomous_user_instructions_no_delete BEFORE DELETE ON autonomous_user_instructions BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_pause_points_no_update BEFORE UPDATE ON autonomous_pause_points BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
 CREATE TRIGGER IF NOT EXISTS autonomous_pause_points_no_delete BEFORE DELETE ON autonomous_pause_points BEGIN SELECT RAISE(ABORT,'immutable autonomous entry'); END;
+
+
+-- AC5: the Run/Subject/Attempt scheduler remains authoritative; these are append-only protocol facts.
+CREATE TABLE IF NOT EXISTS autonomous_flows (
+ id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES autonomous_task_policies(run_id),
+ root_work_id TEXT NOT NULL REFERENCES autonomous_work_items(id), command_key TEXT NOT NULL,
+ record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS autonomous_flow_steps (
+ flow_id TEXT NOT NULL REFERENCES autonomous_flows(id), step INTEGER NOT NULL,
+ record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(flow_id,step)
+);
+CREATE TABLE IF NOT EXISTS autonomous_flow_sources (
+ source_id TEXT PRIMARY KEY REFERENCES messages(id), flow_id TEXT NOT NULL REFERENCES autonomous_flows(id), step INTEGER NOT NULL,
+ record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL,
+ FOREIGN KEY(flow_id,step) REFERENCES autonomous_flow_steps(flow_id,step)
+);
+CREATE TABLE IF NOT EXISTS autonomous_flow_jobs (
+ work_id TEXT PRIMARY KEY REFERENCES autonomous_work_items(id), flow_id TEXT NOT NULL REFERENCES autonomous_flows(id),
+ step INTEGER NOT NULL, actor TEXT NOT NULL, UNIQUE(flow_id,step,actor), FOREIGN KEY(flow_id,step) REFERENCES autonomous_flow_steps(flow_id,step)
+);
+CREATE TABLE IF NOT EXISTS autonomous_flow_actions (
+ work_id TEXT PRIMARY KEY REFERENCES autonomous_flow_jobs(work_id), attempt_id TEXT NOT NULL UNIQUE REFERENCES collaboration_attempts(id),
+ record TEXT NOT NULL CHECK(json_valid(record)), sha256 TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS autonomous_flows_no_update BEFORE UPDATE ON autonomous_flows BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flows_no_delete BEFORE DELETE ON autonomous_flows BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_steps_no_update BEFORE UPDATE ON autonomous_flow_steps BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_steps_no_delete BEFORE DELETE ON autonomous_flow_steps BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_sources_no_update BEFORE UPDATE ON autonomous_flow_sources BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_sources_no_delete BEFORE DELETE ON autonomous_flow_sources BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_jobs_no_update BEFORE UPDATE ON autonomous_flow_jobs BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_jobs_no_delete BEFORE DELETE ON autonomous_flow_jobs BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_actions_no_update BEFORE UPDATE ON autonomous_flow_actions BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;
+CREATE TRIGGER IF NOT EXISTS autonomous_flow_actions_no_delete BEFORE DELETE ON autonomous_flow_actions BEGIN SELECT RAISE(ABORT,'immutable autonomous flow'); END;

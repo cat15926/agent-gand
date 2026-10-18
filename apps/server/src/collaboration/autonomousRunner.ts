@@ -1,3 +1,5 @@
+import {advanceAutonomousFlow,commitAutonomousFlowAction,assertFlowCompletion} from './autonomousFlows.ts';
+import {flowForRun,flowJob,validateFlow} from '../runtime/autonomousFlowFacts.ts';
 import {autonomousEntryEnabled,autonomousInstructionRefs,instructionRevision,pauseAutonomousAttempt,reconcileAutonomousPauses} from '../runtime/autonomousInstructions.ts';
 import {intersectMessageAccess,type AgentDefinition,type AutonomousGrantBinding,type CollaborationDispatch,type MessageAccess,type RuntimeControlAction} from '@agent-gand/shared';
 import {get,tx} from '../db/database.ts';
@@ -11,7 +13,7 @@ import {budgetedChat} from '../orchestration/executionBudget.ts';
 import {executeToolOnce,toolExecutionKey} from '../tools/executions.ts';
 import {enterMember} from '../execution/memberAdmission.ts';
 import {assertAutonomousGrant,assertAutonomousGrantReady,bindAutonomousAttempt,loadAutonomousTaskGrant} from '../runtime/autonomousTasks.ts';
-import {withAutonomousExecution} from '../runtime/autonomousExecution.ts';
+import {withAutonomousExecution,assertAutonomousUsageKnown as noUnknownCalls} from '../runtime/autonomousExecution.ts';
 import {AutonomousTaskError,autonomousFail as fail} from '../runtime/autonomousPolicy.ts';
 import {loadRuntimeContract} from '../runtime/runPolicy.ts';
 import {createExecutionScope,assembleScopedContext,compileScopedSource,inspectScopedSource,inputLedgerRevision,assertScopedOutput,
@@ -25,19 +27,15 @@ import {evaluateCompletion} from '../runtime/completion.ts';
 import {commitRunTerminal} from '../runtime/terminal.ts';
 import {settleRequestedPause} from '../runtime/runControls.ts';
 import {cancelCollaborationRun,finishAttempt,isActiveAttempt,setAttemptInputContext} from './store.ts';
-import {AUTONOMOUS_TOOLS,AUTONOMOUS_DELIVERY_TOOLS,parseAutonomousControlCall} from './autonomousTools.ts';
+import {AUTONOMOUS_TOOLS,AUTONOMOUS_DELIVERY_TOOLS,AUTONOMOUS_FLOW_TOOLS,parseAutonomousControlCall} from './autonomousTools.ts';
 import {freezeAutonomousExposure,sealAutonomousResult} from '../runtime/autonomousResults.ts';
 import {autonomousDeliveryEnabled,aggregateAutonomousResults,aggregateReturnInputs,emitAutonomousResult,requestAutonomousUser,reconcileAutonomousDecisions,prepareAutonomousFinal} from './autonomousDelivery.ts';
 import {childWorks,commitAutonomousDelegation,previousWorkInputs,reconcileAutonomousGraph,workForDispatch,workState} from './autonomousGraph.ts';
 
-function noUnknownCalls(runId:string):void {
-  if(get(`SELECT 1 FROM orchestration_model_calls c WHERE c.run_id=? AND (c.status='unknown'
-    OR EXISTS(SELECT 1 FROM orchestration_token_reservations t WHERE t.id=c.id AND t.status='unknown')
-    OR EXISTS(SELECT 1 FROM execution_cost_reservations money WHERE money.id=c.id AND money.status='unknown'))`,runId))return fail('AUTONOMOUS_DEPENDENCIES_UNSATISFIED');
-}
 function completeWork(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,dispatch:CollaborationDispatch,summary:string){
   const {grant,policy}=assertAutonomousGrant(binding,'complete'),work=workForDispatch(dispatch.id)!;
   if(childWorks(work.id).some(w=>workState(w)!=='completed'))return fail('AUTONOMOUS_DEPENDENCIES_UNSATISFIED');
+  assertFlowCompletion(work.id,binding.runId);
   noUnknownCalls(binding.runId);
   const outputAccess:MessageAccess=work.parent_work_id?getScope(scope.scopeId).defaultOutputAccess:policy.outputAccess;
   const domain:RuntimeControlAction={version:2,type:'complete',summary};
@@ -79,10 +77,12 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
         const source=inspectScopedSource(binding.runId,ref.kind,ref.id);
         if(JSON.stringify(source.ref)!==JSON.stringify(ref))return fail('AUTONOMOUS_POLICY_DRIFT');return source.access;
       })]);
+      const job=flowJob(work.id),flowId=flowForRun(binding.runId),flow=flowId?validateFlow(flowId):null;
+      const flowDirective=policy.protocols?`\n可校验流程目录：${JSON.stringify(policy.protocols)}\n当前流程公开状态：${JSON.stringify(flow?{flowId,step:flow.latest.step,phase:flow.latest.state.phase,terminal:!!flow.latest.state.winner}:null)}。如果需求适合目录中的流程，用 agent.flow 启动；唤醒后继续推进至终局，终局回执后再完成。五人狼人杀可从现有成员中选择五位玩家（负责人也可在独立内容责任中担任玩家），不足则一次说明；不要改成口述模拟或要求用户发牌。秘密行动只能由各玩家实际调用 agent.flow_action；禁止用 aggregate 读取所有玩家身份，或用 emit 代替规则公告。`:'';
       const receipts=childWorks(work.id).map(w=>({key:w.work_key,state:workState(w)}));
       const catalog=grant.inputs.map(i=>({id:i.source.id,readers:i.readers}));
       const directive=post({runId:binding.runId,from:'system',to:agent.id,kind:'system',...access,meta:{autonomousInternal:true},clientMessageId:`autonomous:directive:${attemptId}`,
-        body:`你只处理当前责任，按实际需要选择不同成员及依赖，不要照抄固定计划。使用 agent.delegate 后本轮结束并持久等待；子任务结束会自动唤醒，无需轮询。追加任务必须使用新的 key，已提交任务不可改写。依赖只代表执行顺序，不自动转交结果正文。完成时调用 agent.complete。只有原授权范围内的文本可进入子任务；无权读取的输入只可通过句柄转交。当前仅模型 API 可执行。已完成的工具效果和已验收子工作不要重复执行；用户补充只影响尚未执行的工作，确需重做时追加新工作并说明原因，仍使用根预算。${delivery?'可用 agent.aggregate 选择已完成子工作的 key，在新内容 Scope 中汇总，可选自己。结果权限由材料与任务范围共同限定，自动传入有权读取的汇总成员；无权的组织者只读固定状态。agent.emit 可提交合法阶段更新/最终候选，或 result_bundle 将确切结果直接交付给有权用户，task_status_v1 只允许服务端计数；final 在完成验收后发布。真正缺少业务信息时用 agent.request_user 一次合并问题，禁止例行询问是否继续。普通回答不等于权限批准。':''}\n角色定义（冻结）：${agent.systemPrompt}\n可选成员：${JSON.stringify(policy.members.filter(m=>grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm').map(m=>({id:m.agentId,tools:m.allowedTools})))}\n输入句柄：${JSON.stringify(catalog)}\n已提交子工作固定状态：${JSON.stringify(receipts)}`});
+        body:job?`你是当前阶段的独立行动者，只处理本人的 requiredAction。唯一可提交动作是 agent.flow_action，成功后平台自动完成责任。不要调用 agent.complete、委派、汇总、发布或替他人行动。严格按实际获准材料选择合法行动，不附加自由文字。\n角色定义（冻结）：${agent.systemPrompt}`:`你只处理当前责任，按实际需要选择不同成员及依赖，不要照抄固定计划。使用 agent.delegate 后本轮结束并持久等待；子任务结束会自动唤醒，无需轮询。追加任务必须使用新的 key，已提交任务不可改写。依赖只代表执行顺序，不自动转交结果正文。完成时调用 agent.complete。只有原授权范围内的文本可进入子任务；无权读取的输入只可通过句柄转交。当前仅模型 API 可执行。已完成的工具效果和已验收子工作不要重复执行；用户补充只影响尚未执行的工作，确需重做时追加新工作并说明原因，仍使用根预算。${delivery?'可用 agent.aggregate 选择已完成子工作的 key，在新内容 Scope 中汇总，可选自己。结果权限由材料与任务范围共同限定，自动传入有权读取的汇总成员；无权的组织者只读固定状态。agent.emit 可提交合法阶段更新/最终候选，或 result_bundle 将确切结果直接交付给有权用户，task_status_v1 只允许服务端计数；final 在完成验收后发布。真正缺少业务信息时用 agent.request_user 一次合并问题，禁止例行询问是否继续。普通回答不等于权限批准。':''}\n角色定义（冻结）：${agent.systemPrompt}${flowDirective}\n可选成员：${JSON.stringify(policy.members.filter(m=>grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm').map(m=>({id:m.agentId,tools:m.allowedTools})))}\n输入句柄：${JSON.stringify(catalog)}\n已提交子工作固定状态：${JSON.stringify(receipts)}`});
       const scope=createExecutionScope({runId:binding.runId,subjectId:grant.subjectId,agentId:agent.id,kind:work.parent_work_id?'content':'control',defaultOutputAccess:access,
         recoveryGeneration:custody.generation,objective:compileScopedSource(binding.runId,'message',work.objective_message_id),inputs:[...refs.filter(ref=>!(entry&&ref.kind==='message'&&ref.id===work.objective_message_id)),compileScopedSource(binding.runId,'message',directive.id)],allowedTools:grant.allowedTools});
       const scoped:ScopedAttemptBinding={runId:binding.runId,scopeId:scope.id,agentId:agent.id,attemptId};
@@ -92,9 +92,10 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
       if(entry)updateRunUserMessageStatus(binding.runId,'processing');
       const messages:LlmMessage[]=[{role:'system',content:'执行服务端冻结的当前独立任务。任何完成或委派必须实际调用已提供的工具；不要输出平台凭据或伪造执行事实。'},{role:'user',content:context}];
       let seenInstructionRevision=initialInstructions.length;
-      const tools=[...[...AUTONOMOUS_TOOLS,...(delivery?AUTONOMOUS_DELIVERY_TOOLS:[])].filter(t=>grant.actions.includes(t.name.slice('agent.'.length) as typeof grant.actions[number])
+      const tools=[...[...(job?[]:AUTONOMOUS_TOOLS),...(delivery&&!job?AUTONOMOUS_DELIVERY_TOOLS:[]),...(policy.protocols?AUTONOMOUS_FLOW_TOOLS.filter(t=>job?t.name==='agent.flow_action':!work.parent_work_id&&t.name==='agent.flow'):[])].filter(t=>grant.actions.includes(t.name.slice('agent.'.length) as typeof grant.actions[number])
         &&(t.name!=='agent.delegate'||grant.depth<policy.budget.maxDepth&&policy.members.some(m=>m.agentId!==agent.id&&grant.participantIds.includes(m.agentId)&&m.driver==='builtin-llm'))),
         ...grant.allowedTools.map(name=>scopedFileTool(name)).filter(t=>!!t).map(t=>({name:t.name,description:t.description,parameters:t.inputSchema}))];
+      let invalidFlowActions=0;
       for(let round=0;round<8;round++){
         if(entry&&pauseAutonomousAttempt(binding,scoped))return;
         if(entry&&instructionRevision(binding.runId)>seenInstructionRevision){
@@ -110,8 +111,18 @@ export async function executeAutonomousDispatch(dispatch:CollaborationDispatch,a
         if(entry&&instructionRevision(binding.runId)>seenInstructionRevision)continue; // Replan against new instructions before committing a stale tool action.
         if(response.truncated||response.toolCalls.length!==1)return fail('AUTONOMOUS_EXPLICIT_ACTION_REQUIRED');
         const call=response.toolCalls[0]!;
+        if(job&&call.name!=='agent.flow_action'){if(invalidFlowActions++<2){messages.push({role:'user',content:'未提交行动。当前责任仅可调用 agent.flow_action，请按 requiredAction 提交本人行动，平台将自动完成责任。'});continue;}return fail('AUTONOMOUS_FLOW_ACTION_INVALID');}
         if(call.name.startsWith('agent.')){
           const action=parseAutonomousControlCall(call);
+          if(action.type==='flow_action'){
+            try{commitAutonomousFlowAction(binding,scoped,action.action,summary=>completeWork(binding,scoped,dispatch,summary));return;}
+            catch(error){if(error instanceof AutonomousTaskError&&['AUTONOMOUS_FLOW_ACTION_INVALID','AUTONOMOUS_CONTRACT_INVALID'].includes(error.code)&&invalidFlowActions++<2){messages.push({role:'user',content:'行动未提交：字段、行动类型或目标不合法。严格按当前 requiredAction 重新作出你自己的决定。不可自选、选择死亡玩家、添加文字或其他字段。'});continue;}throw error;}
+          }
+          if(action.type==='flow'){
+            const result=advanceAutonomousFlow(binding,scoped,action.intent);if(result.waiting)return;
+            if(!('receiptId' in result)||typeof result.receiptId!=='string')return fail('AUTONOMOUS_AUTHORITY_INVALID');
+            const bytes=exposeScopedInput(scoped,compileScopedSource(binding.runId,'message',result.receiptId),'supplement').toString('utf8');messages.push({role:'assistant',content:JSON.stringify(call)},{role:'user',content:`【流程终局回执】${bytes}\n请调用 agent.complete 完成本责任。`});continue;
+          }
           if(action.type==='delegate'){commitAutonomousDelegation(binding,scoped,action.intent);return;}
           if(action.type==='complete'){completeWork(binding,scoped,dispatch,action.summary);return;}
           if(!delivery)return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');

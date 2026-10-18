@@ -1,3 +1,4 @@
+import {validateFlowSource} from './autonomousFlowFacts.ts';
 import {isMessageVisibleTo,type AutonomousInputV1,type ScopedSourceRef} from '@agent-gand/shared';
 import {all,get,run} from '../db/database.ts';
 import {autonomousDigest as digest,autonomousFail as fail} from './autonomousPolicy.ts';
@@ -58,6 +59,7 @@ export function loadAutonomousResult(workId:string,visited=new Set<string>()):Au
 }
 /** Validate transitive result authority on every use, including after model awaits. */
 export function validateAutonomousDerivedSource(runId:string,ref:ScopedSourceRef,visited=new Set<string>(),ownWorkId?:string):boolean {
+  if(validateFlowSource(runId,ref))return true;
   const copy=get<{record:string;sha256:string;decision_id:string;result_work_id:string}>('SELECT * FROM autonomous_intake_copies WHERE run_id=? AND source_id=?',runId,ref.id);
   if(copy){
     const value=JSON.parse(copy.record),approval=get<{outcome:string;record:string;sha256:string}>('SELECT outcome,record,sha256 FROM autonomous_decision_resolutions WHERE decision_id=?',copy.decision_id);

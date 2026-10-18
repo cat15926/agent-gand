@@ -18,9 +18,11 @@ export interface AutonomousCollaborationContractV1 {
   deliveryVersion?: 1;
   /** AC4 ordinary entry and versioned same-task instructions. */
   entryVersion?:1;
+  /** AC5 validated structured workflows; absent on historical roots. */
+  flowVersion?:1;
 }
 
-export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete';
+export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete' | 'flow' | 'flow_action';
 export interface AutonomousInputV1 {
   source: ScopedSourceRef;
   /** Forwarding a reference does not grant the coordinator permission to read it. */
@@ -53,6 +55,7 @@ export interface AutonomousTaskPolicyV1 {
   costPolicy: CostPolicy;
   /** AC1 grants no declassification or external-effect authority. */
   disclosure: 'within_source_access';
+  protocols?:Array<{id:string;sha256:string;rules:string}>;
   createdAt: string;
 }
 
@@ -84,7 +87,7 @@ export interface AutonomousGrantBinding {
 export type AutonomousTaskErrorCode = 'AUTONOMOUS_CONTRACT_INVALID' | 'AUTONOMOUS_POLICY_DRIFT'
   | 'AUTONOMOUS_AUTHORITY_INVALID' | 'AUTONOMOUS_ACCESS_DENIED' | 'AUTONOMOUS_GRANT_REVOKED'
   | 'AUTONOMOUS_TASK_EXPIRED' | 'AUTONOMOUS_LIMIT_EXCEEDED' | 'AUTONOMOUS_EXECUTOR_UNAVAILABLE'
-  | 'AUTONOMOUS_GRAPH_INVALID' | 'AUTONOMOUS_DEPENDENCIES_UNSATISFIED' | 'AUTONOMOUS_EXPLICIT_ACTION_REQUIRED';
+  | 'AUTONOMOUS_FLOW_INVALID' | 'AUTONOMOUS_FLOW_ACTION_INVALID' | 'AUTONOMOUS_GRAPH_INVALID' | 'AUTONOMOUS_DEPENDENCIES_UNSATISFIED' | 'AUTONOMOUS_EXPLICIT_ACTION_REQUIRED';
 
 /** Model-authored task intent. All authority and source fingerprints are server-bound. */
 export interface AutonomousDelegateIntentV1 {
@@ -120,8 +123,11 @@ export interface AutonomousTaskInput {
 export interface AutonomousTaskView {
   coordinatorId:string;participantIds:string[];instructionRevision:number;entry:boolean;
   budget:{maxOutputTokens:number;chargedOutputTokens:number;deadlineAt:string};
+  flows?:Array<{id:string;protocol:string;step:number;phase:string;status:string;announcementIds:string[]}>;
   works:Array<{id:string;key:string;agentId:string;objective:string;state:string;dependsOn:string[];resultMessageId:string|null}>;
 }
 export interface AutonomousEntryOptions {
   available:boolean;mode:'closed'|'preview'|'execute';supportedDrivers:string[];maxOutputTokens:number;
 }
+
+export interface AutonomousFlowIntent {commandKey:string;protocol?:string;players?:string[];flowId?:string;expectedStep?:number;}

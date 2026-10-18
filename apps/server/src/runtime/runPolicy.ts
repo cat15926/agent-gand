@@ -99,13 +99,14 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
       throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous capability contract');
     if(autonomous.delegationVersion!==undefined&&autonomous.delegationVersion!==1)throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delegation version');
     if(autonomous.deliveryVersion!==undefined&&(autonomous.deliveryVersion!==1||autonomous.delegationVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delivery version');
+    if(autonomous.flowVersion!==undefined&&(autonomous.flowVersion!==1||autonomous.entryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous flow version');
     if(autonomous.entryVersion!==undefined&&(autonomous.entryVersion!==1||autonomous.deliveryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous entry version');
     if(autonomous.rootRunId!==runId||autonomous.budgetRunId!==runId||f?.controlActionVersion!==4||contract.executionPolicy?.toolApiVersion!==4
       ||contract.executionPolicy.profile!=='execute'||contract.executionPolicy.implicitAnswerPolicy!=='explicit_only'||f.messageVisibilityVersion!==1||scoped||f.coordinationKernel||f.coordinationScopes)
       throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous authority requires an independent v4 root contract');
     try {
       const p=loadAutonomousTaskPolicy(runId);
-      if(!p||p.id!==autonomous.policyId||autonomousDigest(p)!==autonomous.policySha256||JSON.stringify(p.participantIds)!==JSON.stringify(contract.participantIds))throw new Error('policy mismatch');
+      if(!p||(autonomous.flowVersion===1)!==!!p.protocols||p.id!==autonomous.policyId||autonomousDigest(p)!==autonomous.policySha256||JSON.stringify(p.participantIds)!==JSON.stringify(contract.participantIds))throw new Error('policy mismatch');
     } catch {throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous task policy is missing or drifted');}
   }
   if (f?.coordinationScopes !== undefined && (![1,2].includes(f.coordinationScopes) || f.coordinationKernel !== 'execute' || f.controlActionVersion !== 2 || scoped)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown coordination scope version');

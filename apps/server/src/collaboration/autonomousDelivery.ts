@@ -1,3 +1,4 @@
+import {flowFinal} from '../runtime/autonomousFlowFacts.ts';
 import {instructionRevision,autonomousEntryEnabled} from '../runtime/autonomousInstructions.ts';
 import {randomUUID} from 'node:crypto';
 import {intersectMessageAccess,isMessageVisibleTo,isMessageWithinScope,type AutonomousAggregateIntentV1,type AutonomousEmitIntentV1,type AutonomousQuestionIntentV1,type AutonomousGrantBinding,type AutonomousDecisionPreview,type MessageAccess,type ScopedSourceRef} from '@agent-gand/shared';
@@ -239,6 +240,10 @@ export function aggregateReturnInputs(work:AutonomousWork):ScopedSourceRef[]{
 /** Called only within the accepted terminal transaction; no separate model request or approval round. */
 export function prepareAutonomousFinal(runId:string):{messageId:string;body:string;access:MessageAccess}{
   const root=get<AutonomousWork>('SELECT * FROM autonomous_work_items WHERE run_id=? AND parent_work_id IS NULL',runId)!;
+  const protocol=flowFinal(runId);
+  if(protocol){const result=loadAutonomousResult(root.id),policy=loadAutonomousTaskPolicy(runId)!;
+    const plan:Plan={id:randomUUID(),runId,workId:root.id,grantId:root.grant_id,attemptId:result.attemptId,kind:'final',format:'text',body:protocol.body,access:policy.outputAccess,exposure:result.exposure,refs:[protocol.ref],intentSha256:digest(['protocol-final',protocol.ref])};
+    savePlan(plan,`delivery:flow-final:${root.id}`);return {messageId:publishPlan(plan),body:plan.body,access:plan.access};}
   const latest=get<{id:string}>('SELECT id FROM autonomous_emission_plans WHERE work_id=? AND kind=\'final\' ORDER BY created_at DESC,rowid DESC LIMIT 1',root.id);
   if(latest){const plan=loadPlan(latest.id);if((!autonomousEntryEnabled(runId)||plan.instructionRevision===instructionRevision(runId))&&(!plan.decisionId||decisionOutcome(plan.decisionId)?.outcome==='approved')){return {messageId:publishPlan(plan),body:plan.body,access:plan.access};}}
   const result=loadAutonomousResult(root.id),sources=childWorks(root.id).map(w=>({workId:w.id,refs:[loadAutonomousResult(w.id).message,...loadAutonomousResult(w.id).artifacts]}));
