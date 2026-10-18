@@ -18,6 +18,7 @@ function throwIfStopped(runId:string,signal?:AbortSignal):void {
   if(signal?.aborted)throw signal.reason??new Error('执行已停止');
   const status=get<{status:string}>('SELECT status FROM runs WHERE id=?',runId)?.status;
   if(status&&['completed','failed','cancelled'].includes(status))throw new Error('任务已结束，停止后续模型调用');
+  if(get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.rolloutVersion')=1",runId)&&get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND pause_requested=1',runId))throw new ModelAdmissionPausedError();
   if(executionPolicy(runId)?.request.businessContract?.version===3&&get("SELECT 1 FROM coordination_plans WHERE run_id=? AND status='pause_requested'",runId))throw new ModelAdmissionPausedError();
   assertExecutionDeadline(runId);assertBusinessStageDeadline();
 }

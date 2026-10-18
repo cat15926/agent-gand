@@ -1,3 +1,4 @@
+import {autonomousDriverAllowed} from '../runtime/autonomousCapabilities.ts';
 import {commitEmitActionCommand} from '../runtime/actionCommands.ts';
 import {assertAutonomousUsageKnown} from '../runtime/autonomousExecution.ts';
 import {randomUUID} from 'node:crypto';
@@ -23,7 +24,7 @@ export function advanceAutonomousFlow(binding:AutonomousGrantBinding,scope:Scope
  if(!id){
   if(intent.flowId||intent.expectedStep!==undefined||!intent.protocol||!intent.players)return fail('AUTONOMOUS_FLOW_INVALID');
   const d=flowDefinition(intent.protocol),players=intent.players;
-  if(players.length<d.minActors||players.length>d.maxActors||new Set(players).size!==players.length||players.some(p=>!grant.participantIds.includes(p)||policy.members.find(m=>m.agentId===p)?.driver!=='builtin-llm'))return fail('AUTONOMOUS_FLOW_INVALID');
+  if(players.length<d.minActors||players.length>d.maxActors||new Set(players).size!==players.length||players.some(p=>!grant.participantIds.includes(p)||!autonomousDriverAllowed(policy,policy.members.find(m=>m.agentId===p)?.driver??'')))return fail('AUTONOMOUS_FLOW_INVALID');
   if(childWorks(work.id).length)return fail('AUTONOMOUS_FLOW_INVALID');
   id=randomUUID();f={id,runId:binding.runId,rootWorkId:work.id,protocol:d.id,protocolSha256:policy.protocols!.find(p=>p.id===d.id)!.sha256,players,initial:d.initialize(players),instructionRevision:instructionRevision(binding.runId)};
   run('INSERT INTO autonomous_flows VALUES(?,?,?,?,?,?,?)',id,binding.runId,work.id,intent.commandKey,JSON.stringify(f),digest(f),new Date().toISOString());

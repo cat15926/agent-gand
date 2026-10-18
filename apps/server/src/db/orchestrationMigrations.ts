@@ -26,6 +26,8 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 20, name: 'autonomous-result-delivery-v1', descriptor: 'explicit-ac3-root;sealed-accepted-result-provenance;derived-input-grants;aggregate-task-scopes;exact-emission-plans-and-records;owner-only-single-decision;approved-intake-copies;question-answer-wake;known-usage-terminal-delivery;no-ac2-upgrade' },
   { version: 21, name: 'autonomous-default-entry-v1', descriptor: 'explicit-entry-v2;immutable-submission-and-user-instructions;frozen-readonly-cost-policy;actual-task-progress;instruction-aware-context-and-final;durable-pause-resume;no-old-root-upgrade' },
   { version: 22, name: 'autonomous-validated-flow-v1', descriptor: 'frozen-protocol-catalog;immutable-flow-states-jobs-actions-sources;accepted-action-provenance;structured-projection;root-ledger-dag;phase-fence;bounded-correction;no-old-root-upgrade' },
+  { version: 23, name: 'autonomous-managed-sdk-rollout-v1', descriptor: 'explicit-ac6-root;frozen-execution-drivers;managed-sdk-v4-cold-transport;per-room-admission;close-and-drain-existing-root;no-codex-admission;no-old-root-upgrade' },
+  { version: 24, name: 'autonomous-estimated-cost-reserve-v1', descriptor: 'explicit-cost-version1;known-output-estimate-reserve-can-complete;unknown-money-remains-charged;unknown-execution-or-tokens-still-block;stop-policy-and-old-roots-unchanged' },
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));

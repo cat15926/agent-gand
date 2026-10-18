@@ -1,3 +1,4 @@
+import {autonomousExecutionAvailable,autonomousAdmissionDrivers} from './autonomousCapabilities.ts';
 import {flowCatalog} from '../collaboration/protocols/definitions.ts';
 import {randomUUID} from 'node:crypto';
 import {isMessageVisibleTo,isMessageWithinScope,DEFAULT_RESPONSE_TIMEOUT_MS,DEFAULT_SCOPED_RUN_TOKENS,
@@ -58,7 +59,7 @@ export function loadAutonomousTaskGrant(id:string):AutonomousTaskGrantV1 {
 
 /** Trusted server compiler, not an Agent tool or HTTP admission endpoint.
  * Freezes a fresh root only; creates no Dispatch and cannot start a v4 worker in AC1. */
-export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1;entryVersion?:1;flowVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
+export function freezeAutonomousTask(runId:string,value:unknown,options:{delegationVersion?:1;deliveryVersion?:1;entryVersion?:1;flowVersion?:1;nativeVersion?:1;rolloutVersion?:1;costVersion?:1;executionDrivers?:string[];readonly?:boolean;costPolicy?:CostPolicy}={}):{policy:AutonomousTaskPolicyV1;rootGrant:AutonomousTaskGrantV1} {
   return tx(()=>{
     const v=object(value,['coordinatorId','participantIds','inputs','outputAccess','budget']);
     const admission=digest(options.entryVersion?{draft:v,...options}:options.deliveryVersion?{draft:v,delegationVersion:1,deliveryVersion:1}:options.delegationVersion?{draft:v,delegationVersion:1}:v);
@@ -107,7 +108,7 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     const costPolicy=normalizeCostPolicy(options.costPolicy??preferences.constraints?.costPolicy??{version:1,currency:'USD',mode:'estimate',maxCost:config.collaboration.maxCostUsd,unknownAction:'reserve',unknownReserve:0.01,prices:[]});
     if(costPolicy.mode!=='estimate')return fail('AUTONOMOUS_LIMIT_EXCEEDED');
     const policy:AutonomousTaskPolicyV1={version:1,id:randomUUID(),revision:1,admissionSha256:admission,runId,conversationId:source.conversation_id,coordinatorId,participantIds,rootSource:initial.ref,rootAccess,outputAccess,inputs,members,
-      budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',...(options.flowVersion?{protocols:flowCatalog()}:{}),createdAt:now};
+      budget:{...numeric,deadlineAt:new Date(deadlineAt).toISOString()},costPolicy,disclosure:'within_source_access',...(options.flowVersion?{protocols:flowCatalog()}:{}),...(options.rolloutVersion?{executionDrivers:options.executionDrivers??['builtin-llm']}:{}),createdAt:now};
     run('INSERT INTO autonomous_task_policies VALUES(?,?,?,?,?)',runId,policy.id,JSON.stringify(policy),digest(policy),now);
     const planned=planCollaborationAdmission({runId,objective:source.goal,participantIds,targetAgentIds:[coordinatorId],completionEngine:true,messageVisibilityVersion:1,completionCandidateVersion:1,successorObligationVersion:1,evidenceBundleVersion:1,contextContributorVersion:1,durableHoldVersion:2,
       exitGuard:{version:1,maxCorrections:0,correctionMaxTokens:512},executionPolicy:executionPolicyForProfile('execute',{toolApiVersion:4,implicitAnswerPolicy:'explicit_only'})});
@@ -115,6 +116,9 @@ export function freezeAutonomousTask(runId:string,value:unknown,options:{delegat
     planned.contract.features!.autonomousCollaboration={version:1,capabilityPackage:'autonomous-collaboration-v1',boundaryVersion:2,policyId:policy.id,policyRevision:1,policySha256:digest(policy),rootRunId:runId,budgetRunId:runId};
     if(options.delegationVersion)planned.contract.features!.autonomousCollaboration.delegationVersion=1;
     if(options.deliveryVersion)planned.contract.features!.autonomousCollaboration.deliveryVersion=1;
+    if(options.costVersion)planned.contract.features!.autonomousCollaboration.costVersion=1;
+    if(options.nativeVersion)planned.contract.features!.autonomousCollaboration.nativeVersion=1;
+    if(options.rolloutVersion)planned.contract.features!.autonomousCollaboration.rolloutVersion=1;
     if(options.flowVersion)planned.contract.features!.autonomousCollaboration.flowVersion=1;
     if(options.entryVersion)planned.contract.features!.autonomousCollaboration.entryVersion=1;
     freezeRuntimeContract(planned.contract);resolveRunPolicy(runId);
@@ -132,7 +136,7 @@ export function assertAutonomousGrantReady(id:string,options:{allowWaitingForUse
   const grant=loadAutonomousTaskGrant(id),policy=loadAutonomousTaskPolicy(grant.runId);
   const contract=loadRuntimeContract(grant.runId);
   if(!policy||policy.id!==grant.policyId||contract?.features?.autonomousCollaboration?.policyId!==policy.id)return fail('AUTONOMOUS_AUTHORITY_INVALID');
-  if(contract.features.autonomousCollaboration.delegationVersion===1&&config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
+  if(contract.features.autonomousCollaboration.delegationVersion===1&&!autonomousExecutionAvailable(grant.runId))return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   const state=get<{status:string}>('SELECT status FROM runs WHERE id=?',grant.runId)?.status;
   if(state!=='running'&&!(options.allowWaitingForUser&&state==='waiting_for_user'))return fail('AUTONOMOUS_AUTHORITY_INVALID');
   if(Date.now()>=Date.parse(grant.expiresAt)||Date.now()>=Date.parse(policy.budget.deadlineAt))return fail('AUTONOMOUS_TASK_EXPIRED');
@@ -211,6 +215,6 @@ export function revokeAutonomousAuthority(runId:string,grantId:string|null,reaso
 
 export function autonomousCollaborationSupport(){
   return {contractVersion:1,toolApiVersion:4,admissionMode:config.autonomousCollaborationMode,foundationImplemented:true,delegationVersion:1,
-    deliveryVersion:1,flowVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:['builtin-llm'],defaultEntryAvailable:config.autonomousCollaborationMode==='execute'&&config.orchestrationRollout.entryMode==='execute'&&config.orchestrationRollout.enabledDrivers.includes('builtin-llm'),
-    reason:'API delegation and automatic result delivery require explicit versioned roots and execute mode; ordinary API entry requires entryVersion=2; native autonomous execution remains closed'} as const;
+    deliveryVersion:1,flowVersion:1,nativeVersion:1,rolloutVersion:1,executionAvailable:config.autonomousCollaborationMode==='execute',supportedDrivers:autonomousAdmissionDrivers(),defaultEntryAvailable:config.autonomousCollaborationMode==='execute'&&config.orchestrationRollout.entryMode==='execute'&&config.orchestrationRollout.enabledDrivers.includes('builtin-llm'),
+    reason:'Versioned API/managed SDK roots share task authority and budget; new room admission is independent from draining frozen AC6 tasks; connection evidence is separate; Codex autonomous execution remains closed'} as const;
 }

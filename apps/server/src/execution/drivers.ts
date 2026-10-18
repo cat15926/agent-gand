@@ -43,6 +43,7 @@ export interface DriverInput {
   nativeHome?: string;
   scopedNative?: import('./scopedNative.ts').ScopedNativeEnvironment;
   scopedToolTurns?: number;
+  autonomousTurn?: { maxOutputTokens: number };
   externalAuth?: { accessToken: string; chatgptAccountId: string };
   credentialArgs?: string[];
 }

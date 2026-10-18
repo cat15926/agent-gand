@@ -199,11 +199,16 @@ export function inputLedgerRevision(attemptId: string): number {
   return get<{ n: number }>('SELECT COALESCE(MAX(sequence),0) n FROM runtime_input_provenance WHERE attempt_id=?', attemptId)!.n;
 }
 /** All bytes are resolved from the whitelist; no room history, root goal fallback or native history. */
-export function assembleScopedContext(input: ScopedAttemptBinding): string {
+export function assembleScopedContext(input: ScopedAttemptBinding,options:{artifactLabels?:boolean}={}): string {
   return tx(() => {
     const { scope, manifest } = bound(input, false);
     const refs = [manifest.objective, ...manifest.inputs];
-    const context = refs.map(ref => checkedSource(scope, ref).bytes.toString('utf8')).join('\n\n');
+    const context = refs.map(ref => {
+      const bytes=checkedSource(scope,ref).bytes;
+      if(!options.artifactLabels||ref.kind!=='artifact')return bytes.toString('utf8');
+      const file=getManagedArtifact(ref.id,input.agentId,scope.defaultOutputAccess);
+      return `【受控文件快照 ${JSON.stringify({path:file.path,version:file.version,artifactId:file.id,sha256:file.sha256})}】\n${bytes.toString('utf8')}\n【文件快照结束】`;
+    }).join('\n\n');
     if (context.length > 24_000) return fail('CONTEXT_MANIFEST_DRIFT');
     const existing = get<{ context_sha256: string }>('SELECT context_sha256 FROM runtime_scope_attempts WHERE attempt_id=?', input.attemptId);
     if (existing && existing.context_sha256 !== hash(context)) return fail('CONTEXT_MANIFEST_DRIFT');

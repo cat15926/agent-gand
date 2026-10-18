@@ -20,6 +20,10 @@ export interface AutonomousCollaborationContractV1 {
   entryVersion?:1;
   /** AC5 validated structured workflows; absent on historical roots. */
   flowVersion?:1;
+  /** AC6 managed SDK and admission-only room rollout. */
+  nativeVersion?:1;rolloutVersion?:1;
+  /** Explicit estimate/reserve billing semantics; execution/token unknowns still block. */
+  costVersion?:1;
 }
 
 export type AutonomousActionName = 'delegate' | 'aggregate' | 'emit' | 'request_user' | 'complete' | 'flow' | 'flow_action';
@@ -55,6 +59,7 @@ export interface AutonomousTaskPolicyV1 {
   costPolicy: CostPolicy;
   /** AC1 grants no declassification or external-effect authority. */
   disclosure: 'within_source_access';
+  executionDrivers?:string[];
   protocols?:Array<{id:string;sha256:string;rules:string}>;
   createdAt: string;
 }
@@ -124,10 +129,11 @@ export interface AutonomousTaskView {
   coordinatorId:string;participantIds:string[];instructionRevision:number;entry:boolean;
   budget:{maxOutputTokens:number;chargedOutputTokens:number;deadlineAt:string};
   flows?:Array<{id:string;protocol:string;step:number;phase:string;status:string;announcementIds:string[]}>;
+  cost?:import('./cost.ts').CostBudgetState|null;
   works:Array<{id:string;key:string;agentId:string;objective:string;state:string;dependsOn:string[];resultMessageId:string|null}>;
 }
 export interface AutonomousEntryOptions {
-  available:boolean;mode:'closed'|'preview'|'execute';supportedDrivers:string[];maxOutputTokens:number;
+  available:boolean;mode:'closed'|'preview'|'execute';supportedDrivers:string[];maxOutputTokens:number;roomIds?:string[]|null;coordinatorDrivers?:string[];
 }
 
 export interface AutonomousFlowIntent {commandKey:string;protocol?:string;players?:string[];flowId?:string;expectedStep?:number;}

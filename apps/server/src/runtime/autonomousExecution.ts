@@ -27,9 +27,10 @@ export function assertAutonomousModelAdmission(runId:string,agentId:string,attem
   return policy;
 }
 
-/** Unknown token or fee usage fences protocol adjudication and terminal completion alike. */
+/** Execution/token unknowns always block. Explicit AC6 estimate/reserve retains unknown fees within the frozen cost ceiling; old roots and stop policy still block. */
 export function assertAutonomousUsageKnown(runId:string):void {
+  const p=loadAutonomousTaskPolicy(runId),reserveCost=!!get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.costVersion')=1",runId)&&p?.costPolicy.mode==='estimate'&&p.costPolicy.unknownAction==='reserve';
   if(get(`SELECT 1 FROM orchestration_model_calls c WHERE c.run_id=? AND (c.status='unknown'
     OR EXISTS(SELECT 1 FROM orchestration_token_reservations t WHERE t.id=c.id AND t.status='unknown')
-    OR EXISTS(SELECT 1 FROM execution_cost_reservations money WHERE money.id=c.id AND money.status='unknown'))`,runId))return autonomousFail('AUTONOMOUS_DEPENDENCIES_UNSATISFIED');
+    OR (?=0 AND EXISTS(SELECT 1 FROM execution_cost_reservations money WHERE money.id=c.id AND money.status='unknown')))`,runId,reserveCost?1:0))return autonomousFail('AUTONOMOUS_DEPENDENCIES_UNSATISFIED');
 }

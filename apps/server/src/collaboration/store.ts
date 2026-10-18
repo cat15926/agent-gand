@@ -185,7 +185,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
       JOIN runs r ON r.id=d.run_id
       LEFT JOIN autonomous_task_policies ap ON ap.run_id=d.run_id
       WHERE d.conversation_id=? AND d.status='queued' AND r.status='running'
-        AND (ap.run_id IS NULL OR (?='execute' AND (SELECT COUNT(*) FROM collaboration_attempts running WHERE running.run_id=d.run_id AND running.status='running') < json_extract(ap.record,'$.budget.maxConcurrency')))
+        AND (ap.run_id IS NULL OR ((?='execute' OR EXISTS(SELECT 1 FROM runtime_contracts ac WHERE ac.run_id=d.run_id AND json_extract(ac.payload,'$.features.autonomousCollaboration.rolloutVersion')=1)) AND (SELECT COUNT(*) FROM collaboration_attempts running WHERE running.run_id=d.run_id AND running.status='running') < json_extract(ap.record,'$.budget.maxConcurrency')))
         AND NOT EXISTS (SELECT 1 FROM collaboration_attempts a WHERE a.agent_id=d.target_agent_id AND a.status='running')
         AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=d.run_id AND (c.pause_requested=1 OR c.recovery_attention=1))
         AND NOT EXISTS (SELECT 1 FROM execution_member_tickets older JOIN runs prior_run ON prior_run.id=older.run_id

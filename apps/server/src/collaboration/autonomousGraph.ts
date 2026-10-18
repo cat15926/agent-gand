@@ -1,3 +1,4 @@
+import {autonomousExecutionAvailable,autonomousDriverAllowed} from '../runtime/autonomousCapabilities.ts';
 import {randomUUID} from 'node:crypto';
 import {isMessageVisibleTo,type AutonomousInputV1,type AutonomousDelegateIntentV1,type AutonomousGrantBinding,type MessageAccess,type ScopedSourceRef,type CostPolicy} from '@agent-gand/shared';
 import {all,get,run,tx} from '../db/database.ts';
@@ -52,11 +53,11 @@ function dispatchWork(work:AutonomousWork,parentDispatchId?:string){
 }
 
 /** Explicit trusted admission only. Ordinary chat does not call this until AC4. */
-export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1;entryVersion?:1;flowVersion?:1;readonly?:boolean;costPolicy?:CostPolicy}={}){
+export function admitAutonomousGraph(runId:string,draft:unknown,options:{deliveryVersion?:1;entryVersion?:1;flowVersion?:1;nativeVersion?:1;rolloutVersion?:1;costVersion?:1;executionDrivers?:string[];readonly?:boolean;costPolicy?:CostPolicy}={}){
   if(config.autonomousCollaborationMode!=='execute')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
   return tx(()=>{
     const frozen=freezeAutonomousTask(runId,draft,{delegationVersion:1,...options});
-    if(frozen.policy.members.find(m=>m.agentId===frozen.policy.coordinatorId)?.driver!=='builtin-llm')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
+    if(!autonomousDriverAllowed(frozen.policy,frozen.policy.members.find(m=>m.agentId===frozen.policy.coordinatorId)!.driver))return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
     const existing=get<AutonomousWork>('SELECT * FROM autonomous_work_items WHERE run_id=? AND parent_work_id IS NULL',runId);
     if(existing)return existing;
     setRunStatus(runId,'running');
@@ -93,7 +94,7 @@ export function commitAutonomousDelegation(binding:AutonomousGrantBinding,scope:
       for(const item of intent.items){
         if(ancestors.has(item.agentId)&&!(aggregate&&item.agentId===parent.agentId))return fail('AUTONOMOUS_ACCESS_DENIED');
         const member=loadAutonomousTaskPolicy(binding.runId)!.members.find(m=>m.agentId===item.agentId);
-        if(member?.driver!=='builtin-llm')return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
+        if(!member||!autonomousDriverAllowed(policy,member.driver))return fail('AUTONOMOUS_EXECUTOR_UNAVAILABLE');
         const delivery=loadRuntimeContract(binding.runId)?.features?.autonomousCollaboration?.deliveryVersion===1;
         const selected=item.inputIds.map(id=>parent.inputs.find(i=>i.source.id===id)??options.aggregateInputs?.find(i=>i.source.id===id));
         const defaultAudience=delivery?policy.participantIds.filter(id=>parent.participantIds.includes(id)&&isMessageVisibleTo(getScopeAccess(scope.scopeId),id)
@@ -129,7 +130,7 @@ export function getScopeAccess(scopeId:string):MessageAccess {
 
 /** Repeated startup/event reconciliation creates one ready Dispatch and one parent wake only. */
 export function reconcileAutonomousGraph(runId:string):void {
-  if(config.autonomousCollaborationMode!=='execute'||loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1)return;
+  if(!autonomousExecutionAvailable(runId)||loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1)return;
   if(get<{status:string}>('SELECT status FROM runs WHERE id=?',runId)?.status!=='running')return;
   if(get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND (pause_requested=1 OR recovery_attention=1)',runId))return;
   tx(()=>{

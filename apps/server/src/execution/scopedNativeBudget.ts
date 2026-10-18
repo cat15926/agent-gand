@@ -13,7 +13,9 @@ export async function reserveScopedNativeTokens(runId: string, callId: string, s
     if (signal.aborted) throw signal.reason;
     assertExecutionDeadline(runId);
     const call=get<{agent_id:string;attempt_id:string|null;model:string;backend:string}>('SELECT agent_id,attempt_id,model,backend FROM orchestration_model_calls WHERE id=? AND run_id=?',callId,runId);
-    const autonomous=assertAutonomousModelAdmission(runId,call?.agent_id??'',call?.attempt_id??undefined,call?.model,call?.backend);
+    const ac6=!!get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.rolloutVersion')=1",runId);
+    const autonomous=assertAutonomousModelAdmission(runId,call?.agent_id??'',call?.attempt_id??undefined,call?.model,call?.backend,{allowPause:ac6});
+    if(ac6&&get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND pause_requested=1',runId))throw new ModelAdmissionPausedError();
     assertBusinessStageDeadline();
     const stage=businessStageContext();if(stage&&stage.runId!==runId)throw new Error('SCOPE_BINDING_INVALID');
     if(get("SELECT 1 FROM coordination_plans WHERE run_id=? AND status='pause_requested'",runId))throw new ModelAdmissionPausedError();

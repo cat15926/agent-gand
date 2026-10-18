@@ -94,7 +94,7 @@ export async function invokeClaudeSdk(input: DriverInput): Promise<string> {
         if (!input.signal.aborted) peer.send({ id: message.id, result: { allow: accepted && input.authorized?.() !== false && !input.bridge?.sealed() } });
       } else throw new ExecutionError('protocol_error', 'SDK worker 返回未准入的消息');
     });
-    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext,recoveryFilesOnly:input.recoveryFilesOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session,scopedToolTurns:input.scopedToolTurns } });
+    peer.send({ method: 'sdk/start', params: { cwd: input.cwd, model: input.model, instructions: input.instructions, prompt: input.prompt, permissionMode: mode, nativeTools: input.nativeTools ?? [], bridge: input.bridge?.launch, controlOnly: input.controlOnly, privateContext: input.privateContext,recoveryFilesOnly:input.recoveryFilesOnly, connectionTest: input.connectionTest, correctionMaxTokens: input.correctionMaxTokens, session: input.session,scopedToolTurns:input.scopedToolTurns,autonomousTurn:input.autonomousTurn } });
     const ending = await Promise.race([done.then(() => 'terminal'), ...(input.bridge ? [input.bridge.candidate.then(() => 'control')] : [])]);
     if (ending === 'control') {
       if (input.bridge?.failure()) peer.send({method:'sdk/interrupt',params:{}});

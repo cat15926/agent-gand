@@ -249,6 +249,8 @@ export function TaskComposer(props:Parameters<typeof LegacyTaskComposer>[0]){
  useEffect(()=>{let live=true;void api.getOrchestrationOptions().then(value=>{if(live)setOptions(value);}).catch(()=>{});return()=>{live=false;};},[]);
  if(!options)return <p role="status" className="p-3 text-xs text-zinc-400">正在读取任务入口…</p>;
  const answering=Boolean(props.reply&&state.collaborationDecisions.some(d=>d.promptMessageId===props.reply!.id&&d.kind==='agent_question'&&d.status==='pending'));
- if(props.revisionTask||answering||!options.autonomous?.available)return <LegacyTaskComposer {...props}/>;
- return <><div hidden={advanced}><AutonomousTaskComposer room={props.room} reply={props.reply} onReplyClear={props.onReplyClear} options={options.autonomous} onAdvanced={()=>setAdvanced(true)}/></div>{advanced&&<><button type="button" className="m-3 text-xs text-violet-200" onClick={()=>setAdvanced(false)}>返回需求输入</button><LegacyTaskComposer {...props}/></>}</>;
+ const activeAutonomous=state.runs.some(r=>r.conversationId===props.room?.id&&!['completed','failed','cancelled'].includes(r.status)&&state.messages.some(m=>m.runId===r.id&&m.meta?.autonomousEntryVersion===1));
+ const admission=!!options.autonomous?.available&&(!options.autonomous.roomIds||!!props.room&&options.autonomous.roomIds.includes(props.room.id));
+ if(props.revisionTask||answering||!options.autonomous||!admission&&!activeAutonomous)return <LegacyTaskComposer {...props}/>;
+ return <><div hidden={advanced}><AutonomousTaskComposer room={props.room} reply={props.reply} onReplyClear={props.onReplyClear} options={{...options.autonomous,available:admission}} onAdvanced={()=>setAdvanced(true)}/></div>{advanced&&<><button type="button" className="m-3 text-xs text-violet-200" onClick={()=>setAdvanced(false)}>返回需求输入</button><LegacyTaskComposer {...props}/></>}</>;
 }

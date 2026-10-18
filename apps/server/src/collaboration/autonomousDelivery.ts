@@ -1,3 +1,4 @@
+import {autonomousDriverAllowed} from '../runtime/autonomousCapabilities.ts';
 import {flowFinal} from '../runtime/autonomousFlowFacts.ts';
 import {instructionRevision,autonomousEntryEnabled} from '../runtime/autonomousInstructions.ts';
 import {randomUUID} from 'node:crypto';
@@ -102,7 +103,7 @@ function propose(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,kind:
 export function aggregateAutonomousResults(binding:AutonomousGrantBinding,scope:ScopedAttemptBinding,intent:AutonomousAggregateIntentV1){
   return tx(()=>{
     const {work,grant,policy}=context(binding,scope,'aggregate');
-    if(!grant.participantIds.includes(intent.agentId)||policy.members.find(m=>m.agentId===intent.agentId)?.driver!=='builtin-llm')return fail('AUTONOMOUS_ACCESS_DENIED');
+    if(!grant.participantIds.includes(intent.agentId)||!autonomousDriverAllowed(policy,policy.members.find(m=>m.agentId===intent.agentId)?.driver??''))return fail('AUTONOMOUS_ACCESS_DENIED');
     let sources=selected(work,intent.resultKeys);
     const logical={...intent,commandKey:undefined},fingerprint=digest({workId:work.id,kind:'intake',intent:logical,body:bundle(binding.runId,sources),access:{visibility:'private',audience:['user',intent.agentId].sort()},sources});
     const prior=get<{id:string}>('SELECT id FROM autonomous_decision_proposals WHERE work_id=? AND json_extract(record,\'$.fingerprint\')=?',work.id,fingerprint);

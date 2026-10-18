@@ -1,3 +1,4 @@
+import {loadAutonomousTaskPolicy} from '../runtime/autonomousPolicy.ts';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { get, tx } from '../db/database.ts';
 import { randomUUID } from 'node:crypto';
@@ -75,14 +76,22 @@ export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<Agen
   let admission:{callId:string;cost:CostReservationRow|null}|undefined;
   try {
     const policy=executionPolicy(opts.run.id);
-    if(!opts.scopedNative&&opts.agent.execution?.kind==='external'&&policy?.request.businessContract?.version===3&&policy.request.constraints.costPolicy&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
+    if(opts.scopedNative&&opts.agent.execution?.kind==='external'&&loadRuntimeContract(opts.run.id)?.features?.autonomousCollaboration?.rolloutVersion===1&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
+      const driver=opts.agent.execution.driver;
+      // Native turns reserve the whole remaining root allowance. Wait before creating
+      // a native execution or starting its response timer; root expiry still applies.
+      opts={...opts,admissionTiming:{...opts.admissionTiming,queuedAt:opts.admissionTiming?.queuedAt??new Date().toISOString()}};
+      admission={callId:queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,driver,opts.attemptId),cost:null};
+      await reserveScopedNativeTokens(opts.run.id,admission.callId,opts.executionSignal??new AbortController().signal);
+      admission.cost=await reserveCostWhenReady(opts.run.id,opts.agent.id,opts.agent.model,driver,undefined,opts.executionSignal,admission.callId);
+    }else if(!opts.scopedNative&&opts.agent.execution?.kind==='external'&&policy?.request.businessContract?.version===3&&policy.request.constraints.costPolicy&&!findExecution(opts.run.id,opts.agent.id,opts.executionScopeId??`agent:${opts.agent.id}`)){
       admission={callId:queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,opts.attemptId),cost:null};
       admission.cost=await reserveCostWhenReady(opts.run.id,opts.agent.id,opts.agent.model,opts.agent.execution.driver,undefined,opts.executionSignal,admission.callId,opts.modelAdmissionHooks?.onWaiting);
       opts.modelAdmissionHooks?.onFinished?.();
     }
     return await runExternalAgentTurnImpl(opts,admission);
   } catch (error) {
-    if(admission){finishModelCall(admission.callId,false);settleCost(admission.cost,undefined,true);}
+    if(admission){finishModelCall(admission.callId,false);if(opts.scopedNative)reconcileModelCallReservations(admission.callId);else settleCost(admission.cost,undefined,true);}
     if(error instanceof ModelAdmissionPausedError)throw error;
     throw recordExternalPreparationFailure(opts, error);
   }
@@ -153,9 +162,9 @@ async function runExternalAgentTurnImpl(opts: AgentTurnOptions,admission?:{callI
   else opts.executionSignal?.addEventListener('abort', abortFromTurn, { once: true });
   const configuredTimeout = account?.managed ? account.connection.timeoutMs : config.externalAgents.timeoutMs;
   const timeoutPolicy = effectiveExternalTimeout({ configuredMs: configuredTimeout, managed: account?.managed === true,
-    runDeadlineAt: executionPolicy(opts.run.id)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",opts.run.id)?.deadline,
+    runDeadlineAt: loadAutonomousTaskPolicy(opts.run.id)?.budget.deadlineAt ?? executionPolicy(opts.run.id)?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",opts.run.id)?.deadline,
     leaseExpiresAt: opts.executionBinding?.origin === 'coordination_step_attempt' ? opts.executionBinding.leaseExpiresAt : undefined });
-  const limits = executionPolicy(opts.run.id)?.request.constraints;
+  const limits = loadAutonomousTaskPolicy(opts.run.id)?.budget ?? executionPolicy(opts.run.id)?.request.constraints;
   if (limits?.firstResponseTimeoutMs) timeoutPolicy.firstResponseTimeoutMs = limits.firstResponseTimeoutMs;
   if (limits?.idleTimeoutMs) timeoutPolicy.idleTimeoutMs = limits.idleTimeoutMs;
   execution.timeoutPolicy = timeoutPolicy;
@@ -257,7 +266,11 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     if (!info.available) throw new ExecutionError(info.errorCode ?? 'unsupported_cli', info.error ?? 'CLI 不可用');
     if (signal.aborted || terminal(opts.run.id)) throw new ExecutionError('cancelled', '运行已停止');
     const systems = opts.messages.filter((message) => message.role === 'system' && !message.content.startsWith('会话边界提示：')).map((message) => message.content);
-    const instructions = [...systems, `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
+    const autonomousTurn = opts.scopedNative && loadRuntimeContract(opts.run.id)?.features?.autonomousCollaboration?.nativeVersion === 1
+      ? { maxOutputTokens: loadAutonomousTaskPolicy(opts.run.id)!.budget.maxTokensPerCall } : undefined;
+    const instructions = [...systems, autonomousTurn
+      ? '你是 agent-gand 的受控协作执行者。按当前责任选择并实际提交下一步动作；使用足够完成本轮的简洁判断，不反复重述规则或为后续回合预演。材料齐备时直接调用工具。此冷会话只含本轮获准材料，不需要探索本地仓库、读取用户配置或自行恢复历史。受控文件只使用平台工具中明确可见的路径。'
+      : `本轮按平台投递的当前任务执行。工作目录为 ${execution.cwd}。${mode === 'readonly' ? '只读分析；禁止文件写入及外部副作用。' : '仅修改当前仓库的任务文件，给出 diff、测试命令及结果。操作须服从平台权限检查，拒绝后不能绕过。'}原生文件工具不使用平台的 shared/archive 虚拟路径。`,
       opts.privateContext ? '本轮上下文含私密信息。文件仅通过平台 fs.read / fs.write / search.files 受控桥读取或加密写入；禁止原生文件、shell、网络和其他业务工具。回复与交接不得扩大授权。' : '',
       opts.controlTools?.length ? `Runtime 工具通过 agent_gand MCP 提供：${opts.controlTools.map(t=>`${t.name} 对应 ${t.name.replace('.', '_')}`).join('；')}。一次只提交一个最终动作；调用后当前原生回合会停止，平台校验后才提交责任变更。不要自行猜测内部 ID。` : '当前编排未提供 Runtime 控制工具。'].join('\n\n');
     let prompt = opts.messages.filter((message) => message.role !== 'system').map((message) => `[${message.role}]\n${message.content}`).join('\n\n');
@@ -279,7 +292,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       const admitted=firstAdmission;firstAdmission=undefined;
       const callId=admitted?.callId??queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,execution.driver,opts.attemptId);
       try {
-        if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); await reserveScopedNativeTokens(opts.run.id, callId, signal); }
+        if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); if(!admitted)await reserveScopedNativeTokens(opts.run.id, callId, signal); }
         cost = admitted?admitted.cost:await reserveCostWhenReady(opts.run.id, opts.agent.id, opts.agent.model, execution.driver,undefined,signal,callId);
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
@@ -288,6 +301,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           scopedNative: opts.scopedNative,
           scopedToolTurns:opts.scopedNative?.tools.length?8:undefined,
+          autonomousTurn,
           authorized: () => { try { opts.scopedNative?.assertAuthorized(); return executionAuthorized(execution); } catch { return false; } },
           permissionMode: correction || opts.privateContext ? 'readonly' : mode, nativeTools: correction || opts.privateContext || mode === 'readonly' ? [] : opts.agent.execution?.kind === 'external' ? opts.agent.execution.nativeTools : [],
           requestApproval: async (id, tool, args, reason) => {
@@ -365,7 +379,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     session?.release();
     expireExecutionApprovals(execution.id); release();
     const record = getExecution(execution.id);
-    for (const tool of toolSpans.values()) if (!tool.endedAt) endSpan(tool, record?.status === 'completed' && record.controlAction && /(?:mcp__agent_gand__|agent_gand[/:])agent_(?:complete|consult|handoff|hold|propose_supervisor_task)$/u.test(tool.name)
+    for (const tool of toolSpans.values()) if (!tool.endedAt) endSpan(tool, record?.status === 'completed' && record.controlAction && opts.controlTools?.some(t => [`mcp__agent_gand__${t.name.replace('.', '_')}`,`agent_gand/${t.name.replace('.', '_')}`,`agent_gand:${t.name.replace('.', '_')}`].some(name=>tool.name===name||tool.name===`native:${name}`))
       ? { status: 'ok', output: '已接收协作控制候选，原生回合按平台协议停止；工具未报告结束事件，最终提交以 Runtime 动作账本为准。', attributes: { 'tool.outcome': 'control_interruption', 'tool.completion_observed': false } }
       : { status: 'error', output: `原生工具未返回完成事件（execution=${record?.status}）`, attributes: { 'tool.outcome': 'missing_terminal', 'tool.completion_observed': false } });
   }

@@ -10,6 +10,7 @@ export interface SdkWorkerInput {
   bridge?: BridgeLaunch; controlOnly?: boolean; privateContext?: boolean; recoveryFilesOnly?:boolean; connectionTest?: boolean; correctionMaxTokens?: number;
   session?: NativeSessionInput;
   scopedToolTurns?: number;
+  autonomousTurn?: { maxOutputTokens: number };
 }
 
 /** No broad allow rules. Every native call waits for the server-owned PreToolUse gate. */
@@ -34,11 +35,14 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
   };
   return {
     cwd: input.cwd, ...(input.model === 'default' ? {} : { model: input.model }),
-    systemPrompt: { type: 'preset', preset: 'claude_code', append: input.instructions },
+    // AC6 already supplies the complete frozen responsibility and scoped tools.
+    // The coding preset adds unrelated repository workflows to every cold control turn.
+    systemPrompt: input.autonomousTurn ? input.instructions : { type: 'preset', preset: 'claude_code', append: input.instructions },
     tools: input.controlOnly || input.privateContext ? [] : input.permissionMode === 'readonly' ? ['Read', 'Grep', 'Glob'] : ['Read', 'Grep', 'Glob', 'Write', 'Edit', ...(input.recoveryFilesOnly?[]:['Bash'])],
     allowedTools: input.bridge?.toolNames.map((name) => `mcp__agent_gand__${name}`) ?? [], disallowedTools: input.bridge ? [] : ['mcp__*'], permissionMode: 'default',
     settingSources: [], mcpServers: input.bridge ? { agent_gand: { command: input.bridge.command, args: input.bridge.args, env: { ...cleanEnvironment() as Record<string, string>, ...Object.fromEntries(protectedEnvironmentNames.map((name) => [name, ''])), ...input.bridge.env } } } : {}, strictMcpConfig: true, plugins: [],
-    env: { ...process.env, ENABLE_TOOL_SEARCH: 'false', ...(input.controlOnly ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.correctionMaxTokens ?? 2048) } : {}) },
+    env: { ...process.env, ENABLE_TOOL_SEARCH: 'false', ...(input.autonomousTurn ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.autonomousTurn.maxOutputTokens) } : {}), ...(input.controlOnly ? { CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(input.correctionMaxTokens ?? 2048) } : {}) },
+    ...(input.autonomousTurn ? { effort: 'low' as const } : {}),
     ...(input.session?.ephemeral ? { maxTurns:Math.min(8,Math.max(1,input.scopedToolTurns??1)) } : input.controlOnly ? { maxTurns: 2 } : {}),
     ...(input.connectionTest ? { thinking: { type: 'disabled' as const }, effort: 'low' as const, maxTurns: 1 } : {}),
     settings: { ...(input.session?.ephemeral ? { autoMemoryEnabled:false, claudeMdExcludes:['**'] } : {}), syncClaudeAiSkills: false, syncClaudeAiPlugins: false, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] } },

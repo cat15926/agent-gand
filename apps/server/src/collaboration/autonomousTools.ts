@@ -63,6 +63,34 @@ export function parseAutonomousControlCall(call:LlmToolCall):AutonomousControlCa
 }
 
 const stringList={type:'array',items:{type:'string'}};
+
+/** Per-turn schema hints; Runtime still validates authority. Never mutate shared tool definitions. */
+export function bindAutonomousToolSchemas(tools:LlmToolSchema[],agentId:string,memberIds:string[],inputIds:string[],flow?:{id:string;step:number}):LlmToolSchema[]{
+  return tools.map(tool=>{
+    if(tool.name==='agent.flow')return {...tool,parameters:flow?{
+      type:'object',additionalProperties:false,required:['commandKey','flowId','expectedStep'],properties:{
+        commandKey:{type:'string',maxLength:120},flowId:{type:'string',enum:[flow.id]},
+        expectedStep:{type:'integer',enum:[flow.step],description:'填写当前已观察到的 step，用于并发校验；不是下一阶段编号。'},
+      },
+    }:{type:'object',additionalProperties:false,required:['commandKey','protocol','players'],properties:{
+      commandKey:{type:'string',maxLength:120},protocol:{type:'string',enum:['werewolf-five-v1','review-ballot-v1']},players:{type:'array',items:{type:'string',enum:memberIds},uniqueItems:true},
+    }}};
+    if(!['agent.delegate','agent.aggregate'].includes(tool.name))return tool;
+    const parameters=tool.parameters as {properties:Record<string,unknown>;required:string[]};
+    const member={type:'string',enum:memberIds,description:`填写成员精确 ID；当前执行者是 ${JSON.stringify(agentId)}，不是 self。`};
+    if(tool.name==='agent.aggregate')return {...tool,parameters:{...parameters,properties:{...parameters.properties,agentId:member}}};
+    const items=parameters.properties.items as {items:{properties:Record<string,unknown>;required:string[]}};
+    const itemSchema={...items.items,
+      required:[...items.items.required,'inputIds','allowedTools'],properties:{...items.items.properties,
+        agentId:{...member,enum:memberIds.filter(id=>id!==agentId)},
+        inputIds:{type:'array',items:{type:'string',enum:inputIds},description:'选本轮输入句柄 ID。转交附件必须包含对应文件句柄；写在 objective 中的文件名不授予读取权限。不需要材料时填 []。'},
+        allowedTools:{...stringList,description:'明确授予本子任务需要且成员已开放的工具，例如读取文件需要 fs.read、修改需要 fs.write；省略或 [] 表示无文件工具。'},
+        dependsOn:{...stringList,description:'只保证执行顺序，不转交依赖结果或新文件。要读取成员产物，先等待其完成，再用 agent.aggregate 的 resultKeys 创建复核责任。'},
+        outputAudience:{type:'array',items:{type:'string',enum:['user',...memberIds]},description:'可省略，由平台沿用有权读者。显式指定时必须包含执行成员本人。这是任务及产物可见范围，不是交接收件人，不能扩大材料权限。'},
+      }};
+    return {...tool,parameters:{...parameters,properties:{...parameters.properties,items:{...items,items:itemSchema}}}};
+  });
+}
 export const AUTONOMOUS_TOOLS:LlmToolSchema[]=[
   {name:'agent.delegate',description:'按当前目标自主选择成员，创建各自不同的任务和输入；dependsOn 使用本责任内已有或本次新建的任务 key。提交后持久等待全部子任务并由系统唤醒，不轮询。只能追加计划，不能改写已提交的工作。',parameters:{
     type:'object',additionalProperties:false,required:['commandKey','items'],properties:{commandKey:{type:'string',maxLength:120},items:{

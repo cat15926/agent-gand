@@ -1,3 +1,4 @@
+import {autonomousExecutionAvailable} from './autonomousCapabilities.ts';
 import type {
   RuntimeAdmissionProfile,
   RuntimeExecutionPolicyV1,
@@ -99,6 +100,9 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
       throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous capability contract');
     if(autonomous.delegationVersion!==undefined&&autonomous.delegationVersion!==1)throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delegation version');
     if(autonomous.deliveryVersion!==undefined&&(autonomous.deliveryVersion!==1||autonomous.delegationVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous delivery version');
+    if(autonomous.costVersion!==undefined&&(autonomous.costVersion!==1||autonomous.rolloutVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous cost policy semantics');
+    if(autonomous.rolloutVersion!==undefined&&(autonomous.rolloutVersion!==1||autonomous.entryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous rollout version');
+    if(autonomous.nativeVersion!==undefined&&(autonomous.nativeVersion!==1||autonomous.rolloutVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous native version');
     if(autonomous.flowVersion!==undefined&&(autonomous.flowVersion!==1||autonomous.entryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous flow version');
     if(autonomous.entryVersion!==undefined&&(autonomous.entryVersion!==1||autonomous.deliveryVersion!==1))throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION','Unknown autonomous entry version');
     if(autonomous.rootRunId!==runId||autonomous.budgetRunId!==runId||f?.controlActionVersion!==4||contract.executionPolicy?.toolApiVersion!==4
@@ -106,7 +110,7 @@ export function loadRuntimeContract(runId: string): RuntimeRunContract | null {
       throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous authority requires an independent v4 root contract');
     try {
       const p=loadAutonomousTaskPolicy(runId);
-      if(!p||(autonomous.flowVersion===1)!==!!p.protocols||p.id!==autonomous.policyId||autonomousDigest(p)!==autonomous.policySha256||JSON.stringify(p.participantIds)!==JSON.stringify(contract.participantIds))throw new Error('policy mismatch');
+      if(!p||(autonomous.rolloutVersion===1)!==!!p.executionDrivers||(autonomous.nativeVersion===1)!==!!p.executionDrivers?.includes('claude-sdk')||(autonomous.flowVersion===1)!==!!p.protocols||p.id!==autonomous.policyId||autonomousDigest(p)!==autonomous.policySha256||JSON.stringify(p.participantIds)!==JSON.stringify(contract.participantIds))throw new Error('policy mismatch');
     } catch {throw new RuntimePolicyError('RUNTIME_POLICY_INVALID','Autonomous task policy is missing or drifted');}
   }
   if (f?.coordinationScopes !== undefined && (![1,2].includes(f.coordinationScopes) || f.coordinationKernel !== 'execute' || f.controlActionVersion !== 2 || scoped)) throw new RuntimePolicyError('RUNTIME_POLICY_UNKNOWN_VERSION', 'Unknown coordination scope version');
@@ -228,7 +232,7 @@ export function runtimeOwnsCompletion(policy: RuntimeExecutionPolicyV1): boolean
 export function assertExecutableCollaborationPolicy(runId: string): RuntimeExecutionPolicyV1 {
   const policy = resolveRunPolicy(runId);
   if(policy.toolApiVersion===4){
-    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1||config.autonomousCollaborationMode!=='execute')throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','Autonomous execution requires an AC2 root and execute mode');
+    if(loadRuntimeContract(runId)?.features?.autonomousCollaboration?.delegationVersion!==1||!autonomousExecutionAvailable(runId))throw new RuntimePolicyError('RUNTIME_CAPABILITY_UNAVAILABLE','Autonomous execution requires an admitted compatible root');
     return policy;
   }
   if (policy.toolApiVersion === 3) {

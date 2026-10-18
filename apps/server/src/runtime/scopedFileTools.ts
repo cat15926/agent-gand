@@ -43,7 +43,10 @@ export async function runScopedFileTool(binding:ScopedAttemptBinding,name:string
     const files=readable(binding);
     if(name==='fs.read') {
       const file=files.get(managedPath(expectString(input,'path')));if(!file)return reject();
-      return exposeScopedInput(binding,file.ref,'file_read',name).toString('utf8').slice(0,10000);
+      const body=exposeScopedInput(binding,file.ref,'file_read',name).toString('utf8').slice(0,10000);
+      if(!get("SELECT 1 FROM runtime_contracts WHERE run_id=? AND json_extract(payload,'$.features.autonomousCollaboration.rolloutVersion')=1",binding.runId))return body;
+      const artifact=getManagedArtifact(file.ref.id,binding.agentId,policy.access);
+      return `【受控文件快照 ${JSON.stringify({path:artifact.path,version:artifact.version,artifactId:artifact.id,sha256:artifact.sha256})}】\n${body}\n【文件快照结束】`;
     }
     const pattern=expectString(input,'pattern').toLowerCase();if(pattern.length>200||input.maxResults!==undefined&&(!Number.isInteger(input.maxResults)||Number(input.maxResults)<1||Number(input.maxResults)>50))return reject();
     const limit=typeof input.maxResults==='number'?input.maxResults:50,results:string[]=[];

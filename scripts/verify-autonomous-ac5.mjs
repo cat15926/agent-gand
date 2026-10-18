@@ -23,6 +23,7 @@ const send=body=>env.app.inject({method:'POST',url:body.conversationId?`/api/con
 const seed=(goal,extra={})=>({entryVersion:2,goal,agentIds:members,clientRequestId:randomUUID(),...extra});
 const done=async id=>{await until(()=>['completed','failed','cancelled'].includes(trace.getRun(id).status),'terminal');assert.equal(trace.getRun(id).status,'completed',JSON.stringify(db.all('SELECT error,status FROM collaboration_dispatches WHERE run_id=?',id)));assert.deepEqual(auditShadowRun(id),[]);};
 function flowModel(protocol,options={}){return createStructuredFlowProvider({protocol,players:protocol==='werewolf-five-v1'?players:['aa','bb'],...options});}
+const latestSchema=(await import('../apps/server/src/db/orchestrationMigrations.ts')).ORCHESTRATION_MIGRATIONS.at(-1).version;
 const oldModule=path.join(qa,'v21-'+randomUUID()+'.ts');
 try{
  // Nonempty genuine AC4 root + unknown usage survives additive migration, no flow authority upgrade.
@@ -34,7 +35,7 @@ try{
  const migrationFile=path.join(env.root,'v21.sqlite');await db.db.backup(migrationFile);const historical=new Database(migrationFile);historical.exec('PRAGMA foreign_keys=OFF;DROP TABLE autonomous_flow_actions;DROP TABLE autonomous_flow_jobs;DROP TABLE autonomous_flow_sources;DROP TABLE autonomous_flow_steps;DROP TABLE autonomous_flows;DELETE FROM orchestration_schema_migrations WHERE version>=22;PRAGMA foreign_keys=ON');
  const tables=historical.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('orchestration_schema_migrations','sqlite_sequence') ORDER BY name").all().map(r=>r.name),sha=d=>createHash('sha256').update(JSON.stringify(tables.map(t=>d.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all()))).digest('hex'),before=sha(historical);
  await writeFile(oldModule,execFileSync('git',['show','23e2678:apps/server/src/db/orchestrationMigrations.ts'],{encoding:'utf8'}),{mode:0o600});const old=await import(pathToFileURL(oldModule).href);old.assertOrchestrationSchemaCompatible(historical);historical.close();
- for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',"const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==22)throw new Error('schema');d.closeDatabase();"],{env:{...process.env,DB_PATH:migrationFile},stdio:'pipe'});
+ for(let n=0;n<2;n++)execFileSync(process.execPath,['--import','./apps/server/node_modules/tsx/dist/loader.mjs','--input-type=module','-e',`const d=await import('./apps/server/src/db/database.ts');if(d.get('SELECT MAX(version) n FROM orchestration_schema_migrations').n!==${latestSchema})throw new Error('schema');d.closeDatabase();`],{env:{...process.env,DB_PATH:migrationFile},stdio:'pipe'});
  const upgraded=new Database(migrationFile,{readonly:true});assert.equal(sha(upgraded),before);assert.throws(()=>old.assertOrchestrationSchemaCompatible(upgraded),/版本/);assert.deepEqual(upgraded.pragma('foreign_key_check'),[]);upgraded.close();checks.push('v21→22 twice preserves every old row and unknown usage; old worker refuses schema22; AC4 root cannot upgrade');
  // Complete actual HTTP -> Provider tool intent -> Scope/Attempt/commands -> announcement -> final chains.
  const games=[];
@@ -94,6 +95,6 @@ try{
  for(const action of [{kind:'vote',target:'a'},{kind:'vote',target:'e'},{kind:'attack',target:'b'},{kind:'vote',target:'b',identity:'wolf'}])assert.throws(()=>d.action(s,'a',action));assert.throws(()=>d.action(s,'e',{kind:'vote',target:'a'}));assert.throws(()=>reduceFlow(d.id,{...s,winner:'wolf'},a,players));checks.push('both factions win, tie break, simultaneous private inspection, exact fields, dead/self/wrong-phase actions and post-terminal advance fenced');
  assert.equal(env.externalRequests,0);assert.equal((await env.nativeCalls()).length,0);assert.deepEqual(db.all('PRAGMA foreign_key_check'),[]);
  await rm(path.join(qa,'failure.json'),{force:true});
- const report={passed:true,schema:22,checks,games,fixtureModelCalls:calls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,rolloutDefault:'closed'};await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
+ const report={passed:true,schema:latestSchema,checks,games,fixtureModelCalls:calls+freshProcessCalls,freshProcessCalls,realSupplierRequests:0,realNativeInvocations:0,rolloutDefault:'closed'};await writeFile(path.join(qa,'result.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});console.log(JSON.stringify(report,null,2));
 }catch(error){await writeFile(path.join(qa,'failure.json'),JSON.stringify({message:error.message,stack:error.stack,dispatches:db.all('SELECT run_id,target_agent_id,status,error FROM collaboration_dispatches'),prompts:prompts.slice(-2)},null,2),{mode:0o600});throw error;}
 finally{await rm(oldModule,{force:true});await env.close();}

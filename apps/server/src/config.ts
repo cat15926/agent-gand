@@ -72,6 +72,8 @@ function autonomousAdmissionMode(): 'closed' | 'preview' | 'execute' {
   if(!['closed','preview','execute'].includes(mode))throw new Error('AUTONOMOUS_COLLABORATION_MODE 仅支持 closed / preview / execute');
   return mode as 'closed'|'preview'|'execute';
 }
+function autonomousNativeDrivers(key='AUTONOMOUS_NATIVE_DRIVERS'):string[]{const values=(process.env[key]??'').split(',').map(v=>v.trim()).filter(Boolean);if(values.some(v=>v!=='claude-sdk'))throw new Error(`${key} 当前仅支持 claude-sdk；Codex 自主组合仍未开放`);return [...new Set(values)];}
+function autonomousRoomIds():string[]|null{const raw=process.env.AUTONOMOUS_ROOM_IDS??'*';if(raw==='*')return null;const ids=raw.split(',').map(v=>v.trim()).filter(Boolean);if(ids.some(id=>!id||id.length>100||id==='*'))throw new Error('AUTONOMOUS_ROOM_IDS 应为 * 或确切房间 ID 列表');return [...new Set(ids)];}
 function scopedNativeDrivers():string[] {
   const names=(process.env.SCOPED_NATIVE_DRIVERS??'claude-sdk').split(',').map(v=>v.trim()).filter(Boolean);
   if(names.some(name=>!['claude-sdk','codex-app-server'].includes(name)))throw new Error('SCOPED_NATIVE_DRIVERS 仅支持 claude-sdk / codex-app-server');
@@ -122,6 +124,9 @@ export const config = {
   scopedCollaborationMode: scopedAdmissionMode(),
   scopedNativeDrivers:scopedNativeDrivers(),
   autonomousCollaborationMode:autonomousAdmissionMode(),
+  autonomousNativeDrivers:autonomousNativeDrivers(),
+  autonomousNativeCoordinatorDrivers:autonomousNativeDrivers('AUTONOMOUS_NATIVE_COORDINATOR_DRIVERS'),
+  autonomousRoomIds:autonomousRoomIds(),
   agentsDir: process.env.AGENTS_DIR ?? path.join(repoRoot, 'agents'),
   /** 内置 fs 工具的沙箱根（规格：限定 apps/server/data/sandbox/） */
   sandboxDir: path.join(serverRoot, 'data', 'sandbox'),
