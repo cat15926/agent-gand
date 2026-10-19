@@ -1,6 +1,6 @@
 # 持续协作 T02：模式、身份与存储基础 v1
 
-状态：已实现基础边界，执行未开放。更新：2026-10-19。实现依据为 [T01 决策](../plans/threaded-collaboration-t01-decisions.md)，后续进度见[实施状态](../plans/threaded-collaboration-implementation-status.md)。
+状态：T02 历史交付合同；当前 T03 控制/恢复扩展见[执行边界](threaded-execution-boundary-v1.md)，真实执行未开放。更新：2026-10-20。实现依据为 [T01 决策](../plans/threaded-collaboration-t01-decisions.md)，后续进度见[实施状态](../plans/threaded-collaboration-implementation-status.md)。
 
 ## 当前能力
 
@@ -26,13 +26,13 @@
 
 cookie 使用 HttpOnly、SameSite=Strict、Path=/api/threaded；HTTPS 时附 Secure。有效期不超过八小时和母管理 session 的剩余期限。专用注销、母管理注销、会话到期会关闭相应 WebSocket；服务重启后重新认证。所有新 HTTP/WS 均验证可信 Host/Origin/本机边界，写请求还验证 CSRF。客户端不得提供 owner、Attempt 或执行代际来获取权限。
 
-当前 WebSocket 只有初始快照和失效检查，**没有消息增量、断线补事件或 UI 状态机**；这些仍属于 T05/T09。会话过期不代表取消已授权工作，执行授权 epoch 的实际处理属于 T03。
+当前 WebSocket 只有初始快照和失效检查，**没有消息增量、断线补事件或 UI 状态机**；这些仍属于 T05/T09。会话过期不代表取消已授权工作，执行授权 epoch 的实际处理已由 T03 专用端口接入。
 
 ## 旧路径隔离
 
 [旧传输边界](../../apps/server/src/threaded/legacyBoundary.ts)在处理请求前检查 Run、Conversation 和任务/审批/Trace/产物等派生 ID；Threaded 资源返回 404，不能借旧接口读取、改题、完成任务、批准或停止。旧集合查询过滤新记录；旧 `/ws` 仅允许已明确列入旧协议且不含 Threaded 引用的事件，新事件类型默认不公开。响应投影再检查一次归属。
 
-旧 dispatcher、恢复、终态、公共模型/native runner、执行 Binding 校验及成员领取显式拒绝或跳过新模式。`ThreadedBinding` 已有数据类型，但它本身不授予执行权；T02 不生成可执行的新 Binding。旧终态证明和已有账号撤销等行为保留，T03 再通过专用生命周期接入新模式。
+旧 dispatcher、恢复、终态、公共模型/native runner、执行 Binding 校验及成员领取显式拒绝或跳过新模式。`ThreadedBinding` 已有数据类型，但它本身不授予执行权；T02 不生成可执行的新 Binding。旧终态证明和已有账号撤销等行为保留，T03 已通过专用生命周期接入控制/审批/撤权/恢复；执行资源仍默认拒绝。
 
 ## v25 前向迁移
 
@@ -57,4 +57,4 @@ cookie 使用 HttpOnly、SameSite=Strict、Path=/api/threaded；HTTPS 时附 Sec
 
 本阶段的迁移、认证、旧路径隔离和兼容检查由 [T02 报告](../reports/threaded-collaboration-t02-foundation-2026-10-19.md)记录。测试仅用隔离数据库和确定性 fixture，没有迁移日常业务库、启动日常服务或调用真实模型。
 
-新执行 Binding 的生产接线、Invocation Run adapter、审批/取消/撤权/恢复状态机由 T03 完成；资源与公平性由 T04 完成。任何后续开放都须继续通过相应验收，不能仅设置 execute 即宣称支持持续协作。
+新 Binding、Invocation Run adapter、审批/取消/撤权/恢复状态机已由 [T03](threaded-execution-boundary-v1.md)交付；真实资源与公平性继续由 T04 完成。任何后续开放都须继续通过相应验收，不能仅设置 execute 即宣称支持持续协作。

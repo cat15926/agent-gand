@@ -32,6 +32,7 @@ import { claimRuntimeHost, releaseRuntimeHost } from './execution/host.ts';
 import { recoverMemberAdmissions } from './execution/memberAdmission.ts';
 import { reopenInterruptedTaskResponsibilities } from './runtime/taskAdapter.ts';
 import { recoverCostReservations } from './orchestration/costBudget.ts';
+import { threadedLifecycle } from './threaded/service.ts';
 
 claimRuntimeHost();
 
@@ -53,6 +54,8 @@ const preferenceMigration = migrateRoomPreferences(db);
 app.log.info({ preferenceMigration }, '编排房间默认偏好迁移完成');
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
+// Threaded recovery records uncertainty; it never replays a provider request or borrows legacy cleanup.
+threadedLifecycle.recoverAll();
 await recoverAccountLogins();
 await recoverAccountTests();
 await recoverExternalExecutions();

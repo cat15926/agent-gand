@@ -53,7 +53,7 @@ export interface ThreadedMemberRecord {
   updatedAt: string;
 }
 
-/** Data contract only. T02 does not mint or authorize threaded execution bindings. */
+/** Serialized identity only; the dedicated authority port rechecks its persisted scope and fences. */
 export interface ThreadedBinding {
   schemaVersion: 1;
   id: string;

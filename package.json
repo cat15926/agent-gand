@@ -16,6 +16,8 @@
     "verify:threaded-isolation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-isolation.mjs",
     "verify:threaded-access": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-access.mjs",
     "verify:threaded-legacy-boundary": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-legacy-boundary.mjs",
+    "verify:threaded-lifecycle": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-lifecycle.mjs",
+    "verify:threaded-controls": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-controls.mjs",
     "verify:scheduler": "node scripts/verify-scheduler.mjs",
     "verify:agents": "node scripts/verify-agent-management.mjs",
     "verify:accounts-e1": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-accounts-e1.mjs",

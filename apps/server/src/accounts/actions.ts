@@ -22,6 +22,7 @@ import { assertFields, expectedVersion, object } from './validation.ts';
 import { privateDirectory, assertNoUnsettledAccountProcess } from './native.ts';
 import { redactSecrets } from './secrets.ts';
 import { cancelLogin } from './login.ts';
+import { threadedLifecycle } from '../threaded/service.ts';
 
 const tests = new Map<string, { controller: AbortController; done: Promise<void> }>();
 export async function testAccount(id: string, value: unknown): Promise<AccountTestResult> {
@@ -79,11 +80,12 @@ export async function revokeAccount(id: string, value: unknown): Promise<{ cance
   tx(() => {
     run('INSERT OR IGNORE INTO account_revocations (account_id,revoked_at) VALUES (?,?)', id, new Date().toISOString());
     run('UPDATE accounts SET enabled=0,version=version+1,updated_at=? WHERE id=?', new Date().toISOString(), id);
+    threadedLifecycle.revokeAccount(id);
     changed(id, account.version + 1);
   });
   emit({ type: 'account.revoked', accountId: id }); tests.get(id)?.controller.abort();
   for (const row of all<{ id: string; owner_session: string }>("SELECT * FROM account_login_operations WHERE account_id=? AND status IN ('starting','pending')", id)) await cancelLogin(row.id, row.owner_session);
-  // Threaded cancellation belongs to ThreadedLifecyclePort; T02 admits no executions.
+  // Threaded authority was fenced atomically with revocation above; old finalizers remain legacy-only.
   const legacyRuns = refs.activeRuns.filter(item => isLegacyRun(item.id));
   for (const item of legacyRuns) {
     if (getRunCoordinationPlan(item.id)) cancelCoordinationRun(item.id);

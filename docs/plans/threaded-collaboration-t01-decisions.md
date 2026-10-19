@@ -1,8 +1,8 @@
 # 持续协作 T01 设计决策与实施接口
 
-状态：**已批准的实施基线**（依据用户已确定路线与 T01 实施授权冻结；T02 的后续实现范围另记基础架构合同）。日期：2026-10-19。
+状态：**已批准的实施基线**（依据用户已确定路线与 T01 实施授权冻结；T02/T03 后续实现另记架构合同）。日期：2026-10-19。
 
-本决策服务于[实施指导](threaded-collaboration-implementation-guide.md)中的 T02–T12。“持续协作”为产品名称，内部模式为 `threaded`。核心规则不做简化；平台差异、可靠性增强和高级范围分别登记在[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。本文保留 T01 冻结时的设计合同；随后已实现的 T02 类型、表与认证快照接口以[基础架构合同](../architecture/threaded-foundation-v1.md)为准，其余接口不能据此调用。
+本决策服务于[实施指导](threaded-collaboration-implementation-guide.md)中的 T02–T12。“持续协作”为产品名称，内部模式为 `threaded`。核心规则不做简化；平台差异、可靠性增强和高级范围分别登记在[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。本文保留 T01 冻结时的设计合同；实际实现范围以[T02 基础架构](../architecture/threaded-foundation-v1.md)和[T03 执行边界](../architecture/threaded-execution-boundary-v1.md)为准，其余接口不能据此调用。
 
 ## 1 模式与生命周期
 
@@ -186,7 +186,7 @@ interface ExecutionResourcesPort {
 }
 ```
 
-T01 冻结时这些类型名称尚未存在；T02 仅声明 ThreadedBinding 数据类型，未实现可执行的 Binding 或上述执行/资源端口。Binding 保留共享 ExecutionBinding 的必需字段；id 由服务端为当前 Attempt/执行代际签发并持久保存，不接受调用者任意选择。trusted command/request 从服务器身份与持久记录构造；状态、Epoch、Run 归属必须从数据库重新检查。取消通过 AbortSignal 加持久 fence 双重实现，回调不能仅凭尚未中止的 signal 提交。
+T01 冻结时这些类型名称尚未存在；T02 声明 ThreadedBinding，T03 已交付[专用执行与生命周期端口](../architecture/threaded-execution-boundary-v1.md)。生产资源仍默认拒绝，T04 接入真实资源协调器；旧公共 executor 继续拒绝新模式。Binding 保留共享 ExecutionBinding 的必需字段；id 由服务端为当前 Attempt/执行代际签发并持久保存，不接受调用者任意选择。trusted command/request 从服务器身份与持久记录构造；状态、Epoch、Run 归属必须从数据库重新检查。取消通过 AbortSignal 加持久 fence 双重实现，回调不能仅凭尚未中止的 signal 提交。
 
 | 包 | 可独立评审的交付 | 退出门槛 |
 | --- | --- | --- |

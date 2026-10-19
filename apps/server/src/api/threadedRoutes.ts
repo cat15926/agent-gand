@@ -7,20 +7,27 @@ import { createThreadedStore } from '../threaded/store.ts';
 import { createThreadedAccess, ThreadedAccessError } from '../threaded/access.ts';
 import type { ThreadedAccess, ThreadedPrincipal } from '../threaded/access.ts';
 import { assertThreadedRequestContract, rejectThreadedAdmission, threadedAdmissionMode, threadedCapabilities } from '../threaded/policy.ts';
+import { threadedLifecycle } from '../threaded/service.ts';
+import { ThreadedAuthorityError } from '../threaded/contracts.ts';
 
 type ThreadedReadStore = Pick<ReturnType<typeof createThreadedStore>, 'getInstanceOwnerId' | 'getThread' | 'listThreads' | 'listMembers'>;
-export interface ThreadedRouteContext { store: ThreadedReadStore; access: ThreadedAccess; }
+export interface ThreadedRouteContext {
+  store: ThreadedReadStore;
+  access: ThreadedAccess;
+  lifecycle?: Pick<typeof threadedLifecycle, 'requestControl' | 'decideApproval'>;
+}
 let defaults: ThreadedRouteContext | undefined;
 function defaultContext(): ThreadedRouteContext {
   if (!defaults) {
     const store = createThreadedStore(db);
-    defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()) };
+    defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle };
   }
   return defaults;
 }
 
 function errorHandler(error: Error, _request: FastifyRequest, reply: FastifyReply) {
   if (error instanceof ThreadedAccessError) return reply.code(error.status).send({ code: error.code, error: error.message });
+  if (error instanceof ThreadedAuthorityError) return reply.code(error.status).send({ code: error.code, error: error.message });
   if (error instanceof AccountError) return reply.code(error.status).send({ code: 'THREADED_MANAGEMENT_AUTH_REQUIRED', error: error.message });
   const statusCode = (error as { statusCode?: number }).statusCode;
   const status = statusCode && statusCode >= 400 && statusCode < 500 ? statusCode : 500;
@@ -40,7 +47,7 @@ export async function registerThreadedAccessBridge(accounts: FastifyInstance, co
   });
 }
 
-/** T02 exposes authenticated snapshots only. No dispatcher, executor or global bus is connected. */
+/** Authenticated snapshots and lifecycle controls. New work and provider execution remain closed. */
 export async function registerThreadedRoutes(app: FastifyInstance, context = defaultContext()): Promise<void> {
   threadedAdmissionMode(); // Reject unknown operator configuration before serving requests.
   const { store, access } = context;
@@ -91,6 +98,42 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
         members: store.listMembers(request.params.id, ownerId) };
     });
     threaded.post('/threads', { bodyLimit: 16_384 }, async () => rejectThreadedAdmission());
+    function controlInput(request: FastifyRequest, decision = false) {
+      const body = request.body as Record<string, unknown> | undefined;
+      const field = decision ? 'decision' : 'action';
+      const allowed = decision ? ['approve', 'reject'] : ['pause', 'stop', 'resume'];
+      if (!body || typeof body !== 'object' || Array.isArray(body)
+        || Object.keys(body).some(key => ![field, 'requestId', 'httpVersion', 'toolVersion', 'schemaVersion'].includes(key))
+        || typeof body[field] !== 'string' || !allowed.includes(body[field] as string)
+        || typeof body.requestId !== 'string' || !body.requestId.trim() || body.requestId.length > 200) {
+        throw new ThreadedAccessError(400, 'THREADED_CONTROL_INVALID', '持续协作控制参数无效');
+      }
+      if (!context.lifecycle) throw new ThreadedAccessError(503, 'THREADED_LIFECYCLE_UNAVAILABLE', '持续协作控制尚未接入');
+      return { value: body[field] as string, requestId: body.requestId };
+    }
+    type ControlParams = { id: string; invocationId?: string; agentId?: string };
+    for (const [url, kind] of [
+      ['/threads/:id/controls', 'thread'],
+      ['/threads/:id/members/:agentId/controls', 'member'],
+      ['/threads/:id/invocations/:invocationId/controls', 'invocation'],
+    ] as const) {
+      threaded.post<{ Params: ControlParams }>(url, { bodyLimit: 4096 }, async request => {
+        const ownerId = principal(request).ownerId;
+        thread(request.params.id, ownerId);
+        const input = controlInput(request);
+        return context.lifecycle!.requestControl({
+          ownerId, requestId: input.requestId, action: input.value as 'pause' | 'stop' | 'resume',
+          scope: { kind, threadId: request.params.id, invocationId: request.params.invocationId, agentId: request.params.agentId },
+        });
+      });
+    }
+    threaded.post<{ Params: { id: string; approvalId: string } }>('/threads/:id/approvals/:approvalId/decision', { bodyLimit: 4096 }, async request => {
+      const ownerId = principal(request).ownerId;
+      thread(request.params.id, ownerId);
+      const input = controlInput(request, true);
+      return context.lifecycle!.decideApproval({ ownerId, threadId: request.params.id, approvalId: request.params.approvalId,
+        decision: input.value as 'approve' | 'reject', requestId: input.requestId });
+    });
     const websocket: WebsocketHandler = (socket, request) => {
       const current = principal(request);
       const id = (request.query as { threadId: string }).threadId;
