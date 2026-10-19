@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, isLegacyRun } from '../runs/legacyMode.ts';
 import type { AgentDefinition, CoordinationPlan, CoordinationPlanStep, CoordinationStepState, Run } from '@agent-gand/shared';
 import { getConversation, conversationHistory } from '../conversations/service.ts';
 import { admitCollaborationRun, recoverCollaborationRuns, settleCollaborationRun } from '../collaboration/scheduler.ts';
@@ -545,6 +546,8 @@ async function execute(run: Run, plan: CoordinationPlan, contextGoal: string, di
 }
 
 export async function runCoordinationPlan(run: Run, contextGoal: string, displayGoal = run.goal, userMessage?: RuntimeMessageInput): Promise<void> {
+  assertLegacyMode(run.mode);
+  assertLegacyRun(run.id);
   if (['completed', 'failed', 'cancelled'].includes(getRun(run.id)?.status ?? 'cancelled')) return;
   assertCoordinationRecoveryReady(run.id);
   const plan = getRunCoordinationPlan(run.id);
@@ -561,6 +564,7 @@ export async function runCoordinationPlan(run: Run, contextGoal: string, display
 }
 
 export async function resumeCoordinationRun(runId: string): Promise<Run | null> {
+  if (!isLegacyRun(runId)) return null;
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan || plan.status === 'completed' || plan.status === 'failed' || plan.status === 'cancelled') return run ?? null;
@@ -581,6 +585,7 @@ export async function resumeCoordinationRun(runId: string): Promise<Run | null> 
 }
 
 export function requestCoordinationResume(runId: string): boolean {
+  assertLegacyRun(runId);
   assertCoordinationRecoveryReady(runId);
   assertBusinessGateResume(runId);
   if (getRunCoordinationPlan(runId)?.executionAdapter === 'collaboration') {
@@ -606,6 +611,7 @@ export function assertCoordinationRecoveryReady(runId: string): void {
 }
 
 export function requestCoordinationPause(runId: string): Run | null {
+  assertLegacyRun(runId);
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan) return run ?? null;
@@ -630,6 +636,7 @@ export function requestCoordinationPause(runId: string): Run | null {
 
 /** AG-COORD-04：用户显式取消暂停中的 Coordination run（终态，不可恢复）。 */
 export function cancelCoordinationRun(runId: string, reason?: 'business_stage_rework'): Run | null {
+  assertLegacyRun(runId);
   const run = getRun(runId);
   const plan = getRunCoordinationPlan(runId);
   if (!run || !plan) return run ?? null;

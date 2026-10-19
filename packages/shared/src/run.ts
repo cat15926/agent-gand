@@ -2,7 +2,12 @@
  * 运行（Run）与可观测性事件（RunEvent = span）（P0-2 / P0-6 / P0-7）
  */
 
-export type RunMode = 'pipeline' | 'supervisor' | 'collaboration';
+export type LegacyRunMode = 'pipeline' | 'supervisor' | 'collaboration';
+export type RunMode = LegacyRunMode | 'threaded';
+
+export function isLegacyRunMode(value: unknown): value is LegacyRunMode {
+  return value === 'pipeline' || value === 'supervisor' || value === 'collaboration';
+}
 
 export type RunStatus =
   | 'pending'

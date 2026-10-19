@@ -35,7 +35,7 @@ function view(row: AccountRow): AccountView {
     nativeClient, identityGeneration: row.identity_generation, identitySummary: native?.summary ?? null,
     revoked: !!get('SELECT account_id FROM account_revocations WHERE account_id=?', row.id), roleCount: references(row.id).roles.length, createdAt: row.created_at, updatedAt: row.updated_at };
 }
-export function references(id: string): AccountReferences {
+export function references(id: string, options: { legacyOnly?: boolean } = {}): AccountReferences {
   const roles = all<{ id: string; name: string; enabled: number; definition: string }>('SELECT id,name,enabled,definition FROM agents')
     .filter((row) => matches(JSON.parse(row.definition) as Definition, id))
     .map((row) => ({ id: row.id, name: row.name, enabled: row.enabled === 1, implicit: !(JSON.parse(row.definition) as Definition).accountRef }));
@@ -47,6 +47,10 @@ export function references(id: string): AccountReferences {
   for (const row of all<{ id: string; status: string; definition: string }>('SELECT r.id,r.status,s.definition FROM run_planner_snapshots s JOIN runs r ON r.id=s.run_id WHERE s.definition IS NOT NULL')) {
     if (matches(JSON.parse(row.definition) as Definition, id)) runs.set(row.id, row.status);
   }
+  if (options.legacyOnly) for (const row of all<{ id: string }>(`SELECT r.id FROM runs r WHERE r.mode='threaded'
+    OR EXISTS (SELECT 1 FROM threaded_run_bindings b WHERE b.run_id=r.id)
+    OR EXISTS (SELECT 1 FROM conversations c WHERE c.id=r.conversation_id AND c.mode='threaded')
+    OR EXISTS (SELECT 1 FROM threaded_threads t WHERE t.conversation_id=r.conversation_id)`)) runs.delete(row.id);
   const terminal = ['completed', 'failed', 'cancelled'];
   const historicalRoleVersionCount = all<{ definition: string }>(
     'SELECT v.definition FROM agent_versions v LEFT JOIN agents a ON a.id=v.agent_id WHERE a.id IS NULL OR v.version<>a.version',

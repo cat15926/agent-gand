@@ -1,3 +1,4 @@
+import { isLegacyRun } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { AccountBackend, AccountTestResult } from '@agent-gand/shared';
@@ -82,15 +83,17 @@ export async function revokeAccount(id: string, value: unknown): Promise<{ cance
   });
   emit({ type: 'account.revoked', accountId: id }); tests.get(id)?.controller.abort();
   for (const row of all<{ id: string; owner_session: string }>("SELECT * FROM account_login_operations WHERE account_id=? AND status IN ('starting','pending')", id)) await cancelLogin(row.id, row.owner_session);
-  for (const item of refs.activeRuns) {
+  // Threaded cancellation belongs to ThreadedLifecyclePort; T02 admits no executions.
+  const legacyRuns = refs.activeRuns.filter(item => isLegacyRun(item.id));
+  for (const item of legacyRuns) {
     if (getRunCoordinationPlan(item.id)) cancelCoordinationRun(item.id);
     else if (getRun(item.id)?.mode === 'collaboration') {
       const result = commitRunTerminal({ runId: item.id, status: 'cancelled', disposition: 'cancelled', source: 'account_revoked', userMessageStatus: 'failed', closeExecution: () => cancelCollaborationRun(item.id), prepare: () => ({ reasonCodes: ['ACCOUNT_REVOKED'] }) });
       if (result.committed) closeCollaborationTrace(item.id, 'cancelled');
     } else finishRun(item.id, 'cancelled');
   }
-  await Promise.all(refs.activeRuns.map((item) => stopExternalRun(item.id)));
-  return { cancelledRunIds: refs.activeRuns.map((item) => item.id) };
+  await Promise.all(legacyRuns.map((item) => stopExternalRun(item.id)));
+  return { cancelledRunIds: legacyRuns.map((item) => item.id) };
 }
 export async function recoverAccountTests(): Promise<void> {
   for (const row of all<{ id: string }>("SELECT id FROM account_checks WHERE status='running'")) {

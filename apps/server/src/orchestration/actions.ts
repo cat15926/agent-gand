@@ -1,3 +1,4 @@
+import { assertLegacyRun } from '../runs/legacyMode.ts';
 import {loadRuntimeContract} from '../runtime/runPolicy.ts';
 import {settleAutonomousRun} from '../collaboration/autonomousRunner.ts';
 import {kickCollaboration} from '../collaboration/scheduler.ts';
@@ -28,6 +29,7 @@ const reject = (message: string, status = 409): never => { throw Object.assign(n
 
 /** Task-scoped actions: compatibility endpoints and the common API share this boundary. */
 export async function applyRunAction(runId: string, action: 'cancel' | 'pause' | 'resume'): Promise<Run> {
+  assertLegacyRun(runId);
   const item = getRun(runId); if (!item) return reject('Run 不存在', 404);
   const plan = getRunCoordinationPlan(runId);
   if (action === 'cancel') {
@@ -73,6 +75,7 @@ export async function applyRunAction(runId: string, action: 'cancel' | 'pause' |
 export async function cancelTaskExecution(taskId: string): Promise<Task> {
   const result = tx(() => {
     const task = getTask(taskId); if (!task) return reject('Task 不存在', 404);
+    if (task.runId) assertLegacyRun(task.runId);
     const attempts = all<{ id: string }>("SELECT id FROM task_attempts WHERE task_id=? AND status='running'", taskId);
     for (const attempt of attempts) {
       try { failAttempt(attempt.id, '用户取消任务'); } catch { /* Already fenced. */ }

@@ -1,3 +1,4 @@
+import { legacyRunIdsSql, assertLegacyRun, assertLegacyMode, assertLegacyConversation, isLegacyRun } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import { executeScopedDispatch, reconcileScopedBatch } from './scopedRunner.ts';
 import {admitAutonomousGraph} from './autonomousGraph.ts';
@@ -161,6 +162,9 @@ function initialTargets(run: Run, conversation: Conversation, input: Collaborati
 }
 
 export function admitCollaborationRun(run: Run, conversation: Conversation, input: CollaborationAdmissionInput = {}): void {
+  assertLegacyMode(run.mode);
+  assertLegacyRun(run.id);
+  assertLegacyConversation(conversation.id);
   let userMessage = listByRun(run.id).find((message) => message.kind === 'user');
   if (!userMessage) {
     userMessage = post({ runId: run.id, from: 'user', to: input.recipientIds?.join(',') || 'all', kind: 'user', body: run.goal,
@@ -203,6 +207,7 @@ export function admitCollaborationRun(run: Run, conversation: Conversation, inpu
 }
 
 export function kickCollaboration(conversationId: string): void {
+  if (!get(`SELECT 1 FROM runs WHERE conversation_id=? AND id IN (${legacyRunIdsSql})`, conversationId)) return;
   if (activeConversations.has(conversationId)) { dirtyConversations.add(conversationId); return; }
   activeConversations.add(conversationId);
   queueMicrotask(() => void drain(conversationId));
@@ -210,6 +215,7 @@ export function kickCollaboration(conversationId: string): void {
 
 /** Explicit service admission for AC2; ordinary UI remains on its existing path until AC4. */
 export function admitAutonomousCollaboration(runId:string,draft:unknown,options:{deliveryVersion?:1}={}){
+  assertLegacyRun(runId);
   const work=admitAutonomousGraph(runId,draft,options),item=getRun(runId)!;
   ensureCollaborationSpan(item);kickCollaboration(item.conversationId);return work;
 }
@@ -218,7 +224,7 @@ async function drain(conversationId: string): Promise<void> {
   try {
     do {
       dirtyConversations.delete(conversationId);
-      for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.conversation_id=? AND r.status='running'",conversationId))settleAutonomousRun(row.run_id);
+      for(const row of all<{run_id:string}>(`SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.conversation_id=? AND r.status='running' AND r.id IN (${legacyRunIdsSql})`,conversationId))settleAutonomousRun(row.run_id);
       await pauseExceededRuns(conversationId);
       for (;;) {
         const claimed = claimNextDispatch(conversationId, leaseOwner);
@@ -240,7 +246,7 @@ async function pauseExceededRuns(conversationId: string): Promise<void> {
   const runIds = [...new Set(listConversationDispatches(conversationId).filter((d) => d.status === 'queued').map((d) => d.runId))];
   for (const runId of runIds) {
     const item = getRun(runId);
-    if (!item || item.status !== 'running' || hasPendingDecision(runId)) continue;
+    if (!item || !isLegacyRun(runId) || item.status !== 'running' || hasPendingDecision(runId)) continue;
     if(loadRuntimeContract(runId)?.features?.autonomousCollaboration)continue;
     const dimension = budgetExceeded(runId);
     if (!dimension) continue;
@@ -903,12 +909,13 @@ function scheduleBatchTimeout(batchId: string, timeoutAt: string): void {
 
 /** 启动恢复和人工取消后共用；重复调用只能得到同一个 aggregate。 */
 export function reconcileCollaborationBatches(runId?: string): void {
-  for (const batch of listUnaggregatedBatches(runId)) maybeCompleteBatch(batch.id);
+  for (const batch of listUnaggregatedBatches(runId)) if (isLegacyRun(batch.runId)) maybeCompleteBatch(batch.id);
 }
 
 export function finalizeCollaborationRun(runId: string, options: {
   disposition?: 'normal' | 'partial_user_accepted' | 'delegated'; publishResult?: boolean;
 } = {}): void {
+  if (!isLegacyRun(runId)) return;
   if(loadRuntimeContract(runId)?.features?.autonomousCollaboration){settleAutonomousRun(runId);return;}
   if (settleRequestedPause(runId)) return;
   const run = getRun(runId); if (!run || run.status === 'awaiting_approval' || terminalRunStatus(run.status)) return;
@@ -966,8 +973,9 @@ function hashText(value: string): string {
 }
 
 export function recoverCollaborationRuns(): void {
-  for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.status='waiting_for_user'"))settleAutonomousRun(row.run_id);
+  for(const row of all<{run_id:string}>(`SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.id IN (${legacyRunIdsSql}) AND r.status='waiting_for_user'`))settleAutonomousRun(row.run_id);
   for (const runId of listRunningCollaborationRunIds()) {
+    if (!isLegacyRun(runId)) continue;
     const run = getRun(runId); if (run) ensureCollaborationSpan(run);
     if(loadRuntimeContract(runId)?.features?.autonomousCollaboration){settleAutonomousRun(runId);continue;}
     if (hasPendingDecision(runId)) setRunStatus(runId, 'waiting_for_user');
@@ -975,12 +983,12 @@ export function recoverCollaborationRuns(): void {
   }
   reconcileCollaborationBatches();
   for (const conversationId of listRecoverableConversationIds()) kickCollaboration(conversationId);
-  for (const batch of listOpenBatches()) scheduleBatchTimeout(batch.id, batch.timeoutAt);
+  for (const batch of listOpenBatches()) if (isLegacyRun(batch.runId)) scheduleBatchTimeout(batch.id, batch.timeoutAt);
 }
 
 /** 活进程先续自己的租约，再只回收真正过期的其他进程 Attempt。 */
 export function sweepCollaborationLeases(): void {
-  for(const row of all<{run_id:string}>("SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.status='waiting_for_user'"))settleAutonomousRun(row.run_id);
+  for(const row of all<{run_id:string}>(`SELECT DISTINCT w.run_id FROM autonomous_work_items w JOIN runs r ON r.id=w.run_id WHERE r.id IN (${legacyRunIdsSql}) AND r.status='waiting_for_user'`))settleAutonomousRun(row.run_id);
   renewCollaborationLeases(leaseOwner);
   for (const conversationId of interruptExpiredAttempts({ onlyExpired: true })) {
     for (const runId of new Set(listConversationDispatches(conversationId).map((item) => item.runId))) finalizeRun(runId);
@@ -1000,7 +1008,7 @@ subscribe(event => {
 
 export function resumeCollaborationConversation(conversationId: string): void { kickCollaboration(conversationId); }
 export function settleCollaborationRun(runId: string): void {
-  const item = getRun(runId); if (!item) return;
+  const item = getRun(runId); if (!item || !isLegacyRun(runId)) return;
   reconcileCollaborationBatches(runId);
   finalizeRun(runId); kickCollaboration(item.conversationId);
 }

@@ -1,3 +1,4 @@
+import { legacyRunIdsSql, assertLegacyRun } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import type { ExternalAgentExecution } from '@agent-gand/shared';
@@ -16,6 +17,7 @@ export function listExecutions(runId: string): ExternalAgentExecution[] {
   return all<{ record: string }>('SELECT record FROM external_agent_executions WHERE run_id=? ORDER BY rowid', runId).map((row) => JSON.parse(row.record) as ExternalAgentExecution);
 }
 export function createExecution(input: Pick<ExternalAgentExecution, 'runId' | 'agentId' | 'scopeId' | 'driver' | 'agentVersion' | 'cwd'>): ExternalAgentExecution {
+  assertLegacyRun(input.runId);
   const record: ExternalAgentExecution = { ...input, id: randomUUID(), host: hostname(), status: 'running', sessionId: null, driverVersion: null,
     errorCode: null, error: null, content: '', tokensIn: null, tokensOut: null, costUsd: null, startedAt: new Date().toISOString(), finishedAt: null, processOwnership: 'guardian-v1' };
   run('INSERT INTO external_agent_executions (id,run_id,agent_id,scope_id,status,record) VALUES (?,?,?,?,?,?)', record.id, record.runId, record.agentId, record.scopeId, record.status, JSON.stringify(record));
@@ -25,6 +27,7 @@ export function createExecution(input: Pick<ExternalAgentExecution, 'runId' | 'a
 export function updateExecution(id: string, patch: Partial<ExternalAgentExecution>): ExternalAgentExecution {
   const previous = getExecution(id);
   if (!previous) throw new Error(`Execution 不存在：${id}`);
+  assertLegacyRun(previous.runId);
   if (previous.status !== 'running') return previous;
   const record = { ...previous, ...patch };
   run('UPDATE external_agent_executions SET status=?,record=? WHERE id=? AND status=\'running\'', record.status, JSON.stringify(record), id);
@@ -34,9 +37,9 @@ export function updateExecution(id: string, patch: Partial<ExternalAgentExecutio
 
 /** Native sessions are never automatically replayed after host restart. */
 export function interruptStaleExecutions(): void {
-  for (const row of all<{ id: string }>("SELECT id FROM external_agent_executions WHERE status='running'")) updateExecution(row.id, {
+  for (const row of all<{ id: string }>(`SELECT id FROM external_agent_executions WHERE status='running' AND run_id IN (${legacyRunIdsSql})`)) updateExecution(row.id, {
     status: 'interrupted', errorCode: 'interrupted', error: '服务重启，原生执行状态不确定；检查实际变更后再创建新运行，不自动重放', finishedAt: new Date().toISOString(),
   });
   // Decisions from an old native process can never authorize a new invocation.
-  run(`UPDATE approvals SET status='expired',decided_by='system:restart',decided_at=? WHERE status='pending' AND id IN (SELECT approval_id FROM external_agent_approvals)`, new Date().toISOString());
+  run(`UPDATE approvals SET status='expired',decided_by='system:restart',decided_at=? WHERE status='pending' AND run_id IN (${legacyRunIdsSql}) AND id IN (SELECT approval_id FROM external_agent_approvals)`, new Date().toISOString());
 }

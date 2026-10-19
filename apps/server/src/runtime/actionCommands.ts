@@ -1,3 +1,4 @@
+import { assertLegacyRun } from '../runs/legacyMode.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { RuntimeActionCommandKind, RuntimeActionCommandRecord } from '@agent-gand/shared';
 import { afterCommit, all, get, run, tx } from '../db/database.ts';
@@ -81,6 +82,7 @@ function boundaryFingerprint<T>(input: RuntimeActionCommandInput<T>): string | n
 
 function commitAction<T>(kind: RuntimeActionCommandKind,
   input: RuntimeActionCommandInput<T>): RuntimeActionCommandResult<T> {
+  assertLegacyRun(input.runId);
   if (!input.commandKey.trim()) throw new Error('Runtime 动作命令缺少 commandKey');
   return tx(() => {
     const existing = get<CommandRow>('SELECT * FROM runtime_action_commands WHERE command_key=?', input.commandKey);

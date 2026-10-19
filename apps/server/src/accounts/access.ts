@@ -6,6 +6,7 @@ import { AccountError } from './errors.ts';
 const lifetimeMs = 8 * 60 * 60 * 1000;
 const cookieName = `gand_accounts_${config.port}`;
 const sessions = new Map<string, { csrf: string; expires: number }>();
+const invalidationListeners = new Set<(owner: string) => void>();
 export const isLoopback = (host: string) => ['127.0.0.1', '::1', '[::1]', 'localhost', '::ffff:127.0.0.1'].includes(host.toLowerCase());
 const remoteMode = !isLoopback(config.host);
 const trustedHosts = new Set(config.accounts.trustedOrigins.map((origin) => new URL(origin).host.toLowerCase()));
@@ -21,8 +22,24 @@ function cookie(request: FastifyRequest): string | null {
 }
 function session(request: FastifyRequest) {
   const id = cookie(request); const stored = id ? sessions.get(id) : undefined;
-  if (!stored || stored.expires <= Date.now()) { if (id) sessions.delete(id); return undefined; }
+  if (!stored || stored.expires <= Date.now()) { if (id) invalidateSession(id); return undefined; }
   return stored;
+}
+function invalidateSession(id: string): void {
+  if (!sessions.delete(id)) return;
+  const owner = digest(id).toString('hex');
+  for (const listener of invalidationListeners) {
+    try { listener(owner); } catch { /* A derived namespace must not prevent logout or other revocations. */ }
+  }
+}
+/** Derived namespaces share authentication lifetime, never this ephemeral owner as business identity. */
+export function managementSessionGrant(request: FastifyRequest): { owner: string; expiresAt: number } {
+  const stored = checkedManagementSession(request);
+  return { owner: digest(cookie(request)!).toString('hex'), expiresAt: stored.expires };
+}
+export function onManagementSessionInvalidated(listener: (owner: string) => void): () => void {
+  invalidationListeners.add(listener);
+  return () => { invalidationListeners.delete(listener); };
 }
 export function managementOwner(request: FastifyRequest): string {
   requireManagementSession(request);
@@ -36,7 +53,7 @@ export function assertManagementBoundary(request: FastifyRequest): void {
   if (request.headers['sec-fetch-site'] === 'cross-site') throw new AccountError(403, '账户管理不接受跨站请求');
   if (!remoteMode && !isLoopback(request.ip)) throw new AccountError(403, '账户管理仅允许本机访问');
 }
-export function requireManagementSession(request: FastifyRequest): void {
+function checkedManagementSession(request: FastifyRequest) {
   if (!accessMode().available) throw new AccountError(503, '远程账户管理尚未启用，请配置至少 32 个字符的 ACCOUNT_ADMIN_TOKEN');
   const stored = session(request);
   if (!stored) throw new AccountError(401, '账户管理会话已过期，请重新连接');
@@ -44,7 +61,9 @@ export function requireManagementSession(request: FastifyRequest): void {
     const token = request.headers['x-gand-csrf'];
     if (typeof token !== 'string' || !equal(token, stored.csrf)) throw new AccountError(403, '账户管理请求缺少有效的 CSRF 校验');
   }
+  return stored;
 }
+export function requireManagementSession(request: FastifyRequest): void { checkedManagementSession(request); }
 export function createManagementSession(request: FastifyRequest, reply: FastifyReply): { csrfToken: string; expiresAt: string } {
   if (request.headers['x-gand-bootstrap'] !== '1') throw new AccountError(403, '账户管理需要显式建立会话');
   if (!accessMode().available) throw new AccountError(503, '远程账户管理尚未启用，请配置至少 32 个字符的 ACCOUNT_ADMIN_TOKEN');
@@ -53,7 +72,7 @@ export function createManagementSession(request: FastifyRequest, reply: FastifyR
     if (!bearer?.startsWith('Bearer ') || !equal(bearer.slice(7), config.accounts.adminToken!)) throw new AccountError(401, '账户管理认证失败');
     if (request.headers.origin && !request.headers.origin.startsWith('https://') && !isLoopback(new URL(request.headers.origin).hostname)) throw new AccountError(403, '远程浏览器账户管理需要 HTTPS');
   }
-  for (const [id, stored] of sessions) if (stored.expires <= Date.now()) sessions.delete(id);
+  for (const [id, stored] of sessions) if (stored.expires <= Date.now()) invalidateSession(id);
   const existing = session(request);
   if (existing) return { csrfToken: existing.csrf, expiresAt: new Date(existing.expires).toISOString() };
   if (sessions.size >= 1000) throw new AccountError(429, '账户管理会话过多，请稍后重试');
@@ -64,7 +83,7 @@ export function createManagementSession(request: FastifyRequest, reply: FastifyR
   return { csrfToken: csrf, expiresAt: new Date(expires).toISOString() };
 }
 export function deleteManagementSession(request: FastifyRequest, reply: FastifyReply): { ok: true } {
-  const id = cookie(request); if (id) sessions.delete(id);
+  const id = cookie(request); if (id) invalidateSession(id);
   reply.header('set-cookie', `${cookieName}=; Path=/api/accounts; HttpOnly; SameSite=Strict; Max-Age=0`);
   return { ok: true };
 }

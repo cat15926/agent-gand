@@ -17,10 +17,13 @@ import { checkAccount, clearCredential, createAccount, deleteAccount, getAccount
 import { previewScopedDelivery, confirmScopedDelivery, scopedDeliveryStatus, roomScopedDeliveries } from '../collaboration/scopedDelivery.ts';
 import { kickCollaboration } from '../collaboration/scheduler.ts';
 import { getRun } from '../runs/trace.ts';
+import { registerThreadedAccessBridge } from './threadedRoutes.ts';
+import { registerLegacyThreadedBoundary } from '../threaded/legacyBoundary.ts';
 
 /** Encapsulated hooks and error handler cover every credential request, including parse failures. */
 export async function registerAccountRoutes(app: FastifyInstance): Promise<void> {
   await app.register(async (accounts) => {
+    registerLegacyThreadedBoundary(accounts);
     accounts.addHook('onRequest', async (request, reply) => {
       reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
       assertManagementBoundary(request);
@@ -39,6 +42,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
       return reply.code(status).send({ error: status < 500 ? '账户请求格式无效' : '账户操作失败，请检查服务端配置或恢复备份' });
     });
     accounts.get('/api/accounts/access', async () => accessMode());
+    await registerThreadedAccessBridge(accounts);
     accounts.post('/api/accounts/session', { bodyLimit: 1024 }, async (request, reply) => createManagementSession(request, reply));
     accounts.delete('/api/accounts/session', async (request, reply) => { await cancelSessionLogins(managementOwner(request)); return deleteManagementSession(request, reply); });
     accounts.get('/api/accounts/scoped-delivery/capabilities', async () => scopedCollaborationSupport());
@@ -90,7 +94,7 @@ export async function registerAccountRoutes(app: FastifyInstance): Promise<void>
       if (request.query.backend && !compatibleBackends(account.connection, account.nativeClient).includes(request.query.backend as AccountBackend)) throw new AccountError(400, '接入方式与账户不兼容');
       return { models: account.connection.models.map((id) => ({ id, source: 'account' })), defaultModel: account.connection.defaultModel, detected: false };
     });
-    accounts.get<{ Params: { id: string } }>('/api/accounts/:id/references', async (request) => { getAccount(request.params.id); return references(request.params.id); });
+    accounts.get<{ Params: { id: string } }>('/api/accounts/:id/references', async (request) => { getAccount(request.params.id); return references(request.params.id, { legacyOnly: true }); });
     accounts.delete<{ Params: { id: string } }>('/api/accounts/:id', async (request) => { const account = getAccount(request.params.id); const result = deleteAccount(account.id, request.body); if (account.authType === 'native_login') await removeNativeCredentials(account.id); return result; });
   });
 }

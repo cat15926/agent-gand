@@ -1,3 +1,4 @@
+import { legacyRunIdsSql, isLegacyRun } from '../runs/legacyMode.ts';
 import { all, get, run } from '../db/database.ts';
 import { getExecution, updateExecution, interruptStaleExecutions } from './store.ts';
 import { quiesceNativeProcesses, ownerAlive } from './host.ts';
@@ -8,7 +9,7 @@ import { cleanupRecoveredScopedNative } from './scopedNative.ts';
 export async function recoverExternalExecutions(): Promise<void> {
   const rows = all<{ id: string }>("SELECT id FROM external_agent_executions WHERE status='running' OR id IN (SELECT execution_id FROM external_native_processes WHERE status='active')");
   for (const { id } of rows) {
-    const execution = getExecution(id); if (!execution) continue;
+    const execution = getExecution(id); if (!execution || !isLegacyRun(execution.runId)) continue;
     let quiesced = execution.processOwnership === 'guardian-v1' && await quiesceNativeProcesses(id);
     const scoped=!!execution.scopedIsolation||!!get('SELECT 1 FROM runtime_execution_scopes WHERE id=? AND run_id=?',execution.scopeId,execution.runId);
     // A cold Scope must never collect an ancestor repository's diff on restart.
@@ -21,8 +22,10 @@ export async function recoverExternalExecutions(): Promise<void> {
     if (quiesced) run('DELETE FROM external_workspace_leases WHERE holder=?', id);
   }
   for (const lease of all<{ resource: string; holder: string; host: string; pid: number; identity: string }>('SELECT * FROM external_workspace_leases')) {
+    const execution = getExecution(lease.holder);
+    if (execution && !isLegacyRun(execution.runId)) continue;
     if (!ownerAlive(lease) && getExecution(lease.holder)?.recovery?.state !== 'attention' && !all("SELECT token FROM external_native_processes WHERE execution_id=? AND status='active'", lease.holder).length) run('DELETE FROM external_workspace_leases WHERE resource=? AND holder=?', lease.resource, lease.holder);
   }
-  run("UPDATE external_agent_sessions SET status='invalid' WHERE status='inflight'");
+  run(`UPDATE external_agent_sessions SET status='invalid' WHERE status='inflight' AND execution_id IN (SELECT id FROM external_agent_executions WHERE run_id IN (${legacyRunIdsSql}))`);
   interruptStaleExecutions();
 }

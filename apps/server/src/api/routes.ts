@@ -1,4 +1,5 @@
 import {autonomousEntryOptions,autonomousTaskView} from '../collaboration/autonomousEntry.ts';
+import { isThreadedConversation, isThreadedRun, registerLegacyThreadedBoundary } from '../threaded/legacyBoundary.ts';
 import {appendAutonomousInstruction} from '../runtime/autonomousInstructions.ts';
 import {AutonomousTaskError} from '../runtime/autonomousPolicy.ts';
 import { scopedCollaborationCapabilities } from '../runtime/scopedCapabilities.ts';
@@ -21,6 +22,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentSaveInput, AgentMessageType, CoordinationPreviewInput, FollowupPreview, MessageKind, ResolveCollaborationDecision } from '@agent-gand/shared';
+import { isLegacyRunMode } from '@agent-gand/shared';
 import * as registry from '../agents/registry.ts';
 import { AgentValidationError, validateAgentInput } from '../agents/validation.ts';
 import { preflightAgent } from '../agents/preflight.ts';
@@ -64,7 +66,6 @@ import { listRuntimeActionCommands } from '../runtime/actionCommands.ts';
 import { listRuntimeShadowComparisons } from '../runtime/shadowComparison.ts';
 import { budgetSnapshot, cancelAgentWork, cancelCollaborationRun, cancelDispatch, getDispatch, listAttempts as listCollaborationAttempts, listBatches as listCollaborationBatches, listConversationDispatches as listCollaborationDispatchesForConversation, listDecisions as listCollaborationDecisions, listDispatches as listCollaborationDispatches } from '../collaboration/store.ts';
 import {
-  countRuns,
   finishRun,
   getRun,
   listRunsByConversation,
@@ -142,6 +143,7 @@ function manage<T>(op: 'rename' | 'duplicate' | 'delete', name: string, arg?: un
 }
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
+  registerLegacyThreadedBoundary(app);
   await registerBusinessRoutes(app);
   await registerArtifactRoutes(app);
   const entryEndpoints = new Set(['/api/conversations','/api/conversations/empty','/api/conversations/:id/messages','/api/conversations/:id/requests','/api/runs','/api/orchestration/preview','/api/coordination/preview','/api/conversations/:id/followup-preview']);
@@ -170,7 +172,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/health', async () => ({
     ok: true,
     agents: registry.count(),
-    runs: countRuns(),
+    runs: listRuns({ includeDeleted: true }).filter(item => !isThreadedRun(item.id)).length,
     mcp: getMcpStatus(),
   }));
 
@@ -432,7 +434,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 聊天室：一个房间包含多轮 Run ----
 
   app.post<{ Body: unknown }>('/api/conversations/empty', async (req,reply) => { reply.code(201); return { conversation: createEmptyRoom(req.body) }; });
-  app.get('/api/orchestration/members', async () => ({ reservations: memberQueue() }));
+  app.get('/api/orchestration/members', async () => ({ reservations: memberQueue().filter(item => !isThreadedRun(item.runId)) }));
   app.get<{ Params: { id: string }; Querystring: { runIds?: string } }>('/api/conversations/:id/task-state', async req => {
     if (!getConversation(req.params.id)) throw httpError(404,'聊天室不存在');
     const ids = parseHistory(() => historyRunIds(req.query.runIds));
@@ -457,7 +459,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     const updated = updateRoomPreferences(room.id,preferences,req.body.expectedMembersVersion!);
     if (!updated) throw httpError(409,'房间设置已改变，请刷新后重试'); return updated;
   });
-  app.get('/api/conversations', async () => listConversations());
+  app.get('/api/conversations', async () => listConversations().filter(item => !isThreadedConversation(item.id)));
   app.post<{ Body: Record<string, unknown> }>('/api/conversations', { bodyLimit: 2 * 1024 * 1024 }, async (req, reply) => {
     const result = usesExecutionEntry(req.body ?? {}) ? submitExecutionOrchestration(req.body) : submitLegacyOrchestration('room_create', req.body);
     if (!result.deduplicated) enqueueConversationRun(result.run.id);
@@ -527,6 +529,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     assertLegacyAdmission();
     const conversation = getConversation(req.params.id);
     if (!conversation) throw httpError(404, `聊天室不存在: ${req.params.id}`);
+    if (!isLegacyRunMode(conversation.mode)) throw httpError(404, '此入口不存在该聊天室');
     const goal = req.body?.body?.trim();
     if (!goal) throw httpError(400, 'body 必填');
     const recipientIds = req.body?.recipientIds ?? [];
@@ -622,7 +625,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 任务（三态 + 认领事务锁）----
 
   app.get<{ Querystring: { runId?: string } }>('/api/tasks', async (req) =>
-    listTasks(req.query.runId),
+    listTasks(req.query.runId).filter(item => !isThreadedRun(item.runId)),
   );
 
   app.post<{ Body: { title?: string; body?: string; createdBy?: string; runId?: string } }>(
@@ -715,7 +718,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
         includeDeleted: req.query.includeDeleted === '1',
         q: typeof req.query.q === 'string' ? req.query.q : undefined,
         status: typeof req.query.status === 'string' ? req.query.status : undefined,
-      }),
+      }).filter(item => !isThreadedRun(item.id)),
   );
 
   // §13.2 会话改题（非空 ≤80）
@@ -738,7 +741,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 工作区管理（§11.1 M1 / §11.2 M2） ----
 
   // 卡片元数据列表（§11.1：名称/最后使用/文件数/关联 run 数/最近目标）
-  app.get('/api/workspaces', async () => listWorkspaceMetas());
+  app.get('/api/workspaces', async () => listWorkspaceMetas({ legacyOnly: true }));
 
   // 自动名建议（§11.1 新建零输入路径：goal 关键词 slug 或 task-MMDD，服务端判撞名）
   app.get<{ Querystring: { goal?: string } }>('/api/workspaces/suggest', async (req) => ({
@@ -874,7 +877,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   // ---- 审批 ----
 
   app.get<{ Querystring: { status?: string } }>('/api/approvals', async (req) =>
-    listApprovals(req.query.status),
+    listApprovals(req.query.status).filter(item => !isThreadedRun(item.runId)),
   );
 
   app.post<{ Params: { id: string }; Body: { decision?: string; editedInput?: string; by?: string } }>(
@@ -902,7 +905,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   // ---- 用量 ----
 
-  app.get('/api/usage', async () => usageSummary());
+  app.get('/api/usage', async () => usageSummary().filter(item => !isThreadedRun(item.runId)));
 }
 
 function parseHistory<T>(read: () => T): T { try { return read(); } catch (reason) { if (reason instanceof HistoryInputError) throw httpError(reason.status,reason.message); throw reason; } }

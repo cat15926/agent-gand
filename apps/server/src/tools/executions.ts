@@ -1,3 +1,4 @@
+import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ToolExecution, ToolReplayPolicy } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
@@ -31,6 +32,7 @@ export function reconcileInterruptedToolExecutions(attemptId: string): { needsAt
     const reasons: string[] = [];
     const now = new Date().toISOString();
     for (const row of rows) {
+      if (!isLegacyRun(row.run_id)) continue;
       if (row.status === 'completed' || row.status === 'interrupted') continue;
       if (row.status === 'needs_attention' || (row.replay_policy === 'manual' && (row.status === 'running' || row.status === 'failed'))) {
         reasons.push(`${row.tool_name}:${row.id}`);
@@ -50,6 +52,7 @@ export async function executeToolOnce(input: {
   input: string; idempotencyKey: string; replayPolicy: ToolReplayPolicy; spanId: string;
   execute: () => Promise<string>;
 }): Promise<{ output: string; replayed: boolean }> {
+  assertLegacyRun(input.runId);
   const claimed = tx(() => {
     const existing = get<Row>('SELECT * FROM tool_executions WHERE idempotency_key=?', input.idempotencyKey);
     if (existing) {

@@ -12,6 +12,7 @@ import * as registry from './agents/registry.ts';
 import { registerRoutes } from './api/routes.ts';
 import { registerAccountRoutes } from './api/accountRoutes.ts';
 import { registerWs } from './api/ws.ts';
+import { registerThreadedRoutes } from './api/threadedRoutes.ts';
 import { seed } from './seed.ts';
 import { recoverInterruptedTasks } from './messaging/tasks.ts';
 import { interruptRunningAttempts } from './tasks/attempts.ts';
@@ -40,6 +41,7 @@ await app.register(websocketPlugin);
 await app.register((instance) => registerRoutes(instance));
 await registerAccountRoutes(app);
 await app.register((instance) => registerWs(instance));
+await app.register((instance) => registerThreadedRoutes(instance));
 
 const mcp = await refreshMcpTools();
 if (mcp.configured && !mcp.connected) app.log.warn(`MCP 初始化失败，稍后可刷新重试: ${mcp.lastError}`);

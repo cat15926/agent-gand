@@ -1,3 +1,4 @@
+import { isLegacyRun } from './legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import { get } from '../db/database.ts';
 import { recoverCollaborationRuns } from '../collaboration/scheduler.ts';
@@ -27,7 +28,7 @@ const durableWakeOwner = `wake:${process.pid}:${randomUUID()}`;
 /** 从编排器的持久化边界唤醒；各编排器内部有进程内去重锁。 */
 export function wakeRun(runId: string): void {
   const run = getRun(runId);
-  if (!run || !['running', 'awaiting_approval'].includes(run.status)) return;
+  if (!run || !isLegacyRun(runId) || !['running', 'awaiting_approval'].includes(run.status)) return;
   if (get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1', runId)) return;
   if (getRunCoordinationPlan(runId)) void resumeCoordinationRun(runId).catch(() => { /* execute 已持久化失败；避免恢复任务变成未处理拒绝 */ });
   else if (latestCheckpoint(runId, 'fastpath')) void resumeFastPathRun(runId).catch(() => {});
@@ -37,7 +38,7 @@ export function wakeRun(runId: string): void {
 }
 
 export function recoverDurableRuns(): void {
-  for (const runId of acceptedBusinessGateRuns()) void resumeCoordinationRun(runId).catch(() => {});
+  for (const runId of acceptedBusinessGateRuns()) if (isLegacyRun(runId)) void resumeCoordinationRun(runId).catch(() => {});
   for (const status of ['running', 'awaiting_approval']) {
     for (const run of listRuns({ status, includeDeleted: true })) wakeRun(run.id);
   }
@@ -48,7 +49,7 @@ export function recoverDurableRuns(): void {
  * claim 进程崩溃时，30 秒租约到期后可由下一进程重新接管。
  */
 export function recoverDurableHolds(runId?: string): number {
-  for (const id of acceptedBusinessGateRuns()) if (!runId || id === runId) void resumeCoordinationRun(id).catch(() => {});
+  for (const id of acceptedBusinessGateRuns()) if (isLegacyRun(id) && (!runId || id === runId)) void resumeCoordinationRun(id).catch(() => {});
   const claims = claimReadyDurableHolds({ claimOwner: durableWakeOwner, runId });
   const wakeRunIds = new Set<string>();
   let resumed = 0;

@@ -1,7 +1,9 @@
+import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { get, run } from '../db/database.ts';
 import { getRun, setRunStatus } from '../runs/trace.ts';
 
 export function settleRequestedPause(runId: string): boolean {
+  if (!isLegacyRun(runId)) return false;
   const control = get<{ pause_requested: number; recovery_attention: number }>('SELECT pause_requested,recovery_attention FROM orchestration_run_controls WHERE run_id=?', runId);
   if (!control?.pause_requested && !control?.recovery_attention) return false;
   const item = getRun(runId);
@@ -14,6 +16,7 @@ export function settleRequestedPause(runId: string): boolean {
   return true;
 }
 export function requestAdapterPause(runId: string): void {
+  assertLegacyRun(runId);
   run(`INSERT INTO orchestration_run_controls(run_id,pause_requested) VALUES (?,1)
     ON CONFLICT(run_id) DO UPDATE SET pause_requested=1`, runId);
   settleRequestedPause(runId);

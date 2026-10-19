@@ -8,7 +8,7 @@ import type {
   CoordinationProtocolSelection,
   CoordinationRisk,
   CoordinationValidationIssue,
-  RunMode,
+  LegacyRunMode,
   TaskBrief,
 } from '@agent-gand/shared';
 import { config } from '../config.ts';
@@ -117,7 +117,7 @@ export function isStructuredFollowupGoal(goal: string): boolean {
   return selected.some((id) => id !== 'single_agent' && id !== 'dynamic_collaboration');
 }
 
-function runtimeFor(protocols: CoordinationProtocolId[], snapshot: CapabilitySnapshot): RunMode | null {
+function runtimeFor(protocols: CoordinationProtocolId[], snapshot: CapabilitySnapshot): LegacyRunMode | null {
   const coordinationNative = new Set<CoordinationProtocolId>(['single_agent', 'parallel_fanout', 'supervisor_aggregation', 'review_revision', 'debate']);
   if (protocols.length > 0 && protocols.every((id) => coordinationNative.has(id))) {
     // Run.mode 仅作为聊天室兼容载体；Dispatcher 会按已绑定 Plan 路由到 Coordination Runtime。

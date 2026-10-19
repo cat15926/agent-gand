@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**已批准**（T01 设计基线已完成，T02–T12 尚未实施）。用户已确认产品命名、验收目标并授权实施 T01；当前交付是实现依据，功能尚未实现。更新：2026-10-19。
+状态：**实施中**（T01 设计与 T02 基础边界已完成，T03–T12 待实施）。用户已确认产品命名与验收目标；新模式真实执行尚未开放。更新：2026-10-19。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -10,23 +10,23 @@
 
 验收目标（用户已确认，2026-10-19）：**核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。**具体证据与发布要求见第 8 节。
 
-T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容矩阵](threaded-collaboration-compatibility-matrix.md)、[接入地图](threaded-collaboration-integration-map.md)与[基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)。下一项为 T02：默认关闭的新模式类型、身份、路由、schema 与迁移；具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。可靠消息闭环通过确定性测试后接真实后端。阶段 4 可交付持续协作核心能力；完整责任、评审、恢复与发布要求仍须完成后续阶段。
+T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容矩阵](threaded-collaboration-compatibility-matrix.md)、[接入地图](threaded-collaboration-integration-map.md)与[基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)。T02 已完成默认关闭的类型、身份、路由、旧路径隔离与 v25 迁移，见[基础架构合同](../architecture/threaded-foundation-v1.md)和[验收报告](../reports/threaded-collaboration-t02-foundation-2026-10-19.md)。下一项为 T03，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。可靠消息闭环通过确定性测试后接真实后端。阶段 4 可交付持续协作核心能力；完整责任、评审、恢复与发布要求仍须完成后续阶段。
 
-## 1 基线与当前差距
+## 1 T01 固定基线与初始差距
 
 | 对象 | 固定版本或核对结果 |
 | --- | --- |
 | Issue 的 agent-gand 基线 | `996513c673498811bed894b3eecf64382e71af3f` |
-| 本次实际 HEAD | `b95dc2553405268a9b807b3983fee8f9facc55fa` |
+| T01 核对 HEAD | `b95dc2553405268a9b807b3983fee8f9facc55fa` |
 | 两者差异 | 一个提交 `fix(chat): separate execution drafts and improve result presentation`，25 个文件，330 行新增、45 行删除 |
 | Clowder 参考版本 | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；固定版本，不代表当前远端最新状态 |
 | 本地环境 | Node `v22.23.1`，pnpm `9.15.4` |
-| 迁移清单 | 源码最新登记 v24；未据此推断任何运行数据库的实际版本 |
-| 新模式实现 | `apps`、`packages`、`scripts` 当前未发现 `threaded` 实现；无 `verify:threaded-*` 脚本 |
+| T01 迁移清单 | 当时源码最高 v24；T02 已追加 v25，未据此推断日常数据库的实际版本 |
+| T01 前新模式实现 | 当时无 `threaded` 实现及 `verify:threaded-*` 脚本；当前已完成 T02 基础边界，功能范围见实施状态 |
 
 新增提交把带控制工具的临时正文标为 `control_draft`，正式消息以提交结果为准，并修复完整交付正文和前端展示。Threaded 复用执行循环时必须保留这些改动，同时明确显式 post、普通最终响应和临时流式输出的边界。参考 [turnDisplay.ts](../../apps/server/src/orchestration/turnDisplay.ts)、[agentStep.ts](../../apps/server/src/orchestration/agentStep.ts)、[事件类型](../../packages/shared/src/events.ts)及[展示回归脚本](../../scripts/verify-message-presentation.mjs)。
 
-与 Issue 的 agent-gand 基线相比，模式类型、成员锁、会话绑定、终态和启动恢复等核心文件没有变化；原迁移风险仍存在。实施前重新记录 HEAD 和未提交修改，避免把本次核对当作未来版本的保证。
+T01 核对时，与 Issue 的 agent-gand 基线相比，模式类型、成员锁、会话绑定、终态和启动恢复等核心文件没有变化。T02 已修改类型与旧路径隔离；后续仍须重新记录 HEAD 和未提交修改，不能把 T01 清单当当前源码保证。
 
 ## 2 已确定的边界
 
@@ -45,6 +45,8 @@ T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容�
 兼容矩阵分别标记“参考行为”“本地增强”“范围外”“尚未验证”。持久化多成员征询是相对参考版本的增强；Collective 的私有与公共隔离属于后续按发布范围验证的能力。API 后端重建上下文不能标为原生 Session resume。
 
 ## 3 必须先处理的代码接入点
+
+本节保留 T01 盘点及总体任务责任；T02 已完成的模式/身份/迁移/隔离部分以基础架构合同为准，不表示整行后续执行能力已经实现。
 
 | 当前事实与源码 | 实施动作 | 对应合同 |
 | --- | --- | --- |
@@ -275,11 +277,11 @@ pnpm verify:docs
 
 ## 10 当前交接与下一项工作
 
-T01 已完成：固定版本及差异证据、设计决策、模式接入地图、K01–K16 与原 59 项验收矩阵、独立增强用例、首批后端/平台与高级能力范围，以及 T02–T04 接口草案。未修改运行代码、未执行数据库迁移、未启动真实模型、未回写 GitHub issue；T02–T12 尚未开始。
+T01 设计已提交推送（`0a2f1b4`）。T02 已实现并在隔离 fixture 中验证模式类型、关闭准入、稳定身份、专用认证读取、旧路径隔离与 v25 迁移；T02 代码及文档留在工作区。未迁移日常数据库、未启动真实模型、未回写 GitHub issue；T03–T12 尚未开始。
 
-检查结果与可复核证据见[实施状态](threaded-collaboration-implementation-status.md)。`pnpm typecheck` 通过只证明当前代码基线；全部 Threaded 功能验收 ID 当前均为待实施、待验证。
+检查结果与可复核证据见[实施状态](threaded-collaboration-implementation-status.md)和 T02 报告。DB03 的 v25 范围通过；ISO01–ISO03、CTX02/UI01 仅基础边界子场景通过，其余完整行为验收仍待后续实施。
 
-**下一项具体任务是 T02。**先复核实际 HEAD、源码 hash、工作区及迁移最高版本，再实现 shared 独立模式、默认 closed 策略、稳定 owner/专用访问边界、最小 Thread/Member/Invocation/Attempt/Run binding schema 与前向迁移。依[接入地图](threaded-collaboration-integration-map.md)收窄旧入口并隔离旧查询/事件旁路；使用独立 SQLite 证明空库、历史库、重复迁移、失败回滚和未知版本拒绝，保持真实执行关闭。详细步骤与退出门槛见实施状态。
+**下一项具体任务是 T03。**基于 T02 的共享类型和 v25 schema，实现可信 Binding、Invocation/Run adapter、专用生命周期及终态证明、审批/撤权/恢复接线；用 fake executor 验证旧回调、未知执行与重试边界，与 T04 资源接口联调。保持真实执行关闭，详细步骤与退出门槛见实施状态。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 
@@ -287,6 +289,6 @@ T01 已完成：固定版本及差异证据、设计决策、模式接入地图�
 
 可交给实施会话的启动指令：
 
-> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 已冻结决策为依据，从当前首个未完成任务 T02 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，使用隔离数据库与 fake executor。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
+> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02 实现为依据，从当前首个未完成任务 T03 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，使用隔离数据库与 fake executor。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
 >
 > 验收遵守已确认目标：核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。交接时分别附兼容结果、差异表、增强验收证据与能力范围，不用通过用例的数量推导复刻百分比。

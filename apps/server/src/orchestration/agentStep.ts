@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode } from '../runs/legacyMode.ts';
 import { listManagedArtifacts } from '../artifacts/store.ts';
 import { CollaborationBoundaryError } from '../collaboration/boundaryError.ts';
 import { attemptAccess, runSourceAccess, assertMessageAccess } from '../messaging/access.ts';
@@ -240,6 +241,8 @@ export async function chatOnce(
 }
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  assertLegacyMode(opts.run.mode);
+  assertLegacyRun(opts.run.id);
   try { return await runAgentTurnImpl(opts); }
   catch (error) {
     if(error instanceof ModelAdmissionPausedError)throw error;

@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, assertLegacyConversation } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import { isMessageVisibleTo, type MessageAccess, type AgentDefinition, type Conversation, type Message, type OrchestrationPreview, type OrchestrationPreviewInput, type OrchestrationSource, type Run, type RunMode, type RunOrchestrationSnapshot } from '@agent-gand/shared';
 import { getAnyAgent, getAgent } from '../agents/registry.ts';
@@ -35,6 +36,7 @@ function roomFor(id: unknown): Conversation | undefined {
   if (typeof id !== 'string' || !id) throw new OrchestrationError(400, 'INVALID_ROOM', 'conversationId 无效');
   const room = getConversation(id);
   if (!room) throw new OrchestrationError(404, 'ROOM_NOT_FOUND', '聊天室不存在');
+  assertLegacyMode(room.mode);
   return room;
 }
 
@@ -99,6 +101,8 @@ export interface LegacySubmissionResult {
 function duplicateResult(snapshot: RunOrchestrationSnapshot): LegacySubmissionResult {
   const run = getRun(snapshot.runId), conversation = getConversation(snapshot.conversationId);
   if (!run || !conversation) throw new OrchestrationError(409, 'SUBMISSION_RECORD_INCOMPLETE', '既有提交记录不完整，请检查运行记录');
+  assertLegacyRun(run.id);
+  assertLegacyConversation(conversation.id);
   const message = snapshot.request.clientRequestId ? listByConversation(conversation.id).find(message => message.clientMessageId === snapshot.request.clientRequestId && message.kind === 'user') ?? null : null;
   return { run, conversation, message, plan: getRunCoordinationPlan(run.id) ?? null, deduplicated: true };
 }
@@ -108,6 +112,8 @@ function duplicateResult(snapshot: RunOrchestrationSnapshot): LegacySubmissionRe
  */
 export function submitLegacyOrchestration(source: SubmissionSource, value: unknown, conversationId?: string): LegacySubmissionResult {
   const body = objectInput(value);
+  if (body.mode !== undefined) assertLegacyMode(body.mode);
+  if (conversationId) assertLegacyConversation(conversationId);
   if (['strategy', 'workflow', 'constraints', 'aggregatorId', 'entryVersion', 'initialRequest', 'businessContract'].some(field => body[field] !== undefined)) throw new OrchestrationError(400, 'COMPARISON_ONLY', '旧入口不支持新的编排字段；请使用统一任务预览和确认入口');
   const goal = source === 'conversation_message' ? body.body : body.goal;
   if (typeof goal !== 'string' || !goal.trim()) throw new OrchestrationError(400, 'MISSING_GOAL', source === 'conversation_message' ? 'body 必填' : 'goal 必填');

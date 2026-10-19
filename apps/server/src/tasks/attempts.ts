@@ -1,3 +1,4 @@
+import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import type { TaskAttempt, TaskAttemptKind, TaskAttemptStatus } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
 import { all, get, run, tx } from '../db/database.ts';
@@ -64,6 +65,7 @@ export function createAttempt(input: {
   inputContext: string;
   leaseMs: number;
 }): TaskAttempt {
+  assertLegacyRun(input.runId);
   const now = new Date();
   const attempt: TaskAttempt = {
     id: randomUUID(),
@@ -108,6 +110,7 @@ function finishAttempt(id: string, status: 'completed' | 'failed', output: strin
   return tx(() => {
     const existing = getAttempt(id);
     if (!existing || existing.status !== 'running') throw new Error(`attempt 不存在或已结束: ${id}`);
+    assertLegacyRun(existing.runId);
     finishTaskResponsibility(existing, output, status === 'failed');
     const now = new Date().toISOString();
     const changes = run(
@@ -152,6 +155,7 @@ export function expireLeases(now = new Date().toISOString()): TaskAttempt[] {
   );
   const expired: TaskAttempt[] = [];
   for (const row of rows) {
+    if (!isLegacyRun(row.run_id)) continue;
     try {
       expired.push(failAttempt(row.id, '执行进程中断或租约超时'));
     } catch {
@@ -163,7 +167,7 @@ export function expireLeases(now = new Date().toISOString()): TaskAttempt[] {
 
 /** 新进程启动时，所有 running attempt 都属于已中断的旧执行。 */
 export function interruptRunningAttempts(): TaskAttempt[] {
-  const rows = all<AttemptRow>("SELECT * FROM task_attempts WHERE status = 'running'");
+  const rows = all<AttemptRow>("SELECT * FROM task_attempts WHERE status = 'running' AND run_id IN (SELECT id FROM runs WHERE mode IN ('pipeline','supervisor','collaboration'))");
   const interrupted: TaskAttempt[] = [];
   for (const row of rows) {
     try {

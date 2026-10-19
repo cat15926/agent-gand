@@ -1,3 +1,4 @@
+import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import type { ExecutionBinding, ExternalAgentExecution } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
@@ -40,7 +41,7 @@ function checkBinding(binding: ExecutionBinding, closeExpired = false): boolean 
   if (!closeExpired && deadline && Date.now() >= Date.parse(deadline)) return false;
   if (binding.schemaVersion !== 1) return false;
   const owner = get<{ status: string }>('SELECT status FROM runs WHERE id=?', binding.runId);
-  if (!owner || stopped(owner.status)) return false;
+  if (!owner || !isLegacyRun(binding.runId) || stopped(owner.status)) return false;
   if (get('SELECT 1 FROM orchestration_run_controls WHERE run_id=? AND recovery_attention=1', binding.runId)) return false;
   switch (binding.origin) {
     case 'collaboration_attempt':
@@ -92,6 +93,7 @@ export function assertBindingAuthorized(binding?: ExecutionBinding): void {
 
 /** Captured from trusted scheduler rows before invocation; persisted metadata has no authority. */
 export function captureExecutionBinding(runId: string, agentId: string, attemptId: string): ExecutionBinding {
+  assertLegacyRun(runId);
   return tx(() => {
     const snapshot = loadResponsibilitySnapshot({ runId, attemptId });
     const common = { schemaVersion: 1 as const, runId, agentId, attemptId };
@@ -152,7 +154,7 @@ export function coordinationReviewSnapshot(binding: ExecutionBinding): Execution
 export function executionAuthorized(execution: ExternalAgentExecution): boolean {
   const current = get<{ status: string }>('SELECT status FROM external_agent_executions WHERE id=?', execution.id);
   const run = get<{ status: string; mode: string }>('SELECT status,mode FROM runs WHERE id=?', execution.runId);
-  if (current?.status !== 'running' || !run || ['completed', 'failed', 'cancelled'].includes(run.status)) return false;
+  if (current?.status !== 'running' || !run || !isLegacyRun(execution.runId) || ['completed', 'failed', 'cancelled'].includes(run.status)) return false;
   if (execution.executionBinding) return execution.executionBinding.runId === execution.runId
     && execution.executionBinding.agentId === execution.agentId && execution.executionBinding.attemptId === execution.attemptId
     && bindingAuthorized(execution.executionBinding);

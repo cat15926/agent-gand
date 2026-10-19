@@ -1,11 +1,11 @@
 import { readBusinessContractDraft } from './businessContract';
 import { blockedCostPolicyDraft, readCostPolicyDraft } from './costPolicy';
 import type { BusinessContract } from '@agent-gand/shared';
-import { ORCHESTRATION_STRATEGIES, ORCHESTRATION_WORKFLOWS, legacyRoomPreferences, type RoomPreferences, type RunMode } from '@agent-gand/shared';
+import { ORCHESTRATION_STRATEGIES, ORCHESTRATION_WORKFLOWS, legacyRoomPreferences, type RoomPreferences, type LegacyRunMode } from '@agent-gand/shared';
 export interface RoomDraft extends RoomPreferences {
   version: 2; goal: string; selected: string[]; initialTargets: string[]; workspace: string; title: string;
   visibility?: 'public' | 'private'; audience?: string[];
-  businessContract?: BusinessContract | null; legacyMode?: 'auto' | RunMode; recoveryNotice?: string;
+  businessContract?: BusinessContract | null; legacyMode?: 'auto' | LegacyRunMode; recoveryNotice?: string;
 }
 const key = 'gand:room-draft:v2';
 const oldKey = 'gand:room-draft:v1';
@@ -34,7 +34,7 @@ export function readRoomDraft(): RoomDraft | null {
     }
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) parsed = {};
     const previousMode = parsed.legacyMode ?? parsed.mode;
-    const legacyMode = ['auto','pipeline','supervisor','collaboration'].includes(String(previousMode)) ? previousMode as 'auto' | RunMode : undefined;
+    const legacyMode = ['auto','pipeline','supervisor','collaboration'].includes(String(previousMode)) ? previousMode as 'auto' | LegacyRunMode : undefined;
     const damaged = Boolean(parsed.businessContract != null && !readBusinessContractDraft(parsed.businessContract)) || typeof parsed.goal !== 'string' || !Array.isArray(parsed.selected) || parsed.selected.some((v: unknown) => typeof v !== 'string') || !Array.isArray(parsed.initialTargets) || parsed.initialTargets.some((v: unknown) => typeof v !== 'string') || typeof parsed.workspace !== 'string' || Boolean(current && (parsed.version !== 2 || !ORCHESTRATION_STRATEGIES.includes(parsed.strategy as RoomPreferences['strategy']) || !ORCHESTRATION_WORKFLOWS.includes(parsed.workflow as RoomPreferences['workflow'])));
     const preserved = damaged ? preserveRecovery(raw) : false;
     const constraints = parsed.constraints && typeof parsed.constraints === 'object' ? parsed.constraints as Record<string, unknown> : {};

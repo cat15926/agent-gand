@@ -1,3 +1,4 @@
+import { assertLegacyMode, assertLegacyConversation, isLegacyRun } from '../runs/legacyMode.ts';
 import type { AgentDefinition, Conversation, Run } from '@agent-gand/shared';
 import { conversationHistory, getConversation, listConversations, touchConversation } from './service.ts';
 import { listByConversation, post, updateRunUserMessageStatus } from '../messaging/inbox.ts';
@@ -23,6 +24,7 @@ const active = new Set<string>();
 const inputs = new Map<string, RuntimeMessageInput>();
 
 export function enqueueConversationRun(runId: string, input?: RuntimeMessageInput): void {
+  if (!isLegacyRun(runId)) return;
   if (input) inputs.set(runId, input);
   const item = getRun(runId);
   if (!item) return;
@@ -170,7 +172,7 @@ const activeFastPath = new Set<string>();
 /** 重启恢复：按 fastpath checkpoint 原样重建（同 targets → 同 executionScope → 审批与工具账本幂等） */
 export async function resumeFastPathRun(runId: string): Promise<void> {
   const run = getRun(runId);
-  if (!run || ['completed','failed','cancelled'].includes(run.status)) return;
+  if (!run || !isLegacyRun(runId) || ['completed','failed','cancelled'].includes(run.status)) return;
   if (!adapterRecoveryReady(runId)) return;
   const checkpoint = latestCheckpoint(runId, 'fastpath');
   const agentIds = Array.isArray(checkpoint?.state.agentIds) ? checkpoint.state.agentIds : [];
@@ -190,6 +192,8 @@ export async function resumeFastPathRun(runId: string): Promise<void> {
 
 
 async function dispatchRun(current: Run): Promise<void> {
+  assertLegacyMode(current.mode);
+  assertLegacyConversation(current.conversationId);
   if(loadRuntimeContract(current.id)?.features?.autonomousCollaboration){kickCollaboration(current.conversationId);return;}
   const conversationId = current.conversationId;
       const conversation = getConversation(conversationId);
@@ -337,7 +341,7 @@ async function dispatchRun(current: Run): Promise<void> {
 
 async function drain(conversationId: string): Promise<void> {
   for (const current of listPendingRunsByConversation(conversationId)) {
-    if (active.has(current.id)) continue;
+    if (!isLegacyRun(current.id) || active.has(current.id)) continue;
     active.add(current.id);
     void dispatchRun(current).catch(() => {
       if (!['completed','failed','cancelled','waiting_for_user'].includes(getRun(current.id)?.status ?? 'cancelled')) finishAdapterRun(current.id, 'failed', 'dispatcher_failure');
@@ -346,5 +350,8 @@ async function drain(conversationId: string): Promise<void> {
 }
 
 export function recoverPendingConversationRuns(): void {
-  for (const conversation of listConversations()) void drain(conversation.id);
+  for (const conversation of listConversations()) {
+    if (!['pipeline','supervisor','collaboration'].includes(conversation.mode)) continue;
+    void drain(conversation.id);
+  }
 }

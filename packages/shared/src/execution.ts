@@ -1,7 +1,9 @@
+import type { ThreadedBinding } from './threaded.ts';
+
 export type ExternalDriverId = 'claude-cli' | 'codex-exec' | 'claude-sdk' | 'codex-app-server';
 
 /** References an existing scheduler attempt; never creates another execution queue. */
-export type ExecutionBinding = {
+export type LegacyExecutionBinding = {
   schemaVersion: 1; id: string; runId: string; agentId: string; attemptId: string;
   workspaceSnapshot?: { commit: string; path: string };
 } & (
@@ -12,6 +14,8 @@ export type ExecutionBinding = {
   | { origin: 'task_attempt'; taskId: string; generation: number; startedAt: string; leaseOwner: string;
       responsibility?: { subjectId: string; generation: number; contractRevision: number | null } }
 );
+
+export type ExecutionBinding = LegacyExecutionBinding | ThreadedBinding;
 
 /** Omission preserves the provider/tool loop; nativeTools is an SDK-only exemption list. */
 export type AgentExecutionConfig =

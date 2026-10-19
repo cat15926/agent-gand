@@ -1,3 +1,4 @@
+import { assertLegacyRun } from '../runs/legacyMode.ts';
 import type {
   Message,
   Run,
@@ -96,6 +97,7 @@ function existingResult(runId: string): CommitRunTerminalResult | null {
  * Completion Evaluation、报告、Run 终态和 Runtime 关闭动作随事务一起提交或回滚。
  */
 export function commitRunTerminal(input: CommitRunTerminalInput): CommitRunTerminalResult {
+  assertLegacyRun(input.runId);
   if (!validDisposition(input.status, input.disposition)) {
     throw new Error(`终态 ${input.status} 与 disposition ${input.disposition} 不一致`);
   }

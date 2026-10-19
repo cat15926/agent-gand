@@ -1,3 +1,4 @@
+import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { recoverScopedAttemptCalls } from '../orchestration/modelCallRecovery.ts';
 import { all, get, run, tx } from '../db/database.ts';
 import { getRun } from '../runs/trace.ts';
@@ -10,6 +11,7 @@ const availabilityListeners = new Set<(agentId: string) => void>();
 export function onMemberAvailable(listener: (agentId: string) => void): void { availabilityListeners.add(listener); }
 
 export function reserveMember(runId: string, agentId: string, scope: string): void {
+  assertLegacyRun(runId);
   run(`INSERT OR IGNORE INTO execution_member_tickets(ticket_key,run_id,agent_id,status,created_at)
     VALUES (?,?,?,'waiting',?)`, `${runId}:${agentId}:${scope}`, runId, agentId, new Date().toISOString());
 }
@@ -17,6 +19,7 @@ export function reserveMember(runId: string, agentId: string, scope: string): vo
 /** A FIFO resource reservation referencing the scheduler's attempt, never claiming another attempt. */
 export async function enterMember(input: { runId: string; agentId: string; attemptId?: string; scope: string;
   signal: AbortSignal; authorized: () => boolean }): Promise<(status?: 'done' | 'waiting') => void> {
+  assertLegacyRun(input.runId);
   const key = `${input.runId}:${input.agentId}:${input.scope}`;
   tx(() => {
     const existing = get<Ticket>('SELECT * FROM execution_member_tickets WHERE ticket_key=?', key);
@@ -77,7 +80,7 @@ export function memberQueue(runId?: string) {
 /** Unknown started calls are fenced; queued reservations keep their FIFO sequence. */
 export function recoverMemberAdmissions(): void {
   for (const item of all<Ticket>("SELECT * FROM execution_member_tickets WHERE status='active'")) {
-    if (item.owner && ownerAlive(item)) continue;
+    if (!isLegacyRun(item.run_id) || item.owner && ownerAlive(item)) continue;
     const source = get<{ attempt_id: string | null }>('SELECT attempt_id FROM execution_member_tickets WHERE seq=?',item.seq);
     if (source?.attempt_id) {
       // The member ticket proves this attempt's process is gone. Let the existing lease

@@ -1,3 +1,4 @@
+import { assertLegacyRun } from '../runs/legacyMode.ts';
 /**
  * HITL 审批（规格 §4.2 hitl/approvals.ts，P0-5）
  * create/list/decide；decide 后广播 approval.updated；
@@ -115,6 +116,7 @@ function ensureApprovalHold(approval: ApprovalRequest, attemptId?: string): void
 }
 
 export function createApproval(input: CreateApprovalInput): ApprovalRequest {
+  assertLegacyRun(input.runId);
   return tx(() => {
     let idempotencyKey = input.idempotencyKey ?? null;
     if (idempotencyKey) {
@@ -188,6 +190,7 @@ export function decide(id: string, input: DecideInput): ApprovalRequest {
   return tx(() => {
     const row = get<ApprovalRow>('SELECT * FROM approvals WHERE id = ?', id);
     if (!row) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+    assertLegacyRun(row.run_id);
     if (row.status !== 'pending') throw new ApprovalError(`approval 已决策过（当前 ${row.status}）`, 409);
     const native = get<{ execution_id: string; binding: string }>('SELECT execution_id,binding FROM external_agent_approvals WHERE approval_id=?', id);
     if (native) {
@@ -227,6 +230,8 @@ export class ApprovalTimeoutError extends Error {
  * 不得遗留 pending（真机 run 32b19e2a 实证过遗留 2 条）。并发安全：仅当仍为 pending 时生效。
  */
 export function expireApproval(id: string): ApprovalRequest {
+  const current = getApproval(id);
+  if (current) assertLegacyRun(current.runId);
   return tx(() => {
     const now = new Date().toISOString();
     run(`UPDATE approvals SET status='expired',edited_input=NULL,decided_by='system:timeout',decided_at=?
@@ -247,6 +252,7 @@ export function expireApproval(id: string): ApprovalRequest {
  * 避免界面遗留无人处理的审批卡（每张都会等满 APPROVAL_TIMEOUT_MS 才消失）。
  */
 export function expirePendingApprovalsForRun(runId: string, decidedBy = 'system:paused'): void {
+  assertLegacyRun(runId);
   const rows = all<ApprovalRow>("SELECT id FROM approvals WHERE run_id = ? AND status = 'pending'", runId);
   const now = new Date().toISOString();
   for (const row of rows) {
@@ -278,6 +284,7 @@ export async function waitForDecision(
   for (;;) {
     const approval = getApproval(id);
     if (!approval) throw new ApprovalError(`approval 不存在: ${id}`, 404);
+    assertLegacyRun(approval.runId);
     if (approval.status !== 'pending') {
       // 决策行先于 API 路由触发 Wake 扫描可见。等待对应 Hold 真正终结，避免 Agent
       // 抢先继续并让 CompletionCandidate 被“已满足但尚未投影”的 Hold 误拒绝。

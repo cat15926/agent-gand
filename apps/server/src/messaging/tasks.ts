@@ -1,3 +1,4 @@
+import { legacyRunIdsSql } from '../runs/legacyMode.ts';
 /**
  * 共享任务列表（规格 §6：P0-3 收件箱 + 共享任务列表 + 锁 → messaging/*）
  * 三态流转 pending → in_progress → completed；
@@ -309,7 +310,7 @@ export function recoverInterruptedTasks(): Task[] {
     `SELECT t.* FROM tasks t
      JOIN runs r ON r.id = t.run_id
      WHERE t.status IN ('in_progress', 'awaiting_review')
-       AND r.status IN ('running', 'awaiting_approval')
+       AND r.id IN (${legacyRunIdsSql}) AND r.status IN ('running', 'awaiting_approval')
      ORDER BY t.updated_at ASC`,
   );
   const recovered: Task[] = [];

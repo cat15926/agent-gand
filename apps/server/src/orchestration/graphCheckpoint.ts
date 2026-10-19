@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode } from '../runs/legacyMode.ts';
 import type { CoordinationPlanStep } from '@agent-gand/shared';
 import { DEFAULT_COORDINATION_STEP_TOKENS, DEFAULT_RESPONSE_TIMEOUT_MS } from '@agent-gand/shared';
 import { all, get } from '../db/database.ts';
@@ -37,8 +38,10 @@ export function assertReadonlyRecovery(runId:string):void {
 
 /** Compatibility adapters extract an immutable graph; there is no model planning and no source mutation. */
 export function buildGraphCheckpoint(runId:string):BusinessCheckpoint {
+  assertLegacyRun(runId);
   const source=getRun(runId),snapshot=getRunOrchestrationSnapshot(runId),plan=getRunCoordinationPlan(runId);
   if(!source||source.status!=='failed')fail('GRAPH_CHECKPOINT_UNSUPPORTED','图承接只支持失败终态；暂停任务沿原图恢复。');
+  assertLegacyMode(source.mode);
   if(snapshot?.request.businessContract)fail('BUSINESS_CHECKPOINT_UNSUPPORTED','业务契约须使用适用的逐阶段入口，不能转换成无验收图。');
   assertReadonlyRecovery(runId);
   const inherited=readBusinessCheckpoint(runId),outputs:BusinessCheckpoint['outputs']=inherited?.graph?structuredClone(inherited.outputs):[];

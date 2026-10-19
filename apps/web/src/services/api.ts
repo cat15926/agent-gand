@@ -56,7 +56,7 @@ import type {
   CoordinationStepAttempt,
   CoordinationStepState,
   ResolveCollaborationDecision,
-  RunMode,
+  LegacyRunMode,
   RunObservability,
   RunObservabilitySummary,
   SpanDetail,
@@ -172,7 +172,7 @@ export const continueRun = (id: string, preview: OrchestrationPreview, stages = 
     : request<{ run: Run; deduplicated: boolean }>(`/api/runs/${encodeURIComponent(id)}/continuations`, { method: 'POST', body: JSON.stringify(body) });
 };
 export const reviseTaskPlan = (id: string, preview: OrchestrationPreview, instruction: string) => request<{ plan: CoordinationPlan }>(`/api/runs/${encodeURIComponent(id)}/orchestration/revisions`, { method: 'POST', body: JSON.stringify({ previewId: preview.previewId, orchestrationFingerprint: preview.fingerprint, instruction }) });
-export function createConversation(input: { goal: string; mode?: RunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
+export function createConversation(input: { goal: string; mode?: LegacyRunMode; agentIds: string[]; recipientIds?: string[]; supervisorId?: string; defaultReviewerId?: string; workspace?: string; coordinationDraftId?: string }): Promise<{ run: Run; conversation: Conversation; plan?: CoordinationPlan | null }> {
   return request('/api/conversations', { method: 'POST', body: JSON.stringify(input) });
 }
 export const previewCoordination = (input: CoordinationPreviewInput) => request<CoordinationPreview>('/api/coordination/preview', { method: 'POST', body: JSON.stringify(input) });
@@ -375,7 +375,7 @@ export const updateExternalLabel = (id: string, label: string) =>
 
 export function startRun(input: {
   goal: string;
-  mode: RunMode;
+  mode: LegacyRunMode;
   agentIds: string[];
   supervisorId?: string;
   /** 命名工作区（§10.2）：缺省 = 每次 run 专属目录 */

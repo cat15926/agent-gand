@@ -1,3 +1,4 @@
+import { assertLegacyRun } from '../runs/legacyMode.ts';
 import {autonomousExecutionAvailable} from './autonomousCapabilities.ts';
 import type {
   RuntimeAdmissionProfile,
@@ -179,6 +180,7 @@ function assertPolicyCapabilities(runId: string, contract: RuntimeRunContract, p
  * shadow/atomic 的历史 Contract 明确阻断，不能用当前进程环境变量猜测。
  */
 export function resolveRunPolicy(runId: string): RuntimeExecutionPolicyV1 {
+  assertLegacyRun(runId);
   const contract = loadRuntimeContract(runId);
   if (!contract) return executionPolicyForProfile('legacy', { toolApiVersion: 1 });
   if (contract.executionPolicy !== undefined) {

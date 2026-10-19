@@ -1,3 +1,4 @@
+import { isLegacyRunMode } from '@agent-gand/shared';
 import { managedPath } from '../artifacts/path.ts';
 import { createHash } from 'node:crypto';
 import { normalizeBusinessContract } from './businessContract.ts';
@@ -64,7 +65,7 @@ export function normalizeOrchestrationRequest(input: OrchestrationPreviewInput, 
   if (input.visibility !== 'private' && audience.length) throw new OrchestrationError(400, 'PUBLIC_AUDIENCE_CONFLICT', '公开任务不能携带私密授权范围');
   if (input.visibility === 'private' && !audience.length) throw new OrchestrationError(400, 'PRIVATE_AUDIENCE_REQUIRED', '请选择至少一位获准成员');
   const mode = context.mode ?? room?.mode ?? 'collaboration';
-  if (!['pipeline', 'supervisor', 'collaboration'].includes(mode)) throw new OrchestrationError(400, 'INVALID_MODE', 'mode 必须是 pipeline|supervisor|collaboration');
+  if (!isLegacyRunMode(mode)) throw new OrchestrationError(400, 'INVALID_MODE', 'mode 必须是 pipeline|supervisor|collaboration');
   const protocol = context.requestedProtocol ?? null;
   const strategy = input.strategy ?? (protocol === 'parallel_fanout' || protocol === 'supervisor_aggregation' ? 'parallel' : protocol === 'sequential_pipeline' || mode === 'pipeline' ? 'serial' : 'auto');
   const workflow = input.workflow ?? (protocol ? workflowForProtocol(protocol) : mode === 'supervisor' ? 'supervisor_decomposition' : 'routine');

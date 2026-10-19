@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, assertLegacyConversation } from '../runs/legacyMode.ts';
 import {submitAutonomousTask} from '../collaboration/autonomousEntry.ts';
 import { createManagedArtifact } from '../artifacts/store.ts';
 import { randomUUID } from 'node:crypto';
@@ -198,6 +199,9 @@ export async function previewExecutionOrchestration(value: unknown, source: Orch
 export function submitExecutionOrchestration(value: unknown, conversationId?: string,
   source: 'room_create' | 'conversation_message' | 'direct_run' = conversationId ? 'conversation_message' : 'room_create', checkpoint?: BusinessCheckpoint): LegacySubmissionResult {
   const body = objectInput(value);
+  if (body.mode !== undefined) assertLegacyMode(body.mode);
+  const targetConversation = conversationId ?? (typeof body.conversationId === 'string' ? body.conversationId : undefined);
+  if (targetConversation) assertLegacyConversation(targetConversation);
   if(body.entryVersion===2&&!checkpoint)return submitAutonomousTask(value,conversationId,source);
   if (conversationId && body.conversationId !== undefined && body.conversationId !== conversationId) invalid('ROOM_REFERENCE_CONFLICT','conversationId 与请求路径不一致',400);
   conversationId ??= typeof body.conversationId === 'string' ? body.conversationId : undefined;
@@ -287,6 +291,7 @@ export function usesExecutionEntry(body: Record<string, unknown>): boolean {
 
 /** Confirmed graph revision, with the original Run policy and frozen actors retained. */
 export function reviseExecutionOrchestration(runId: string, value: unknown) {
+  assertLegacyRun(runId);
   if (getRunOrchestrationSnapshot(runId)?.request.businessContract?.executionMode === 'stage_gated') invalid('STAGE_REVISION_UNSUPPORTED', '逐阶段任务与门禁已冻结；不能重建图重放已派发阶段');
   const body = objectInput(value);
   if (Object.keys(body).some(key => !['previewId','orchestrationFingerprint','instruction'].includes(key))

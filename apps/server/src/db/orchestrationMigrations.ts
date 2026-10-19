@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { legacyRoomPreferences, ROOM_PREFERENCES_VERSION, type RunMode } from '@agent-gand/shared';
+import { isLegacyRunMode, legacyRoomPreferences, ROOM_PREFERENCES_VERSION } from '@agent-gand/shared';
+import { applyThreadedFoundationMigration, THREADED_FOUNDATION_MIGRATION } from './threadedMigration.ts';
 
 // These descriptors are immutable. Later upgrades append a version instead of editing one.
 export const ORCHESTRATION_MIGRATIONS = [
@@ -28,6 +29,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 22, name: 'autonomous-validated-flow-v1', descriptor: 'frozen-protocol-catalog;immutable-flow-states-jobs-actions-sources;accepted-action-provenance;structured-projection;root-ledger-dag;phase-fence;bounded-correction;no-old-root-upgrade' },
   { version: 23, name: 'autonomous-managed-sdk-rollout-v1', descriptor: 'explicit-ac6-root;frozen-execution-drivers;managed-sdk-v4-cold-transport;per-room-admission;close-and-drain-existing-root;no-codex-admission;no-old-root-upgrade' },
   { version: 24, name: 'autonomous-estimated-cost-reserve-v1', descriptor: 'explicit-cost-version1;known-output-estimate-reserve-can-complete;unknown-money-remains-charged;unknown-execution-or-tokens-still-block;stop-policy-and-old-roots-unchanged' },
+  THREADED_FOUNDATION_MIGRATION,
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
@@ -63,7 +65,9 @@ export function assertOrchestrationSchemaCompatible(db: Database.Database): void
 
 /** The pre-O6 idempotent schema is retained; explicitly adopt its verified baseline. */
 export function applyOrchestrationSchemaMigrations(db: Database.Database): void {
+  assertOrchestrationSchemaCompatible(db);
   db.transaction(() => {
+    assertOrchestrationSchemaCompatible(db);
     db.exec(`CREATE TABLE IF NOT EXISTS orchestration_model_calls (
       id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), attempt_id TEXT, agent_id TEXT NOT NULL,
       backend TEXT NOT NULL, model TEXT NOT NULL, status TEXT NOT NULL, waiting_reason TEXT,
@@ -84,6 +88,7 @@ export function applyOrchestrationSchemaMigrations(db: Database.Database): void 
       endpoint TEXT NOT NULL, input_format TEXT NOT NULL, outcome TEXT NOT NULL, http_status INTEGER NOT NULL,
       calls INTEGER NOT NULL, first_at TEXT NOT NULL, last_at TEXT NOT NULL,
       PRIMARY KEY(endpoint,input_format,outcome,http_status))`);
+    applyThreadedFoundationMigration(db);
     for (const migration of ORCHESTRATION_MIGRATIONS) db.prepare(`INSERT OR IGNORE INTO orchestration_schema_migrations
       (version,name,checksum,applied_at) VALUES (?,?,?,?)`).run(migration.version, migration.name, migrationChecksum(migration.descriptor), new Date().toISOString());
   }).immediate();
@@ -97,13 +102,13 @@ export function migrateRoomPreferences(db: Database.Database): { mapped: number;
       id: string; mode: string; supervisor_id: string | null; default_reviewer_id: string | null; preferences: string | null; preferences_version: number | null;
     }>;
     for (const row of rows) {
+      if (!isLegacyRunMode(row.mode)) { skipped.push(row.id); continue; }
       if (row.preferences !== null) {
         // O5 explicit preferences are adopted verbatim, without rewriting JSON or invalidating tasks.
         if (row.preferences_version === null) { db.prepare("UPDATE conversations SET preferences_version=?,preferences_origin='explicit' WHERE id=?").run(ROOM_PREFERENCES_VERSION,row.id); adopted++; }
         continue;
       }
-      if (!['collaboration','pipeline','supervisor'].includes(row.mode)) { skipped.push(row.id); continue; }
-      const preferences = JSON.stringify(legacyRoomPreferences(row.mode as RunMode,row.supervisor_id,row.default_reviewer_id));
+      const preferences = JSON.stringify(legacyRoomPreferences(row.mode,row.supervisor_id,row.default_reviewer_id));
       db.prepare(`UPDATE conversations SET preferences=?,preferences_version=?,preferences_origin='legacy_mapping',
         members_version=members_version+1 WHERE id=? AND preferences IS NULL`).run(preferences,ROOM_PREFERENCES_VERSION,row.id);
       db.prepare(`INSERT OR IGNORE INTO room_preferences_migration_audits

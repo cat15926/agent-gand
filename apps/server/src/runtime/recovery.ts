@@ -1,3 +1,4 @@
+import { assertLegacyMode, assertLegacyRun } from '../runs/legacyMode.ts';
 import type { RunRecoveryAssessment } from '@agent-gand/shared';
 import { get } from '../db/database.ts';
 import { getRun } from '../runs/trace.ts';
@@ -18,8 +19,10 @@ import { businessQuiescent, stageAccepted, waitingBusinessGate } from '../orches
 
 /** Common, read-only recovery eligibility. Never quiesces a process or replays work. */
 function assessRecovery(runId: string): RunRecoveryAssessment {
+  assertLegacyRun(runId);
   const source = getRun(runId);
   if (!source) throw Object.assign(new Error('Run 不存在'), { status: 404 });
+  assertLegacyMode(source.mode);
   const next = get<{ target_run_id: string }>('SELECT target_run_id FROM orchestration_run_continuations WHERE source_run_id=?', runId);
   const previous = get<{ source_run_id: string }>('SELECT source_run_id FROM orchestration_run_continuations WHERE target_run_id=?', runId);
   const dispatches = listDispatches(runId), attempts = listAttempts(runId);
@@ -108,6 +111,7 @@ function assessRecovery(runId: string): RunRecoveryAssessment {
 /** The UI and existing actions use the same eligibility, with engine-specific algorithms. */
 export function assessRunRecovery(runId:string):RunRecoveryAssessment {
   const assessment=assessRecovery(runId),source=getRun(runId)!,plan=getRunCoordinationPlan(runId);
+  assertLegacyMode(source.mode);
   const paused=source.status==='waiting_for_user'&&(plan?.status==='paused'||!!get<{pause_requested:number}>('SELECT pause_requested FROM orchestration_run_controls WHERE run_id=?',runId)?.pause_requested);
   const gate=waitingBusinessGate(runId),acceptanceRequired=!!gate&&!stageAccepted(runId,String(gate.metadata.businessStageId));
   const resume=paused&&!assessment.continuationRunId&&!acceptanceRequired&&businessQuiescent(runId,true)&&(!!plan||source.mode==='collaboration'||taskAdapterEnabled(runId));

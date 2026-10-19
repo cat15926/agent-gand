@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, isLegacyRun } from '../runs/legacyMode.ts';
 /**
  * 主管委派：一次结构化规划 → DAG 调度 → Coder/Reviewer 返工闭环 → 基于真实结果汇总。
  */
@@ -193,6 +194,7 @@ async function scheduleAndSummarize(
 
 /** 人工重试与启动恢复入口：复用已落库任务，不重复规划。 */
 export async function resumeSupervisorRun(runId: string): Promise<void> {
+  if (!isLegacyRun(runId)) return;
   if (activeSchedules.has(runId)) return;
   const run = getRun(runId);
   if (!run || run.mode !== 'supervisor' || ['completed','failed','cancelled'].includes(run.status)) return;
@@ -235,6 +237,8 @@ export async function resumeSupervisorRun(runId: string): Promise<void> {
 
 export const supervisorOrchestrator: Orchestrator = {
   async start(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage): Promise<void> {
+    assertLegacyMode(run.mode);
+    assertLegacyRun(run.id);
     if (activeSchedules.has(run.id)) return;
     const release = ownOrchestration(run.id); if (!release) return;
     activeSchedules.add(run.id);

@@ -1,3 +1,4 @@
+import { assertLegacyMode } from '../runs/legacyMode.ts';
 import path from 'node:path';
 import { lstatSync, realpathSync } from 'node:fs';
 import type { AgentDefinition, RunMode } from '@agent-gand/shared';
@@ -15,6 +16,7 @@ export function asReadonlyAgent(agent: AgentDefinition): AgentDefinition {
 }
 
 export function assertExternalAdmission(agents: AgentDefinition[], mode: RunMode, supervisorId?: string | null): void {
+  assertLegacyMode(mode);
   for (const agent of agents) {
     if (agent.execution?.kind !== 'external') continue;
     if (mode !== 'pipeline' && !(bidirectional(agent.execution.driver) && (mode === 'collaboration' || (mode === 'supervisor' && agent.id !== supervisorId)))) {

@@ -7,7 +7,8 @@ import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync, renameSync, s
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { config } from '../config.ts';
-import { get } from '../db/database.ts';
+import { all } from '../db/database.ts';
+import { isThreadedRun } from '../threaded/legacyBoundary.ts';
 
 export interface WorkspaceMeta {
   name: string;
@@ -69,7 +70,7 @@ function countFiles(dir: string): number {
 }
 
 /** §11.1：卡片元数据（最后使用 = 目录 mtime；runCount/lastGoal 查 runs 表） */
-export function listWorkspaceMetas(): WorkspaceMeta[] {
+export function listWorkspaceMetas(options: { legacyOnly?: boolean } = {}): WorkspaceMeta[] {
   let entries: string[];
   try {
     entries = readdirSync(workspacesRoot());
@@ -85,14 +86,14 @@ export function listWorkspaceMetas(): WorkspaceMeta[] {
     } catch {
       continue;
     }
-    const stats = get<{ n: number }>('SELECT COUNT(*) AS n FROM runs WHERE workspace = ?', name);
-    const last = get<{ goal: string }>('SELECT goal FROM runs WHERE workspace = ? ORDER BY created_at DESC LIMIT 1', name);
+    const runs = all<{ id: string; goal: string }>('SELECT id,goal FROM runs WHERE workspace = ? ORDER BY created_at DESC', name)
+      .filter(row => !options.legacyOnly || !isThreadedRun(row.id));
     out.push({
       name,
       modifiedAt: new Date(statSync(dir).mtimeMs).toISOString(),
       fileCount: countFiles(dir),
-      runCount: stats?.n ?? 0,
-      lastGoal: last?.goal ?? null,
+      runCount: runs.length,
+      lastGoal: runs[0]?.goal ?? null,
     });
   }
   out.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));

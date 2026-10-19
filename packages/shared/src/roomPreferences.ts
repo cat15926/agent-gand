@@ -1,6 +1,6 @@
 import { readCostPolicy } from './cost.ts';
 import type { RoomPreferences } from './conversation.ts';
-import type { RunMode } from './run.ts';
+import { isLegacyRunMode, type LegacyRunMode } from './run.ts';
 
 export const ROOM_PREFERENCES_VERSION = 1 as const;
 
@@ -20,8 +20,9 @@ export function isRoomPreferences(value: unknown): value is RoomPreferences {
 }
 
 /** Shared mapping for persisted rooms and browser drafts. Never replan an existing Run. */
-export function legacyRoomPreferences(mode: RunMode | 'auto', supervisorId: string | null = null,
+export function legacyRoomPreferences(mode: LegacyRunMode | 'auto', supervisorId: string | null = null,
   defaultReviewerId: string | null = null): RoomPreferences {
+  if (mode !== 'auto' && !isLegacyRunMode(mode)) throw new Error('旧房间偏好不支持此运行模式');
   return { strategy: mode === 'pipeline' ? 'serial' : 'auto',
     workflow: mode === 'supervisor' ? 'supervisor_decomposition' : 'routine', constraints: {},
     supervisorId, defaultReviewerId, aggregatorId: null };

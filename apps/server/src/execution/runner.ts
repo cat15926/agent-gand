@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode } from '../runs/legacyMode.ts';
 import {loadAutonomousTaskPolicy} from '../runtime/autonomousPolicy.ts';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { get, tx } from '../db/database.ts';
@@ -54,6 +55,7 @@ subscribe((event) => {
 });
 
 export async function stopExternalRun(runId: string, agentId?: string): Promise<void> {
+  assertLegacyRun(runId);
   const entries = [...active.entries()].filter(([id, entry]) => entry.runId === runId && (!agentId || getExecution(id)?.agentId === agentId)).map(([, entry]) => entry);
   for (const entry of entries) entry.controller.abort();
   await Promise.allSettled(entries.map((entry) => entry.done));
@@ -74,6 +76,8 @@ function asResult(content: string, toolRounds: number): AgentTurnResult {
 }
 
 export async function runExternalAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  assertLegacyMode(opts.run.mode);
+  assertLegacyRun(opts.run.id);
   let admission:{callId:string;cost:CostReservationRow|null}|undefined;
   try {
     const policy=executionPolicy(opts.run.id);

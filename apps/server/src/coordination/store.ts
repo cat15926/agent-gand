@@ -1,3 +1,4 @@
+import { isLegacyRun } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import type {
   CapabilitySnapshot,
@@ -333,6 +334,7 @@ export function recoverInterruptedCoordinationSteps(): string[] {
     const activePlans = all<{ id: string; run_id: string; status: CoordinationPlan['status']; payload: string }>("SELECT id,run_id,status,payload FROM coordination_plans WHERE status IN ('active','pause_requested') AND run_id IS NOT NULL");
     const now = new Date().toISOString();
     for (const plan of activePlans) {
+      if (!isLegacyRun(plan.run_id)) continue;
       const current = JSON.parse(plan.payload) as CoordinationPlan;
       const runningAttempts = all<StepAttemptRow>("SELECT * FROM coordination_step_attempts WHERE plan_id=? AND status='running'", plan.id);
       for (const attempt of runningAttempts) {

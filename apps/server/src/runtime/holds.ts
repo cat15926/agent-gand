@@ -1,3 +1,4 @@
+import { legacyRunIdsSql } from '../runs/legacyMode.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type {
   RuntimeDurableHold,
@@ -508,6 +509,7 @@ export function claimReadyDurableHolds(input: {
     const rows = all<HoldRow>(`SELECT h.* FROM runtime_holds h JOIN runs r ON r.id=h.run_id
       WHERE (h.status='open' OR (h.status='claimed' AND h.claim_expires_at<=?))
         AND (h.next_retry_at IS NULL OR h.next_retry_at<=?)
+        AND r.id IN (${legacyRunIdsSql})
         AND r.status IN ('pending','running','awaiting_approval','waiting_for_user')
         AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=h.run_id AND c.recovery_attention=1)
         ${input.runId ? 'AND h.run_id=?' : ''}

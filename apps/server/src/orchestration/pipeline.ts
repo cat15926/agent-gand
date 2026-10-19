@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, isLegacyRun } from '../runs/legacyMode.ts';
 /**
  * 顺序流水线编排（规格 §4.2 orchestration/pipeline.ts）
  * 按 agentIds 顺序执行：每个 agent 走 runAgentTurn（LLM + 工具调用循环，
@@ -25,6 +26,8 @@ interface PipelineState { nextAgentIndex: number; transcript: Array<{ from: stri
 const activePipelines = new Set<string>();
 
 async function executePipeline(run: Run, agents: AgentDefinition[], goal: string, displayGoal = goal, userMessage?: Parameters<Orchestrator['start']>[4]): Promise<void> {
+  assertLegacyMode(run.mode);
+  assertLegacyRun(run.id);
   if (activePipelines.has(run.id)) return;
   const release = ownOrchestration(run.id); if (!release) return;
   activePipelines.add(run.id);
@@ -114,6 +117,7 @@ async function executePipeline(run: Run, agents: AgentDefinition[], goal: string
 }
 
 export async function resumePipelineRun(runId: string): Promise<void> {
+  if (!isLegacyRun(runId)) return;
   const run = getRun(runId);
   if (!run || run.mode !== 'pipeline' || ['completed', 'failed', 'cancelled'].includes(run.status)) return;
   if (!adapterRecoveryReady(runId)) return;

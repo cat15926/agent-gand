@@ -1,3 +1,4 @@
+import { legacyRunIdsSql, assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { recoverScopedAttemptCalls } from '../orchestration/modelCallRecovery.ts';
 import { reserveMember } from '../execution/memberAdmission.ts';
 import { createHash, randomUUID } from 'node:crypto';
@@ -131,6 +132,7 @@ function normalizedContentHash(value: string | null | undefined): string | null 
 }
 
 export function createDispatchDetailed(input: CreateDispatchInput): CreateDispatchResult {
+  assertLegacyRun(input.runId);
   const existing = get<DispatchRow>('SELECT * FROM collaboration_dispatches WHERE run_id=? AND idempotency_key=?', input.runId, input.idempotencyKey);
   if (existing) return { dispatch: toDispatch(existing), created: false, deduplicatedTo: existing.id };
   const contentHash = normalizedContentHash(input.dedupeText);
@@ -184,7 +186,7 @@ export function claimNextDispatch(conversationId: string, leaseOwner: string): {
     const row = get<DispatchRow>(`SELECT d.* FROM collaboration_dispatches d
       JOIN runs r ON r.id=d.run_id
       LEFT JOIN autonomous_task_policies ap ON ap.run_id=d.run_id
-      WHERE d.conversation_id=? AND d.status='queued' AND r.status='running'
+      WHERE d.conversation_id=? AND d.status='queued' AND r.status='running' AND r.id IN (${legacyRunIdsSql})
         AND (ap.run_id IS NULL OR ((?='execute' OR EXISTS(SELECT 1 FROM runtime_contracts ac WHERE ac.run_id=d.run_id AND json_extract(ac.payload,'$.features.autonomousCollaboration.rolloutVersion')=1)) AND (SELECT COUNT(*) FROM collaboration_attempts running WHERE running.run_id=d.run_id AND running.status='running') < json_extract(ap.record,'$.budget.maxConcurrency')))
         AND NOT EXISTS (SELECT 1 FROM collaboration_attempts a WHERE a.agent_id=d.target_agent_id AND a.status='running')
         AND NOT EXISTS (SELECT 1 FROM orchestration_run_controls c WHERE c.run_id=d.run_id AND (c.pause_requested=1 OR c.recovery_attention=1))
@@ -530,6 +532,7 @@ export function cancelQueuedRun(runId: string): void {
   for (const item of ids) cancelDispatch(item.id);
 }
 export function cancelCollaborationRun(runId: string): void {
+  assertLegacyRun(runId);
   const now = new Date().toISOString();
   const dispatchRows = all<DispatchRow>("SELECT * FROM collaboration_dispatches WHERE run_id=? AND status IN ('queued','running')", runId);
   const attemptRows = all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE run_id=? AND status='running'", runId);
@@ -582,7 +585,7 @@ export function activeConversationState(conversationId: string): { runIds: strin
 }
 
 export function renewCollaborationLeases(leaseOwner: string): number {
-  return run("UPDATE collaboration_attempts SET lease_expires_at=? WHERE lease_owner=? AND status='running'",
+  return run(`UPDATE collaboration_attempts SET lease_expires_at=? WHERE lease_owner=? AND status='running' AND run_id IN (${legacyRunIdsSql})`,
     new Date(Date.now() + config.collaboration.attemptLeaseMs).toISOString(), leaseOwner);
 }
 
@@ -593,6 +596,7 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
     : all<AttemptRow>("SELECT * FROM collaboration_attempts WHERE status='running'");
   const conversations = new Set<string>();
   for (const item of rows) {
+    if (!isLegacyRun(item.run_id)) continue;
     let interrupted = false;
     tx(() => {
       const changed = options.onlyExpired
@@ -638,7 +642,7 @@ export function interruptExpiredAttempts(options: { onlyExpired?: boolean } = {}
 export function listRecoverableConversationIds(): string[] {
   return all<{ conversation_id: string }>(`SELECT DISTINCT d.conversation_id FROM collaboration_dispatches d
     JOIN runs r ON r.id=d.run_id
-    WHERE d.status IN ('queued','running') AND r.status='running'`).map((row) => row.conversation_id);
+    WHERE d.status IN ('queued','running') AND r.status='running' AND r.id IN (${legacyRunIdsSql})`).map((row) => row.conversation_id);
 }
 export function listRunningCollaborationRunIds(): string[] {
   return all<{ id: string }>("SELECT id FROM runs WHERE mode='collaboration' AND status='running'").map((row) => row.id);

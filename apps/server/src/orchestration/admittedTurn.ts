@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, isLegacyRun } from '../runs/legacyMode.ts';
 import { get, run, tx } from '../db/database.ts';
 import { claimTask, completeTask, createTask, failTask, getTask } from '../messaging/tasks.ts';
 import { completeAttempt, createAttempt, failAttempt } from '../tasks/attempts.ts';
@@ -10,6 +11,7 @@ import type { Run } from '@agent-gand/shared';
 
 export class RunPausedError extends Error { constructor() { super('任务已在安全边界暂停'); } }
 export function adapterRecoveryReady(runId: string): boolean {
+  if (!isLegacyRun(runId)) return false;
   if (taskAdapterEnabled(runId)) return true;
   run(`INSERT INTO orchestration_run_controls(run_id,recovery_attention,reason) VALUES (?,1,?)
     ON CONFLICT(run_id) DO UPDATE SET recovery_attention=1,reason=excluded.reason`, runId,
@@ -18,11 +20,14 @@ export function adapterRecoveryReady(runId: string): boolean {
   return false;
 }
 export function adapterSafeBoundary(runId: string): void {
+  assertLegacyRun(runId);
   const state = get<{ pause_requested: number; recovery_attention: number; reason: string | null }>('SELECT * FROM orchestration_run_controls WHERE run_id=?', runId);
   if (state?.recovery_attention) throw new RunPausedError();
   if (state?.pause_requested) { setRunStatus(runId, 'waiting_for_user'); throw new RunPausedError(); }
 }
 export function prepareAdapterTurns(item: Run, turns: Array<{ scope: string; agentId: string }>): void {
+  assertLegacyMode(item.mode);
+  assertLegacyRun(item.id);
   admitTaskAdapter(item);
   tx(() => {
     for (const turn of turns) {
@@ -38,6 +43,8 @@ export function prepareAdapterTurns(item: Run, turns: Array<{ scope: string; age
   });
 }
 export async function runAdmittedTurn(opts: AgentTurnOptions): Promise<AgentTurnResult> {
+  assertLegacyMode(opts.run.mode);
+  assertLegacyRun(opts.run.id);
   adapterSafeBoundary(opts.run.id);
   const scope = opts.executionScopeId; if (!scope) throw new Error('兼容入口必须提供稳定执行范围');
   prepareAdapterTurns(opts.run, [{ scope, agentId: opts.agent.id }]);

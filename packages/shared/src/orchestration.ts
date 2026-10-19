@@ -1,7 +1,7 @@
 import type { AgentCapability, PermissionMode } from './agent.ts';
 import type { CoordinationProtocolId, CoordinationPreview } from './coordination.ts';
 import type { ExternalDriverId } from './execution.ts';
-import type { RunMode } from './run.ts';
+import type { LegacyRunMode } from './run.ts';
 import type { MessageVisibility } from './message.ts';
 import type { BusinessContract } from './business.ts';
 
@@ -78,7 +78,7 @@ export interface OrchestrationRequest {
   wholeTeam: boolean;
   constraints: OrchestrationConstraints;
   legacy: {
-    mode: RunMode;
+    mode: LegacyRunMode;
     coordinationDraftId: string | null;
     requestedProtocol: CoordinationProtocolId | null;
     followupRouting: 'room_mode' | null;
@@ -100,7 +100,7 @@ export interface OrchestrationAgentCapability {
   nativeTools: string[];
   deniedTools: string[];
   supports: { control: boolean; resume: boolean; nativeWrite: boolean; hardTokenLimit: boolean; coordinationSteps: boolean; privateContext?: boolean; controlledFiles?: boolean; costControl?: 'estimate_only' };
-  legacyModes: RunMode[];
+  legacyModes: LegacyRunMode[];
   account: {
     id: string | null;
     version: number | null;
@@ -184,7 +184,7 @@ export interface RunOrchestrationSnapshot extends OrchestrationPreview {
   };
   /** Compatibility projection of actual admitted settings; a new room may receive a generated workspace. */
   legacyExecution: {
-    mode: RunMode;
+    mode: LegacyRunMode;
     agentIds: string[];
     workspace: string | null;
     supervisorId: string | null;

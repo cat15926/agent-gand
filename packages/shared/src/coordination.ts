@@ -1,6 +1,6 @@
 import type { AgentCapability, PermissionMode } from './agent.ts';
 import type { RuntimeControlAction } from './collaboration.ts';
-import type { RunMode } from './run.ts';
+import type { LegacyRunMode } from './run.ts';
 
 export type CoordinationProtocolId =
   | 'single_agent'
@@ -65,7 +65,7 @@ export interface CoordinationProtocolDefinition {
   inputTypes: string[];
   outputTypes: string[];
   allowedSuccessors: CoordinationProtocolId[];
-  runtimeMode: RunMode | null;
+  runtimeMode: LegacyRunMode | null;
   risk: CoordinationRisk;
 }
 
@@ -155,7 +155,7 @@ export interface CoordinationDraft {
   validationIssues: CoordinationValidationIssue[];
   /** 兼容现有 API；内容为 error 级别 issue 的稳定错误码。 */
   validationErrors: string[];
-  runtimeMode: RunMode | null;
+  runtimeMode: LegacyRunMode | null;
   createdAt: string;
 }
 
@@ -223,7 +223,7 @@ export interface CoordinationPlan {
     stepIds: string[];
     outputStepIds: string[];
   }>;
-  runtimeMode: RunMode | null;
+  runtimeMode: LegacyRunMode | null;
   actorBindings: Record<string, string>;
   hardConstraintBindings: CoordinationConstraintBinding[];
   steps: CoordinationPlanStep[];
@@ -340,7 +340,7 @@ export interface CoordinationPreview {
 
 export interface FollowupPreview {
   kind: 'none' | 'auto_plan' | 'mode_mismatch' | 'ambiguous' | 'needs_confirmation';
-  roomMode: RunMode;
+  roomMode: LegacyRunMode;
   preview: CoordinationPreview | null;
 }
 /** Bound the whole frozen step graph; dynamic dispatch recipient limits are separate. */

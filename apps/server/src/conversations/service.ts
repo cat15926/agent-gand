@@ -1,4 +1,5 @@
-import { isRoomPreferences, legacyRoomPreferences, ROOM_PREFERENCES_VERSION, type Conversation, type RoomPreferences, type RunMode, type RunStatus } from '@agent-gand/shared';
+import { assertLegacyMode, assertLegacyConversation, isLegacyRun } from '../runs/legacyMode.ts';
+import { isRoomPreferences, legacyRoomPreferences, ROOM_PREFERENCES_VERSION, type Conversation, type RoomPreferences, type RunMode, type LegacyRunMode, type RunStatus } from '@agent-gand/shared';
 import { randomUUID } from 'node:crypto';
 import { all, get, run, tx } from '../db/database.ts';
 import { emit } from '../messaging/bus.ts';
@@ -71,7 +72,7 @@ export function listConversations(): Conversation[] {
 
 export function createConversation(input: {
   title: string;
-  mode: RunMode;
+  mode: LegacyRunMode;
   agentIds: string[];
   supervisorId: string | null;
   defaultReviewerId?: string | null;
@@ -79,6 +80,7 @@ export function createConversation(input: {
   stableWorkspace?: boolean;
   preferences?: RoomPreferences;
 }): Conversation {
+  assertLegacyMode(input.mode);
   const id = randomUUID();
   const now = new Date().toISOString();
   const workspace = input.workspace ?? (input.stableWorkspace ? `room-${id.slice(0, 8)}` : null);
@@ -95,12 +97,14 @@ export function createConversation(input: {
 }
 
 export function touchConversation(id: string): void {
+  assertLegacyConversation(id);
   run('UPDATE conversations SET updated_at = ? WHERE id = ?', new Date().toISOString(), id);
   const conversation = getConversation(id);
   if (conversation) emit({ type: 'conversation.updated', conversation });
 }
 
 export function renameConversation(id: string, title: string): Conversation | null {
+  assertLegacyConversation(id);
   const value = title.trim();
   if (value.length === 0 || value.length > 80) return null;
   run('UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?', value, new Date().toISOString(), id);
@@ -111,6 +115,8 @@ export function renameConversation(id: string, title: string): Conversation | nu
 
 export function updateConversationMembers(id: string, input: { agentIds: string[]; supervisorId: string | null; defaultReviewerId: string | null; expectedMembersVersion: number }): Conversation | null {
   const current = getConversation(id); if (!current || current.archivedAt) return null;
+  assertLegacyConversation(id);
+  assertLegacyMode(current.mode);
   const preferences = { ...(current.preferences ?? legacyRoomPreferences(current.mode)),
     supervisorId: input.supervisorId, defaultReviewerId: input.defaultReviewerId,
     aggregatorId: current.preferences?.aggregatorId && input.agentIds.includes(current.preferences.aggregatorId) ? current.preferences.aggregatorId : null };
@@ -122,6 +128,7 @@ export function updateConversationMembers(id: string, input: { agentIds: string[
 }
 
 export function archiveConversation(id: string): Conversation | null {
+  assertLegacyConversation(id);
   run('UPDATE conversations SET archived_at = ?, updated_at = ? WHERE id = ?', new Date().toISOString(), new Date().toISOString(), id);
   const conversation = getConversation(id) ?? null;
   if (conversation) emit({ type: 'conversation.updated', conversation });
@@ -136,6 +143,7 @@ export function backfillConversations(): void {
       workspace: string | null; title: string | null; deleted_at: string | null; created_at: string; finished_at: string | null;
     }>('SELECT id, goal, mode, agent_ids, supervisor_id, default_reviewer_id, workspace, title, deleted_at, created_at, finished_at FROM runs WHERE conversation_id IS NULL');
     for (const item of legacy) {
+      if (!isLegacyRun(item.id)) continue;
       const conversationId = randomUUID();
       run(
         `INSERT INTO conversations (id,title,mode,agent_ids,supervisor_id,default_reviewer_id,members_version,workspace,created_at,updated_at,archived_at)
@@ -151,7 +159,7 @@ export function backfillConversations(): void {
     }
     run(`UPDATE conversations SET archived_at = COALESCE(archived_at,
       (SELECT MAX(r.deleted_at) FROM runs r WHERE r.conversation_id = conversations.id))
-      WHERE EXISTS (SELECT 1 FROM runs r WHERE r.conversation_id = conversations.id)
+      WHERE mode IN ('pipeline','supervisor','collaboration') AND EXISTS (SELECT 1 FROM runs r WHERE r.conversation_id = conversations.id)
       AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.conversation_id = conversations.id AND r.deleted_at IS NULL)`);
   });
 }
@@ -175,6 +183,7 @@ export function conversationHistory(conversationId: string, beforeTurn: number, 
 
 /** Defaults only affect future composers; running task snapshots are immutable. */
 export function updateRoomPreferences(id: string, preferences: RoomPreferences, expectedMembersVersion: number): Conversation | null {
+  assertLegacyConversation(id);
   const changed = run("UPDATE conversations SET preferences=?,preferences_version=?,preferences_origin='explicit',members_version=members_version+1,updated_at=? WHERE id=? AND members_version=? AND archived_at IS NULL", JSON.stringify(preferences),ROOM_PREFERENCES_VERSION,new Date().toISOString(),id,expectedMembersVersion);
   if (!changed) return null;
   const room = getConversation(id)!; emit({ type: 'conversation.updated', conversation: room }); return room;

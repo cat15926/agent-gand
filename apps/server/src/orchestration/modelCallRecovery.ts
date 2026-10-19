@@ -1,10 +1,11 @@
+import { isLegacyRun } from '../runs/legacyMode.ts';
 import { all, get, run, tx } from '../db/database.ts';
 
 /** G4 shares the call ID across token and money reservations; no usage is inferred from output text. */
 export function reconcileModelCallReservations(id: string): void {
   tx(() => {
-    const call = get<{ status: string; started_at: string | null }>('SELECT status,started_at FROM orchestration_model_calls WHERE id=?', id);
-    if (!call) return;
+    const call = get<{ run_id: string; status: string; started_at: string | null }>('SELECT run_id,status,started_at FROM orchestration_model_calls WHERE id=?', id);
+    if (!call || !isLegacyRun(call.run_id)) return;
     const issued = call.started_at !== null;
     for (const table of ['orchestration_token_reservations', 'business_stage_token_reservations']) {
       if (issued) run(`UPDATE ${table} SET status='unknown' WHERE id=? AND status='pending'`, id);

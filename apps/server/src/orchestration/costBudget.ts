@@ -1,3 +1,4 @@
+import { legacyRunIdsSql } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import type { CostBudgetScope, CostBudgetState, CostPolicy, CostPrice, OrchestrationPreview } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
@@ -114,6 +115,7 @@ export function settleCost(row: CostReservationRow | null, usage?: Parameters<ty
 }
 /** A host restart cannot prove a pending supplier call was free or unissued. */
 export function recoverCostReservations(): void { run(`UPDATE execution_cost_reservations SET status='unknown' WHERE status='pending'
+  AND run_id IN (${legacyRunIdsSql})
   AND NOT EXISTS (SELECT 1 FROM orchestration_model_calls c JOIN scoped_delivery_plans p ON p.run_id=c.run_id
     WHERE c.id=execution_cost_reservations.id AND json_extract(p.record,'$.recoveryVersion')=1)` ); }
 export function costCarry(runId: string): CostReservationRow[] {

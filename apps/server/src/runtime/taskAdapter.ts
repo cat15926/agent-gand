@@ -1,3 +1,4 @@
+import { legacyRunIdsSql, assertLegacyRun, assertLegacyMode, isLegacyRun } from '../runs/legacyMode.ts';
 import { randomUUID } from 'node:crypto';
 import type { Run, RuntimeRunContract, TaskAttempt } from '@agent-gand/shared';
 import { all, get, run, tx } from '../db/database.ts';
@@ -11,11 +12,14 @@ import { evaluateCompletion } from './completion.ts';
 import { commitRunTerminal } from './terminal.ts';
 
 export function taskAdapterEnabled(runId: string): boolean {
+  if (!isLegacyRun(runId)) return false;
   return loadRuntimeContract(runId)?.features?.orchestrationAdapter === 1;
 }
 
 /** Called before the first invocation; never changes an already admitted Runtime profile. */
 export function admitTaskAdapter(item: Run): void {
+  assertLegacyMode(item.mode);
+  assertLegacyRun(item.id);
   tx(() => {
     const existing = loadRuntimeContract(item.id);
     if (existing) {
@@ -115,6 +119,7 @@ export function finishTaskResponsibility(attempt: TaskAttempt, output: string | 
 }
 
 export function closeTaskAdapter(runId: string, status: 'failed' | 'cancelled'): void {
+  assertLegacyRun(runId);
   const now = new Date().toISOString();
   run("UPDATE task_attempts SET status='failed',error=?,lease_owner=NULL,lease_expires_at=NULL,ended_at=? WHERE run_id=? AND status='running'", status, now, runId);
   run("UPDATE tasks SET status=?,last_error=?,updated_at=? WHERE run_id=? AND status NOT IN ('completed','failed','cancelled')", status, status, now, runId);
@@ -140,7 +145,10 @@ export function isAdapterTurnTask(taskId: string): boolean {
 
 export function reopenInterruptedTaskResponsibilities(): void {
   for (const row of all<{ subject_id: string }>(`SELECT m.subject_id FROM runtime_task_subjects m
-    JOIN runtime_custody c ON c.subject_id=m.subject_id WHERE c.state='owned'
+    JOIN runtime_custody c ON c.subject_id=m.subject_id
+    JOIN runtime_subjects subject ON subject.id=m.subject_id
+    JOIN runs owner ON owner.id=subject.run_id
+    WHERE owner.id IN (${legacyRunIdsSql}) AND c.state='owned'
     AND NOT EXISTS (SELECT 1 FROM task_attempts a WHERE a.task_id=m.task_id AND a.kind=m.kind AND a.status='running')`)) {
     run("UPDATE runtime_custody SET state='waiting',generation=generation+1,version=version+1 WHERE subject_id=?", row.subject_id);
     run("UPDATE runtime_subjects SET status='waiting' WHERE id=?", row.subject_id);

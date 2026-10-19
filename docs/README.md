@@ -21,6 +21,7 @@
 
 ### 架构与协议
 
+- [持续协作 T02：模式、身份与存储基础 v1（执行关闭）](./architecture/threaded-foundation-v1.md)
 - [自主协作 AC1：任务契约、授权派生与根预算](./architecture/autonomous-task-authority-v1.md)
 - [自主协作 AC4：普通入口、同任务补充与持久暂停](./architecture/autonomous-default-entry-v1.md)
 - [自主协作 AC5：可校验多轮流程与自动规则公告](./architecture/autonomous-validated-flows-v1.md)
@@ -58,7 +59,7 @@
 
 ### 实施计划
 
-- [持续协作模式实施指导（Issue #16，T01 设计完成，T02 待实施）](./plans/threaded-collaboration-implementation-guide.md)
+- [持续协作模式实施指导（Issue #16，T01–T02 完成，T03 待实施）](./plans/threaded-collaboration-implementation-guide.md)
 - [持续协作实施状态与下一项任务](./plans/threaded-collaboration-implementation-status.md)
 - [持续协作 T01 设计决策与实施接口](./plans/threaded-collaboration-t01-decisions.md)
 - [持续协作核心合同、兼容矩阵与能力范围](./plans/threaded-collaboration-compatibility-matrix.md)
@@ -90,6 +91,7 @@
 
 ### 测试与评估报告
 
+- [持续协作 T02 基础边界验收（2026-10-19）](./reports/threaded-collaboration-t02-foundation-2026-10-19.md)
 - [持续协作 T01 固定源码基线与参考证据（2026-10-19）](./reports/threaded-collaboration-t01-baseline-2026-10-19.md)
 - [AC1 任务契约、授权与根预算验收（2026-10-17）](./reports/autonomous-collaboration-ac1-acceptance-2026-10-17.md)
 - [AC4 默认单入口验收（2026-10-18）](./reports/autonomous-collaboration-ac4-acceptance-2026-10-18.md)

@@ -1,3 +1,4 @@
+import { assertLegacyRun, assertLegacyMode, assertLegacyConversation, isLegacyRun } from './legacyMode.ts';
 /**
  * 运行与观测（规格 §4.2 runs/trace.ts）
  * createRun/startSpan/endSpan/finishRun；usage 按 run 汇总（SUM tokens/cost + llm/tool 调用数）
@@ -9,6 +10,7 @@ import type {
   Run,
   RunEvent,
   RunMode,
+  LegacyRunMode,
   RunStatus,
   SpanAttributes,
   SpanAttributeValue,
@@ -135,15 +137,17 @@ function rowToRunEvent(row: RunEventRow): RunEvent {
 /** workspace：命名工作区（§10.2，校验后的值）；null = runId 专属目录 */
 export function createRun(
   goal: string,
-  mode: RunMode,
+  mode: LegacyRunMode,
   agentIds: string[],
   workspace: string | null = null,
   supervisorId: string | null = null,
   conversationId = '',
   turnNo = 1,
   defaultReviewerId: string | null = null,
-): Run {
-  const record: Run = {
+): Run & { mode: LegacyRunMode } {
+  assertLegacyMode(mode);
+  if (conversationId) assertLegacyConversation(conversationId);
+  const record: Run & { mode: LegacyRunMode } = {
     id: randomUUID(),
     conversationId,
     turnNo,
@@ -196,6 +200,7 @@ export function backfillRunAgentSnapshots(): void {
   );
   tx(() => {
     for (const item of rows) {
+      if (!isLegacyRun(item.id)) continue;
       for (const id of JSON.parse(item.agent_ids) as string[]) {
         if (get('SELECT agent_id FROM run_agent_snapshots WHERE run_id=? AND agent_id=?', item.id, id)) continue;
         const historical = get<{ definition: string; version: number }>('SELECT definition,version FROM agent_versions WHERE agent_id=? AND created_at<=? ORDER BY created_at DESC,version DESC LIMIT 1', id, item.created_at);
@@ -264,6 +269,7 @@ export function countRuns(): number {
 
 /** 状态流转（含 awaiting_approval ↔ running 往返），每次广播 run.updated */
 export function setRunStatus(runId: string, status: RunStatus): void {
+  assertLegacyRun(runId);
   const existing = getRun(runId);
   if (existing && ['completed','failed','cancelled'].includes(existing.status) && existing.status !== status) return;
   if (status === 'running') run('UPDATE runs SET status = ?, finished_at = NULL WHERE id = ?', status, runId);
@@ -404,6 +410,7 @@ export function markSpanFirstToken(spanId: string): RunEvent | undefined {
 }
 
 export function finishRun(runId: string, status: 'completed' | 'failed' | 'cancelled'): boolean {
+  assertLegacyRun(runId);
   if (taskAdapterEnabled(runId)) return finishAdapterRun(runId, status, 'compatibility:finishRun').committed;
   return tx(() => {
     const disposition = status === 'completed' ? 'accepted' : status;
