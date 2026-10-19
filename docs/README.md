@@ -58,6 +58,11 @@
 
 ### 实施计划
 
+- [持续协作模式实施指导（Issue #16，T01 设计完成，T02 待实施）](./plans/threaded-collaboration-implementation-guide.md)
+- [持续协作实施状态与下一项任务](./plans/threaded-collaboration-implementation-status.md)
+- [持续协作 T01 设计决策与实施接口](./plans/threaded-collaboration-t01-decisions.md)
+- [持续协作核心合同、兼容矩阵与能力范围](./plans/threaded-collaboration-compatibility-matrix.md)
+- [持续协作模式接入盘点与 T02–T04 接口地图](./plans/threaded-collaboration-integration-map.md)
 - [Agent 自主协作与单一任务入口实施方案（AC1–AC6 已验收，业务房间灰度已切换）](./plans/agent-autonomous-collaboration-implementation-plan.md)
 - [通用私密协作与受控信息发布实施指导（Issue #15，G0–G6 当前开放组合已交付，Codex 真实补验暂缓）](./plans/scoped-collaboration-implementation-guide.md)
 - [平台协作剩余内容实施计划（R1–R8 已完成适用范围实现与验收）](./plans/platform-collaboration-remaining-implementation-plan.md)
@@ -85,6 +90,7 @@
 
 ### 测试与评估报告
 
+- [持续协作 T01 固定源码基线与参考证据（2026-10-19）](./reports/threaded-collaboration-t01-baseline-2026-10-19.md)
 - [AC1 任务契约、授权与根预算验收（2026-10-17）](./reports/autonomous-collaboration-ac1-acceptance-2026-10-17.md)
 - [AC4 默认单入口验收（2026-10-18）](./reports/autonomous-collaboration-ac4-acceptance-2026-10-18.md)
 - [AC5 可校验多轮流程验收（2026-10-18）](./reports/autonomous-collaboration-ac5-acceptance-2026-10-18.md)

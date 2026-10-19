@@ -1,0 +1,856 @@
+{
+  "schemaVersion": 1,
+  "task": "T01",
+  "capturedAt": "2026-10-19T15:02:44.098535+00:00",
+  "userFacingDate": "2026-10-19",
+  "timezone": "Asia/Shanghai",
+  "scope": "Fixed source baseline and targeted static audit; no app launch, no real model, no business database or credentials read.",
+  "local": {
+    "repository": "cat15926/agent-gand",
+    "issueBaseline": "996513c673498811bed894b3eecf64382e71af3f",
+    "implementationHead": "b95dc2553405268a9b807b3983fee8f9facc55fa",
+    "headSubject": "fix(chat): separate execution drafts and improve result presentation",
+    "commitCountSinceIssueBaseline": 1,
+    "diffStat": "25 files changed, 330 insertions(+), 45 deletions(-)",
+    "changedPaths": [
+      "M\tREADME.md",
+      "M\tapps/server/src/collaboration/autonomousRunner.ts",
+      "M\tapps/server/src/collaboration/autonomousTools.ts",
+      "M\tapps/server/src/collaboration/controlTools.ts",
+      "M\tapps/server/src/execution/runner.ts",
+      "M\tapps/server/src/orchestration/agentStep.ts",
+      "A\tapps/server/src/orchestration/turnDisplay.ts",
+      "M\tapps/server/src/runtime/context.ts",
+      "A\tapps/web/src/components/FlowReplay.tsx",
+      "M\tapps/web/src/components/Markdown.tsx",
+      "M\tapps/web/src/components/views/RunView.tsx",
+      "A\tapps/web/src/services/flowReplayPresentation.ts",
+      "M\tapps/web/src/store.tsx",
+      "M\tdocs/reports/werewolf-entry-and-stream-anomalies-2026-10-18.md",
+      "M\tpackage.json",
+      "M\tpackages/shared/src/events.ts",
+      "M\tscripts/verify-autonomous-ac2.mjs",
+      "M\tscripts/verify-autonomous-ac4-ui.mjs",
+      "M\tscripts/verify-autonomous-ac5-ui.mjs",
+      "M\tscripts/verify-autonomous-ac6-ui.mjs",
+      "M\tscripts/verify-chat-state.mjs",
+      "M\tscripts/verify-chatroom-ui.mjs",
+      "M\tscripts/verify-collaboration-exit.mjs",
+      "A\tscripts/verify-message-presentation.mjs",
+      "M\tscripts/verify-runtime-agent-api-v2.mjs"
+    ],
+    "initialWorktreeChanges": [
+      " M docs/README.md",
+      "?? docs/plans/threaded-collaboration-implementation-guide.md"
+    ],
+    "environment": {
+      "node": "v22.23.1",
+      "pnpm": "9.15.4",
+      "platform": "Darwin",
+      "arch": "arm64",
+      "macOS": "13.5",
+      "macOSBuild": "22G74",
+      "declaredNode": ">=22",
+      "declaredPackageManager": "pnpm@9.15.4"
+    },
+    "sourceMigrationCatalog": {
+      "highestVersion": 24,
+      "entries": [
+        {
+          "version": 1,
+          "name": "o1-o5-additive-baseline",
+          "descriptor_sha256": "00f87afe09b9457334cf1e3252df429dd18d94329b36bfe266214bb2f8add002"
+        },
+        {
+          "version": 2,
+          "name": "o6-versioned-room-defaults",
+          "descriptor_sha256": "6ad7d54f66e0fa5048a7603b1e76fa0e90a0f3d13cea424a85d946a26690b90a"
+        },
+        {
+          "version": 3,
+          "name": "business-stage-execution-v1",
+          "descriptor_sha256": "6392bf7cb88b15e2a4258ce70b848ea1448c495e90ed445569f0baab461c54b8"
+        },
+        {
+          "version": 4,
+          "name": "business-stage-checkpoint-v1",
+          "descriptor_sha256": "1d0570d0179e8b0f65d56b8d77c2cd3048d33d14afa682ec3335c36bd357e918"
+        },
+        {
+          "version": 5,
+          "name": "business-stage-rework-v1",
+          "descriptor_sha256": "f4b71c5fff06458b835c3acfa70ef3b10e879a7734cd6707822e5a5cbd777272"
+        },
+        {
+          "version": 6,
+          "name": "private-interaction-artifact-acl-v1",
+          "descriptor_sha256": "985df6ae9a145b4ffdda402ae13b5a3865a1c916f6ed207d8cd44129b194c36c"
+        },
+        {
+          "version": 7,
+          "name": "artifact-worktree-snapshots-v1",
+          "descriptor_sha256": "1f3d912cbab6bed219aaff341ff806c5076c2c5037dff074d6eb8b28d8f43a7b"
+        },
+        {
+          "version": 8,
+          "name": "private-write-recovery-v1",
+          "descriptor_sha256": "4945443d3942160521061db462b63f20e8b5be7c6436eac3489e75683dfd84bd"
+        },
+        {
+          "version": 9,
+          "name": "cost-budget-governance-v1",
+          "descriptor_sha256": "512f6c38b70cc071aadbacf1e53eca30216a850314e4cbb3012b53859daa23a2"
+        },
+        {
+          "version": 10,
+          "name": "branch-rework-contract-revision-v1",
+          "descriptor_sha256": "bdf5e5250dec27e6854c320f97e2733d3d3da1285e5a0641025b3a39b91675c6"
+        },
+        {
+          "version": 11,
+          "name": "scoped-stage-batch-scheduling-v1",
+          "descriptor_sha256": "19ca992ffa93ca2d46319b1294363e225f8cdbb0aedad784f7d90f71a1ea7601"
+        },
+        {
+          "version": 12,
+          "name": "scoped-collaboration-foundation-v1",
+          "descriptor_sha256": "41db07fd6801da02da567691dc328cf771bd8728cdc643f2147ba1b4961d2207"
+        },
+        {
+          "version": 13,
+          "name": "scoped-action-boundary-fingerprint-v1",
+          "descriptor_sha256": "7effb7f2ad7303324b4b8bb44374d4d8c3eb84f8a2762e4ac6ec6c2c0368bcfa"
+        },
+        {
+          "version": 14,
+          "name": "scoped-delivery-v1",
+          "descriptor_sha256": "45d232ae831b6fb1931b8b0fce908c171fd959c02284fa5b40db2c3bc68a2203"
+        },
+        {
+          "version": 15,
+          "name": "scoped-release-v1",
+          "descriptor_sha256": "00dc33ac4fa3bee49b87036bb8db63add293d7513d2ad0d08565e82e7214036e"
+        },
+        {
+          "version": 16,
+          "name": "scoped-recovery-v1",
+          "descriptor_sha256": "95cbc200a3ee8b961c25990445893ae50cf7d39762f197a5032adf384c3e07b7"
+        },
+        {
+          "version": 17,
+          "name": "scoped-native-coordination-v1",
+          "descriptor_sha256": "e10c41a3f3ed9d946b86a62f21ad67b738f5f69eb4fcadc7efec124fc993360d"
+        },
+        {
+          "version": 18,
+          "name": "autonomous-task-authority-v1",
+          "descriptor_sha256": "3167747b10b8cf486f8b39e744d6284a83376203314a5a92264543223245c86c"
+        },
+        {
+          "version": 19,
+          "name": "autonomous-dynamic-delegation-v1",
+          "descriptor_sha256": "43b807f56fc53e3c8dd962e273b698f48504d4feaa7540794336d8fbf7d18c77"
+        },
+        {
+          "version": 20,
+          "name": "autonomous-result-delivery-v1",
+          "descriptor_sha256": "d0b963a086d2e5566b179f6250ceea357171f3c3d90b6c3084d241837f5a3b7f"
+        },
+        {
+          "version": 21,
+          "name": "autonomous-default-entry-v1",
+          "descriptor_sha256": "72fc1c16b1432880a44dbba77d2e774ccdde5958fc8a20caad5adc6759a949b9"
+        },
+        {
+          "version": 22,
+          "name": "autonomous-validated-flow-v1",
+          "descriptor_sha256": "9d91e0f99402b7fc7ac37298288be8dc7e6fb8f4a20b5a0c255b9f2660852726"
+        },
+        {
+          "version": 23,
+          "name": "autonomous-managed-sdk-rollout-v1",
+          "descriptor_sha256": "f6f24829dc7fe1f485ee54c3719bee0b73a647888d6c806bb48eb288ee67f7e8"
+        },
+        {
+          "version": 24,
+          "name": "autonomous-estimated-cost-reserve-v1",
+          "descriptor_sha256": "880d95c62b020ba47f375f8a7a81e189aa516c9c8a5dd61480e5b2704b5e89f8"
+        }
+      ],
+      "liveDatabaseVersion": "not_read",
+      "note": "Source migration catalog is not a claim about live database applied versions; database.ts also contains additive column migrations."
+    },
+    "files": [
+      {
+        "repository_path": "apps/server/src/collaboration/controlTools.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/collaboration/controlTools.ts",
+        "head_sha256": "13232829c2f341c7d5e9ab0468298785eb38d11b448653fd5d65b8b96ad985b1",
+        "worktree_sha256": "13232829c2f341c7d5e9ab0468298785eb38d11b448653fd5d65b8b96ad985b1",
+        "issue_baseline_sha256": "f9bd6b556b7a794c8da0b053570bca8b3a3ba999f68422e221bebe5362994b84",
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/collaboration/autonomousEntry.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/collaboration/autonomousEntry.ts",
+        "head_sha256": "e2297ccf97568b5d10e3e2a4f0b237041936a368c86447234d678a8365cb2717",
+        "worktree_sha256": "e2297ccf97568b5d10e3e2a4f0b237041936a368c86447234d678a8365cb2717",
+        "issue_baseline_sha256": "e2297ccf97568b5d10e3e2a4f0b237041936a368c86447234d678a8365cb2717",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/runtime/subjectCompletion.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/runtime/subjectCompletion.ts",
+        "head_sha256": "a7a0d3ec747c759b8e2e762c41efb97e6552fcbdda3ae61eabdb46d00cd4b642",
+        "worktree_sha256": "a7a0d3ec747c759b8e2e762c41efb97e6552fcbdda3ae61eabdb46d00cd4b642",
+        "issue_baseline_sha256": "a7a0d3ec747c759b8e2e762c41efb97e6552fcbdda3ae61eabdb46d00cd4b642",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/runtime/completion.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/runtime/completion.ts",
+        "head_sha256": "4a3d8bd2d477b0c6297b4828bb10098539669261170bf2724e74d00f1db99d6a",
+        "worktree_sha256": "4a3d8bd2d477b0c6297b4828bb10098539669261170bf2724e74d00f1db99d6a",
+        "issue_baseline_sha256": "4a3d8bd2d477b0c6297b4828bb10098539669261170bf2724e74d00f1db99d6a",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/collaboration/store.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/collaboration/store.ts",
+        "head_sha256": "7e36412fe7031b6e78048983ff1c839ea0ffa37bc04d61c530d097a311976b8b",
+        "worktree_sha256": "7e36412fe7031b6e78048983ff1c839ea0ffa37bc04d61c530d097a311976b8b",
+        "issue_baseline_sha256": "7e36412fe7031b6e78048983ff1c839ea0ffa37bc04d61c530d097a311976b8b",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/execution/memberAdmission.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/execution/memberAdmission.ts",
+        "head_sha256": "de3441e4f1d789d0c20dc474635180e35e350cd8ef091f9644330e8ef73d8d28",
+        "worktree_sha256": "de3441e4f1d789d0c20dc474635180e35e350cd8ef091f9644330e8ef73d8d28",
+        "issue_baseline_sha256": "de3441e4f1d789d0c20dc474635180e35e350cd8ef091f9644330e8ef73d8d28",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/execution/sessions.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/execution/sessions.ts",
+        "head_sha256": "49ffbbbb8f23ef55de8fbdf24ade33b1af7be2ce73ea8032c21950f28a605444",
+        "worktree_sha256": "49ffbbbb8f23ef55de8fbdf24ade33b1af7be2ce73ea8032c21950f28a605444",
+        "issue_baseline_sha256": "49ffbbbb8f23ef55de8fbdf24ade33b1af7be2ce73ea8032c21950f28a605444",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/collaboration/scheduler.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/collaboration/scheduler.ts",
+        "head_sha256": "e2d1251cc09b156483c5dfec2f01a0272c26ab81de43bd876bc87c65c3ca7ec9",
+        "worktree_sha256": "e2d1251cc09b156483c5dfec2f01a0272c26ab81de43bd876bc87c65c3ca7ec9",
+        "issue_baseline_sha256": "e2d1251cc09b156483c5dfec2f01a0272c26ab81de43bd876bc87c65c3ca7ec9",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "packages/shared/src/run.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/packages/shared/src/run.ts",
+        "head_sha256": "848ab416c2902d983a2092836ac021e94484ca2bedddc9ae68a18bf9a872ced0",
+        "worktree_sha256": "848ab416c2902d983a2092836ac021e94484ca2bedddc9ae68a18bf9a872ced0",
+        "issue_baseline_sha256": "848ab416c2902d983a2092836ac021e94484ca2bedddc9ae68a18bf9a872ced0",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/orchestration/entry.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/orchestration/entry.ts",
+        "head_sha256": "dd3c5fffcf54aa4a8e089dfb5d90c0ff759949cd56342fa74802e158b6402b9b",
+        "worktree_sha256": "dd3c5fffcf54aa4a8e089dfb5d90c0ff759949cd56342fa74802e158b6402b9b",
+        "issue_baseline_sha256": "dd3c5fffcf54aa4a8e089dfb5d90c0ff759949cd56342fa74802e158b6402b9b",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/index.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/index.ts",
+        "head_sha256": "3c022dc3f5d8a24b17d55239fd8dcc0f77c6c79ff1a9d01b847417af0a45b0f5",
+        "worktree_sha256": "3c022dc3f5d8a24b17d55239fd8dcc0f77c6c79ff1a9d01b847417af0a45b0f5",
+        "issue_baseline_sha256": "3c022dc3f5d8a24b17d55239fd8dcc0f77c6c79ff1a9d01b847417af0a45b0f5",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/execution/process.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/execution/process.ts",
+        "head_sha256": "443e5e21ee18f1143be4f00c1cbebe5877a43674ced389a1a8b542eeb94c8fcc",
+        "worktree_sha256": "443e5e21ee18f1143be4f00c1cbebe5877a43674ced389a1a8b542eeb94c8fcc",
+        "issue_baseline_sha256": "443e5e21ee18f1143be4f00c1cbebe5877a43674ced389a1a8b542eeb94c8fcc",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/runtime/terminal.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/runtime/terminal.ts",
+        "head_sha256": "bb646715265f2dcef3238e73e822c8ca2ff9b919e377050a2f7da489cc89d48a",
+        "worktree_sha256": "bb646715265f2dcef3238e73e822c8ca2ff9b919e377050a2f7da489cc89d48a",
+        "issue_baseline_sha256": "bb646715265f2dcef3238e73e822c8ca2ff9b919e377050a2f7da489cc89d48a",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "pnpm-lock.yaml",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/pnpm-lock.yaml",
+        "head_sha256": "789e526fb1e2650c8096f31342824d4dc94b9dfe216840281f751c1b384e3afe",
+        "worktree_sha256": "789e526fb1e2650c8096f31342824d4dc94b9dfe216840281f751c1b384e3afe",
+        "issue_baseline_sha256": "789e526fb1e2650c8096f31342824d4dc94b9dfe216840281f751c1b384e3afe",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "package.json",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/package.json",
+        "head_sha256": "ab0ebebf6cfb134eb15aaaeb3b39551de0b3a02b063d6ead5c04ee11d4711f70",
+        "worktree_sha256": "ab0ebebf6cfb134eb15aaaeb3b39551de0b3a02b063d6ead5c04ee11d4711f70",
+        "issue_baseline_sha256": "c0506eb7c9a7289b20c91822e2cf92ad72131a62a1152cd080b396dfe73b7c00",
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/db/orchestrationMigrations.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/db/orchestrationMigrations.ts",
+        "head_sha256": "0fe41e685679da73a82599fadbdd98fb224e0661f2143b50728f2a5d2bbce8cd",
+        "worktree_sha256": "0fe41e685679da73a82599fadbdd98fb224e0661f2143b50728f2a5d2bbce8cd",
+        "issue_baseline_sha256": "0fe41e685679da73a82599fadbdd98fb224e0661f2143b50728f2a5d2bbce8cd",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/db/schema.sql",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/db/schema.sql",
+        "head_sha256": "e9fe21c5720487e992e65fc3297a14b968cbea375bcb40cea8167ee6f3ca854b",
+        "worktree_sha256": "e9fe21c5720487e992e65fc3297a14b968cbea375bcb40cea8167ee6f3ca854b",
+        "issue_baseline_sha256": "e9fe21c5720487e992e65fc3297a14b968cbea375bcb40cea8167ee6f3ca854b",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/db/database.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/db/database.ts",
+        "head_sha256": "f4648a998c540d74be64803adf05a9e5888a82d18f2b9e373e985f5418938122",
+        "worktree_sha256": "f4648a998c540d74be64803adf05a9e5888a82d18f2b9e373e985f5418938122",
+        "issue_baseline_sha256": "f4648a998c540d74be64803adf05a9e5888a82d18f2b9e373e985f5418938122",
+        "changed_since_issue_baseline": false,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/orchestration/agentStep.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/orchestration/agentStep.ts",
+        "head_sha256": "84fa066723922da4646fb97e9120dc665d06838c16c59fba69d5e306e6e6bc34",
+        "worktree_sha256": "84fa066723922da4646fb97e9120dc665d06838c16c59fba69d5e306e6e6bc34",
+        "issue_baseline_sha256": "39c0b9af928329f46a4da4d03d2aabe1b7b468280259f19b0a2412de7dea3f68",
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/execution/runner.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/execution/runner.ts",
+        "head_sha256": "7ccd1e6b6e057372f0a3b4c912d0973c5413a19fc243fe54d559b5837e78cc66",
+        "worktree_sha256": "7ccd1e6b6e057372f0a3b4c912d0973c5413a19fc243fe54d559b5837e78cc66",
+        "issue_baseline_sha256": "99adb7d52017f764516ea567aec7f7373d85fcdfa3d4043bfc1d21cc1e03d869",
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "apps/server/src/orchestration/turnDisplay.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/apps/server/src/orchestration/turnDisplay.ts",
+        "head_sha256": "d0b08e9dae8089c682c4c654f4b0be9d796e885b537f715de8945da86bcfe0da",
+        "worktree_sha256": "d0b08e9dae8089c682c4c654f4b0be9d796e885b537f715de8945da86bcfe0da",
+        "issue_baseline_sha256": null,
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      },
+      {
+        "repository_path": "packages/shared/src/events.ts",
+        "fixed_source_url": "https://github.com/cat15926/agent-gand/blob/b95dc2553405268a9b807b3983fee8f9facc55fa/packages/shared/src/events.ts",
+        "head_sha256": "2fae648ee329c02116c0c4f543dcef47f0e610b69a56c64015d381ab589e6403",
+        "worktree_sha256": "2fae648ee329c02116c0c4f543dcef47f0e610b69a56c64015d381ab589e6403",
+        "issue_baseline_sha256": "30325352796ce811509004037a95b6b13c1f7ae43ab0299f89398a1c5bc1d83e",
+        "changed_since_issue_baseline": true,
+        "worktree_matches_head": true
+      }
+    ]
+  },
+  "upstream": {
+    "repository": "zts212653/clowder-ai",
+    "fixedCommit": "8b373123323aacd7e2047dab94fdc15b8f7567ae",
+    "verifiedCommit": "8b373123323aacd7e2047dab94fdc15b8f7567ae",
+    "commitSubject": "feat(site): 文档站加「理念」分类，挂上六条思想线 (#1618)",
+    "committedAt": "2026-10-19T05:05:41Z",
+    "treeSha": "2438b2fa77c59780fba846a62b8e531c2f758cea",
+    "commitApiUrl": "https://api.github.com/repos/zts212653/clowder-ai/commits/8b373123323aacd7e2047dab94fdc15b8f7567ae",
+    "commitMetadataCachePath": "/tmp/clowder-contract-check/pinned-commit.json",
+    "commitMetadataSha256": "b857eaedc27e8c5348903ff51a4feaf3c1cae9e3ce0513971a45feb6d1bfd011",
+    "latestHeadQueried": false,
+    "retrieval": "GitHub Contents API with fixed ref and raw+json Accept header; raw.githubusercontent.com failed earlier with connection reset.",
+    "entries": [
+      {
+        "id": "C01",
+        "repository_path": "packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts#L1",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/InvocationQueue.ts",
+        "sha256": "00cbdec0750d60b968676693ea353d70dff5953fb5f95aef22c1977e9e74893f",
+        "bytes": 101399,
+        "git_blob_sha1_computed": "6fe019b366a8eca120d8131429f1ded627bfd683",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1-10; queue mutations",
+        "finding": "QueueLedgerStore owns canonical mutations and recovery; memory maps are projections. Constructor/backend support still must be checked before claiming persistence in all configurations."
+      },
+      {
+        "id": "C02",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/route-serial.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-serial.ts#L534",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/route-serial.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/route-serial.ts",
+        "sha256": "efc56b7c1d0ccfdf4b98baf66174ba895fb00033a7758226500fd2e71f05d896",
+        "bytes": 211410,
+        "git_blob_sha1_computed": "d66bc2788111bcf3eeb5c1eb1ff879ef504bc701",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "534-548",
+        "finding": "Serial route worklist covers admitted batch only; downstream A2A uses durable message_wake and persisted causal ancestry."
+      },
+      {
+        "id": "C03",
+        "repository_path": "packages/api/src/domains/cats/services/stores/visibility.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/visibility.ts#L175",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/visibility.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/visibility.ts",
+        "sha256": "b86863cf85f864dde5e007f5c16c8050db66aa736e2e93bffb01649a456c245f",
+        "bytes": 11628,
+        "git_blob_sha1_computed": "cbc1d51a6da38f2d3d9682bc991b7a9d951d6be7",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "175-255",
+        "finding": "Public is readable to all; user viewer sees all at this helper level; unrevealed whispers require whisperTo. Reply previews require same thread, published/nondeleted/visible parent; public replies cannot quote unrevealed whisper."
+      },
+      {
+        "id": "C04",
+        "repository_path": "packages/api/src/domains/cats/services/context/ContextAssembler.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/context/ContextAssembler.ts#L225",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/context/ContextAssembler.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/ContextAssembler.ts",
+        "sha256": "af6f4993ed90c593a3ea3be33dcba1a8d274ce472de5ef6040190e451c1706c4",
+        "bytes": 13908,
+        "git_blob_sha1_computed": "c3131add507ce48941561b41673d9cb532756452",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "225-320",
+        "finding": "Assembler filters undelivered/display-only/briefing/legacy errors and enforces recent-first token ceiling; upstream route owns candidate/visibility selection. Collective event scope is independently checked."
+      },
+      {
+        "id": "C05",
+        "repository_path": "packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts#L51",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/collective-private-invocation.ts",
+        "sha256": "d6d45d0c6f42fe5f1b7d401846e63b7b65f6345fc5f88277aee1533fb14c232e",
+        "bytes": 7814,
+        "git_blob_sha1_computed": "8c0b6016246a77a09fbcc3f565a0d5dac2ec1742",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "27-130",
+        "finding": "Private Collective uses task workspace and fresh task context, restricted skills roots, toolExecutionPolicy, authority revalidation and abort; home-thread sharing is not universal."
+      },
+      {
+        "id": "C06",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts#L39",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/MultiMentionOrchestrator.ts",
+        "sha256": "fef3379b4c600a5f8abba6888ce35e248be868a80c22e51e494eb3845063f139",
+        "bytes": 10078,
+        "git_blob_sha1_computed": "c756c2aa8c5ec9ee42263056a83b3bae67dd5326",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "39-198",
+        "finding": "Orchestrator entries, idempotency index, responses and controllers are memory Maps; first target response wins and terminal late replies are ignored."
+      },
+      {
+        "id": "C07",
+        "repository_path": "packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts#L181",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/ActionTerminalPredicateCatalog.ts",
+        "sha256": "3bc33095b8b2ca7444dc1168a176fe9c12565955e8331d5f1ebc51790203c7b1",
+        "bytes": 11383,
+        "git_blob_sha1_computed": "544af266779f99b70d9f62e88d581a7885a3a50c",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "181-208; 246-274",
+        "finding": "Executable registry contains review_delivered and task_done with producer/resolver/freshness/runtime ports; readiness assertion required."
+      },
+      {
+        "id": "C08",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts#L114",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/AgentRouter.ts",
+        "sha256": "2b7e1b814f8d4a41ab27fafe71b263534933501d11e084001f6c0946674c431d",
+        "bytes": 75954,
+        "git_blob_sha1_computed": "17788d9955eb2fdd2b9245a2c8037592d1a1dd7d",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "945-965; 1163-1273",
+        "finding": "User mentions may occur anywhere; explicit current targets win. Implicit route handles ideate/concierge then previous user mention, healthy recent replier, preferred/available participant, preferred cat, default; policy may project candidates."
+      },
+      {
+        "id": "C09",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts#L1",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/a2a-mentions.ts",
+        "sha256": "4d95b3709bff2125007ec9f1027ffcc09881caad3a0c830ef3b11d5b32dd644a",
+        "bytes": 10922,
+        "git_blob_sha1_computed": "b769b7cfefe1164f59145df7019d3b573cca93e4",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1-163",
+        "finding": "A2A strips fenced code, matches line-start after markdown prefixes, longest aliases with token boundaries, excludes self, max two targets; disabled aliases yield warnings. Default max chain depth 15."
+      },
+      {
+        "id": "C10",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts#L1",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/WorklistRegistry.ts",
+        "sha256": "f125ec8640a0b6cd595d360baa43db26dbda51b3f0ab730bcc0f73444f247ad6",
+        "bytes": 9655,
+        "git_blob_sha1_computed": "0c6b7532a07a1cd31897693e0c47d73cf7d58ba9",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1-105",
+        "finding": "Worklist is live guard projection, not executor; ancestry rebuilds depth. Ping-pong warns at 2, blocks at 4, with substantive-activity exemption; routing/hold tools are not substantive."
+      },
+      {
+        "id": "C11",
+        "repository_path": "packages/api/src/routes/callbacks.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callbacks.ts#L3032",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callbacks.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/callbacks.ts",
+        "sha256": "398199a49918aba4a7e02de1e0083b4c7533cb540ed2930ee389bdb4a576cad6",
+        "bytes": 296146,
+        "git_blob_sha1_computed": "9bde9145b43c94178d3fa518d9eef5add31c46ef",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "3032-3070; 6385-6425",
+        "finding": "Structured Action callback requires services and distinct available explicit holders; ordinary-only interactive once decision creation returns immediately. This is targeted inspection, not all callback routes."
+      },
+      {
+        "id": "C12",
+        "repository_path": "packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts#L1",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/WorkflowSopStore.ts",
+        "sha256": "8b9bb988c3a3ccd6043b7da645c923370b85c47d6c4f4c014c1af8eb8e6214e5",
+        "bytes": 1289,
+        "git_blob_sha1_computed": "06ca7a549461c5a3b37e634ffebcbbdb21abd43e",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1-40; route-serial.ts:565-600",
+        "finding": "Port provides version-conflict and managed-work admission methods. The info-only SOP stage-hint claim is corroborated by route-serial, not by the port alone."
+      },
+      {
+        "id": "C13",
+        "repository_path": "packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts#L111",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/ActionSuccessorAdmissionService.ts",
+        "sha256": "a4946c518ebcdcea6a108431f07883024ece0ab0421ec9b9a76e32ce367db6d8",
+        "bytes": 15127,
+        "git_blob_sha1_computed": "21d016a76c0e65a48f810ca5f89f24d4d165715b",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "111-185",
+        "finding": "Admission resolves subject terminal state, canonical identity, return/replace, standing, predicate freshness, then claims; safe_wait may continue a fresh revision."
+      },
+      {
+        "id": "C14",
+        "repository_path": "packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts#L20",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/ActionSuccessorCompletionService.ts",
+        "sha256": "8957fd9656f6c5a30399db7d0bfd9d7c67071b5c36bf17cd163e73804cb9fab3",
+        "bytes": 4503,
+        "git_blob_sha1_computed": "a59f0eaf14b7584fc3dac9eb3952a24af2c2fbc1",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "20-88",
+        "finding": "Completion validates active lease/generation/candidate and calls server truth resolver before recording completion; model text alone does not complete."
+      },
+      {
+        "id": "C15",
+        "repository_path": "packages/api/src/domains/collaborative-content/artifact-review/reducer.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts#L93",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/reducer.ts",
+        "sha256": "c4ed308cb1ab0cd7531d15f3e988b43a131c36f4554e432a8669e5e74de0343b",
+        "bytes": 7162,
+        "git_blob_sha1_computed": "7c6ea72dc65aeda8357634fbc5e6b1970fec325f",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "93-165",
+        "finding": "ArtifactReview human decision, changes_requested, reopen and new-version round are distinct domain transitions; not interchangeable with review delivery."
+      },
+      {
+        "id": "C16",
+        "repository_path": "packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts#L154",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/ActionSuccessorReplacementAdmission.ts",
+        "sha256": "d6cecfc4d72233838b6e1d118b7f1d4c0c483f4bbef7854c1bd2b2dbd41a794e",
+        "bytes": 8440,
+        "git_blob_sha1_computed": "7c552004977485e9016805c923cc0bf77d0da60f",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "154-215",
+        "finding": "Replacement checks persisted identity/claim origin, predecessor return proof and verified predicate, then CAS expectedGeneration; not blind reassignment."
+      },
+      {
+        "id": "C17",
+        "repository_path": "packages/api/src/domains/memory/interfaces.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/interfaces.ts#L92",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/interfaces.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/interfaces.ts",
+        "sha256": "09a6a1945a333886315bc4de5e8be2cf554d56aa79b7c268721bbde7e392dd2e",
+        "bytes": 17662,
+        "git_blob_sha1_computed": "8db2d44e86f4593bc2b6df933303b1bc0f28612a",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "92-150",
+        "finding": "Evidence interface includes sourcePath/sourceHash/supersededBy/provenance/authority and summary source IDs; interface presence alone is not proof of runtime retrieval or ACL enforcement."
+      },
+      {
+        "id": "C18",
+        "repository_path": "packages/api/src/index.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/index.ts#L8000",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/index.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/index.ts",
+        "sha256": "32d81c33e020853c62f3d02c996e493021a74eda85686a4763eaa4482cd1be8c",
+        "bytes": 446715,
+        "git_blob_sha1_computed": "6f6275062b3990f9167868854f7ac92c8a62a3dd",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1144-1245; 5086-5096; 8000-8050",
+        "finding": "Redis-gated Action production wiring/boot assertion observed. Startup protects known live invocation owners; incomplete liveness snapshot preserves unknown running executions."
+      },
+      {
+        "id": "C19",
+        "repository_path": "packages/api/src/config/codex-managed-support.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/config/codex-managed-support.ts#L8",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/config/codex-managed-support.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/codex-managed-support.ts",
+        "sha256": "ca648661de24d54afac44b96dbbd3b407307cf1b9133f2c4b3730e4883be22f9",
+        "bytes": 2852,
+        "git_blob_sha1_computed": "de298332f515954fc799d250b566cf89e97d5e81",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "8-59",
+        "finding": "Specific managed Codex carrier is Darwin-only, exact codex-cli 0.159.0, native executable, policy probe and identity validation. Not a statement about every Codex execution path."
+      },
+      {
+        "id": "C20",
+        "repository_path": "packages/api/src/routes/callback-hold-ball-routes.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-hold-ball-routes.ts#L242",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-hold-ball-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/callback-hold-ball-routes.ts",
+        "sha256": "8857007de7e55bc0acef3324a1e182a8551c83728e280f68970c1a562f6652a3",
+        "bytes": 72062,
+        "git_blob_sha1_computed": "b7fc2b06263ebaa79bad558a1c829062469be957",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "90-92; 242-332; 888-940",
+        "finding": "hold timer 5s-1h with structured wait source/SLA; wakeWhen exclusive; pending human input excluded. Atomic per thread/cat quota is 3/hour; new wake registered before prior retired."
+      },
+      {
+        "id": "C21",
+        "repository_path": "packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts#L68",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/DeliveryCursorStore.ts",
+        "sha256": "41961d8760ecea1ad42fc02842a842e67da4712c74945213379cc3196b1513cf",
+        "bytes": 27151,
+        "git_blob_sha1_computed": "ac188cce93194cd1c6da4ef53a174d047224b3a8",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "68-130",
+        "finding": "Delivery, mention ACK and seen are separate cursor namespaces. Seen cannot advance delivery; configured unresolved cursor mutations fail closed."
+      },
+      {
+        "id": "C22",
+        "repository_path": "LICENSE",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/LICENSE",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/LICENSE?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/LICENSE",
+        "sha256": "fa76dc1037b8e912f93cec127939c2eba96d68db7f6fa88ad827cdc2fd78200e",
+        "bytes": 1080,
+        "git_blob_sha1_computed": "dc5495d923c0a6b262831f9e02769f61e9795478",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1-21",
+        "finding": "MIT, Copyright (c) 2026 Clowder AI Contributors; copies/substantial portions require copyright and permission notice. No upstream source vendored by T01."
+      },
+      {
+        "id": "C23",
+        "repository_path": "packages/api/src/domains/ball-custody/TypedWaitRegistration.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts#L14",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/TypedWaitRegistration.ts",
+        "sha256": "85914cf5ba185375ef061ea14e9e7b122995ce8d0980b549a5416b109ddb2569",
+        "bytes": 9297,
+        "git_blob_sha1_computed": "ea0a19650a9cf17f5a6618dba0893abbfb6cded3",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "14-187",
+        "finding": "Typed wait receipt binds invocation/source/task/user/cat/thread/generation/owner fence; predicate digest includes registered baseline; continuous tracking may omit expiry."
+      },
+      {
+        "id": "C24",
+        "repository_path": "packages/api/src/routes/callback-runtime-interaction-routes.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-runtime-interaction-routes.ts#L85",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-runtime-interaction-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/callback-runtime-interaction-routes.ts",
+        "sha256": "3e06f357c08035bd5ccc188c0f4d661f69f2f9556ea54ba7bf2b21386be7495f",
+        "bytes": 4515,
+        "git_blob_sha1_computed": "37c4967e9c1dfc1208c2c97987d4b3f1d6cf302d",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "18-29; 85-106",
+        "finding": "Authenticated retired endpoint returns 410. Decision management requires expectedRevision/operationId; settle exact strict origin user message."
+      },
+      {
+        "id": "C25",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/route-serial.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-serial.ts#L3151",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/route-serial.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/route-serial.ts",
+        "sha256": "efc56b7c1d0ccfdf4b98baf66174ba895fb00033a7758226500fd2e71f05d896",
+        "bytes": 211410,
+        "git_blob_sha1_computed": "d66bc2788111bcf3eeb5c1eb1ff879ef504bc701",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "3151-3155",
+        "finding": "Final response is an independent durable source; earlier post to same cat does not suppress explicit final mentions."
+      },
+      {
+        "id": "CX1",
+        "repository_path": "packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/QueueProcessor.ts",
+        "sha256": "e8f449ab27dfc4e0353150ee910067d018ba15070d7dbbfc5b2efe2025bd0964",
+        "bytes": 282967,
+        "git_blob_sha1_computed": "754cf6b357fc90071726bd04b591907b6659e04b",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "1571-1609; 5099",
+        "finding": "Processing slot is thread+cat; release checks exact reservation identity. Multi-target queued dispatch selects parallel mode. Full durable claim/reaper proof is outside targeted review."
+      },
+      {
+        "id": "CX2",
+        "repository_path": "packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/invoke-single-cat.ts",
+        "sha256": "c0eadbe757eac072f1221b4c68c0683bb6a1a251bd2709ff6fb03dfec66ad63a",
+        "bytes": 304005,
+        "git_blob_sha1_computed": "ed0c633f681312b922948f3fec435608c8656fd5",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "2591-2680",
+        "finding": "Acquire stable managed-conversation policy mutex before native runtime/session mutex; resume target is re-resolved under custody; separate locks prevent concurrent native session resume."
+      },
+      {
+        "id": "CX3",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/commit-completed-response.ts",
+        "sha256": "b3b859bce76361264478658391b22d0fffc11a13a6bc16cd3de0ba78f76d07ff",
+        "bytes": 2461,
+        "git_blob_sha1_computed": "249ed59c125d5de1f65e99a1f0012de8b26fb3e5",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "24-65",
+        "finding": "Completed response and exact recipient wake share commit boundary; nonempty targets without wake admission throw."
+      },
+      {
+        "id": "CX4",
+        "repository_path": "packages/api/src/domains/cats/services/agents/routing/route-parallel.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/route-parallel.ts",
+        "sha256": "225db278f3f38737e98aea37c3164569e7de0caec158ad0956d039843da5502e",
+        "bytes": 125738,
+        "git_blob_sha1_computed": "d205242663814ee4971b6924e5e3acc116e50fc2",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "2442-2463",
+        "finding": "Parallel independent-thinking text mentions are suppressed, with no routing/followup hint."
+      },
+      {
+        "id": "CS1",
+        "repository_path": "packages/mcp-server/src/tools/callback-tools.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/callback-tools.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/mcp-server/src/tools/callback-tools.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/callback-tools.ts",
+        "sha256": "af6258513638ed5e94a3659634d1f136b3fbf1f54f0c50bd3558fc86d7fe0f02",
+        "bytes": 247840,
+        "git_blob_sha1_computed": "a085649f318e29fe5c5c760ea560de5a753558a0",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "2581-2699",
+        "finding": "multi_mention MCP max 3, timeout 3-20 default 8, client-side search/override gate; Action idempotency and target-count constraints."
+      },
+      {
+        "id": "CS2",
+        "repository_path": "packages/api/src/routes/callback-multi-mention-routes.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-multi-mention-routes.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-multi-mention-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/callback-multi-mention-routes.ts",
+        "sha256": "7915a50898211eadca0f21d8b98563d4df6c3a72b6477041ee1ccae29a3a4e16",
+        "bytes": 34943,
+        "git_blob_sha1_computed": "373ae5dfed58a9e57a1444f2b5bac048d50a04a9",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "179-219;268-295;540-630;708-715;795",
+        "finding": "review Action rejected; parallel returnToPredecessor requires exactly one target; other parallel >=2 and parallelIntent. Anti-cascade. Timer and aggregate settlement are not durable; flush persists mentions:[] and no callback wake was found in inspected route."
+      },
+      {
+        "id": "CS3",
+        "repository_path": "packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/action-terminal-predicate-truth.ts",
+        "sha256": "8a44a97d8dcbe2f5101e572c11863b80bcda77fa68b898157a329be635cf5f30",
+        "bytes": 3441,
+        "git_blob_sha1_computed": "c2e03ef57281ea9730b11e8d3fb8836587a7015a",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "41-73",
+        "finding": "Current HEAD review delivery evidence is checked independently of approval verdict."
+      },
+      {
+        "id": "CS4",
+        "repository_path": "packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/RuntimeInteractionService.ts",
+        "sha256": "c7a3255c5499cd6f80418c654427236a7a6022d3531d37b80607fa356828f58b",
+        "bytes": 14818,
+        "git_blob_sha1_computed": "b02e3eb5c2cc86d985a313ce278363d606305a18",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "275-320",
+        "finding": "ConversationDecision create/manage delegates to specialized service; no native waiter is created by this API."
+      },
+      {
+        "id": "CS5",
+        "repository_path": "packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts",
+        "fixed_source_url": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts",
+        "retrieval_url": "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "local_cache_path": "/tmp/clowder-contract-check/RuntimeConversationDecisionService.ts",
+        "sha256": "409a003dfcfe530478d8043ff26dda99b3ed2c8d18e4b6a3893394a3df6dc996",
+        "bytes": 14356,
+        "git_blob_sha1_computed": "a92e2ff62cab19f99faac394998ee85b0c421172",
+        "verification": "targeted_static_source_review",
+        "inspected_lines": "107-155;318-325",
+        "finding": "Settle requires strict invocation origin user message, owner/thread match, nondeleted message after published card, live deadline, expected revision and idempotent operation."
+      }
+    ]
+  },
+  "license": {
+    "spdx": "MIT",
+    "copyright": "Copyright (c) 2026 Clowder AI Contributors",
+    "noticeRequirement": "Retain copyright and permission notice in copies or substantial portions.",
+    "sourceVendoredInProject": false,
+    "note": "Only source URLs, cryptographic hashes and analysis are stored in project; public upstream source cache is temporary /tmp evidence."
+  },
+  "limitations": [
+    "Static targeted review does not prove runtime behavior, backend parity, crash recovery, permission enforcement end-to-end or model quality.",
+    "C12 port alone does not prove SOP info-only behavior; route-serial stage hint corroborates it.",
+    "C17 is an interface check, not retrieval/ACL runtime verification.",
+    "multi_mention reliable callback wake and timeout aggregate are not confirmed by inspected route; production behavior was not exercised.",
+    "Temporary /tmp caches may disappear; fixed source URLs and SHA256 enable refetch verification.",
+    "No upstream latest HEAD, full clone, business data, environment secrets or external model calls were used."
+  ]
+}
