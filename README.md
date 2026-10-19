@@ -39,6 +39,8 @@ pnpm dev            # 并行启动 server(3010) + web(5173)
 
 聊天室包含多轮 Run，并绑定稳定工作区。Collaboration 中的新消息可启动并行 Run；无显式目标时优先交给最近成功回复的 Agent。其他模式下的普通追问优先由被回复者或最近成功回复者快速处理；智能规划可识别无关键词的复杂追问，高置信、低风险方案只为本轮自动启动，需确认或澄清时展示推荐卡。用户也可打开“全队处理”，要求本轮计划覆盖所有房间成员；房间模式不会被静默改变。消息使用客户端 ID 幂等写入，主消息流展示引用关系、动态路由、用户决策、审查问题和处理状态，完整 Trace 在右侧查看。当前运行契约见 [Collaboration 运行架构](./docs/architecture/collaboration-runtime.md)，实施与验收记录见 [Collaboration 模式实施计划](./docs/plans/collaboration-mode-implementation-plan.md)。
 
+带控制工具的 Agent 回合在执行时显示状态，正式提交后显示完整交付正文；普通回复继续流式显示。消息支持 Markdown 与软换行，已完成的五人狼人杀提供身份和阶段回放，原文仍可查看和复制。修复边界及验收见[消息展示异常复盘](./docs/reports/werewolf-entry-and-stream-anomalies-2026-10-18.md)。专项检查：`pnpm verify:message-presentation`、`pnpm verify:message-presentation-ui`（隔离模拟环境，不调用真实模型）。
+
 ### 接入真实 LLM（可选）
 
 默认 `mock:*` 模型走 MockProvider，无 key 即可演示。界面中可在“账户”保存连接，并在角色向导选择“模型 API”“Claude Code”或“Codex”、账户和模型；“演示”无需账户。普通保存和权限预检不调用模型，“测试连接”发送显式测试请求。

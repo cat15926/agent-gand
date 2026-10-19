@@ -34,6 +34,7 @@ import { effectiveExternalTimeout, externalTimeoutError } from './timeout.ts';
 import { executionPolicy } from '../orchestration/executionBudget.ts';
 import { ActivityTimeout } from './activityTimeout.ts';
 import { recordExternalPreparationFailure } from './preparationFailure.ts';
+import { turnDisplayKind } from '../orchestration/turnDisplay.ts';
 
 const active = new Map<string, { runId: string; controller: AbortController; done: Promise<AgentTurnResult> }>();
 const terminal = (runId: string) => { const run = getRun(runId); return !run || ['completed', 'failed', 'cancelled'].includes(run.status); };
@@ -235,7 +236,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     }
     if (event.type === 'text.delta' || event.type === 'text.snapshot') {
       if (content && firstText) { markSpanFirstToken(span.id); firstText = false; }
-      emit({ type: 'llm.snapshot', runId: opts.run.id, spanId: span.id, text: content, displayKind: opts.displayKind });
+      emit({ type: 'llm.snapshot', runId: opts.run.id, spanId: span.id, text: content, displayKind: turnDisplayKind(opts) });
     }
     if (event.type === 'tool.started' && !toolSpans.has(event.itemId)) {
       toolsStarted++;

@@ -20,7 +20,8 @@ import { businessStageContext } from './businessStageExecution.ts';
  *
  * TODO: 协议原生 tool 消息（openai role:tool / anthropic tool_result block，当前用 user 消息模拟回传）
  */
-import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, Run } from '@agent-gand/shared';
+import type { AgentDefinition, CollaborationStoredControlAction, ExecutionBinding, LlmDisplayKind, Run } from '@agent-gand/shared';
+import { turnDisplayKind } from './turnDisplay.ts';
 import { ExecutionError } from '../execution/errors.ts';
 import { recordExternalPreparationFailure } from '../execution/preparationFailure.ts';
 import { budgetedChat, executionPolicy, assertExecutionDeadline, ModelAdmissionPausedError } from './executionBudget.ts';
@@ -125,7 +126,7 @@ export interface AgentTurnOptions {
   agentId?: string;
   taskId?: string;
   attemptId?: string;
-  displayKind?: 'message' | 'review_protocol';
+  displayKind?: LlmDisplayKind;
   /** Collaboration 等编排器注入的服务端控制工具，不进入普通权限白名单。 */
   controlTools?: LlmToolSchema[];
   /** 仅用于恢复旧 checkpoint 的控制工具别名；不会出现在发给模型的 tools 中。 */
@@ -467,7 +468,7 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
         replayResponse = null;
       } else {
         const forward = deltaForwarder(run.id, llmSpan.id, {
-          agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: opts.displayKind ?? 'message',
+          agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: turnDisplayKind(opts),
         });
         res = await budgetedChat(run.id, provider, { model: agent.model, messages, tools: roundTools, signal: opts.executionSignal, ...(roundMaxTokens ? { maxTokens: roundMaxTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id,opts.attemptId,opts.modelAdmissionHooks);
       }
@@ -575,11 +576,12 @@ async function runBuiltinAgentTurn(opts: AgentTurnOptions): Promise<AgentTurnRes
     }
 
     toolRounds += 1;
-    // 工具轮的中间正文落库为过程消息（真机实测反馈：否则流式气泡在 llm span 结束时被前端清除，
+    // 普通回复的工具轮正文落库为过程消息（真机实测反馈：否则流式气泡在 llm span 结束时被前端清除，
     // 又无正式消息补位，"先说思路再调工具"的过程回复出现即消失、刷新后不可追溯）。
+    // 控制回合的正式正文由动作提交；审查协议也不作为聊天室消息。原文仍保留在 Trace/checkpoint。
     // 顺序与最终轮一致（endSpan 已完成 → post），clientMessageId 绑定 scope+round 保证重启重放不重复。
     const roundBody = res.content.trim();
-    if (roundBody.length > 0 && !isPseudoToolCallText(res.content)) {
+    if (turnDisplayKind(opts) === 'message' && roundBody.length > 0 && !isPseudoToolCallText(res.content)) {
       await post({
         runId: run.id, attemptId: opts.attemptId, from: agent.id, to: 'all', kind: 'agent', body: res.content,
         messageType: 'informational', meta: { round, toolRounds },
@@ -653,9 +655,11 @@ async function closingCall(
   });
   let res: LlmResponse;
   try {
-    // 不传 tools；增量同样转发（收尾结论较长时 web 仍可流式显示）
+    // 不传 tools；保留回合展示语义，控制回合收尾仍需等待正式动作提交。
     assertBindingAuthorized(opts.executionBinding);
-    const forward = deltaForwarder(run.id, llmSpan.id);
+    const forward = deltaForwarder(run.id, llmSpan.id, {
+      agentId: opts.agentId ?? agent.id, taskId: opts.taskId, attemptId: opts.attemptId, displayKind: turnDisplayKind(opts),
+    });
     res = await budgetedChat(run.id, provider, { model: agent.model, messages: final, signal: opts.executionSignal, ...(opts.maxOutputTokens ? { maxTokens: opts.maxOutputTokens } : {}) }, text => { assertBindingAuthorized(opts.executionBinding); forward(text); }, agent.id,opts.attemptId,opts.modelAdmissionHooks);
     assertBindingAuthorized(opts.executionBinding);
   } catch (err) {

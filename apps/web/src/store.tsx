@@ -252,7 +252,7 @@ export function reducer(state: State, action: Action): State {
         case 'llm.snapshot':
           if (e.displayKind === 'review_protocol') return state;
           if(state.events.some(span=>span.id===e.spanId&&span.endedAt)||state.runs.some(run=>run.id===e.runId&&['completed','failed','cancelled'].includes(run.status)))return state;
-          return inRoom(e.runId) ? { ...state, streams: { ...state.streams, [e.spanId]: e.text } } : state;
+          return inRoom(e.runId) ? { ...state, streams: { ...state.streams, [e.spanId]: e.displayKind==='control_draft'?'':e.text } } : state;
         case 'llm.delta':
           if (e.displayKind === 'review_protocol') return state;
           if(state.events.some(span=>span.id===e.spanId&&span.endedAt)||state.runs.some(run=>run.id===e.runId&&['completed','failed','cancelled'].includes(run.status)))return state;
@@ -260,7 +260,7 @@ export function reducer(state: State, action: Action): State {
           return inRoom(e.runId)
             ? {
                 ...state,
-                streams: { ...state.streams, [e.spanId]: (state.streams[e.spanId] ?? '') + e.text },
+                streams: { ...state.streams, [e.spanId]: e.displayKind==='control_draft'?'':(state.streams[e.spanId] ?? '') + e.text },
               }
             : state;
         case 'run.event': {

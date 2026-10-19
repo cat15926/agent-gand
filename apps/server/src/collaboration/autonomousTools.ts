@@ -100,7 +100,7 @@ export const AUTONOMOUS_TOOLS:LlmToolSchema[]=[
       }},
     }},
   }},
-  {name:'agent.complete',description:'提交本责任的实质结果；全部必需子任务、证据和用量必须已核验。不会自行扩大私密结果的发布范围。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string',minLength:16,maxLength:24000}}}},
+  {name:'agent.complete',description:'提交本责任的完整交付正文；全部必需子任务、证据和用量必须已核验。不会自行扩大私密结果的发布范围。',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string',minLength:16,maxLength:24000,description:'面向接收方的完整结果正文，可用 Markdown 分段、列表、表格或代码块。按任务需要保留实际结果、必要依据与局限，不要因字段名 summary 压缩成一句结论或完成通知；普通回复中的文字不会自动补入此字段。'}}}},
 ];
 
 const fields=(required:string[],properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,required,properties});

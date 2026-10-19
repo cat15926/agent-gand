@@ -1,6 +1,6 @@
 # 狼人杀入口与消息显示异常复盘
 
-日期：2026-10-18。对应用户反馈的两场游戏与回复显示差异。此前切换范围见[业务灰度记录](autonomous-collaboration-service-cutover-2026-10-18.md)。
+日期：2026-10-18，2026-10-19追加消息展示修复与验收。对应用户反馈的两场游戏与回复显示差异。此前切换范围见[业务灰度记录](autonomous-collaboration-service-cutover-2026-10-18.md)。
 
 ## 结论
 
@@ -77,3 +77,32 @@ Run `b7370b8c-591d-4b14-b243-c5e3ab48d85f`，同一房间，23:14:27–23:21:08�
 最后维护清单确认活动 Run、Attempt、原生进程均为0。原有6次未知模型调用、本次及此前共11笔未知费用记录均保留。两场用户历史游戏的 Run、消息、Dispatch、Attempt、事件及冻结契约按修复前摘要逐项比对一致；服务配置文件摘要也一致，未扩大灰度范围。
 
 证据：`live-game-result.json`、`live-game-final.md`、`final-audit.json`、`historical-preservation.json`、`replay-ui-check.json`、真实页面桌面/手机截图。验证不包含 Codex，也不扩大到未开放的任意房间、模型或游戏规则。本报告记录2026-10-18的实施与验收结果；提交及远程同步状态以 Git 历史为准。
+
+## 2026-10-19 消息展示修复
+
+用户继续反馈：气泡短暂展示“思考内容”，最终换成一段简短结论，且正文近似纯文本。前一次增加“过程草稿”标签仍不足以解决这个交互问题。
+
+这里短暂出现的是模型可见的普通过程正文，并非 SDK 的隐藏 thinking 块。带控制工具的回合会通过 `agent.complete.summary`、交接目标或流程公告正式交付；模型普通正文与正式工具字段可能不同。原工具描述又把 summary 称作摘要，容易诱导模型压缩实际结果。普通工具轮的过程正文还可能持久化为 informational 消息。Markdown 已有渲染器，但软换行会合并；规则流程的权威终局正文则使用角色 ID、无 Markdown 标题及 JSON 行动记录，直接渲染仍难阅读。
+
+本次完成的调整：
+
+1. API 增量、API 收尾与 SDK 快照统一标记回合展示意图。带控制工具的过程正文只在聊天区显示成员执行状态；不进入回复气泡，也不再写成中间 informational 消息。诊断 Trace 和恢复 checkpoint 保留原响应。普通无控制工具回复继续流式显示，审查协议继续隐藏，终态后的迟到流继续拒绝。
+2. 明确 `agent.complete.summary` 是接收方看到的完整交付正文，要求按任务需要提供结果、依据与局限，可用 Markdown 标题、列表、表格或代码块。字段名、解析约束、权限及预算保持原契约；不会自动把过程原文拼入最终回复。
+3. 通用正文保留软换行，改善段落、标题、列表间距。代码缩进与消息原文复制保持原字节。
+4. 已完成的 `werewolf-five-v1` 终局增加只读阅读视图：胜方、全部身份、分阶段事件和可展开的接受行动；将角色 ID 映射为角色名，自称与真实身份分开标注。原始消息可展开、可原样复制。仅对带正式发布元数据及已完成流程状态的已知终局格式启用；其他消息回退原 Markdown。没有改写 `flowFinal`、冻结规则、消息正文或历史游戏事实。
+
+模型是否提供足够细节仍取决于正式提交内容及原有输出预算；客户端不会编造缺失的说明。旧 informational 历史消息没有迁移，未执行的后续回合会采用新版运行时表达指导。
+
+### 验收结果
+
+- `pnpm typecheck`、`verify:chat-state`、`verify:message-presentation`、`verify:collaboration-exit`、`verify:runtime-agent-api-v2` 通过。回放专项覆盖真实记录、三阶段好人胜和四阶段狼人胜、自称与身份区分、不支持的格式回退及原文不变。
+- `verify:autonomous-ac2` 新增生产 scheduler → AgentTurn → fs.write/read → complete 集成用例：四条真实 Provider delta 均为 control_draft，两轮过程正文未成为房间消息，Trace 保留，正式 Markdown 逐字交付；使用隔离数据库和模拟 Provider。
+- `pnpm verify:message-presentation-ui` 通过：历史导航、阅读位置、长报告目录、Markdown 标题/列表/引用/表格、软换行实际几何、代码缩进、原文及代码复制、390px 排版。
+- `verify:autonomous-ac5-ui` 通过：实际模拟流程的五个身份、全部持久阶段和行动数、键盘展开、原文查看和复制、刷新、320/390px 无溢出。
+- `verify:autonomous-ac6-ui` 通过：已安装 SDK 连接本地 Messages SSE，真实文本快照保留 control_draft 意图；过程标记不进入气泡或持久消息，正式交付和暂停续跑保持。没有调用真实供应商或 Codex。
+- 完整协作矩阵首轮 **27/28** 通过，唯一失败为 AC4 浏览器夹具在暂停请求完成前释放模拟工作，终局先于暂停。单项复测通过；补充等待暂停 HTTP 成功后再次通过。首轮矩阵保留原失败记录，没有改写为全绿。证据：`apps/server/data/scoped-acceptance/2026-10-19T10-40-35-932Z/`，单项证据：`apps/server/data/autonomous-ac4-ui-qa/`。
+- 完整 `verify:chatroom-ui` 仍在既有手动入口的聊天区高度占比断言失败。使用修复前提交 `996513c` 的原测试及原 RunView/Markdown 独立复现，排除本次排版改动：输入区及“跳到最新”栏挤占阅读高度。保留原阈值和失败证据，未用消息专项通过结果代替全套通过。证据：`apps/server/data/chat-ui-optimization-qa/`、`apps/server/data/chat-ui-head-baseline-qa/`。
+
+另对既有真实 Run `3dac1328-105c-42f7-9b0c-7f72644f6012` 只读浏览器验收：显示5个终局身份、4阶段、12条行动，1440/390/320px 无页面或正文横向溢出，页面错误0；这次未新开游戏、未新增真实模型调用。
+
+本地后端已在无活动任务时备份并正常重启加载修复，前端由既有开发服务更新。重启前后94个 Run、1166条消息、12条接受行动、2条自主发布、88条模型调用数相同；真实终局正文 SHA-256 一致。原配置、账户和房间灰度沿用。只读页面、备份与启动证据：`apps/server/data/message-presentation-2026-10-19/`。该修复的提交与远程同步状态以 Git 历史为准。

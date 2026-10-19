@@ -4,7 +4,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createDemoEnvironment } from './helpers/orchestration-demo-environment.mjs';
 import { httpClient, submitConfirmedTask, waitUntil } from './helpers/orchestration-acceptance.mjs';
-const output = path.resolve('apps/server/data/chat-ui-optimization-qa'); await mkdir(output, { recursive: true });
+const messagePresentationOnly=process.argv.includes('--message-presentation-only');
+const output = path.resolve(messagePresentationOnly?'apps/server/data/chat-message-presentation-qa':'apps/server/data/chat-ui-optimization-qa'); await mkdir(output, { recursive: true });
 let environment, web, browser, page; const errors = [], checks = [], layouts = [];
 try {
   environment = await createDemoEnvironment(); await environment.app.listen({ host: '127.0.0.1', port: 0 });
@@ -22,6 +23,8 @@ try {
   const { post } = await import('../apps/server/src/messaging/inbox.ts');
   const long = '# 验证报告\n\n' + ['方案','证据','验收'].map((h,i) => `## ${h}\n\n${'完整的分析结论与验证依据。'.repeat(80)}\n\n\`\`\`js\nconst result = ${i};\nconsole.log(result);\n\`\`\`\n\n`).join('');
   const report = post({ runId: runs[0].id, from: 'aa', to: 'user', kind: 'agent', body: long, messageType: 'result' });
+  const readableMarkdown = '# 消息排版验收\n\n第一行软换行\n第二行软换行\n\n独立段落中的 **重点** 与 `inlineCode`。\n\n## 验证依据\n\n- 第一项\n- 第二项\n\n1. 第一步\n2. 第二步\n\n> 保留引用的语义。\n\n| 检查 | 结果 |\n| --- | --- |\n| 格式 | 可读 |\n\n```js\nfunction example() {\n  return "原始缩进";\n}\n```';
+  const readable = post({ runId: runs[0].id, from: 'aa', to: 'user', kind: 'agent', body: readableMarkdown, messageType: 'result' });
   for (let i=0;i<6;i++) post({ runId: runs[2].id, from: i%2 ? 'bb' : 'aa', to: 'user', kind: 'agent', body: `阅读锚点 ${i}\n\n${'保留完整历史消息。'.repeat(40)}`, messageType: 'result' });
   const newer = (await request('/api/conversations/empty', { title: '更新的房间', agentIds: ['aa'], preferences: prefs })).conversation;
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(path.resolve(process.env.PLAYWRIGHT_MODULE)).href : 'playwright');
@@ -30,6 +33,10 @@ try {
   await page.route('**/api/conversations', route => route.request().method() === 'GET' ? route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'fixture load failure'})}) : route.continue());
   await page.goto(`${ui}/?room=${room.id}`); await page.getByRole('alert').filter({hasText:'加载失败'}).waitFor(); assert.equal(await page.getByRole('heading',{name:'创建聊天室',exact:true}).count(),0); await page.unroute('**/api/conversations'); await page.getByRole('button',{name:'重试加载',exact:true}).click(); await page.getByRole('heading', { name: room.title, exact: true }).waitFor();
   const history = page.getByTestId('chat-history'); const count = await page.locator('article[id^="message-"]').count(); assert.ok(count >= 12);
+  const settleLayout = async () => {
+    await page.waitForFunction(({width,height})=>innerWidth===width&&innerHeight===height&&Math.abs(parseFloat(document.documentElement.style.getPropertyValue('--visible-height'))-(visualViewport?.height??innerHeight))<1,page.viewportSize());
+    await page.evaluate(async()=>{await document.fonts.ready;await new Promise((resolve,reject)=>{let previous='',stable=0,frames=0;const sample=()=>{const history=document.querySelector('[data-testid="chat-history"]'),footer=document.querySelector('.chat-composer-footer'),current=JSON.stringify([history?.getBoundingClientRect().width,history?.getBoundingClientRect().height,footer?.getBoundingClientRect().height,visualViewport?.height]);stable=current===previous?stable+1:0;previous=current;if(stable>=4)return resolve();if(++frames>=180)return reject(new Error('Chat layout did not settle'));requestAnimationFrame(sample);};requestAnimationFrame(sample);});});
+  };
   await page.getByRole('button', { name: '查看第 1 轮执行轨迹', exact: true }).click();
   const detail = page.getByRole('dialog', { name: '任务详情', exact: true }); await detail.waitFor(); await detail.getByText('第 1 轮 · 当前查看的任务').waitFor();
   assert.equal(await page.locator('article[id^="message-"]').count(), count); assert.ok((await detail.innerText()).includes('分析员 A')); assert.ok(!(await detail.innerText()).includes('分析员 B →'));
@@ -50,6 +57,15 @@ try {
   const article = page.locator(`#message-${report.id}`); await article.getByRole('button', { name: '展开完整报告', exact: true }).click(); await article.getByText('报告目录 · 4 节').waitFor(); await article.getByRole('button', { name: '复制代码', exact: true }).first().click(); await article.getByRole('button', { name: '已复制', exact: true }).first().waitFor(); assert.equal(await page.evaluate(() => navigator.clipboard.readText()),'const result = 0;\nconsole.log(result);');
   await page.getByRole('button', { name: '搜索房间消息', exact: true }).click(); await page.getByLabel('搜索当前房间消息', { exact: true }).fill('阅读锚点 3'); await page.getByRole('button', { name: '下一条', exact: true }).click(); await page.locator('.message-highlight').waitFor(); await page.getByRole('button', { name: '搜索房间消息', exact: true }).click();
   checks.push('长报告展开、目录、代码复制与房间消息搜索可操作');
+  const readableArticle = page.locator(`#message-${readable.id}`); await readableArticle.scrollIntoViewIfNeeded();
+  await readableArticle.getByRole('heading',{name:'消息排版验收',level:1,exact:true}).waitFor(); await readableArticle.getByRole('heading',{name:'验证依据',level:2,exact:true}).waitFor();
+  assert.equal(await readableArticle.locator('ul > li').count(),2); assert.equal(await readableArticle.locator('ol > li').count(),2); await readableArticle.locator('strong').getByText('重点',{exact:true}).waitFor(); assert.equal(await readableArticle.locator('blockquote').innerText(),'保留引用的语义。'); assert.equal(await readableArticle.getByRole('table').getByRole('row').count(),2);
+  const softLine = readableArticle.locator('p').filter({hasText:'第一行软换行'}),lineLayout = await softLine.evaluate(el=>{const node=el.firstChild,content=node.textContent,second=content.indexOf('\n')+1,range=document.createRange();range.setStart(node,0);range.setEnd(node,1);const firstTop=range.getBoundingClientRect().top;range.setStart(node,second);range.setEnd(node,second+1);return {firstTop,secondTop:range.getBoundingClientRect().top,whiteSpace:getComputedStyle(el).whiteSpace,margin:parseFloat(getComputedStyle(el).marginBottom)};});
+  assert.equal(lineLayout.whiteSpace,'pre-line'); assert.ok(lineLayout.secondTop-lineLayout.firstTop>=12,JSON.stringify(lineLayout)); assert.ok(lineLayout.margin>0); assert.equal(await readableArticle.locator('pre code').textContent(),'function example() {\n  return "原始缩进";\n}\n');
+  await readableArticle.getByRole('button',{name:'复制代码',exact:true}).click(); await readableArticle.getByRole('button',{name:'已复制',exact:true}).waitFor(); assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),'function example() {\n  return "原始缩进";\n}'); await readableArticle.getByRole('button',{name:'复制消息内容',exact:true}).click(); await readableArticle.getByRole('button',{name:'已复制消息',exact:true}).waitFor(); assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),readableMarkdown); assert.equal(environment.database.get('SELECT body FROM messages WHERE id=?',readable.id).body,readableMarkdown);
+  await page.setViewportSize({width:390,height:844}); await settleLayout(); await readableArticle.scrollIntoViewIfNeeded(); assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)); await page.screenshot({path:path.join(output,'markdown-mobile.png')}); await page.setViewportSize({width:1440,height:960}); await settleLayout();
+  checks.push('普通及历史消息保留 Markdown 标题、独立段落、软换行、列表、引用、表格和代码缩进；复制代码/原消息字节保持一致；手机正文无横向溢出');
+  if(!messagePresentationOnly){
   await page.getByRole('button', { name: '执行设置', exact: true }).click(); const settings = page.getByRole('dialog', { name: '执行设置', exact: true }); await settings.waitFor();
   await settings.getByLabel('发送快捷键', { exact: true }).selectOption('ctrl-enter'); await page.keyboard.press('Escape');
   await page.getByLabel('任务目标', { exact: true }).fill('第一行'); await page.getByLabel('任务目标', { exact: true }).press('Enter'); assert.equal(await page.getByLabel('任务目标', { exact: true }).inputValue(),'第一行\n');
@@ -57,15 +73,15 @@ try {
   await page.getByLabel('任务目标', { exact: true }).fill('只读验证');
   await page.getByRole('group', { name: '本轮对象', exact: true }).getByRole('button', { name: '@Claude SDK（模拟）', exact: true }).click();
   await page.getByRole('button', { name: '执行设置', exact: true }).click(); assert.equal(await settings.getByLabel('本轮策略', { exact: true }).inputValue(), 'auto'); await settings.getByLabel('本轮策略', { exact: true }).focus(); await page.keyboard.press('Tab'); assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), '本轮工作流'); await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '选择接收人', exact: true }).click();
+  const recipientPicker=page.getByRole('button',{name:'选择接收人',exact:true}); assert.equal(await recipientPicker.getAttribute('aria-expanded'),'true'); await settleLayout(); const expandedFooter=await page.locator('.chat-composer-footer').evaluate(el=>({height:el.getBoundingClientRect().height,parentHeight:el.parentElement.getBoundingClientRect().height})); assert.ok(expandedFooter.height<=expandedFooter.parentHeight*.35+1,JSON.stringify(expandedFooter)); await recipientPicker.click(); assert.equal(await recipientPicker.getAttribute('aria-expanded'),'false'); assert.equal(await page.getByRole('group',{name:'本轮对象',exact:true}).count(),0);
   checks.push('执行设置、焦点回归、快捷键、@补全与 SDK 接收人选择；选择成员不切换策略');
   await page.getByRole('button', { name: '聊天室菜单', exact: true }).click(); assert.equal(await page.getByRole('button', { name: '归档聊天室…', exact: true }).isVisible(),true); await page.getByRole('button', { name: '重命名聊天室', exact: true }).click();
   const rename = page.getByRole('dialog', { name: '重命名聊天室', exact: true }); await rename.getByRole('textbox').fill('UI 已重命名'); await rename.getByRole('button', { name: '保存名称', exact: true }).click(); await rename.waitFor({ state: 'hidden' }); await page.getByRole('heading', { name: 'UI 已重命名', exact: true }).waitFor();
   checks.push('••• 打开菜单；显式重命名可保存，归档仍需确认');
   for (const width of [1440,1280,1279,1024,768,390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 960 });
-    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const measure = await history.evaluate(el => ({ width: innerWidth, height: innerHeight, chatWidth: el.getBoundingClientRect().width, chatHeight: el.getBoundingClientRect().height, overflow: document.documentElement.scrollWidth > innerWidth })); layouts.push(measure); assert.equal(measure.overflow,false); assert.ok(measure.chatHeight / measure.height >= (width === 390 ? .5 : .55), JSON.stringify(measure));
+    await settleLayout();
+    const measure = await history.evaluate(el => ({ width: innerWidth, height: innerHeight, visibleHeight:visualViewport?.height,appHeight:document.querySelector('.chat-app')?.getBoundingClientRect().height,historyParentHeight:el.parentElement?.getBoundingClientRect().height,footerHeight:document.querySelector('.chat-composer-footer')?.getBoundingClientRect().height,composerHeight:document.querySelector('[data-testid="task-composer"]')?.getBoundingClientRect().height,recipientsExpanded:document.querySelector('button[aria-label="选择接收人"]')?.getAttribute('aria-expanded'),chatWidth: el.getBoundingClientRect().width, chatHeight: el.getBoundingClientRect().height, overflow: document.documentElement.scrollWidth > innerWidth })); layouts.push(measure); assert.equal(measure.overflow,false); assert.ok(measure.chatHeight / measure.height >= (width === 390 ? .5 : .55), JSON.stringify(measure));
     await page.getByRole('button', { name: '任务详情', exact: true }).click(); await detail.waitFor(); assert.equal(await detail.getByText('第 1 轮 · 当前查看的任务').isVisible(),true); await page.keyboard.press('Escape');
     await page.screenshot({ path: path.join(output, `chat-${width}.png`), fullPage: true });
     if (width === 390) { const chatWidth = measure.chatWidth; await page.getByRole('button', { name: '展开聊天室', exact: true }).click(); const drawer = page.getByRole('dialog', { name: '聊天室列表', exact: true }); await drawer.waitFor(); assert.equal(await history.evaluate(el => el.getBoundingClientRect().width),chatWidth); await page.keyboard.press('Escape'); assert.equal(await drawer.isVisible(),false); const reply = page.getByRole('button', { name: '回复', exact: true }).first(); const box = await reply.boundingBox(); assert.ok(box.height >= 44); }
@@ -97,8 +113,9 @@ try {
   checks.push('新建房间、明确接收人、规则预览与创建发送完成，未破坏统一编排入口');
   process.env.O7_DEMO_URL = ui; await import('./verify-orchestration-o7-demo-ui.mjs');
   checks.push('已有 O7 浏览器回归通过：创建执行、WebSocket、SDK 成员选择和刷新');
+  }
   assert.deepEqual(errors, []); assert.equal(environment.externalRequests,0);
-  const result = { ok:true, scope:'isolated_fixture', supplierRequests:0, checks, layouts, browserErrors:errors };
+  const result = { ok:true, scope:'isolated_fixture', mode:messagePresentationOnly?'message_presentation':'full_chatroom',supplierRequests:0, checks, layouts, browserErrors:errors };
   await writeFile(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n'); console.log(JSON.stringify(result,null,2));
 } catch (error) { console.error(JSON.stringify({completedChecks:checks,layouts})); await page?.screenshot({ path:path.join(output,'failure.png'), fullPage:true }); throw error; }
 finally { await browser?.close(); await web?.close(); await environment?.close(); }

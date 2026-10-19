@@ -20,6 +20,16 @@ for(const type of ['llm.delta','llm.snapshot']){
  const late=reducer(state,{type:'serverEvent',event:{type,runId:'second',spanId:'live',text:'late draft must stay closed'}});assert.equal(late,state,'ended span cannot reappear over the committed message');
  const completed={...state,runs:[{...runs[1],status:'completed'}]};assert.equal(reducer(completed,{type:'serverEvent',event:{type,runId:'second',spanId:'missed-end',text:'late terminal draft'}}),completed,'terminal run cannot regain a draft');
 }
+for(const type of ['llm.delta','llm.snapshot']){
+ const live={...initialState,runs:[{...runs[1],status:'running'}],activeConversationId:'room',events:[{id:'controlled',runId:'second'}]};
+ const hidden=reducer(live,{type:'serverEvent',event:{type,runId:'second',spanId:'controlled',displayKind:'control_draft',text:'PRIVATE_PROCESS_MUST_NOT_ENTER_CHAT'}});
+ assert.equal(hidden.streams.controlled,'','controlled process text only creates an empty status indicator');
+ assert.doesNotMatch(JSON.stringify(hidden),/PRIVATE_PROCESS_MUST_NOT_ENTER_CHAT/);
+ const visible=reducer(live,{type:'serverEvent',event:{type,runId:'second',spanId:'controlled',displayKind:'message',text:'ordinary public streaming reply'}});
+ assert.equal(visible.streams.controlled,'ordinary public streaming reply');
+ const review=reducer(live,{type:'serverEvent',event:{type,runId:'second',spanId:'controlled',displayKind:'review_protocol',text:'REVIEW_PROTOCOL'}});
+ assert.equal(review,live,'private review protocol remains excluded from chat');
+}
 const stale = reducer(state,{type:'runDetail',runId:'second',messages:[],events:[],attempts:[],reviews:[],executions:[],coordination:null});assert.equal(stale,state);
 state = reducer(state,{type:'setActiveConversation',conversationId:'other',runId:null});assert.equal(state.messages.length,0);
 assert.equal(reducer(state,{type:'conversationDetail',conversationId:'room',runs,messages,events:[],attempts:[],reviews:[],executions:[],coordination:null}),state);

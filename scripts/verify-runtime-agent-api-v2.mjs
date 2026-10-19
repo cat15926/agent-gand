@@ -23,6 +23,10 @@ try {
     /subjectId|generation|obligationId|claimToken|commandKey/u,
     '模型工具参数不得暴露 Runtime 内部责任或幂等标识');
 
+  const completeBody = '## 实际结果\n\n- 计算结果：**42**。\n- 依据：6 × 7 = 42。\n\n| 核验项 | 结果 |\n| --- | --- |\n| 计算 | 通过 |\n\n```text\n完整交付正文\n```';
+  assert.equal(parseControlCall({ name: 'agent.complete', input: JSON.stringify({ summary: completeBody }) },
+    ['a', 'b'], 'a', 2).summary, completeBody, '完整 Markdown 正文应原样提交，不能压缩为内部摘要');
+
   assert.deepEqual(parseControlCall({ name: 'agent.handoff', input: JSON.stringify({
     target: 'b', objective: '继续实现', reason: '能力匹配',
   }) }, ['a', 'b', 'c'], 'a', 2), {

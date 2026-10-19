@@ -144,6 +144,42 @@ try{
   assert.ok(db.get("SELECT COUNT(*) n FROM runtime_input_provenance p JOIN collaboration_attempts a ON a.id=p.attempt_id WHERE a.run_id=? AND json_extract(p.record,'$.channel')='tool_result'",files.run.id).n>=2);
   checks.push('API members perform real controlled fs.write/fs.read with immutable artifact, tool receipts and input provenance; readonly coordinator assigns writer without gaining write permission or private bytes');
 
+  // AC2's cold API path does not stream at all. Exercise the production AgentTurn
+  // path separately so this guards real delta forwarding and intermediate posts.
+  const streaming=seed('AC2_FILES_CONTROL_STREAM',['ac2-writer']),draftSentinel='AC2_FILES_UNCOMMITTED_'+randomUUID();
+  const finalMarkdown='## 文件核验结果\n\n已实际写入并读取 **ac2-stream.txt**。\n\n| 核验项 | 结果 |\n| --- | --- |\n| 文件正文 | 与写入内容一致 |\n| 工具调用 | 写入、读取各一次 |\n\n```text\nAC2_STREAM_FILE_BODY\n```\n\n仅核验本次隔离文件，没有推断其他工作区的状态。';
+  let streamRound=0;const streamedDeltas=[];
+  const {subscribe}=await import('../apps/server/src/messaging/bus.ts');
+  const unsubscribeStream=subscribe(event=>{if(event.type==='llm.delta'&&event.runId===streaming.run.id)streamedDeltas.push(event);});
+  try{
+    mockProvider.chat=async(req,onDelta)=>{
+      modelCalls++;streamRound++;assert.equal(req.model,'mock:ac2-writer');
+      assert.ok(req.tools.some(t=>t.name==='agent.complete'));
+      if(streamRound<=2){
+        assert.equal(typeof onDelta,'function','AgentTurn must use the actual provider delta callback');
+        const draft=`${draftSentinel}：第 ${streamRound} 轮仅为准备工具调用的临时正文。`;
+        onDelta(draft.slice(0,12));onDelta(draft.slice(12));
+        return {...response(streamRound===1?call('fs.write',{path:'ac2-stream.txt',content:'AC2_STREAM_FILE_BODY'}):call('fs.read',{path:'ac2-stream.txt'})),content:draft};
+      }
+      assert.equal(streamRound,3);assert.match(req.messages.map(m=>m.content).join('\n'),/AC2_STREAM_FILE_BODY/);
+      return response(complete(finalMarkdown));
+    };
+    scheduler.admitCollaborationRun(streaming.run,streaming.room,{recipientIds:['ac2-writer']});
+    await until(()=>['completed','failed'].includes(trace.getRun(streaming.run.id).status),'controlled API streaming completion');
+    assert.equal(trace.getRun(streaming.run.id).status,'completed',JSON.stringify(store.listDispatches(streaming.run.id).map(d=>d.error)));
+  }finally{unsubscribeStream();}
+  assert.equal(streamRound,3);assert.equal(streamedDeltas.length,4);
+  assert.ok(streamedDeltas.every(event=>event.displayKind==='control_draft'));
+  assert.equal(new Set(streamedDeltas.map(event=>event.spanId)).size,2);
+  assert.ok(streamedDeltas.map(event=>event.text).join('').includes(draftSentinel));
+  const streamMessages=db.all('SELECT kind,message_type,body FROM messages WHERE run_id=?',streaming.run.id);
+  assert.ok(streamMessages.every(message=>!message.body.includes(draftSentinel)),'uncommitted tool-round prose must never become a room Message');
+  assert.deepEqual(streamMessages.filter(message=>message.message_type==='collaboration_result').map(message=>message.body),[finalMarkdown]);
+  assert.equal(db.get("SELECT COUNT(*) n FROM tool_executions WHERE run_id=? AND status='completed'",streaming.run.id).n,2);
+  assert.equal(db.get("SELECT COUNT(*) n FROM run_events WHERE run_id=? AND span_kind='llm' AND output LIKE ?",streaming.run.id,'%'+draftSentinel+'%').n,2,'diagnostic Trace must retain both actual intermediate responses');
+  assert.deepEqual(auditShadowRun(streaming.run.id),[]);
+  checks.push('production API AgentTurn fs.write/read rounds return and stream unique temporary prose as control_draft; no draft enters room Messages, Trace retains both responses, and the accepted complete Markdown body is published byte-for-byte');
+
   const nested=seed('AC2_NESTED');
   mockProvider.chat=async req=>{
     modelCalls++;const text=req.messages.map(m=>m.content).join('\n');

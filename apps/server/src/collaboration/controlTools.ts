@@ -5,9 +5,9 @@ import { CollaborationBoundaryError } from './boundaryError.ts';
 
 const COMPLETE_TOOL: LlmToolSchema = {
   name: 'agent.complete',
-  description: '明确提交当前事项的最终结果。仅在结果完整且没有待处理后继义务时调用。',
+  description: '明确提交当前事项的完整最终结果，summary 会作为正式交付正文展示。仅在结果完整且没有待处理后继义务时调用。',
   parameters: { type: 'object', additionalProperties: false, required: ['summary'], properties: {
-    summary: { type: 'string' },
+    summary: { type: 'string', description: '面向接收方的完整交付正文，可用 Markdown 分段、列表、表格或代码块。按任务需要保留实际结果、必要依据与局限；不要因字段名 summary 将正文压缩为一句摘要或完成通知。普通回复中的文字不会自动补入此字段。' },
   } },
 };
 

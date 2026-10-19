@@ -1,7 +1,9 @@
 import { ArtifactDrawer } from '../ArtifactDrawer';
 import {AutonomousAuthorizationCard} from '../AutonomousAuthorizationCard';
+import {FlowReplay} from '../FlowReplay';
+import {completedWerewolfReplay} from '../../services/flowReplayPresentation';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { AgentDefinition, CollaborationUserDecision, Message, ConversationMessageSearch } from '@agent-gand/shared';
+import type { AgentDefinition, AutonomousTaskView, CollaborationUserDecision, Message, ConversationMessageSearch } from '@agent-gand/shared';
 import * as api from '../../services/api';
 import { useStore } from '../../store';
 import { MarkdownBody } from '../Markdown';
@@ -115,6 +117,7 @@ function MessageItem({
   onLocate,
   groupStart,
   groupEnd,
+  flow,
 }: {
   message: Message;
   allMessages: Message[];
@@ -122,12 +125,14 @@ function MessageItem({
   onLocate: (id: string) => Promise<boolean>;
   groupStart: boolean;
   groupEnd: boolean;
+  flow?: NonNullable<AutonomousTaskView['flows']>[number];
 }) {
   const { state } = useStore();
   const [fullReport, setFullReport] = useState(false);
   const [copyError, setCopyError] = useState('');
   const [copied, setCopied] = useState(false);
   const author = state.agents.find((agent) => agent.id === message.from);
+  const replay=useMemo(()=>completedWerewolfReplay(message,flow),[message,flow]);
   // 气泡方向由真实发送者决定，避免未来扩展 kind 后把非用户消息放到右侧。
   const mine = message.from === 'user';
   const referenced = message.replyTo ? allMessages.find((item) => item.id === message.replyTo) ?? state.history?.references.find(item => item.id === message.replyTo) : undefined;
@@ -170,7 +175,7 @@ function MessageItem({
 
   return <article id={`message-${message.id}`} data-read-anchor className={`group flex w-full items-start gap-2.5 px-3 ${groupStart ? 'pt-3' : 'pt-1'} ${groupEnd ? 'pb-3' : 'pb-1'} ${mine ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
     {avatar}
-    <div className={`min-w-0 ${isReview ? 'w-fit max-w-[92%] sm:max-w-[88%] md:max-w-[82%] xl:max-w-[840px]' : mine ? 'w-fit max-w-[90%] sm:max-w-[84%] md:max-w-[76%] xl:max-w-[680px]' : 'w-fit max-w-[92%] sm:max-w-[86%] md:max-w-[80%] xl:max-w-[720px]'}`}>
+    <div className={`min-w-0 ${replay?'w-full max-w-3xl':isReview ? 'w-fit max-w-[92%] sm:max-w-[88%] md:max-w-[82%] xl:max-w-[840px]' : mine ? 'w-fit max-w-[90%] sm:max-w-[84%] md:max-w-[76%] xl:max-w-[680px]' : 'w-fit max-w-[92%] sm:max-w-[86%] md:max-w-[80%] xl:max-w-[720px]'}`}>
       {groupStart && <div className={`mb-1 flex flex-wrap items-center gap-2 text-xs ${mine ? 'justify-end' : 'justify-start'}`}>{meta}</div>}
       <div className={`relative min-w-0 overflow-hidden border px-4 py-2.5 pr-11 text-left shadow-sm ${
         mine
@@ -189,7 +194,7 @@ function MessageItem({
           {referenced ? `引用 ${agentName(referenced.from, state.agents)}：${referenced.body.slice(0,100)}` : '查看引用的原消息'}
         </button>}
         {isReview && verdict && <div className={`mb-1 text-xs font-medium ${verdict === 'PASS' ? 'text-emerald-300' : 'text-red-300'}`}>{verdict === 'PASS' ? '✓ 审查通过' : '✗ 审查未通过'}</div>}
-        <div className={`[overflow-wrap:anywhere] text-sm leading-6 ${message.body.length > 2400 && !fullReport ? 'max-h-80 overflow-hidden' : ''}`}><MarkdownBody text={message.body} onNavigate={() => setFullReport(true)} /></div>{message.body.length > 2400 && <button aria-expanded={fullReport} onClick={() => setFullReport(v => !v)} className="mt-3 rounded-lg bg-zinc-950/70 px-3 py-2 text-xs text-violet-200">{fullReport ? '收起长消息' : '展开完整报告'}</button>}{copyError && <p role="status" className="text-xs text-amber-300">{copyError}</p>}
+        <div className={`[overflow-wrap:anywhere] text-sm leading-7 ${!replay&&message.body.length > 2400 && !fullReport ? 'max-h-80 overflow-hidden' : ''}`}>{replay?<FlowReplay replay={replay} original={message.body} agents={state.agents}/>:<MarkdownBody text={message.body} onNavigate={() => setFullReport(true)} />}</div>{!replay&&message.body.length > 2400 && <button aria-expanded={fullReport} onClick={() => setFullReport(v => !v)} className="mt-3 rounded-lg bg-zinc-950/70 px-3 py-2 text-xs text-violet-200">{fullReport ? '收起长消息' : '展开完整报告'}</button>}{copyError && <p role="status" className="text-xs text-amber-300">{copyError}</p>}
         <ReviewIssues message={message} />
         {decision && <DecisionCard decision={decision} />}
       </div>
@@ -208,11 +213,11 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
   const parent = span?.parentId ? state.events.find((event) => event.id === span.parentId) : undefined;
   const rawId = typeof span?.attributes?.['agent.id']==='string'?span.attributes['agent.id']:parent?.name.startsWith('agent:') ? parent.name.slice(6).split('（')[0] : '';
   const agent = state.agents.find((item) => item.id === rawId);
-  return <div aria-label="生成过程草稿" className="flex min-w-0 gap-3 rounded-xl px-3 py-3">
+  if(!text)return <div role="status" aria-label="Agent 执行状态" className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-3 text-xs text-zinc-400"><AgentAvatar agent={agent} className="h-6 w-6 animate-pulse"/><span>{agent?.name??'Agent'} 正在处理…</span><span className="text-zinc-500">正式回复提交后显示</span></div>;
+  return <div aria-label="流式回复" className="flex min-w-0 gap-3 rounded-xl px-3 py-3">
     <AgentAvatar agent={agent} className="h-9 w-9 animate-pulse text-sm" />
     <div className="min-w-0 max-w-3xl rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-3 [overflow-wrap:anywhere]">
-      <p className="mb-1 text-xs text-zinc-400">{agent?.name ?? 'Agent'} 正在生成 · 过程草稿</p>
-      <p className="mb-2 text-xs text-zinc-500">过程草稿可能调整；房间最终显示成员提交的结果、交接内容或规则公告。</p>
+      <p className="mb-2 text-xs text-zinc-400">{agent?.name ?? 'Agent'} 正在回复…</p>
       <div className="text-sm text-zinc-400"><MarkdownBody text={text} /><span className="animate-pulse">▍</span></div>
     </div>
 
@@ -366,11 +371,11 @@ export function RunView({ onManageRoles }: { onManageRoles?: () => void }) {
           <div className="mx-auto max-w-4xl space-y-1">
             {taskStateError && <p role="alert" className="text-xs text-amber-200">任务状态获取失败：{taskStateError}</p>}
             {state.history && <div className="flex items-center justify-center gap-3 py-2 text-xs text-zinc-400"><span>消息 {state.history.oldestSeq ?? 0}–{state.history.newestSeq ?? 0} · 共 {state.history.total} 条</span>{state.history.hasOlder && <button disabled={historyBusy} onClick={() => void pageHistory('older')} className="rounded-lg bg-zinc-800 px-3 py-2 text-violet-200 disabled:opacity-40">加载更早消息</button>}</div>}
-            {visibleRuns.map(run => { const all=state.messages.filter(message=>message.runId===run.id&&message.meta?.scopedInternal!==true);const autonomous=Boolean(taskStates.find(t=>t.runId===run.id)?.autonomous?.entry)||all.some(m=>m.meta?.autonomousEntryVersion===1);const internal=autonomous?all.filter(m=>m.meta?.autonomousInternal===true):[];const messages=autonomous?all.filter(m=>m.meta?.autonomousInternal!==true):all;return <div key={run.id}>
+            {visibleRuns.map(run => { const all=state.messages.filter(message=>message.runId===run.id&&message.meta?.scopedInternal!==true);const autonomous=Boolean(taskStates.find(t=>t.runId===run.id)?.autonomous?.entry)||all.some(m=>m.meta?.autonomousEntryVersion===1);const internal=autonomous?all.filter(m=>m.meta?.autonomousInternal===true):[];const messages=autonomous?all.filter(m=>m.meta?.autonomousInternal!==true):all;const flow=taskStates.find(t=>t.runId===run.id)?.autonomous?.flows?.find(f=>f.protocol==='werewolf-five-v1');return <div key={run.id}>
               <TaskCard onRetryDraft={newRoom => retryDraft(run.id,newRoom)} run={run} detail={taskStates.find(item => item.runId === run.id)} onRevise={task => { setReply(null); setRevisionTask(task); }} />
               {state.collaborationDecisions.filter(d => d.runId === run.id && d.status === 'pending' && !messages.some(m => m.id === d.promptMessageId)).map(decision => <div key={decision.id} className="my-3 rounded-lg border border-violet-500/30 p-3"><p className="text-sm text-violet-200">此任务有待处理的问题或决定</p><button disabled={historyBusy} onClick={() => void locateMessage(decision.promptMessageId)} className="mt-2 rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300">查看原问题</button><DecisionCard decision={decision} /></div>)}
-              {messages.map((message,index) => <MessageItem key={message.id} message={message} allMessages={state.messages} onLocate={locateMessage} onReply={message => { setRevisionTask(null); setReply(message); requestAnimationFrame(() => document.getElementById('goal-input')?.focus()); }} groupStart={!belongsToSameVisualGroup(messages[index - 1],message)} groupEnd={!belongsToSameVisualGroup(message,messages[index + 1])} />)}
-              {internal.length>0&&<details aria-label="内部协作记录" className="mx-auto my-2 max-w-3xl rounded-lg border border-zinc-800 p-2 text-xs text-zinc-500"><summary>内部协作记录 · 按需查看</summary><div className="mt-2 space-y-2">{internal.map(message=><MessageItem key={message.id} message={message} allMessages={state.messages} onLocate={locateMessage} onReply={message=>setReply(message)} groupStart groupEnd/>)}</div></details>}
+              {messages.map((message,index) => <MessageItem key={message.id} message={message} flow={flow} allMessages={state.messages} onLocate={locateMessage} onReply={message => { setRevisionTask(null); setReply(message); requestAnimationFrame(() => document.getElementById('goal-input')?.focus()); }} groupStart={!belongsToSameVisualGroup(messages[index - 1],message)} groupEnd={!belongsToSameVisualGroup(message,messages[index + 1])} />)}
+              {internal.length>0&&<details aria-label="内部协作记录" className="mx-auto my-2 max-w-3xl rounded-lg border border-zinc-800 p-2 text-xs text-zinc-500"><summary>内部协作记录 · 按需查看</summary><div className="mt-2 space-y-2">{internal.map(message=><MessageItem key={message.id} message={message} flow={flow} allMessages={state.messages} onLocate={locateMessage} onReply={message=>setReply(message)} groupStart groupEnd/>)}</div></details>}
             </div>; })}
             {state.history?.hasNewer && <div className="flex justify-center py-3"><button disabled={historyBusy} onClick={() => void pageHistory('newer')} className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-violet-200 disabled:opacity-40">加载后续消息</button></div>}
             {!state.history?.hasNewer && Object.entries(state.streams).map(([id, text]) => <StreamingItem key={id} spanId={id} text={text} />)}

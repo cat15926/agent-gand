@@ -26,6 +26,9 @@ import type {
   RuntimeWakeEvent,
 } from './runtime.ts';
 
+/** Presentation intent only: control drafts are not committed conversation messages. */
+export type LlmDisplayKind = 'message' | 'review_protocol' | 'control_draft';
+
 export type ServerEvent =
   | { type: 'hello'; agents: AgentDefinition[]; runs: number }
   | { type: 'agent.updated'; agent: AgentDefinition }
@@ -55,8 +58,8 @@ export type ServerEvent =
   | { type: 'coordination.step.updated'; step: CoordinationStepState }
   | { type: 'run.updated'; run: Run }
   | { type: 'run.event'; event: RunEvent }
-  | { type: 'llm.delta'; runId: string; spanId: string; text: string; agentId?: string; taskId?: string; attemptId?: string; displayKind?: 'message' | 'review_protocol' }
-  | { type: 'llm.snapshot'; runId: string; spanId: string; text: string; displayKind?: 'message' | 'review_protocol' }
+  | { type: 'llm.delta'; runId: string; spanId: string; text: string; agentId?: string; taskId?: string; attemptId?: string; displayKind?: LlmDisplayKind }
+  | { type: 'llm.snapshot'; runId: string; spanId: string; text: string; displayKind?: LlmDisplayKind }
   | { type: 'execution.updated'; execution: ExternalAgentExecution }
   | { type: 'execution.native'; runId: string; executionId: string; event: NativeAgentEvent }
   | { type: 'approval.updated'; approval: ApprovalRequest }

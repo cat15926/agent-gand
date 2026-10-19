@@ -110,6 +110,8 @@
     "orchestration:demo": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-demo.mjs",
     "orchestration:cleanup-inventory": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/orchestration-cleanup-inventory.mjs",
     "verify:orchestration-o7-demo-ui": "node scripts/verify-orchestration-o7-demo-ui.mjs",
+    "verify:message-presentation-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chatroom-ui.mjs --message-presentation-only",
+    "verify:message-presentation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-message-presentation.mjs",
     "verify:chat-state": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-state.mjs",
     "verify:chatroom-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chatroom-ui.mjs",
     "verify:chat-history": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-chat-history.mjs",
