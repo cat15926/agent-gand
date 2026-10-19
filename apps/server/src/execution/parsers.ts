@@ -8,6 +8,10 @@ function number(value: unknown): number | null { return typeof value === 'number
 
 export class NativeEventParser {
   private items = new Map<string, string>();
+  // The SDK emits each completed block as a one-block assistant message. Its
+  // local index is then 0, while stream indices still include thinking/tool blocks.
+  private claudeTextBlocks = new Map<string, number[]>();
+  private claudeTextAliases = new Map<string, string>();
   private currentMessage = '';
   private finalText: string | null = null;
   private terminal: 'completed' | 'failed' | null = null;
@@ -47,6 +51,10 @@ export class NativeEventParser {
       if (event.type === 'content_block_delta' && delta.type === 'input_json_delta' && text(delta.partial_json)) this.emit({ type: 'response.activity', kind: 'tool_input' });
       if (event.type === 'content_block_delta' && delta.type === 'text_delta') {
         if (!this.currentMessage || typeof delta.text !== 'string') throw new ExecutionError('protocol_error', 'Claude 文本增量缺少 message ID 或正文');
+        if (!this.items.has(id)) {
+          const pending=this.claudeTextBlocks.get(this.currentMessage)??[];
+          pending.push(number(event.index)??0);this.claudeTextBlocks.set(this.currentMessage,pending);
+        }
         this.items.set(id, (this.items.get(id) ?? '') + delta.text);
         this.emit({ type: 'text.delta', itemId: id, text: delta.text });
       }
@@ -57,9 +65,20 @@ export class NativeEventParser {
       const id = text(message.id);
       if (!id) throw new ExecutionError('protocol_error', 'Claude assistant 缺少 message ID');
       if (record.error) this.terminalError = exitError(text(record.error));
-      if (Array.isArray(message.content)) message.content.forEach((part, index) => {
+      const blocks=Array.isArray(message.content)?message.content:[];
+      blocks.forEach((part, index) => {
         const block = object(part);
-        if (block.type === 'text') this.snapshot(`${id}:${index}`, text(block.text));
+        if (block.type === 'text') {
+          const alias=typeof record.uuid==='string'?`${record.uuid}:${index}`:null;
+          let key=alias?this.claudeTextAliases.get(alias):undefined;
+          if(!key){
+            const pending=this.claudeTextBlocks.get(id)??[];
+            const slot=blocks.length===1?0:pending.indexOf(index);
+            const sourceIndex=slot>=0?pending.splice(slot,1)[0]:index;
+            key=`${id}:${sourceIndex??index}`;if(alias)this.claudeTextAliases.set(alias,key);
+          }
+          this.snapshot(key,text(block.text));
+        }
         if (block.type === 'tool_use') this.claudeTool(block);
       });
     } else if (record.type === 'user') {

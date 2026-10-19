@@ -16,6 +16,10 @@ assert.equal(state.activeRunId,'first','latest run update must not steal the sel
 state = reducer(state,{type:'serverEvent',event:{type:'llm.delta',runId:'second',spanId:'live',text:' appended'}});
 assert.equal(state.streams.live,'in progress appended','other running task streams remain active while inspecting history');
 state = reducer(state,{type:'serverEvent',event:{type:'run.event',event:{id:'live',runId:'second',endedAt:'now'}}});assert.equal(state.streams.live,undefined);
+for(const type of ['llm.delta','llm.snapshot']){
+ const late=reducer(state,{type:'serverEvent',event:{type,runId:'second',spanId:'live',text:'late draft must stay closed'}});assert.equal(late,state,'ended span cannot reappear over the committed message');
+ const completed={...state,runs:[{...runs[1],status:'completed'}]};assert.equal(reducer(completed,{type:'serverEvent',event:{type,runId:'second',spanId:'missed-end',text:'late terminal draft'}}),completed,'terminal run cannot regain a draft');
+}
 const stale = reducer(state,{type:'runDetail',runId:'second',messages:[],events:[],attempts:[],reviews:[],executions:[],coordination:null});assert.equal(stale,state);
 state = reducer(state,{type:'setActiveConversation',conversationId:'other',runId:null});assert.equal(state.messages.length,0);
 assert.equal(reducer(state,{type:'conversationDetail',conversationId:'room',runs,messages,events:[],attempts:[],reviews:[],executions:[],coordination:null}),state);

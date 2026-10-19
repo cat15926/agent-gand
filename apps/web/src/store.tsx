@@ -251,9 +251,11 @@ export function reducer(state: State, action: Action): State {
             : upsertBy(state.conversations, e.conversation)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) };
         case 'llm.snapshot':
           if (e.displayKind === 'review_protocol') return state;
+          if(state.events.some(span=>span.id===e.spanId&&span.endedAt)||state.runs.some(run=>run.id===e.runId&&['completed','failed','cancelled'].includes(run.status)))return state;
           return inRoom(e.runId) ? { ...state, streams: { ...state.streams, [e.spanId]: e.text } } : state;
         case 'llm.delta':
           if (e.displayKind === 'review_protocol') return state;
+          if(state.events.some(span=>span.id===e.spanId&&span.endedAt)||state.runs.some(run=>run.id===e.runId&&['completed','failed','cancelled'].includes(run.status)))return state;
           // 房间中其他任务仍可运行；查看历史任务不影响流式消息。
           return inRoom(e.runId)
             ? {

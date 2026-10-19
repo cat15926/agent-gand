@@ -157,6 +157,7 @@ function MessageItem({
     {!mine && <span className="hidden text-zinc-400 sm:inline">Agent</span>}
     <span className="text-zinc-400">→ {agentName(message.to, state.agents)}</span>
     {message.visibility === 'private' && <span title="仅授权参与成员和你可见" className="rounded-full bg-violet-500/15 px-2 py-0.5 text-violet-300">私密</span>}
+    {message.meta?.completionKind==='runtime_accepted'&&<span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-400">成员提交结果</span>}
     {message.messageType !== 'informational' && <span className={`rounded-full px-2 py-0.5 ${isReview ? 'bg-amber-500/15 text-amber-300' : 'bg-zinc-800 text-zinc-400'}`}>{TYPE_LABEL[message.messageType]}</span>}
     {message.taskId && <span className="hidden rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-300 sm:inline">任务 {message.taskId.slice(0, 6)}</span>}
   </>;
@@ -205,12 +206,13 @@ function StreamingItem({ spanId, text }: { spanId: string; text: string }) {
   const { state } = useStore();
   const span = state.events.find((event) => event.id === spanId);
   const parent = span?.parentId ? state.events.find((event) => event.id === span.parentId) : undefined;
-  const rawId = parent?.name.startsWith('agent:') ? parent.name.slice(6).split('（')[0] : '';
+  const rawId = typeof span?.attributes?.['agent.id']==='string'?span.attributes['agent.id']:parent?.name.startsWith('agent:') ? parent.name.slice(6).split('（')[0] : '';
   const agent = state.agents.find((item) => item.id === rawId);
-  return <div className="flex gap-3 rounded-xl px-3 py-3">
+  return <div aria-label="生成过程草稿" className="flex min-w-0 gap-3 rounded-xl px-3 py-3">
     <AgentAvatar agent={agent} className="h-9 w-9 animate-pulse text-sm" />
-    <div className="max-w-3xl rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-3">
-      <p className="mb-1 text-xs text-zinc-400">{agent?.name ?? 'Agent'} 正在回复…</p>
+    <div className="min-w-0 max-w-3xl rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-3 [overflow-wrap:anywhere]">
+      <p className="mb-1 text-xs text-zinc-400">{agent?.name ?? 'Agent'} 正在生成 · 过程草稿</p>
+      <p className="mb-2 text-xs text-zinc-500">过程草稿可能调整；房间最终显示成员提交的结果、交接内容或规则公告。</p>
       <div className="text-sm text-zinc-400"><MarkdownBody text={text} /><span className="animate-pulse">▍</span></div>
     </div>
 

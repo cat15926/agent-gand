@@ -244,13 +244,19 @@ function LegacyTaskComposer({ room, reply, onReplyClear, onManageRoles, reservat
 
 /** The rollout chooses the default once; explicit advanced entry keeps historical contracts. */
 export function TaskComposer(props:Parameters<typeof LegacyTaskComposer>[0]){
- const {state}=useStore();
+ const {state,setActiveConversation}=useStore();
  const [options,setOptions]=useState<Awaited<ReturnType<typeof api.getOrchestrationOptions>>|null>(null),[advanced,setAdvanced]=useState(false);
  useEffect(()=>{let live=true;void api.getOrchestrationOptions().then(value=>{if(live)setOptions(value);}).catch(()=>{});return()=>{live=false;};},[]);
  if(!options)return <p role="status" className="p-3 text-xs text-zinc-400">正在读取任务入口…</p>;
  const answering=Boolean(props.reply&&state.collaborationDecisions.some(d=>d.promptMessageId===props.reply!.id&&d.kind==='agent_question'&&d.status==='pending'));
  const activeAutonomous=state.runs.some(r=>r.conversationId===props.room?.id&&!['completed','failed','cancelled'].includes(r.status)&&state.messages.some(m=>m.runId===r.id&&m.meta?.autonomousEntryVersion===1));
  const admission=!!options.autonomous?.available&&(!options.autonomous.roomIds||!!props.room&&options.autonomous.roomIds.includes(props.room.id));
- if(props.revisionTask||answering||!options.autonomous||!admission&&!activeAutonomous)return <LegacyTaskComposer {...props}/>;
+ if(props.revisionTask||answering||!options.autonomous||!admission&&!activeAutonomous&&options.autonomous.mode!=='execute')return <LegacyTaskComposer {...props}/>;
+ if(!admission&&!activeAutonomous)return <section aria-label="自主协作准入提示" className="space-y-3 rounded-xl border border-amber-500/20 bg-zinc-900 p-4 text-sm">
+  <p className="text-amber-200">{props.room?'本房间尚未开放自主协作。':'自主协作目前仅在已开放的房间使用。'}</p>
+  <p className="text-xs text-zinc-400">请前往已开放房间提出需求，Agent 会自动分工并交付；规则游戏会按流程推进和裁决。</p>
+  <div className="flex flex-wrap gap-2">{state.conversations.filter(r=>options.autonomous!.roomIds?.includes(r.id)).map(r=><button key={r.id} type="button" onClick={()=>setActiveConversation(r.id)} className="rounded-lg bg-violet-500 px-3 py-2 text-xs text-white">前往自主协作房间：{r.title}</button>)}</div>
+  {!advanced?<button type="button" onClick={()=>setAdvanced(true)} className="rounded-lg bg-zinc-800 px-3 py-2 text-xs text-zinc-300">高级 · 手动编排</button>:<><p className="text-xs text-amber-200">当前使用手动编排。成员自行组织接力，不提供规则游戏的自动裁决与完整回放。</p><button type="button" onClick={()=>setAdvanced(false)} className="text-xs text-violet-200">返回需求输入</button><LegacyTaskComposer {...props}/></>}
+ </section>;
  return <><div hidden={advanced}><AutonomousTaskComposer room={props.room} reply={props.reply} onReplyClear={props.onReplyClear} options={{...options.autonomous,available:admission}} onAdvanced={()=>setAdvanced(true)}/></div>{advanced&&<><button type="button" className="m-3 text-xs text-violet-200" onClick={()=>setAdvanced(false)}>返回需求输入</button><LegacyTaskComposer {...props}/></>}</>;
 }

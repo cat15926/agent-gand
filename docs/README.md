@@ -91,6 +91,8 @@
 - [AC6 托管 SDK 与上线准备验收（2026-10-18）](./reports/autonomous-collaboration-ac6-acceptance-2026-10-18.md)
 - [AC6 真实狼人杀完整回放（2026-10-18）](./reports/autonomous-collaboration-ac6-werewolf-replay-2026-10-18.md)
 - [自主协作业务服务灰度切换记录（2026-10-18）](./reports/autonomous-collaboration-service-cutover-2026-10-18.md)
+- [狼人杀入口与消息显示异常复盘（2026-10-18）](./reports/werewolf-entry-and-stream-anomalies-2026-10-18.md)
+- [狼人杀入口修复后的真实游戏回放（2026-10-18）](./reports/werewolf-entry-fix-real-replay-2026-10-18.md)
 - [AC3 自动收集与交付验收（2026-10-18）](./reports/autonomous-collaboration-ac3-acceptance-2026-10-18.md)
 - [AC2 动态委派与依赖唤醒验收（2026-10-17）](./reports/autonomous-collaboration-ac2-acceptance-2026-10-17.md)
 - [SDK 受控文件与原生 Coordination 接入收尾（2026-10-17）](./reports/scoped-collaboration-native-integration-2026-10-17.md)

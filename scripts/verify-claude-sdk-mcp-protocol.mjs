@@ -44,9 +44,15 @@ const provider = createServer((request, response) => { void (async () => {
   response.setHeader('content-type', 'text/event-stream');
   const event = (type, value) => response.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...value })}\n\n`);
   event('message_start', { message });
-  event('content_block_start', { index: 0, content_block: { type: 'tool_use', id: 'tool_local', name: nativeTool, input: {} } });
-  event('content_block_delta', { index: 0, delta: { type: 'input_json_delta', partial_json: '{"summary":"local fixture complete"}' } });
+  event('content_block_start', { index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } });
+  event('content_block_delta', { index: 0, delta: { type: 'thinking_delta', thinking: 'local hidden fixture' } });
   event('content_block_stop', { index: 0 });
+  event('content_block_start', { index: 1, content_block: { type: 'text', text: '' } });
+  event('content_block_delta', { index: 1, delta: { type: 'text_delta', text: 'SDK_STREAM_TEXT_ONCE' } });
+  event('content_block_stop', { index: 1 });
+  event('content_block_start', { index: 2, content_block: { type: 'tool_use', id: 'tool_local', name: nativeTool, input: {} } });
+  event('content_block_delta', { index: 2, delta: { type: 'input_json_delta', partial_json: '{"summary":"local fixture complete"}' } });
+  event('content_block_stop', { index: 2 });
   event('message_delta', { delta: { stop_reason: 'tool_use', stop_sequence: null }, usage: { output_tokens: 20 } });
   event('message_stop', {}); response.end();
 })(); });
@@ -59,13 +65,14 @@ const { closeDatabase } = await import('../apps/server/src/db/database.ts');
 const { cleanEnvironment } = await import('../apps/server/src/accounts/environment.ts');
 const observed = [];
 try {
-  await invokeClaudeSdk({ cwd, model: 'default', instructions: 'Use the provided completion tool.', prompt: 'Complete the local fixture.', permissionMode: 'readonly', controlOnly: true,
+  const content=await invokeClaudeSdk({ cwd, model: 'default', instructions: 'Use the provided completion tool.', prompt: 'Complete the local fixture.', permissionMode: 'readonly', controlOnly: true,
     environment: cleanEnvironment({ ANTHROPIC_API_KEY: 'fixture-no-inference', ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' }),
     correctionMaxTokens: 2048, signal: new AbortController().signal, timeoutMs: 30000, onEvent: (event) => observed.push(event),
     bridge: { launch: { command: process.execPath, args: ['--import', fileURLToPath(new URL('../apps/server/node_modules/tsx/dist/loader.mjs', import.meta.url)), fileURLToPath(new URL('../apps/server/src/execution/bridgeWorker.ts', import.meta.url))],
       env: { AGENT_GAND_BRIDGE_URL: `http://127.0.0.1:${callback.address().port}/`, AGENT_GAND_BRIDGE_TOKEN: token }, toolNames: ['agent_complete'] }, candidate,
       action: () => null, failure: () => null, sealed: () => sealed, close: async () => {} } });
   assert.equal(callbackCalls, 1); assert.ok(modelRequests >= 1); assert.ok(observed.some((event) => event.type === 'session.bound'));
+  assert.equal(content,'SDK_STREAM_TEXT_ONCE',JSON.stringify(observed.filter(e=>e.type==='text.delta'||e.type==='text.snapshot')));
   const permissionFrames = (await readFile(gateLog, 'utf8')).split('\n').filter(Boolean).map(JSON.parse);
   assert.ok(permissionFrames.some((frame) => frame.tool === nativeTool), 'Real PreToolUse hook must reach the platform permission gate');
   console.log('Real Claude SDK MCP verified: local Messages fixture, PreToolUse permission roundtrip, MCP call and controlled interrupt; real model inference = 0');

@@ -143,6 +143,24 @@ try {
   assert.throws(() => parseAgentMarkdown('bad.agent.md', '---\nmodel: default\nexecution: {kind: external, driver: claude-cli}\npermissionMode: auto\n---\nread'), /只读/);
   const parser = new NativeEventParser('claude-cli', () => {});
   parser.accept({ type: 'system', subtype: 'init', session_id: 'one' }); assert.throws(() => parser.accept({ type: 'system', subtype: 'init', session_id: 'two' }), /不同会话/);
+  // SDK assistant messages contain one completed block; thinking changes its
+  // original stream index. Match protocol slots, never deduplicate by text value.
+  for(const driver of ['claude-sdk','claude-cli']){
+    const frames=[],framing=new NativeEventParser(driver,event=>frames.push(event));
+    const stream=event=>framing.accept({type:'stream_event',event});
+    stream({type:'message_start',message:{id:'one'}});
+    stream({type:'content_block_delta',index:0,delta:{type:'thinking_delta',thinking:'HIDDEN_THINKING'}});
+    for(const index of [1,3]){
+      stream({type:'content_block_delta',index,delta:{type:'text_delta',text:'same literal'}});
+      const snapshot={type:'assistant',uuid:'part-'+index,message:{id:'one',content:[{type:'text',text:'same literal'}]}};
+      framing.accept(snapshot);framing.accept(snapshot);
+    }
+    assert.equal(framing.content,'same literal\n\nsame literal','distinct identical blocks remain, streamed snapshots do not duplicate');
+    stream({type:'message_start',message:{id:'two'}});stream({type:'content_block_delta',index:1,delta:{type:'text_delta',text:'another message'}});
+    framing.accept({type:'assistant',message:{id:'two',content:[{type:'thinking'},{type:'text',text:'another message'}]}});
+    assert.equal(framing.content,'same literal\n\nsame literal\n\nanother message');
+    assert.ok(!JSON.stringify(frames.filter(e=>e.type==='text.delta'||e.type==='text.snapshot')).includes('HIDDEN_THINKING'));
+  }
   assert.deepEqual(await readdir(workspace), ['README.md']); assert.equal(await readFile(path.join(workspace, 'README.md'), 'utf8'), '# Fixture repository\n');
   console.log('external agent verification passed: readonly analysis, framing, failures, sessions, cancellation, timeout, replay guard');
 } finally {
