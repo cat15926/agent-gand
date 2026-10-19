@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { isLegacyRunMode, legacyRoomPreferences, ROOM_PREFERENCES_VERSION } from '@agent-gand/shared';
 import { applyThreadedFoundationMigration, THREADED_FOUNDATION_MIGRATION } from './threadedMigration.ts';
 import { applyThreadedExecutionMigration, THREADED_EXECUTION_MIGRATION } from './threadedExecutionMigration.ts';
+import { applyExecutionResourcesMigration, EXECUTION_RESOURCES_MIGRATION } from './executionResourcesMigration.ts';
 
 // These descriptors are immutable. Later upgrades append a version instead of editing one.
 export const ORCHESTRATION_MIGRATIONS = [
@@ -32,6 +33,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   { version: 24, name: 'autonomous-estimated-cost-reserve-v1', descriptor: 'explicit-cost-version1;known-output-estimate-reserve-can-complete;unknown-money-remains-charged;unknown-execution-or-tokens-still-block;stop-policy-and-old-roots-unchanged' },
   THREADED_FOUNDATION_MIGRATION,
   THREADED_EXECUTION_MIGRATION,
+  EXECUTION_RESOURCES_MIGRATION,
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
@@ -92,6 +94,7 @@ export function applyOrchestrationSchemaMigrations(db: Database.Database): void 
       PRIMARY KEY(endpoint,input_format,outcome,http_status))`);
     applyThreadedFoundationMigration(db);
     applyThreadedExecutionMigration(db);
+    applyExecutionResourcesMigration(db);
     for (const migration of ORCHESTRATION_MIGRATIONS) db.prepare(`INSERT OR IGNORE INTO orchestration_schema_migrations
       (version,name,checksum,applied_at) VALUES (?,?,?,?)`).run(migration.version, migration.name, migrationChecksum(migration.descriptor), new Date().toISOString());
   }).immediate();

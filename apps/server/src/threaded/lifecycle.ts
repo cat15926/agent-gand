@@ -83,6 +83,12 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       authorityEpoch: Number(row.authority_epoch), claimId: String(row.claim_id),
       generation: Number(row.generation), fencingToken: String(row.fencing_token) };
   };
+  const retainUnknownResources = (attemptId: string) => {
+    if (!resources.markUnknown) return;
+    const row = db.prepare('SELECT id FROM threaded_execution_bindings WHERE attempt_id=?').get(attemptId) as { id: string } | undefined;
+    if (!row) fail('THREADED_BINDING_NOT_FOUND');
+    resources.markUnknown(authority.claim(storedBinding(row!.id)));
+  };
   const result = (invocationId: string): InvocationResult => ({ invocationId, runId: runId(invocationId)!, status: getInvocation(invocationId).status });
   const updateProjection = (invocationId: string, status: InvocationStatus, reason: string | null = null) => {
     const now = new Date().toISOString();
@@ -198,14 +204,15 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
         WHERE id=? AND invocation_id=? AND status='prepared' AND execution_stage='not_started'`)
         .run(new Date().toISOString(), binding.attemptId, binding.invocationId).changes;
       if (changed !== 1) fail('THREADED_ATTEMPT_ALREADY_STARTED');
+      resources.markStarted?.(authority.claim(binding));
       updateProjection(binding.invocationId, 'running');
     }).immediate();
   }
 
-  function recordOutput(binding: ThreadedBinding, content: string): { id: string; hash: string } {
+  function recordOutput(binding: ThreadedBinding, content: string, quiescence?: QuiescenceProof): { id: string; hash: string } {
     if (typeof content !== 'string') fail('THREADED_INVALID_OUTPUT');
     return db.transaction(() => {
-      authority.assertAuthorized(binding);
+      authority.assertAuthorized(binding, { quiescence });
       const current = attempt(getInvocation(binding.invocationId));
       if (current?.status !== 'running' || current.execution_stage !== 'started') fail('THREADED_ATTEMPT_NOT_RUNNING');
       const id = randomUUID(); const digest = hash(content);
@@ -252,7 +259,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (!controlled || current?.execution_stage !== 'quiescent' || !receipt || receipt.quiescence.id !== proof.quiescence.id
         || receipt.budgetState !== proof.budgetState) fail('THREADED_QUIESCENCE_RECEIPT_REQUIRED');
     } else authority.assertCurrent(binding);
-    if (!controlled) authority.assertAuthorized(binding);
+    if (!controlled) authority.assertAuthorized(binding, { quiescence: proof.quiescence });
     else if (proof.status !== 'cancelled' || !inv.cancel_requested) fail('THREADED_CONTROL_PROOF_REQUIRED');
     if (!priorQuiescence) resources.verifyQuiescence(authority.claim(binding), proof.quiescence);
     if (terminal(inv.status)) fail('THREADED_INVOCATION_ALREADY_TERMINAL');
@@ -313,6 +320,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (terminal(inv.status)) fail('THREADED_INVOCATION_ALREADY_TERMINAL');
       const now = new Date().toISOString();
       if (outcome.kind === 'unknown') {
+        resources.markUnknown?.(authority.claim(binding));
         if (inv.status === 'unknown' && inv.recovery_reason === outcome.reason && current?.status === 'unknown'
           && current.execution_stage === 'unknown' && current.execution_reason === outcome.reason) return result(inv.id);
         db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
@@ -326,7 +334,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (outcome.kind === 'not_started' && (outcome.quiescence.reason !== 'not_started' || outcome.quiescence.sideEffects !== 'none')) fail('THREADED_NOT_STARTED_PROOF_REQUIRED');
       persistOutcomeReceipt(binding, outcome, budgetState, outcome.quiescence);
       if (inv.cancel_requested) return terminalWithinTransaction({ binding, status: 'cancelled', budgetState, quiescence: outcome.quiescence, reason: 'CONTROL_CANCELLED' }, true);
-      if (inv.pause_requested || !authority.authorized(binding)) {
+      if (inv.pause_requested || !authority.authorized(binding, { quiescence: outcome.quiescence })) {
         db.prepare(`UPDATE threaded_attempts SET status='cancelled',execution_stage='quiescent',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
           .run(inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED', now, binding.attemptId);
         updateProjection(inv.id, 'waiting', inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED');
@@ -334,7 +342,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
         return result(inv.id);
       }
       if (outcome.kind === 'completed') {
-        const output = recordOutput(binding, outcome.content);
+        const output = recordOutput(binding, outcome.content, outcome.quiescence);
         return terminalWithinTransaction({ binding, status: 'completed', outputId: output.id, budgetState, quiescence: outcome.quiescence });
       }
       const retryable = outcome.kind === 'not_started' || (outcome.kind === 'failed' && outcome.retryable && budgetState === 'settled');
@@ -425,7 +433,10 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
           const uncertain = ['started', 'unknown'].includes(current.execution_stage);
           pending ||= current.execution_stage !== 'quiescent';
           updateProjection(row.id, uncertain ? 'unknown' : 'waiting', `CONTROL_${command.action.toUpperCase()}`);
-          if (uncertain) db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',version=version+1,updated_at=? WHERE id=?`).run(now, current.id);
+          if (uncertain) {
+            retainUnknownResources(current.id);
+            db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',version=version+1,updated_at=? WHERE id=?`).run(now, current.id);
+          }
         }
       }
       const id = randomUUID(); const status = pending ? 'pending' : 'applied';
@@ -484,6 +495,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
         db.prepare(`UPDATE threaded_attempts SET status='running',version=version+1,updated_at=? WHERE id=?`).run(now, binding.attemptId);
         updateProjection(inv.id, 'running');
       } else {
+        retainUnknownResources(binding.attemptId);
         db.prepare(`UPDATE threaded_invocations SET cancel_requested=1,authority_epoch=authority_epoch+1 WHERE id=?`).run(inv.id);
         db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',version=version+1,updated_at=? WHERE id=?`).run(now, binding.attemptId);
         updateProjection(inv.id, 'unknown', 'APPROVAL_REJECTED'); rejectedInvocation = inv.id;
@@ -524,7 +536,10 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
         } else {
           const uncertain = ['started', 'unknown'].includes(current.execution_stage);
           updateProjection(row.id, uncertain ? 'unknown' : 'waiting', 'ACCOUNT_REVOKED');
-          if (uncertain) db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',version=version+1,updated_at=? WHERE id=?`).run(now, current.id);
+          if (uncertain) {
+            retainUnknownResources(current.id);
+            db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',version=version+1,updated_at=? WHERE id=?`).run(now, current.id);
+          }
         }
       }
     }).immediate();
@@ -538,6 +553,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (!terminal(inv.status) && current && ['prepared', 'running', 'waiting'].includes(current.status) && current.execution_stage !== 'quiescent'
         && inv.recovery_reason !== 'PROCESS_RESTART_NOT_STARTED') {
         const uncertain = ['started', 'unknown'].includes(current.execution_stage);
+        if (uncertain) retainUnknownResources(current.id);
         db.prepare(`UPDATE threaded_invocations SET authority_epoch=authority_epoch+1 WHERE id=?`).run(inv.id);
         db.prepare(`UPDATE threaded_attempts SET status=?,execution_stage=?,execution_reason='PROCESS_RESTART',version=version+1,updated_at=? WHERE id=?`)
           .run(uncertain ? 'unknown' : 'waiting', uncertain ? 'unknown' : current.execution_stage, new Date().toISOString(), current.id);

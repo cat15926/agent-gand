@@ -12,6 +12,7 @@ import {
 } from '../apps/server/src/db/orchestrationMigrations.ts';
 import { createThreadedStore } from '../apps/server/src/threaded/store.ts';
 import * as foundation from '../apps/server/src/db/threadedMigration.ts';
+import * as executionBoundary from '../apps/server/src/db/threadedExecutionMigration.ts';
 
 const root = await mkdtemp(path.join(os.tmpdir(), 'threaded-migration-'));
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
@@ -58,6 +59,7 @@ const frozenMigration = revision => {
     if (name === 'node:crypto') return { createHash };
     if (name === '@agent-gand/shared') return {};
     if (name === './threadedMigration.ts') return foundation; // The v25 descriptor/DDL is unchanged.
+    if (name === './threadedExecutionMigration.ts') return executionBoundary; // The v26 descriptor/DDL is unchanged.
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -68,7 +70,7 @@ try {
   const empty = bootstrap('empty.sqlite');
   const oldMessageColumns = empty.pragma('table_info(messages)');
   applyOrchestrationSchemaMigrations(empty);
-  assert.equal(empty.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, 26);
+  assert.equal(empty.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, 27);
   const emptyStore = createThreadedStore(empty);
   const owner = emptyStore.getInstanceOwnerId();
   assert.match(owner, /^[0-9a-f-]{36}$/);
@@ -131,8 +133,36 @@ try {
   applyOrchestrationSchemaMigrations(v25);
   assert.deepEqual(v25Snapshot(),v25Before);
   assert.equal(v25.prepare('SELECT goal FROM threaded_invocations WHERE id=?').get('preserved-invocation').goal,'');
-  assert.equal(v25.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,26);
+  assert.equal(v25.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,27);
   checks.push('actual v25 upgrade preserves identity/history/checksums; v26 failure rolls back added columns and tables, then retries');
+
+  const v26Worker = frozenMigration('c3b36db');
+  const v26 = bootstrap('v26.sqlite');
+  v26Worker.applyOrchestrationSchemaMigrations(v26);
+  addAgent(v26, 'agent-a');
+  const v26Store = createThreadedStore(v26);
+  const v26Thread = v26Store.createThread(input());
+  sqlInvocation(v26, 'preserved-v26-invocation', v26Thread);
+  const v26Snapshot = () => ({
+    owner: v26Store.getInstanceOwnerId(),
+    thread: v26Store.getThread(v26Thread.id, v26Thread.ownerId),
+    invocations: v26.prepare('SELECT * FROM threaded_invocations ORDER BY id').all(),
+    migrations: v26.prepare('SELECT * FROM orchestration_schema_migrations WHERE version<=26 ORDER BY version').all(),
+  });
+  const v26Before = v26Snapshot();
+  v26.exec(`CREATE TRIGGER fixture_v27_failure BEFORE INSERT ON orchestration_schema_migrations
+    WHEN NEW.version=27 BEGIN SELECT RAISE(ABORT,'fixture_v27_migration_failure'); END;`);
+  const v26SchemaBefore = tables(v26);
+  assert.throws(() => applyOrchestrationSchemaMigrations(v26), /fixture_v27_migration_failure/);
+  assert.deepEqual(tables(v26), v26SchemaBefore);
+  assert.deepEqual(v26Snapshot(), v26Before);
+  v26.exec('DROP TRIGGER fixture_v27_failure');
+  applyOrchestrationSchemaMigrations(v26);
+  applyOrchestrationSchemaMigrations(v26);
+  assert.deepEqual(v26Snapshot(), v26Before);
+  assert.equal(v26.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, 27);
+  assert.deepEqual(v26.pragma('foreign_key_check'), []);
+  checks.push('actual v26 upgrade preserves Thread/Invocation and historical descriptors; v27 migration rolls back atomically and repeats safely');
 
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
@@ -241,11 +271,11 @@ try {
   // A future/tampered catalog is rejected before any schema mutations.
   const future = bootstrap('future.sqlite');
   seedV24(future);
-  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(27,'future','unknown','2026-10-19');
+  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(28,'future','unknown','2026-10-19');
   const futureBefore = tables(future);
-  assert.throws(() => applyOrchestrationSchemaMigrations(future), /27.*不受此 worker 支持/);
+  assert.throws(() => applyOrchestrationSchemaMigrations(future), /28.*不受此 worker 支持/);
   assert.deepEqual(tables(future), futureBefore);
-  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=27');
+  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=28');
   future.exec("UPDATE orchestration_schema_migrations SET checksum='changed' WHERE version=24");
   assert.throws(() => applyOrchestrationSchemaMigrations(future), /24.*不受此 worker 支持/);
   checks.push('future version and mutated historical checksum rejected before mutation');
@@ -255,10 +285,11 @@ try {
   const upgradedBefore = tables(legacy);
   assert.throws(() => oldWorker.assertOrchestrationSchemaCompatible(legacy), /25.*不受此 worker 支持/);
   assert.throws(() => v25Worker.assertOrchestrationSchemaCompatible(legacy), /26.*不受此 worker 支持/);
+  assert.throws(() => v26Worker.assertOrchestrationSchemaCompatible(legacy), /27.*不受此 worker 支持/);
   assert.deepEqual(tables(legacy), upgradedBefore);
-  checks.push('actual frozen v24/v25 worker compatibility guards refuse v25/v26 without mutation');
+  checks.push('actual frozen v24/v25/v26 worker compatibility guards refuse v25/v26/v27 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T03/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T04/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

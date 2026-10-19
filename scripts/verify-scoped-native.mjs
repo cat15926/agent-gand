@@ -95,6 +95,8 @@ try{
   const {parseScopedControlCall,scopedControlTool}=await import('../apps/server/src/collaboration/scopedRunner.ts');
   const {startSpan}=await import('../apps/server/src/runs/trace.ts');
   const nativeAgent={id:'a',name:'G5 native worker',description:'fixture',systemPrompt:'Only current task',version:1,model:'fixture-model',accountRef:codexAccount.id,permissionMode:'readonly',tools:[],disallowedTools:[],capabilities:[],execution:{kind:'external',driver:'codex-app-server',sessionPolicy:'conversation'}};
+  // Resource admission resolves the durable role identity, as production does.
+  db.run('INSERT INTO agents(id,name,definition,source,enabled,version,created_at,updated_at) VALUES(?,?,?,\'fixture\',1,1,?,?)',nativeAgent.id,nativeAgent.name,JSON.stringify(nativeAgent),now,now);
   freezeRunAccounts(nativeFixture.runId,[nativeAgent]);
   const candidate=await runScopedNativeTurn({binding:nativeBinding,agent:nativeAgent,context:nativeContext,parentSpanId:startSpan(nativeFixture.runId,{spanKind:'agent',name:'g5-test'}).id,
     tool:{name:'agent.complete',description:'Submit result',parameters:{type:'object',additionalProperties:false,required:['summary'],properties:{summary:{type:'string'}}}},parse:call=>parseScopedControlCall(call,{version:3,type:'complete',summary:''}),signal:new AbortController().signal});

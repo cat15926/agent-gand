@@ -26,9 +26,12 @@ export interface QuiescenceProof {
   sideEffects: 'none' | 'reconciled';
 }
 
-/** T04 supplies durable claims. T03 only injects this port into isolated fixtures. */
+/** Durable claims; lifecycle transitions and resource transitions share the same DB transaction. */
 export interface ExecutionResourcesPort {
   assertCurrent(claim: ThreadedClaimIdentity): void;
+  assertExecutable?(claim: ThreadedClaimIdentity): void;
+  markStarted?(claim: ThreadedClaimIdentity): void;
+  markUnknown?(claim: ThreadedClaimIdentity): void;
   verifyQuiescence(claim: ThreadedClaimIdentity, proof: QuiescenceProof): void;
   /** Verify evidence and release this exact identity only. Repeating a completed release is a no-op;
    * an old claim/proof must never release a successor, including after a receipt-write failure. */
@@ -47,8 +50,8 @@ export const unavailableThreadedResources: ExecutionResourcesPort = {
 
 export interface ThreadedAuthority {
   capture(attemptId: string): ThreadedBinding;
-  assertAuthorized(binding: ThreadedBinding, options?: { allowApproval?: boolean }): void;
-  authorized(binding: ThreadedBinding): boolean;
+  assertAuthorized(binding: ThreadedBinding, options?: { allowApproval?: boolean; quiescence?: QuiescenceProof }): void;
+  authorized(binding: ThreadedBinding, options?: { quiescence?: QuiescenceProof }): boolean;
   /** Scope/current-claim check for lifecycle reconciliation; this grants no external effects. */
   assertCurrent(binding: ThreadedBinding): void;
   /** Canonical durable identity only, including released claims; grants no execution authority. */

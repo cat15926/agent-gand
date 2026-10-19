@@ -21,7 +21,8 @@ import { diagnostic, ExecutionError } from './errors.ts';
 import { createExecution, findExecution, getExecution, listExecutions, updateExecution } from './store.ts';
 import { bidirectional } from './policy.ts';
 import { expireExecutionApprovals, nativeApprovalGate } from './approvals.ts';
-import { acquireWorkspace, waitForWorkspace, assertCodingWorkspace, captureEvidence } from './evidence.ts';
+import { assertCodingWorkspace, captureEvidence } from './evidence.ts';
+import { acquireLegacyResources, acquireLegacyModelCall, legacyParentClaim, releaseLegacyNativeResource, type LegacyResourceHandle } from './resources/legacy.ts';
 import { createExecutionBridge } from './bridge.ts';
 import { assertBindingAuthorized, executionAuthorized } from './authority.ts';
 import { loadResponsibilitySnapshot } from '../runtime/responsibilitySnapshot.ts';
@@ -195,7 +196,9 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     attributes: { 'agent.id': opts.agent.id, 'llm.model': opts.agent.model, 'execution.id': execution.id, 'execution.driver': execution.driver, 'execution.cwd': execution.cwd, 'execution.policy': mode, 'orchestration.phase': 'agent.external' } });
   const toolSpans = new Map<string, RunEvent>();
   const commands: NonNullable<ExternalAgentExecution['evidence']>['commands'] = [];
-  let release = () => {};
+  let workspaceResource: LegacyResourceHandle | undefined;
+  let preparationResource: LegacyResourceHandle | undefined;
+  let nativeParent = legacyParentClaim(opts.run.id, opts.agent.id, opts.attemptId);
   let before: Awaited<ReturnType<typeof captureEvidence>> | null = null;
   let toolsStarted = 0; let firstText = true;
   let correction = 0;
@@ -256,10 +259,17 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     }
   };
   try {
-    if (bidirectional(execution.driver)) {
-      release = await waitForWorkspace(execution.cwd, execution.id, signal, mode === 'readonly');
-      if (mode !== 'readonly'&&!opts.privateContext) await assertCodingWorkspace(execution.cwd);
+    // Direct legacy native callers (outside runAgentTurn) still establish one
+    // exclusive preparation parent before any late-discovered Session identity.
+    if (!nativeParent) {
+      preparationResource = await acquireLegacyResources({ runId: opts.run.id, agentId: opts.agent.id,
+        attemptId: opts.attemptId, legacyExecutionId: execution.id, signal });
+      nativeParent = preparationResource.claim;
     }
+    workspaceResource = await acquireLegacyResources({ runId: opts.run.id, agentId: opts.agent.id, attemptId: opts.attemptId,
+      parentClaim: nativeParent, legacyExecutionId: execution.id,
+      workspaces: [{ path: execution.cwd, access: !bidirectional(execution.driver) || mode === 'readonly' ? 'read' : 'write' }], signal });
+    if (bidirectional(execution.driver) && mode !== 'readonly'&&!opts.privateContext) await assertCodingWorkspace(execution.cwd);
     if (bidirectional(execution.driver) && !opts.scopedNative) {
       before = await captureEvidence(execution.cwd);
       updateExecution(execution.id, { evidence: { head: before.head, beforeDiff: before.diff, afterDiff: before.diff, truncated: before.truncated, commands: [] } });
@@ -284,8 +294,12 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
     const maxCorrections = Math.min(4, loadRuntimeContract(opts.run.id)?.features?.exitGuard?.maxCorrections ?? 0);
     for (;;) {
       if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '执行权已撤销');
-      if (!correction && !session && bidirectional(execution.driver)) {
-        session = await prepareNativeSession(opts, { ...execution, driverVersion: info.version }, signal, forceCold, account);
+      if (!session) {
+        // Corrections are cold turns. Each actual native identity has its own
+        // mutex even when no transcript is retained or replayed.
+        const sessionOpts = correction && opts.agent.execution?.kind === 'external'
+          ? { ...opts, agent: { ...opts.agent, execution: { ...opts.agent.execution, sessionPolicy: 'turn' as const } } } : opts;
+        session = await prepareNativeSession(sessionOpts, { ...execution, driverVersion: info.version }, signal, forceCold, account, workspaceResource?.claim ?? nativeParent);
         if (session) updateExecution(execution.id, { sessionBindingId: session.record.id, sessionMode: session.resume ? 'resume' : 'cold', sessionReason: session.record.reason });
       }
       const bridge = opts.controlTools?.length || (opts.agent.execution?.kind === 'external' && opts.agent.execution.platformTools?.length)
@@ -296,14 +310,17 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
       let cost: CostReservationRow | null = null;
       const admitted=firstAdmission;firstAdmission=undefined;
       const callId=admitted?.callId??queueModelCall(opts.run.id,opts.agent.id,opts.agent.model,execution.driver,opts.attemptId);
+      let callResource: LegacyResourceHandle | undefined;
       try {
         if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); if(!admitted)await reserveScopedNativeTokens(opts.run.id, callId, signal); }
         cost = admitted?admitted.cost:await reserveCostWhenReady(opts.run.id, opts.agent.id, opts.agent.model, execution.driver,undefined,signal,callId);
+        callResource = await acquireLegacyModelCall(callId, signal, execution.id, workspaceResource?.claim ?? nativeParent);
         execution.progress = { ...execution.progress, nativeInvokedAt: execution.progress?.nativeInvokedAt ?? new Date().toISOString() };
         updateExecution(execution.id, { progress: execution.progress });
         activity.start();
         startModelCall(callId);
-        content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
+        callResource.start();
+        content = redactSecrets(await driver.invoke({ cwd: execution.cwd, model: account?.binding?.model ?? opts.agent.model, account, instructions: instructions + (correction ? '\n当前是控制纠偏，只允许 MCP 控制工具，禁止普通工具。' : session?.resume ? '\n继续已验证会话，只处理本次平台上下文增量。' : '\n建立新会话，使用本次完整平台上下文。'), prompt: correction ? prompt : session?.prompt ?? prompt, signal, timeoutMs: Math.max(1, Date.parse(execution.timeoutPolicy!.deadlineAt) - Date.now()), onEvent,
           scopedNative: opts.scopedNative,
           scopedToolTurns:opts.scopedNative?.tools.length?8:undefined,
           autonomousTurn,
@@ -320,7 +337,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
             finally { activity.resume(`approval:${id}`); }
           },
           bridge, controlOnly: correction > 0, privateContext: opts.privateContext,recoveryFilesOnly:opts.recoveryFilesOnly, correctionMaxTokens: correction > 0 ? opts.exitCorrectionMaxTokens : undefined,
-          session: opts.scopedNative ? { id: execution.driver==='claude-sdk'?randomUUID():null, resume: false, ephemeral: true, configDir: opts.scopedNative.home, projectDir: 'scope-'+opts.scopedNative.boundary.sessionBoundaryId } : session?.input,
+          session: session?.input,
           onProcess: (owner) => { if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '进程登记前执行已失效'); registerNativeProcess(execution.id, owner); },
           onProcessStopped: markNativeProcessStopped }));
         const part = usage.get(correction)!;
@@ -336,7 +353,7 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
         if (error instanceof SessionUnavailableError && session?.resume && !forceCold) {
           session.finish(false); session.release(); session = undefined; forceCold = true; retryCold = true;
         } else throw bridge?.failure() ?? error;
-      } finally { activity.stop(); await bridge?.close(); }
+      } finally { activity.stop(); await bridge?.close(); if (callResource) releaseLegacyNativeResource(callResource, execution.id); }
       if (bridge?.failure()) throw bridge.failure();
       if (retryCold) continue;
       if (signal.aborted || !executionAuthorized(execution)) throw new ExecutionError('cancelled', '原生回合停止后执行权已撤销');
@@ -382,7 +399,8 @@ async function invokeTurn(opts: AgentTurnOptions, execution: ExternalAgentExecut
   } finally {
     activity.stop();
     session?.release();
-    expireExecutionApprovals(execution.id); release();
+    expireExecutionApprovals(execution.id); if (workspaceResource) releaseLegacyNativeResource(workspaceResource, execution.id);
+    if (preparationResource) releaseLegacyNativeResource(preparationResource, execution.id);
     const record = getExecution(execution.id);
     for (const tool of toolSpans.values()) if (!tool.endedAt) endSpan(tool, record?.status === 'completed' && record.controlAction && opts.controlTools?.some(t => [`mcp__agent_gand__${t.name.replace('.', '_')}`,`agent_gand/${t.name.replace('.', '_')}`,`agent_gand:${t.name.replace('.', '_')}`].some(name=>tool.name===name||tool.name===`native:${name}`))
       ? { status: 'ok', output: '已接收协作控制候选，原生回合按平台协议停止；工具未报告结束事件，最终提交以 Runtime 动作账本为准。', attributes: { 'tool.outcome': 'control_interruption', 'tool.completion_observed': false } }

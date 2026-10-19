@@ -1,7 +1,8 @@
 import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { ToolExecution, ToolReplayPolicy } from '@agent-gand/shared';
-import { all, get, run, tx } from '../db/database.ts';
+import { afterCommit, all, get, run, tx } from '../db/database.ts';
+import { retryPendingLegacyReleases } from '../execution/resources/legacy.ts';
 
 interface Row {
   id: string; run_id: string; agent_id: string; task_id: string | null; attempt_id: string | null;
@@ -87,5 +88,5 @@ export async function executeToolOnce(input: {
     run("UPDATE tool_executions SET status='failed',error=?,ended_at=? WHERE id=? AND status='running' AND attempt_id IS ? AND span_id=?",
       message, new Date().toISOString(), claimed.id, input.attemptId ?? null, input.spanId);
     throw error;
-  }
+  } finally { afterCommit(retryPendingLegacyReleases); }
 }

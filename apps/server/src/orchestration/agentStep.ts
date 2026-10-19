@@ -42,7 +42,7 @@ import { executeToolOnce, toolExecutionKey } from '../tools/executions.ts';
 import { runExternalAgentTurn } from '../execution/runner.ts';
 import { asReadonlyAgent } from '../execution/policy.ts';
 import { captureWorkspaceSnapshot, ensureIsolatedWorkspace, getIsolatedWorkspace, reviewSnapshotPath } from '../workspaces/isolated.ts';
-import { waitForDurableLease } from '../execution/leases.ts';
+import { acquireLegacyResources } from '../execution/resources/legacy.ts';
 import { randomUUID } from 'node:crypto';
 import { assertBindingAuthorized, bindingAuthorized, captureExecutionBinding, saveBindingSnapshot } from '../execution/authority.ts';
 import { enterMember } from '../execution/memberAdmission.ts';
@@ -353,15 +353,17 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
     mkdirSync(root, { recursive: true });
     const canonical = !managed && isExternalRun(opts.run) && !opts.workspaceRoot
       ? realpathSync(getExternalByIdOrThrow(externalId(opts.run.workspace)!).absPath) : realpathSync(root);
-    const holder = 'builtin:' + randomUUID();
     const readonly = opts.agent.permissionMode === 'readonly';
-    const release = await waitForDurableLease('workspace:' + canonical, holder, readonly, controller.signal);
-    let releaseShared: (() => void) | undefined;
+    const workspacePaths = [canonical];
+    if (!isExternalRun(opts.run)) {
+      const shared = path.join(config.sandboxDir, 'shared'); mkdirSync(shared, { recursive: true });
+      workspacePaths.push(realpathSync(shared));
+    }
+    // The private root and shared directory are one atomic resource set. No
+    // partial workspace reservation is held while waiting for the other path.
+    const resources = await acquireLegacyResources({ runId: opts.run.id, agentId: opts.agent.id, attemptId: opts.attemptId,
+      workspaces: workspacePaths.map(path => ({ path, access: readonly ? 'read' : 'write' })), signal: controller.signal });
     try {
-      if (!isExternalRun(opts.run)) {
-        const shared = path.join(config.sandboxDir, 'shared'); mkdirSync(shared, { recursive: true });
-        releaseShared = await waitForDurableLease('workspace:' + realpathSync(shared), holder, readonly, controller.signal);
-      }
       if (controller.signal.aborted || ['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) throw new Error('运行已停止');
       const result = await runBuiltinAgentTurn(opts);
       // A known approval pause retains the reservation and durable tool-call checkpoint.
@@ -370,7 +372,7 @@ async function runAgentTurnImpl(opts: AgentTurnOptions): Promise<AgentTurnResult
       if (managed && !opts.workspaceRoot && !controller.signal.aborted && !['completed', 'failed', 'cancelled'].includes(getRun(opts.run.id)?.status ?? 'cancelled')) result.workspaceSnapshot = await captureWorkspaceSnapshot(opts.run.id, randomUUID(), root);
       if (opts.executionBinding) saveBindingSnapshot(opts.executionBinding, result.workspaceSnapshot);
       return result;
-    } finally { releaseShared?.(); release(); }
+    } finally { resources.release(); }
   } catch (error) {
     const failure = controller.signal.aborted && controller.signal.reason instanceof ExecutionError ? controller.signal.reason : error;
     if(failure instanceof ModelAdmissionPausedError)approvalPaused=true;

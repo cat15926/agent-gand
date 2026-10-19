@@ -2,7 +2,7 @@ import { assertLegacyRun, isLegacyRun } from '../runs/legacyMode.ts';
 import { recoverScopedAttemptCalls } from '../orchestration/modelCallRecovery.ts';
 import { all, get, run, tx } from '../db/database.ts';
 import { getRun } from '../runs/trace.ts';
-import { acquireDurableLease } from './leases.ts';
+import { acquireLegacyMember, cancelLegacyMember, reserveLegacyMember, waitForLegacyResourceChange } from './resources/legacy.ts';
 import { hostOwner, ownerAlive } from './host.ts';
 import { ExecutionError } from './errors.ts';
 
@@ -14,6 +14,7 @@ export function reserveMember(runId: string, agentId: string, scope: string): vo
   assertLegacyRun(runId);
   run(`INSERT OR IGNORE INTO execution_member_tickets(ticket_key,run_id,agent_id,status,created_at)
     VALUES (?,?,?,'waiting',?)`, `${runId}:${agentId}:${scope}`, runId, agentId, new Date().toISOString());
+  reserveLegacyMember(runId, agentId, `${runId}:${agentId}:${scope}`);
 }
 
 /** A FIFO resource reservation referencing the scheduler's attempt, never claiming another attempt. */
@@ -30,11 +31,13 @@ export async function enterMember(input: { runId: string; agentId: string; attem
       VALUES (?,?,?,?,'waiting',?) ON CONFLICT(ticket_key) DO UPDATE SET attempt_id=excluded.attempt_id,
       status='waiting',owner=NULL,started_at=NULL,finished_at=NULL`, key, input.runId, input.agentId,
     input.attemptId ?? null, new Date().toISOString());
+    reserveLegacyMember(input.runId, input.agentId, key);
   });
   for (;;) {
     if (input.signal.aborted || !input.authorized()) {
       run("UPDATE execution_member_tickets SET status='cancelled',finished_at=? WHERE ticket_key=? AND status='waiting'",
         new Date().toISOString(), key);
+      cancelLegacyMember(key);
       throw input.signal.aborted && input.signal.reason instanceof ExecutionError ? input.signal.reason
         : new ExecutionError('cancelled', '排队任务已停止或失去执行权限');
     }
@@ -45,24 +48,25 @@ export async function enterMember(input: { runId: string; agentId: string; attem
       run(`UPDATE execution_member_tickets SET status='cancelled' WHERE agent_id=? AND status='waiting'
         AND EXISTS (SELECT 1 FROM collaboration_dispatches d WHERE ticket_key=d.run_id || ':' || d.target_agent_id || ':collaboration:' || d.id
           AND d.status NOT IN ('queued','running'))`, input.agentId);
+      for (const cancelled of all<{ticket_key:string}>("SELECT ticket_key FROM execution_member_tickets WHERE agent_id=? AND status='cancelled'", input.agentId)) cancelLegacyMember(cancelled.ticket_key);
       const first = get<{ ticket_key: string }>(`SELECT ticket_key FROM execution_member_tickets t JOIN runs r ON r.id=t.run_id
         WHERE agent_id=? AND t.status IN ('waiting','active') AND (t.status='active' OR r.status!='waiting_for_user') ORDER BY seq LIMIT 1`, input.agentId);
       if (first?.ticket_key !== key) return null;
-      let release: () => void;
-      try { release = acquireDurableLease(`member:${input.agentId}`, input.attemptId&&(get('SELECT 1 FROM scoped_delivery_plans WHERE run_id=?',input.runId)||get('SELECT 1 FROM autonomous_work_items WHERE run_id=?',input.runId))?`${key}:attempt:${input.attemptId}`:key, false); }
-      catch (error) { if (error instanceof ExecutionError && error.code === 'policy_rejected') return null; throw error; }
+      const resource = acquireLegacyMember(input.runId, input.agentId, key);
+      if (!resource) return null;
       run(`UPDATE execution_member_tickets SET status='active',owner=?,host=?,pid=?,identity=?,started_at=?
         WHERE ticket_key=? AND status='waiting'`, hostOwner.owner, hostOwner.host, hostOwner.pid, hostOwner.identity,
       new Date().toISOString(), key);
-      return release;
+      return resource;
     });
     if (acquired) return (status = 'done') => {
       run("UPDATE execution_member_tickets SET status=?,finished_at=? WHERE ticket_key=? AND status='active' AND owner=? AND attempt_id IS ?",
         status, status === 'done' ? new Date().toISOString() : null, key, hostOwner.owner,input.attemptId??null);
-      acquired();
+      if (!acquired.release()) run("UPDATE execution_member_tickets SET status='interrupted' WHERE ticket_key=? AND owner=?", key, hostOwner.owner);
       for (const listener of availabilityListeners) listener(input.agentId);
     };
-    await new Promise(resolve => setTimeout(resolve, 25));
+    try { await waitForLegacyResourceChange(input.signal); }
+    catch (error) { if (!input.signal.aborted) throw error; } // Loop owns durable cancellation of both queues.
   }
 }
 

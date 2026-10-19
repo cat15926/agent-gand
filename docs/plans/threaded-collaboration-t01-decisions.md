@@ -186,7 +186,7 @@ interface ExecutionResourcesPort {
 }
 ```
 
-T01 冻结时这些类型名称尚未存在；T02 声明 ThreadedBinding，T03 已交付[专用执行与生命周期端口](../architecture/threaded-execution-boundary-v1.md)。生产资源仍默认拒绝，T04 接入真实资源协调器；旧公共 executor 继续拒绝新模式。Binding 保留共享 ExecutionBinding 的必需字段；id 由服务端为当前 Attempt/执行代际签发并持久保存，不接受调用者任意选择。trusted command/request 从服务器身份与持久记录构造；状态、Epoch、Run 归属必须从数据库重新检查。取消通过 AbortSignal 加持久 fence 双重实现，回调不能仅凭尚未中止的 signal 提交。
+T01 冻结时这些类型名称尚未存在；T02 声明 ThreadedBinding，T03 已交付[专用执行与生命周期端口](../architecture/threaded-execution-boundary-v1.md)。T04 已接入[持久共享资源协调器](../architecture/threaded-resources-v1.md)，生产新模式工作入场与真实 executor 仍关闭；旧公共 executor 继续拒绝新模式。Binding 保留共享 ExecutionBinding 的必需字段；id 由服务端为当前 Attempt/执行代际签发并持久保存，不接受调用者任意选择。trusted command/request 从服务器身份与持久记录构造；状态、Epoch、Run 归属必须从数据库重新检查。取消通过 AbortSignal 加持久 fence 双重实现，回调不能仅凭尚未中止的 signal 提交。
 
 | 包 | 可独立评审的交付 | 退出门槛 |
 | --- | --- | --- |

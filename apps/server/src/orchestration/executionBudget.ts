@@ -11,6 +11,7 @@ import { assertBusinessStageDeadline, businessStageContext } from './businessSta
 import { reserveCost, settleCost, type CostReservationRow } from './costBudget.ts';
 import {loadAutonomousTaskPolicy} from '../runtime/autonomousPolicy.ts';
 import {assertAutonomousModelAdmission} from '../runtime/autonomousExecution.ts';
+import { acquireLegacyModelCall, runWithLegacyProviderEvidence } from '../execution/resources/legacy.ts';
 const modelCallContext=new AsyncLocalStorage<string>();
 const modelCallHooks=new AsyncLocalStorage<{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}>();
 export class ModelAdmissionPausedError extends Error {constructor(){super('用户请求暂停，尚未发出的模型请求保留在队列。');}}
@@ -46,19 +47,31 @@ async function modelChat(runId: string, provider: LLMProvider, request: LlmReque
   };
   const scopedLimits=get<{limits:string}>("SELECT json_extract(record,'$.requestLimits') limits FROM scoped_delivery_plans WHERE run_id=?",runId);
   const autonomous=loadAutonomousTaskPolicy(runId);
+  const callId = modelCallContext.getStore();
+  if (!callId) throw new Error('MODEL_CALL_RESOURCE_CONTEXT_REQUIRED');
+  const resource = await acquireLegacyModelCall(callId, signal);
+  let invoked = false;
   try { return await withActivityTimeout({ ...(scopedLimits ? JSON.parse(scopedLimits.limits) : {}), ...policy?.request.constraints,
     ...(autonomous?{firstResponseTimeoutMs:autonomous.budget.firstResponseTimeoutMs,idleTimeoutMs:autonomous.budget.idleTimeoutMs}:{}),signal, deadlineAt:autonomous?.budget.deadlineAt ?? policy?.execution?.deadlineAt ?? get<{deadline:string}>("SELECT json_extract(record,'$.deadlineAt') deadline FROM scoped_delivery_plans WHERE run_id=?",runId)?.deadline },
-    (signal, activity) => {throwIfStopped(runId,signal);const callId=modelCallContext.getStore();modelCallHooks.getStore()?.onStarted?.();if(callId)startModelCall(callId);return provider.chat({ ...request, signal, onActivity: kind => {
+    (signal, activity) => {throwIfStopped(runId,signal);return runWithLegacyProviderEvidence(resource, callId, () => {
+      throwIfStopped(runId,signal);startModelCall(callId);modelCallHooks.getStore()?.onStarted?.();return provider.chat({ ...request, signal, onActivity: kind => {
       if (!signal.aborted) { trustedActivity(); activity(); request.onActivity?.(kind); }
-    } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } });}); }
+    } }, text => { if (!signal.aborted && text) { trustedActivity(); activity(); delta?.(text); } }); }, () => { invoked = true; });}); }
   catch (error) {
+    if (invoked) resource.unknown();
     if (error instanceof ExecutionError) throw new ExecutionError(error.code, error.message, { ...error.details, modelActivity });
     throw error;
-  }
+  } finally { if (!invoked) resource.release({ reason: 'not_started', sideEffects: 'none' }); }
 }
 
 /** Reserve before I/O so concurrent branches cannot spend the same allowance. Unknown calls retain their reservation. */
 export async function budgetedChat(runId: string, provider: LLMProvider, request: LlmRequest, delta?: DeltaHandler, agentId = '',attemptId?:string,hooks?:{onStarted?:()=>void;onFinished?:()=>void;onWaiting?:()=>void}): Promise<LlmResponse> {
+  if (!agentId) {
+    const saved = get<{ agent_ids: string }>('SELECT agent_ids FROM runs WHERE id=?', runId);
+    const agents: unknown = saved ? JSON.parse(saved.agent_ids) : null;
+    if (!Array.isArray(agents) || agents.length !== 1 || typeof agents[0] !== 'string') throw new Error('MODEL_CALL_AGENT_REQUIRED');
+    agentId = agents[0];
+  }
   const autonomous=assertAutonomousModelAdmission(runId,agentId,attemptId,request.model,'builtin-llm');
   // Revoked authority cannot stream late content. Let the request finish accounting
   // for known supplier usage, then reject the result under the current authority.

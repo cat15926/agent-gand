@@ -46,7 +46,14 @@ registry.createAgent(role('worker'));
 registry.createAgent({ ...role('cli'), model: 'default', execution: { kind: 'external', driver: 'claude-cli' } });
 const events = []; const unsubscribe = subscribe(event => events.push(event));
 const response = { content: 'fixture result', toolCalls: [], usage: { tokensIn: 1, tokensOut: 1, costUsd: 0 }, stopReason: 'stop', truncated: false };
+const pendingProviders = [];
+const pendingProvider = () => new Promise(resolve => pendingProviders.push(() => resolve(response)));
 async function fixture(id, constraints, scenario = 'normal') {
+  // Timeout fences remain held until the actual ignored-abort promise settles.
+  // Each case checks its late callbacks first, then explicitly quiesces the fake
+  // provider before reusing the same role for the next independent scenario.
+  for (const settle of pendingProviders.splice(0)) settle();
+  await new Promise(resolve => setImmediate(resolve));
   const input = { goal: `SCENARIO:${scenario}`, agentIds: [id], recipientIds: [id], strategy: 'serial', workflow: 'routine', workspace: `ext:${registered.id}`, constraints: { readonly: true, ...constraints } };
   const preview = await entry.previewExecutionOrchestration(input);
   assert.ok(!preview.decision.issues.some(issue => issue.severity === 'error'), JSON.stringify(preview.decision.issues));
@@ -76,24 +83,24 @@ try {
   assert.throws(() => entry.submitExecutionOrchestration({ ...freeze.input, constraints: { ...freeze.input.constraints, idleTimeoutMs: 100 }, entryVersion: 1,
     clientRequestId: randomUUID(), previewId: freeze.preview.previewId, orchestrationFingerprint: freeze.preview.fingerprint }), error => error.code === 'PREVIEW_STALE');
   let late, capturedSignal; const deltas = [];
-  await assert.rejects(budgetedChat(freeze.run.id, { chat(req, delta) { capturedSignal = req.signal; late = delta; return new Promise(() => {}); } }, { model: 'mock:fixture', messages: [] }, text => deltas.push(text)), timeout('first_response'));
+  await assert.rejects(budgetedChat(freeze.run.id, { chat(req, delta) { capturedSignal = req.signal; late = delta; return pendingProvider(); } }, { model: 'mock:fixture', messages: [] }, text => deltas.push(text)), timeout('first_response'));
   assert.equal(capturedSignal.aborted, true); late('late_api_output'); assert.deepEqual(deltas, []);
 
   const stalled = await fixture('worker', { firstResponseTimeoutMs: 100, idleTimeoutMs: 30, maxTokens: 100 });
-  await assert.rejects(budgetedChat(stalled.run.id, { chat(req) { req.onActivity('reasoning'); return new Promise(() => {}); } }, { model: 'mock:fixture', messages: [] }), timeout('idle'));
+  await assert.rejects(budgetedChat(stalled.run.id, { chat(req) { req.onActivity('reasoning'); return pendingProvider(); } }, { model: 'mock:fixture', messages: [] }), timeout('idle'));
   assert.equal(database.get('SELECT status FROM orchestration_token_reservations WHERE run_id=?', stalled.run.id).status, 'unknown');
   let replayed = false;
   await assert.rejects(budgetedChat(stalled.run.id, { chat() { replayed = true; return response; } }, { model: 'mock:fixture', messages: [] }), /消耗未知/);
   assert.equal(replayed, false, 'timeout cannot replay a call with unknown usage');
 
   const deadline = await fixture('worker', { deadlineMs: 30 });
-  await assert.rejects(budgetedChat(deadline.run.id, { chat() { return new Promise(() => {}); } }, { model: 'mock:fixture', messages: [] }), timeout('total'));
-  mockProvider.chat = () => new Promise(() => {});
+  await assert.rejects(budgetedChat(deadline.run.id, { chat() { return pendingProvider(); } }, { model: 'mock:fixture', messages: [] }), timeout('total'));
+  mockProvider.chat = () => pendingProvider();
   const supervisor = await fixture('worker', { firstResponseTimeoutMs: 30 });
   await assert.rejects(chatOnce(registry.getAnyAgent('worker'), supervisor.run.id, trace.startSpan(supervisor.run.id, { spanKind: 'agent', name: 'supervisor fixture' }).id, 'analyze'), timeout('first_response'));
   assert.equal(database.get("SELECT json_extract(attributes,'$.\"execution.timeout_kind\"') kind FROM run_events WHERE run_id=? AND span_kind='llm'", supervisor.run.id).kind, 'first_response');
   assert.equal(database.get("SELECT json_extract(attributes,'$.\"execution.limit_ms\"') limit_ms FROM run_events WHERE run_id=? AND span_kind='llm'", supervisor.run.id).limit_ms, 30);
-  mockProvider.chat = req => { req.onActivity('reasoning'); return new Promise(() => {}); };
+  mockProvider.chat = req => { req.onActivity('reasoning'); return pendingProvider(); };
   const builtinIdle = await fixture('worker', { idleTimeoutMs: 30 });
   await assert.rejects(chatOnce(registry.getAnyAgent('worker'), builtinIdle.run.id, trace.startSpan(builtinIdle.run.id, { spanKind: 'agent', name: 'idle fixture' }).id, 'analyze'), timeout('idle'));
   const idleAttrs = trace.listEvents(builtinIdle.run.id).find(event => event.spanKind === 'llm').attributes;

@@ -12,7 +12,7 @@ Binding 的随机 ID 来自服务端，保存 owner、Thread、Invocation、Run�
 
 ## 资源与执行端口
 
-[资源合同](../../apps/server/src/threaded/contracts.ts)接受受信协调器签发的完整 claim，提供 `assertCurrent`、`verifyQuiescence` 和 `release`。生产默认实现全部拒绝。T03 的 fake 资源不代表 T04 的持久资源协调器；T04 仍须完成全模式竞争、容量、真实 Session、代际领取和释放恢复。
+[资源合同](../../apps/server/src/threaded/contracts.ts)接受受信协调器签发的完整 claim，提供 `assertCurrent`、`verifyQuiescence` 和 `release`。T03 交付时生产实现全部拒绝；T04 已替换为[持久共享协调器](threaded-resources-v1.md)，并增加可执行状态检查、started/unknown 事务接线。T03 的 fake 证据仍保留为该阶段历史记录，真实后端证明生产者尚未开放。
 
 [独立 runner](../../apps/server/src/threaded/runner.ts)只接受显式注入 executor，并要求 `AGENT_GAND_ISOLATED_WORKER=1`。生产服务没有 executor；设置模式为 execute 仍不能执行。上下文、Session 与预算引用在本阶段只验证端口参数，实际解析及预算预留属于 T04/T06/T07。
 

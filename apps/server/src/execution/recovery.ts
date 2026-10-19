@@ -4,6 +4,7 @@ import { getExecution, updateExecution, interruptStaleExecutions } from './store
 import { quiesceNativeProcesses, ownerAlive } from './host.ts';
 import { captureEvidence } from './evidence.ts';
 import { cleanupRecoveredScopedNative } from './scopedNative.ts';
+import { recoverLegacyResources } from './resources/legacy.ts';
 
 /** Recovery never launches a model or repeats a native operation. */
 export async function recoverExternalExecutions(): Promise<void> {
@@ -28,4 +29,5 @@ export async function recoverExternalExecutions(): Promise<void> {
   }
   run(`UPDATE external_agent_sessions SET status='invalid' WHERE status='inflight' AND execution_id IN (SELECT id FROM external_agent_executions WHERE run_id IN (${legacyRunIdsSql}))`);
   interruptStaleExecutions();
+  recoverLegacyResources();
 }

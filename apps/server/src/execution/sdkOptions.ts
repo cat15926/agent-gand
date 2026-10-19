@@ -46,7 +46,7 @@ export function sdkOptions(input: SdkWorkerInput, gate: (id: string, tool: strin
     ...(input.session?.ephemeral ? { maxTurns:Math.min(8,Math.max(1,input.scopedToolTurns??1)) } : input.controlOnly ? { maxTurns: 2 } : {}),
     ...(input.connectionTest ? { thinking: { type: 'disabled' as const }, effort: 'low' as const, maxTurns: 1 } : {}),
     settings: { ...(input.session?.ephemeral ? { autoMemoryEnabled:false, claudeMdExcludes:['**'] } : {}), syncClaudeAiSkills: false, syncClaudeAiPlugins: false, permissions: { deny: [`Read(${config.accounts.privateDir}/**)`] } },
-    includePartialMessages: true, persistSession: !!input.session && !input.session.ephemeral,
+    includePartialMessages: true, persistSession: !!input.session && !input.session.ephemeral && !input.session.transient,
     ...(input.session?.id ? input.session.resume ? { resume: input.session.id } : { sessionId: input.session.id } : {}),
     hooks: { PreToolUse: [{ hooks: [pre], timeout: 86400 }],
       ...(input.bridge ? { PostToolUse:[{hooks:[afterControl]}], PostToolUseFailure:[{hooks:[afterControl]}] } : {}),

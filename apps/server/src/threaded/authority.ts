@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { ThreadedBinding } from '@agent-gand/shared';
 import { ThreadedAuthorityError, unavailableThreadedResources } from './contracts.ts';
-import type { ExecutionResourcesPort, ThreadedAuthority, ThreadedClaimIdentity } from './contracts.ts';
+import type { ExecutionResourcesPort, QuiescenceProof, ThreadedAuthority, ThreadedClaimIdentity } from './contracts.ts';
 
 type BindingRow = {
   id: string; attempt_id: string; invocation_id: string; thread_id: string; owner_id: string;
@@ -111,8 +111,11 @@ export function createThreadedAuthority(db: Database.Database, resources: Execut
         .get(account.id, account.identity_generation))) return deny();
     return account;
   }
-  function authorize(row: BindingRow, options: { allowApproval?: boolean } = {}): void {
+  function authorize(row: BindingRow, options: { allowApproval?: boolean; quiescence?: QuiescenceProof } = {}): void {
     const live = current(row);
+    // A verified terminal receipt permits recording its output, never another external effect.
+    if (options.quiescence) resources.verifyQuiescence(claimFrom(row), options.quiescence);
+    else resources.assertExecutable?.(claimFrom(row));
     for (const scope of ['member', 'invocation'] as const) {
       const control = db.prepare(`SELECT action FROM threaded_control_requests WHERE thread_id=? AND owner_id=? AND scope=?
         AND ${scope === 'member' ? 'agent_id' : 'invocation_id'}=? ORDER BY rowid DESC LIMIT 1`)
@@ -175,7 +178,7 @@ export function createThreadedAuthority(db: Database.Database, resources: Execut
       return bindingFrom(row);
     },
     assertAuthorized(binding, options) { authorize(persisted(binding), options); },
-    authorized(binding) { try { authorize(persisted(binding)); return true; } catch { return false; } },
+    authorized(binding, options) { try { authorize(persisted(binding), options); return true; } catch { return false; } },
     assertCurrent(binding) { current(persisted(binding)); },
     claim(binding) { return claimFrom(persisted(binding)); },
   };

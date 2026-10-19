@@ -5,8 +5,10 @@ import path from 'node:path';
 import type { ExternalAgentExecution } from '@agent-gand/shared';
 import type { AgentTurnOptions } from '../orchestration/agentStep.ts';
 import { config } from '../config.ts';
-import { all, run } from '../db/database.ts';
-import { waitForDurableLease } from './leases.ts';
+import { all, db, get, run } from '../db/database.ts';
+import { acquireLegacyResources, legacyResourceOwner, releaseLegacyNativeResource, tryAcquireLegacySession, type LegacyResourceHandle } from './resources/legacy.ts';
+import { invalidateResourceSession, nativeSessionResourceKey, registerLegacyResourceSession } from './resources/sessions.ts';
+import type { ResourceClaimIdentity } from './resources/types.ts';
 import { ExecutionError } from './errors.ts';
 import { assertBindingAuthorized } from './authority.ts';
 import type { ResolvedAccount } from '../accounts/resolver.ts';
@@ -16,7 +18,7 @@ import { attemptAccess, runSourceAccess } from '../messaging/access.ts';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 interface Document { role: string; blocks: string[] }
-export interface NativeSessionInput { id: string | null; resume: boolean; ephemeral?: boolean; configDir?: string; projectDir?: string; usageBaseline?: { tokensIn: number | null; tokensOut: number | null; costUsd: number | null } }
+export interface NativeSessionInput { id: string | null; resume: boolean; ephemeral?: boolean; transient?: boolean; configDir?: string; projectDir?: string; usageBaseline?: { tokensIn: number | null; tokensOut: number | null; costUsd: number | null } }
 export interface SessionRecord {
   id: string; bindingKey: string; nativeId: string | null; driver: string; cwd: string; host: string;
   status: 'inflight' | 'ready' | 'invalid'; executionId: string; revision: number;
@@ -49,12 +51,48 @@ async function accountBinding(execution: ExternalAgentExecution): Promise<string
     return identity ? hash(JSON.stringify([path.resolve(config.externalAgents.codexHome), auth.auth_mode, identity])) : null;
   } catch { return null; }
 }
-export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false, connection?: ResolvedAccount | null): Promise<SessionHandle | undefined> {
+async function prepareColdSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal,
+  connection?: ResolvedAccount | null, parentClaim?: ResourceClaimIdentity): Promise<SessionHandle> {
+  const id = randomUUID(), bindingKey = `cold:${execution.id}:${id}`;
+  const requestedDir = path.resolve(opts.scopedNative?.home ?? connection?.runtimeHome
+    ?? (execution.driver.startsWith('claude') ? config.externalAgents.claudeHome : config.externalAgents.codexHome));
+  await mkdir(requestedDir, { recursive: true, mode: 0o700 });
+  const configDir = await realpath(requestedDir);
+  const accountIdentity = connection ? `${connection.accountId}:${connection.binding?.identityGeneration ?? 0}` : `legacy:${execution.driver}:${configDir}`;
+  const record: SessionRecord = { id, bindingKey, nativeId: execution.driver === 'claude-sdk' ? randomUUID() : null,
+    driver: execution.driver, cwd: execution.cwd, host: hostname(), status: 'inflight', executionId: execution.id, revision: 1,
+    configDir, projectDir: opts.scopedNative ? `scope-${opts.scopedNative.boundary.sessionBoundaryId}` : '',
+    documents: [], blocks: {}, reason: opts.scopedNative ? '独立 Scope 冷会话，不复用历史' : '单次冷会话，不复用历史', updatedAt: new Date().toISOString() };
+  const index = (nativeId: string) => registerLegacyResourceSession(db, { ownerId: legacyResourceOwner(), bindingKey,
+    nativeId, resourceKey: nativeSessionResourceKey({ backend: execution.driver, accountIdentity, host: hostname(), nativeId }),
+    record: { legacy: true, transient: true, backend: execution.driver, accountIdentity, host: hostname(), configDir } });
+  let ref = record.nativeId ? index(record.nativeId) : undefined;
+  let resource = ref ? await acquireLegacyResources({ runId: opts.run.id, agentId: opts.agent.id, attemptId: opts.attemptId,
+    session: ref, parentClaim, signal, legacyExecutionId: execution.id }) : undefined;
+  return { record, resume: false, input: { id: record.nativeId, resume: false,
+    ...(opts.scopedNative ? { ephemeral: true } : { transient: true }), configDir, projectDir: record.projectDir },
+    prompt: opts.messages.filter(message => message.role !== 'system').map(message => `[${message.role}]\n${message.content}`).join('\n\n'),
+    bind(nativeId) {
+      if (!nativeId || nativeId.length > 500 || (record.nativeId && record.nativeId !== nativeId)) {
+        if (ref) invalidateResourceSession(db, ref, 'unexpected_native_id');
+        resource?.unknown(); throw new ExecutionError('protocol_error', '原生会话与已领取的真实会话身份不一致');
+      }
+      if (!record.nativeId) {
+        ref = index(nativeId); resource = tryAcquireLegacySession({ runId: opts.run.id, agentId: opts.agent.id,
+          attemptId: opts.attemptId, executionId: execution.id, session: ref, parentClaim });
+        record.nativeId = nativeId;
+      }
+    },
+    finish() { record.status = 'invalid'; },
+    release() { if (resource) releaseLegacyNativeResource(resource, execution.id); },
+  };
+}
+export async function prepareNativeSession(opts: AgentTurnOptions, execution: ExternalAgentExecution, signal: AbortSignal, forceCold = false, connection?: ResolvedAccount | null, parentClaim?: ResourceClaimIdentity): Promise<SessionHandle | undefined> {
   if (loadRuntimeContract(opts.run.id)?.features?.scopedCollaboration && !opts.scopedNative) throw new Error('BACKEND_SCOPE_UNSUPPORTED: scoped native history requires provenance-aware integration');
   assertBindingAuthorized(opts.executionBinding);
   const policy = opts.agent.execution?.kind === 'external' ? opts.agent.execution.sessionPolicy ?? 'turn' : 'turn';
-  if (opts.scopedNative) { opts.scopedNative.assertAuthorized(); return undefined; }
-  if (policy === 'turn') return undefined;
+  if (opts.scopedNative) opts.scopedNative.assertAuthorized();
+  if (policy === 'turn' || opts.scopedNative) return prepareColdSession(opts, execution, signal, connection, parentClaim);
   const account = connection?.managed ? connection.cacheKey : await accountBinding(execution);
   const access = opts.attemptId ? attemptAccess(opts.attemptId) : runSourceAccess(opts.run.id);
   const scope = policy === 'conversation' ? opts.run.conversationId : opts.run.id;
@@ -68,7 +106,11 @@ export async function prepareNativeSession(opts: AgentTurnOptions, execution: Ex
       planId: opts.executionBinding.planId, revision: opts.executionBinding.planRevision, stepId: opts.executionBinding.stepId,
       reviewTargets: opts.executionBinding.reviewTargets,
     } : undefined }));
-  const release = await waitForDurableLease('session:' + bindingKey, execution.id, false, signal);
+  const resources: LegacyResourceHandle[] = [];
+  const release = () => { for (const resource of resources) {
+    if (get('SELECT 1 FROM external_agent_executions WHERE id=?', execution.id)) releaseLegacyNativeResource(resource, execution.id);
+    else resource.release(); // metadata-only preparation, no execution was registered.
+  } };
   try {
     let previous = all<{ record: string }>("SELECT record FROM external_agent_sessions WHERE binding_key=? AND status='ready' ORDER BY rowid DESC", bindingKey).map((row) => JSON.parse(row.record) as SessionRecord)[0];
     let reason = forceCold ? '恢复预检失败，在模型 turn 前建立新会话' : previous ? '已验证绑定，尝试恢复完成会话' : '首次执行或角色、账户、工作区、策略绑定改变';
@@ -85,12 +127,29 @@ export async function prepareNativeSession(opts: AgentTurnOptions, execution: Ex
     const record: SessionRecord = previous ? { ...previous, status: 'inflight', executionId: execution.id, revision: previous.revision + 1, reason, updatedAt: new Date().toISOString() }
       : { id, bindingKey, nativeId: execution.driver === 'claude-sdk' ? randomUUID() : null, driver: execution.driver, cwd: execution.cwd, host: hostname(), status: 'inflight', executionId: execution.id,
         revision: 1, configDir, projectDir: 'agent-gand-' + id, documents: [], blocks: {}, reason, updatedAt: new Date().toISOString() };
+    const accountIdentity = connection ? `${connection.accountId}:${connection.binding?.identityGeneration ?? 0}` : account ?? `unmanaged:${execution.driver}:${configDir}`;
+    const indexSession = (nativeId: string) => registerLegacyResourceSession(db, { ownerId: legacyResourceOwner(), bindingKey,
+      nativeId, resourceKey: nativeSessionResourceKey({ backend: execution.driver, accountIdentity, host: hostname(), nativeId }),
+      record: { legacy: true, backend: execution.driver, accountIdentity, host: hostname(), configDir } });
+    // Resolve filesystem/account/native identity before waiting for execution
+    // resources. A policy hash is never used as the actual native mutex.
+    if (record.nativeId) resources.push(await acquireLegacyResources({ runId: opts.run.id, agentId: opts.agent.id,
+      attemptId: opts.attemptId, session: indexSession(record.nativeId), signal, parentClaim,
+      ...(get('SELECT 1 FROM external_agent_executions WHERE id=?', execution.id) ? { legacyExecutionId: execution.id } : {}) }));
     const delivery = contextDelivery(opts.messages, previous);
     const persist = () => run('INSERT OR REPLACE INTO external_agent_sessions (id,binding_key,status,execution_id,record) VALUES (?,?,?,?,?)', record.id, record.bindingKey, record.status, record.executionId, JSON.stringify(record));
     persist(); // Intent precedes native inference; delivery commits only at a safe terminal.
     return { record, resume: !!previous, input: { id: record.nativeId, resume: !!previous, configDir, projectDir: record.projectDir, usageBaseline: record.totalUsage },
       prompt: '【平台上下文投递】下面是当前上下文文档的有序块引用；newBlocks 只包含新增或改变的原文。恢复时引用的旧块沿用已有内容，删除的引用不再属于当前文档。按当前任务执行。\n' + JSON.stringify({ revision: record.revision, runId: execution.runId, documents: delivery.documents, newBlocks: delivery.additions }),
-      bind(nativeId) { if (!uuid.test(nativeId) || (record.nativeId && record.nativeId !== nativeId)) throw new ExecutionError('protocol_error', '原生会话与已登记绑定不一致'); record.nativeId = nativeId; persist(); },
+      bind(nativeId) {
+        if (!uuid.test(nativeId) || (record.nativeId && record.nativeId !== nativeId)) throw new ExecutionError('protocol_error', '原生会话与已登记绑定不一致');
+        // Older Codex drivers discover the first ID only after launch. Preserve
+        // that legacy capability, but fail synchronously on a collision; new
+        // Threaded backends cannot use this weaker admission sequence.
+        if (!record.nativeId) resources.push(tryAcquireLegacySession({ runId: opts.run.id, agentId: opts.agent.id,
+          attemptId: opts.attemptId, executionId: execution.id, session: indexSession(nativeId), parentClaim }));
+        record.nativeId = nativeId; persist();
+      },
       finish(safe) { record.status = safe && !!account ? 'ready' : 'invalid'; if (safe) { record.documents = delivery.documents; record.blocks = delivery.blocks; } persist(); },
       release,
     };

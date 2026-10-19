@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createFakeThreadedResources } from './fixtures/threadedFakeExecutor.mjs';
 
 const root = await mkdtemp(path.join(tmpdir(), 'agent-gand-threaded-controls-'));
 Object.assign(process.env, {
@@ -31,6 +30,9 @@ try {
   const management = await import('../apps/server/src/accounts/access.ts');
   const { revokeAccount } = await import('../apps/server/src/accounts/actions.ts');
   const { threadedLifecycle: productionLifecycle } = await import('../apps/server/src/threaded/service.ts');
+  const { executionResources: resources } = await import('../apps/server/src/execution/resources/service.ts');
+  const { prepareThreadedSession } = await import('../apps/server/src/execution/resources/sessions.ts');
+  const workspace = path.join(root, 'workspace'); await mkdir(workspace);
   const timestamp = new Date().toISOString();
   db.prepare(`INSERT INTO accounts(id,display_name,provider,auth_type,source,version,config_version,created_at,updated_at)
     VALUES('fixture-account','fixture','openai','api_key','managed',1,1,?,?)`).run(timestamp, timestamp);
@@ -45,7 +47,6 @@ try {
     return t;
   };
   const thread = room('control room'), other = room('other room');
-  const resources = createFakeThreadedResources();
   const authority = createThreadedAuthority(db, resources);
   const lifecycle = createThreadedLifecycle(db, authority, { resources, onInvalidate: ids => {
     for (const id of ids) abortThreadedExecution(id);
@@ -53,8 +54,12 @@ try {
   const prepare = (t = thread, agentId = 'agent-a') => {
     const invocation = lifecycle.createInvocation({ ownerId: t.ownerId, threadId: t.id, agentId,
       causalRootId: randomUUID(), goal: 'control fixture', requestId: randomUUID() });
-    const claim = resources.acquire({ ownerId: t.ownerId, threadId: t.id, invocationId: invocation.id,
-      runId: invocation.runId, agentId });
+    const session = prepareThreadedSession(db, { ownerId: t.ownerId, threadId: t.id, agentId,
+      backend: 'api', backendVersion: 'fixture', model: 'mock:fixture', workspace, informationBoundary: 'fixture-members' });
+    const ticket = resources.enqueue({ requestKey: randomUUID(), operationId: randomUUID(), mode: 'threaded',
+      ownerId: t.ownerId, threadId: t.id, invocationId: invocation.id, runId: invocation.runId, agentId,
+      attemptId: randomUUID(), accountId: 'fixture-account', session, workspaces: [{ path: workspace, access: 'read' }] });
+    const claim = resources.tryAcquire(ticket.id); assert.ok(claim);
     const binding = lifecycle.prepareAttempt({ ownerId: t.ownerId, invocationId: invocation.id, claim });
     lifecycle.startAttempt(binding);
     return binding;
@@ -141,7 +146,8 @@ try {
   const after = db.prepare('SELECT * FROM threaded_invocations ORDER BY id').all();
   productionLifecycle.recoverAll();
   assert.deepEqual(db.prepare('SELECT * FROM threaded_invocations ORDER BY id').all(), after);
-  assert.equal(resources.releases.length, 0, 'Controls never unconditionally release an unknown process');
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM execution_resource_claims WHERE state='released'").get().n, 0,
+    'Controls never unconditionally release an unknown process');
   assert.equal(networkCalls, 0);
   console.log('threaded controls passed: authenticated scoped HTTP, CSRF, idempotency, sibling isolation, logout independence, atomic account revoke/abort, production recovery, zero network');
 } finally {
