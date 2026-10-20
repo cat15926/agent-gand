@@ -5,6 +5,7 @@ import { applyThreadedFoundationMigration, THREADED_FOUNDATION_MIGRATION } from 
 import { applyThreadedExecutionMigration, THREADED_EXECUTION_MIGRATION } from './threadedExecutionMigration.ts';
 import { applyExecutionResourcesMigration, EXECUTION_RESOURCES_MIGRATION } from './executionResourcesMigration.ts';
 import { applyThreadedMessagingMigration, THREADED_MESSAGING_MIGRATION } from './threadedMessagingMigration.ts';
+import { applyThreadedSchedulingMigration, THREADED_SCHEDULING_MIGRATION } from './threadedSchedulingMigration.ts';
 
 // These descriptors are immutable. Later upgrades append a version instead of editing one.
 export const ORCHESTRATION_MIGRATIONS = [
@@ -36,6 +37,7 @@ export const ORCHESTRATION_MIGRATIONS = [
   THREADED_EXECUTION_MIGRATION,
   EXECUTION_RESOURCES_MIGRATION,
   THREADED_MESSAGING_MIGRATION,
+  THREADED_SCHEDULING_MIGRATION,
 ] as const;
 export const migrationChecksum = (descriptor: string): string => createHash('sha256').update(descriptor).digest('hex');
 const tables = (db: Database.Database): Set<string> => new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>).map(r => r.name));
@@ -98,6 +100,7 @@ export function applyOrchestrationSchemaMigrations(db: Database.Database): void 
     applyThreadedExecutionMigration(db);
     applyExecutionResourcesMigration(db);
     applyThreadedMessagingMigration(db);
+    applyThreadedSchedulingMigration(db);
     for (const migration of ORCHESTRATION_MIGRATIONS) db.prepare(`INSERT OR IGNORE INTO orchestration_schema_migrations
       (version,name,checksum,applied_at) VALUES (?,?,?,?)`).run(migration.version, migration.name, migrationChecksum(migration.descriptor), new Date().toISOString());
   }).immediate();

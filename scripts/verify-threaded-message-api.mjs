@@ -131,6 +131,22 @@ try {
   assert.equal(db.prepare('SELECT COUNT(*) n FROM messages').get().n, 0);
   checks.push('Production admission stays closed in all configured modes; isolated injected acceptance has CSRF/identity validation, durable stable retries/conflicts, and zero Runs/legacy messages');
 
+  db.prepare("UPDATE threaded_threads SET state='paused' WHERE id=?").run(thread.id);
+  const pausedInput = { clientRequestId: 'http-paused', body: 'Authorized input while paused', targets: ['aa'] };
+  const pausedAccepted = await request(url, 'POST', auth, pausedInput);
+  assert.equal(pausedAccepted.statusCode, 200, pausedAccepted.body);
+  const pausedReceipt = pausedAccepted.json().receipt;
+  assert.equal(pausedReceipt.wakes.length, 1);
+  assert.equal(pausedReceipt.wakes[0].status, 'pending');
+  assert.deepEqual((await request(url, 'POST', auth, pausedInput)).json().receipt, pausedReceipt);
+  assert.equal((await request(`${url}/${pausedReceipt.message.id}`, 'GET', auth)).json().message.body, pausedInput.body);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM runs').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM threaded_attempts').get().n, 0);
+  db.prepare("UPDATE threaded_threads SET state='closed' WHERE id=?").run(thread.id);
+  assert.equal((await request(url, 'POST', auth, { ...pausedInput, clientRequestId: 'http-closed' })).statusCode, 409);
+  db.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(thread.id);
+  checks.push('Paused Thread accepts authorized HTTP messages and persists one pending Wake with stable retries and historical reads, without an execution Run; closed Thread rejects new input');
+
   const hints = [], socketEvents = [];
   const socket = await app.injectWS(`/api/threaded/ws?threadId=${thread.id}`, { headers: { ...headers, ...auth },
     socket: { remoteAddress: '127.0.0.1' } }, { onInit(ws) { ws.on('message', raw => socketEvents.push(JSON.parse(String(raw)))); } });

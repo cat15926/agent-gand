@@ -32,8 +32,7 @@ import { claimRuntimeHost, releaseRuntimeHost } from './execution/host.ts';
 import { recoverMemberAdmissions } from './execution/memberAdmission.ts';
 import { reopenInterruptedTaskResponsibilities } from './runtime/taskAdapter.ts';
 import { recoverCostReservations } from './orchestration/costBudget.ts';
-import { threadedLifecycle } from './threaded/service.ts';
-import { threadedMessaging } from './threaded/messagingService.ts';
+import { threadedRuntime } from './threaded/service.ts';
 
 claimRuntimeHost();
 
@@ -55,13 +54,13 @@ const preferenceMigration = migrateRoomPreferences(db);
 app.log.info({ preferenceMigration }, '编排房间默认偏好迁移完成');
 
 // 新进程接管：关闭旧 attempt，重新排队遗留任务，并恢复主管调度。
-// Threaded recovery records uncertainty; it never replays a provider request or borrows legacy cleanup.
-threadedLifecycle.recoverAll();
 await recoverAccountLogins();
 await recoverAccountTests();
 await recoverExternalExecutions();
 recoverCostReservations();
-threadedMessaging().recover();
+// Reconcile native/host facts first. Threaded then repairs its own durable queue,
+// budget and release receipts; the production service has no execution port.
+threadedRuntime.recover();
 recoverMemberAdmissions();
 interruptRunningAttempts();
 reopenInterruptedTaskResponsibilities();
@@ -84,6 +83,7 @@ durableHoldTimer.unref();
 async function shutdown(signal: string): Promise<void> {
   clearInterval(collaborationLeaseTimer);
   clearInterval(durableHoldTimer);
+  threadedRuntime.close();
   app.log.info(`收到 ${signal}，正在关闭…`);
   await Promise.all([shutdownAccountTests(), shutdownAccountLogins(), shutdownExternalAgents()]);
   await app.close();

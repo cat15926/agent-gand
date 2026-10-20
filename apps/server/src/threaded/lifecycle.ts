@@ -5,6 +5,7 @@ import {
   ThreadedAuthorityError, unavailableThreadedResources,
   type ExecutionOutcome, type ExecutionResourcesPort, type QuiescenceProof,
   type ThreadedAuthority, type ThreadedBudgetState, type ThreadedClaimIdentity,
+  type ThreadedResponseRouting,
 } from './contracts.ts';
 
 type InvocationStatus = 'queued' | 'running' | 'waiting' | 'unknown' | 'completed' | 'failed' | 'cancelled';
@@ -41,6 +42,7 @@ export interface InvocationTerminalProof {
   budgetState: ThreadedBudgetState;
   quiescence: QuiescenceProof;
   reason?: string;
+  response?: ThreadedResponseRouting;
 }
 export interface RecoveryPlan {
   invocationId: string; runId: string | null; status: InvocationStatus;
@@ -59,8 +61,21 @@ function required(value: string, max = 500): string {
 export function createThreadedLifecycle(db: Database.Database, authority: ThreadedAuthority, options: {
   resources?: ExecutionResourcesPort;
   onInvalidate?: (invocationIds: string[]) => void;
+  maxAttempts?: (invocationId: string) => number;
+  onStartWithinTransaction?: (binding: ThreadedBinding) => void;
+  onOutcomeWithinTransaction?: (binding: ThreadedBinding, outcome: ExecutionOutcome, context: { publishResponse: boolean }) => ThreadedBudgetState | void;
+  onOutcomeAppliedWithinTransaction?: (binding: ThreadedBinding, outcome: ExecutionOutcome, result: InvocationResult) => void;
+  onTerminalWithinTransaction?: (proof: InvocationTerminalProof) => void;
+  assertDirectTerminal?: (proof: InvocationTerminalProof) => void;
+  onCommitted?: () => void;
 } = {}) {
   const resources = options.resources ?? unavailableThreadedResources;
+  const maxAttempts = (invocationId: string) => {
+    const limit = options.maxAttempts?.(invocationId) ?? 2;
+    if (!Number.isSafeInteger(limit) || limit < 1) fail('THREADED_ATTEMPT_LIMIT_INVALID');
+    return limit;
+  };
+  const notifyCommitted = () => { try { options.onCommitted?.(); } catch { /* Durable facts repair lost hints. */ } };
   const getInvocation = (id: string): InvocationRow => {
     const row = db.prepare('SELECT * FROM threaded_invocations WHERE id=?').get(id) as InvocationRow | undefined;
     return row ?? fail('THREADED_INVOCATION_NOT_FOUND');
@@ -167,7 +182,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (previous && (!terminal(previous.status) || previous.execution_stage !== 'quiescent' || previous.resource_release_state !== 'released')) fail('THREADED_PREVIOUS_ATTEMPT_NOT_QUIESCENT');
       if (previous && (!previous.outcome_record || !(JSON.parse(previous.outcome_record) as OutcomeReceipt).retryPermitted)) fail('THREADED_RECONCILIATION_REQUIRED');
       const attemptNo = (previous?.attempt_no ?? 0) + 1;
-      if (attemptNo > 2) fail('THREADED_ATTEMPT_LIMIT');
+      if (attemptNo > maxAttempts(inv.id)) fail('THREADED_ATTEMPT_LIMIT');
       if (previous && claim.generation <= previous.generation) fail('THREADED_STALE_GENERATION');
       const now = new Date().toISOString();
       const frozenAgent = db.prepare('SELECT version,definition FROM run_agent_snapshots WHERE run_id=? AND agent_id=?')
@@ -200,6 +215,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
   function startAttempt(binding: ThreadedBinding): void {
     db.transaction(() => {
       authority.assertAuthorized(binding);
+      options.onStartWithinTransaction?.(binding);
       const changed = db.prepare(`UPDATE threaded_attempts SET status='running',execution_stage='started',version=version+1,updated_at=?
         WHERE id=? AND invocation_id=? AND status='prepared' AND execution_stage='not_started'`)
         .run(new Date().toISOString(), binding.attemptId, binding.invocationId).changes;
@@ -269,6 +285,7 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
       if (!output || hash(output.content) !== output.content_hash) fail('THREADED_OUTPUT_PROOF_REQUIRED');
       if (attempt(inv)?.execution_stage !== 'started') fail('THREADED_EXECUTION_PROOF_REQUIRED');
     }
+    options.onTerminalWithinTransaction?.(proof);
     const now = new Date().toISOString();
     db.prepare(`INSERT INTO threaded_invocation_terminals(invocation_id,thread_id,owner_id,run_id,attempt_id,binding_id,output_id,status,proof,committed_at)
       VALUES(?,?,?,?,?,?,?,?,?,?)`).run(inv.id, inv.thread_id, inv.owner_id, binding.runId, binding.attemptId, binding.id,
@@ -297,64 +314,83 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
     }
     const claim = authority.claim(proof.binding);
     const committed = db.transaction(() => {
+      options.assertDirectTerminal?.(proof);
       resources.verifyQuiescence(claim, proof.quiescence);
       db.prepare(`UPDATE threaded_attempts SET outcome_record=?,resource_release_state='pending' WHERE id=?`)
         .run(JSON.stringify({ outcomeDigest: hash(JSON.stringify(proof)), quiescence: proof.quiescence, budgetState: proof.budgetState }), proof.binding.attemptId);
       return terminalWithinTransaction(proof);
     }).immediate();
-    return { ...committed, resourceReleasePending: !releaseVerified(proof.binding, proof.quiescence, claim) };
+    const committedResult = { ...committed, resourceReleasePending: !releaseVerified(proof.binding, proof.quiescence, claim) };
+    notifyCommitted();
+    return committedResult;
   }
 
   function recordOutcome(binding: ThreadedBinding, outcome: ExecutionOutcome): InvocationResult {
     if (db.inTransaction) fail('THREADED_OUTCOME_REQUIRES_OUTERMOST_TRANSACTION');
     let release: QuiescenceProof | undefined; let releaseClaim: ThreadedClaimIdentity | undefined;
     const applied = db.transaction(() => {
-      assertPersistedIdentity(binding);
-      const inv = getInvocation(binding.invocationId); const current = attempt(inv);
-      if (current?.execution_stage === 'quiescent') {
-        const receipt = current.outcome_record ? JSON.parse(current.outcome_record) as OutcomeReceipt : null;
-        if (!receipt || receipt.outcomeDigest !== hash(JSON.stringify(outcome))) fail('THREADED_OUTCOME_ALREADY_COMMITTED');
-        return { ...result(inv.id), terminal: terminal(inv.status), resourceReleasePending: current.resource_release_state !== 'released' };
-      }
-      authority.assertCurrent(binding);
-      if (terminal(inv.status)) fail('THREADED_INVOCATION_ALREADY_TERMINAL');
-      const now = new Date().toISOString();
-      if (outcome.kind === 'unknown') {
-        resources.markUnknown?.(authority.claim(binding));
-        if (inv.status === 'unknown' && inv.recovery_reason === outcome.reason && current?.status === 'unknown'
-          && current.execution_stage === 'unknown' && current.execution_reason === outcome.reason) return result(inv.id);
-        db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
-          .run(outcome.reason, now, binding.attemptId);
-        updateProjection(inv.id, 'unknown', outcome.reason); expireApprovals(inv.id);
-        return result(inv.id);
-      }
-      resources.verifyQuiescence(authority.claim(binding), outcome.quiescence);
-      release = outcome.quiescence; releaseClaim = authority.claim(binding);
-      const budgetState = outcome.kind === 'not_started' ? 'settled' : outcome.budgetState;
-      if (outcome.kind === 'not_started' && (outcome.quiescence.reason !== 'not_started' || outcome.quiescence.sideEffects !== 'none')) fail('THREADED_NOT_STARTED_PROOF_REQUIRED');
-      persistOutcomeReceipt(binding, outcome, budgetState, outcome.quiescence);
-      if (inv.cancel_requested) return terminalWithinTransaction({ binding, status: 'cancelled', budgetState, quiescence: outcome.quiescence, reason: 'CONTROL_CANCELLED' }, true);
-      if (inv.pause_requested || !authority.authorized(binding, { quiescence: outcome.quiescence })) {
-        db.prepare(`UPDATE threaded_attempts SET status='cancelled',execution_stage='quiescent',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
-          .run(inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED', now, binding.attemptId);
-        updateProjection(inv.id, 'waiting', inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED');
-        expireApprovals(inv.id); completeControls(inv);
-        return result(inv.id);
-      }
-      if (outcome.kind === 'completed') {
-        const output = recordOutput(binding, outcome.content, outcome.quiescence);
-        return terminalWithinTransaction({ binding, status: 'completed', outputId: output.id, budgetState, quiescence: outcome.quiescence });
-      }
-      const retryable = outcome.kind === 'not_started' || (outcome.kind === 'failed' && outcome.retryable && budgetState === 'settled');
-      if (retryable && (attempt(inv)?.attempt_no ?? 2) < 2) {
-        db.prepare(`UPDATE threaded_attempts SET status='failed',execution_stage='quiescent',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
-          .run(outcome.reason, now, binding.attemptId);
-        updateProjection(inv.id, 'queued', outcome.reason); expireApprovals(inv.id);
-        return { ...result(inv.id), retryable: true };
-      }
-      return terminalWithinTransaction({ binding, status: outcome.kind === 'cancelled' ? 'cancelled' : 'failed', budgetState, quiescence: outcome.quiescence, reason: outcome.reason });
+      let replay = false;
+      const apply = (): InvocationResult => {
+        assertPersistedIdentity(binding);
+        const inv = getInvocation(binding.invocationId); const current = attempt(inv);
+        if (current?.execution_stage === 'quiescent') {
+          const receipt = current.outcome_record ? JSON.parse(current.outcome_record) as OutcomeReceipt : null;
+          if (!receipt || receipt.outcomeDigest !== hash(JSON.stringify(outcome))) fail('THREADED_OUTCOME_ALREADY_COMMITTED');
+          replay = true;
+          return { ...result(inv.id), terminal: terminal(inv.status), resourceReleasePending: current.resource_release_state !== 'released' };
+        }
+        authority.assertCurrent(binding);
+        if (terminal(inv.status)) fail('THREADED_INVOCATION_ALREADY_TERMINAL');
+        const now = new Date().toISOString();
+        if (outcome.kind === 'unknown') {
+          options.onOutcomeWithinTransaction?.(binding, outcome, { publishResponse: false });
+          resources.markUnknown?.(authority.claim(binding));
+          if (inv.status === 'unknown' && inv.recovery_reason === outcome.reason && current?.status === 'unknown'
+            && current.execution_stage === 'unknown' && current.execution_reason === outcome.reason) return result(inv.id);
+          db.prepare(`UPDATE threaded_attempts SET status='unknown',execution_stage='unknown',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
+            .run(outcome.reason, now, binding.attemptId);
+          updateProjection(inv.id, 'unknown', outcome.reason); expireApprovals(inv.id);
+          return result(inv.id);
+        }
+        resources.verifyQuiescence(authority.claim(binding), outcome.quiescence);
+        release = outcome.quiescence; releaseClaim = authority.claim(binding);
+        const publishResponse = outcome.kind === 'completed' && !inv.cancel_requested && !inv.pause_requested
+          && authority.authorized(binding, { quiescence: outcome.quiescence });
+        const budgetState = options.onOutcomeWithinTransaction?.(binding, outcome, { publishResponse })
+          ?? (outcome.kind === 'not_started' ? 'settled' : outcome.budgetState);
+        if (outcome.kind === 'not_started' && (outcome.quiescence.reason !== 'not_started' || outcome.quiescence.sideEffects !== 'none')) fail('THREADED_NOT_STARTED_PROOF_REQUIRED');
+        persistOutcomeReceipt(binding, outcome, budgetState, outcome.quiescence);
+        if (inv.cancel_requested) return terminalWithinTransaction({ binding, status: 'cancelled', budgetState, quiescence: outcome.quiescence, reason: 'CONTROL_CANCELLED' }, true);
+        // Recovery revoked the old execution epoch before inspecting durable facts. A proven
+        // pre-I/O crash may queue a fresh Attempt; its new Binding must recheck every snapshot.
+        const recoveredNotStarted = outcome.kind === 'not_started' && inv.recovery_reason === 'PROCESS_RESTART_NOT_STARTED';
+        if (inv.pause_requested || (!recoveredNotStarted && !authority.authorized(binding, { quiescence: outcome.quiescence }))) {
+          db.prepare(`UPDATE threaded_attempts SET status='cancelled',execution_stage='quiescent',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
+            .run(inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED', now, binding.attemptId);
+          updateProjection(inv.id, 'waiting', inv.pause_requested ? 'CONTROL_PAUSED' : 'AUTHORITY_CHANGED');
+          expireApprovals(inv.id); completeControls(inv);
+          return result(inv.id);
+        }
+        if (outcome.kind === 'completed') {
+          const output = recordOutput(binding, outcome.content, outcome.quiescence);
+          return terminalWithinTransaction({ binding, status: 'completed', outputId: output.id, budgetState, quiescence: outcome.quiescence, response: outcome.response });
+        }
+        const retryable = outcome.kind === 'not_started' || (outcome.kind === 'failed' && outcome.retryable && budgetState === 'settled');
+        if (retryable && (attempt(inv)?.attempt_no ?? maxAttempts(inv.id)) < maxAttempts(inv.id)) {
+          db.prepare(`UPDATE threaded_attempts SET status='failed',execution_stage='quiescent',execution_reason=?,version=version+1,updated_at=? WHERE id=?`)
+            .run(outcome.reason, now, binding.attemptId);
+          updateProjection(inv.id, 'queued', outcome.reason); expireApprovals(inv.id);
+          return { ...result(inv.id), retryable: true };
+        }
+        return terminalWithinTransaction({ binding, status: outcome.kind === 'cancelled' ? 'cancelled' : 'failed', budgetState, quiescence: outcome.quiescence, reason: outcome.reason });
+      };
+      const value = apply();
+      if (!replay) options.onOutcomeAppliedWithinTransaction?.(binding, outcome, value);
+      return value;
     }).immediate();
-    return release && releaseClaim ? { ...applied, resourceReleasePending: !releaseVerified(binding, release, releaseClaim) } : applied;
+    const committedResult = release && releaseClaim ? { ...applied, resourceReleasePending: !releaseVerified(binding, release, releaseClaim) } : applied;
+    notifyCommitted();
+    return committedResult;
   }
 
   /** Retry only the exact verified resource release; it grants no execution or output authority. */
@@ -446,7 +482,9 @@ export function createThreadedLifecycle(db: Database.Database, authority: Thread
           command.scope.invocationId ?? null, command.action === 'stop' ? 'cancel' : command.action, status, command.requestId, record, now, now);
       return { id, status, invocationIds: active.map(row => row.id) } as ControlReceipt;
     }).immediate();
-    invalidate(changed); return receipt;
+    invalidate(changed);
+    if (!db.inTransaction) notifyCommitted();
+    return receipt;
   }
 
   function registerApproval(binding: ThreadedBinding, input: { requestKey: string; record?: unknown }): ApprovalRow {

@@ -1,14 +1,15 @@
-import { afterCommit, db } from '../db/database.ts';
-import { createThreadedAuthority } from './authority.ts';
-import { createThreadedLifecycle } from './lifecycle.ts';
+import { db } from '../db/database.ts';
+import { createThreadedRuntime } from './runtime.ts';
 import { executionResources } from '../execution/resources/service.ts';
-import { abortThreadedExecution } from './executionSignals.ts';
+import { threadedMessaging } from './messagingService.ts';
+import { ThreadedAuthorityError } from './contracts.ts';
 
 /** Persistent resource fences are shared with legacy execution. Real admission remains closed. */
-const authority = createThreadedAuthority(db, executionResources);
-export const threadedLifecycle = createThreadedLifecycle(db, authority, {
+export const threadedRuntime = createThreadedRuntime(db, {
   resources: executionResources,
-  onInvalidate: invocationIds => afterCommit(() => {
-    for (const id of invocationIds) abortThreadedExecution(id);
-  }),
+  messaging: threadedMessaging(),
+  prepareResources: () => { throw new ThreadedAuthorityError('THREADED_BACKEND_NOT_IMPLEMENTED'); },
+  dispatchEnabled: false,
+  autoStart: false,
 });
+export const threadedLifecycle = threadedRuntime.lifecycle;

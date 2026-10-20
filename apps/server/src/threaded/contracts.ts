@@ -59,10 +59,23 @@ export interface ThreadedAuthority {
 }
 
 export type ThreadedBudgetState = 'settled' | 'unknown';
+export interface ThreadedUsageEvidence {
+  outputTokens?: number;
+  costMicrousd?: number;
+  evidenceReference: string;
+}
+/** Structured addressing only; text mention/fallback interpretation belongs to T08. */
+export interface ThreadedResponseRouting {
+  targets?: string[];
+  audience?: string[];
+  visibility?: 'public' | 'private';
+  state?: 'published' | 'draft';
+  sourceRefs?: string[];
+}
 export type ExecutionOutcome =
-  | { kind: 'completed'; content: string; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof }
-  | { kind: 'failed'; reason: string; retryable: boolean; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof }
-  | { kind: 'cancelled'; reason: string; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof }
+  | { kind: 'completed'; content: string; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof; budgetUsage?: ThreadedUsageEvidence; response?: ThreadedResponseRouting }
+  | { kind: 'failed'; reason: string; retryable: boolean; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof; budgetUsage?: ThreadedUsageEvidence }
+  | { kind: 'cancelled'; reason: string; budgetState: ThreadedBudgetState; quiescence: QuiescenceProof; budgetUsage?: ThreadedUsageEvidence }
   | { kind: 'not_started'; reason: string; quiescence: QuiescenceProof }
   | { kind: 'unknown'; reason: string };
 

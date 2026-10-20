@@ -156,3 +156,41 @@ export interface ThreadedMessageReceipt {
   wakes: ThreadedWakeRecord[];
   outboxIds: string[];
 }
+
+export type ThreadedQueueState = 'queued' | 'blocked' | 'claimed' | 'unknown' | 'settled' | 'cancelled';
+/** Queue state is a scheduling projection, separate from logical Delivery or backend ACK. */
+export interface ThreadedQueueRecord {
+  schemaVersion: 1;
+  id: string;
+  seq: number;
+  ownerId: string;
+  threadId: string;
+  agentId: string;
+  wakeId: string;
+  sourceMessageId: string;
+  waveId: string;
+  inputMaxSeq: number;
+  causalRootId: string;
+  state: ThreadedQueueState;
+  reason: string | null;
+  version: number;
+  invocationId: string | null;
+  ticketId: string | null;
+  authorizationVersion: number;
+  generation: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ThreadedQueueDispatch {
+  id: string;
+  queueId: string;
+  generation: number;
+  workerId: string;
+  ownerNonce: string;
+  fencingToken: string;
+  attemptId: string;
+  bindingId: string;
+  budgetAuthorizationId: string;
+  phase: 'prepared' | 'started' | 'unknown' | 'settled';
+  leaseExpiresAt: string;
+}

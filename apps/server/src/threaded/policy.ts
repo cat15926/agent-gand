@@ -17,7 +17,7 @@ export function threadedCapabilities(): ThreadedCapabilities {
     implemented: { readSnapshots: true, authenticatedWs: true, admission: false, execution: false, tools: false,
       messageReads: true, messagePersistence: true, outbox: true },
     configured: { mode: threadedAdmissionMode() },
-    // T02 fixtures cannot stand in for production/backend/business verification.
+    // Deterministic T02–T06 fixtures cannot stand in for backend/business verification.
     verified: { readSnapshots: false, authenticatedWs: false, admission: false, execution: false, tools: false,
       messageReads: false, messagePersistence: false, outbox: false },
   };
@@ -48,8 +48,8 @@ export function assertThreadedRequestContract(request: FastifyRequest, allowThre
   }
 }
 
-/** No T02 route can admit user work, even when operators select observe/execute. */
+/** Production admission stays closed through T06, including configured observe/execute. */
 export function rejectThreadedAdmission(): never {
   if (threadedAdmissionMode() === 'closed') throw new ThreadedAccessError(403, 'THREADED_MODE_CLOSED', '持续协作新工作入场已关闭');
-  throw new ThreadedAccessError(501, 'THREADED_ADMISSION_NOT_IMPLEMENTED', '当前阶段尚未实现持续协作工作入场或执行');
+  throw new ThreadedAccessError(501, 'THREADED_ADMISSION_NOT_IMPLEMENTED', '持续协作真实后端工作入场尚未开放');
 }

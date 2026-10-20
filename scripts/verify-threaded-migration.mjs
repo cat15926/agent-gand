@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,7 +18,8 @@ const { createThreadedStore } = await import('../apps/server/src/threaded/store.
 const foundation = await import('../apps/server/src/db/threadedMigration.ts');
 const executionBoundary = await import('../apps/server/src/db/threadedExecutionMigration.ts');
 const resourceBoundary = await import('../apps/server/src/db/executionResourcesMigration.ts');
-const latestVersion = 28;
+const messageBoundary = await import('../apps/server/src/db/threadedMessagingMigration.ts');
+const latestVersion = 29;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -65,7 +66,22 @@ const frozenMigration = revision => {
     if (name === './threadedMigration.ts') return foundation; // The v25 descriptor/DDL is unchanged.
     if (name === './threadedExecutionMigration.ts') return executionBoundary; // The v26 descriptor/DDL is unchanged.
     if (name === './executionResourcesMigration.ts') return resourceBoundary; // The v27 descriptor/DDL is unchanged.
+    if (name === './threadedMessagingMigration.ts') return messageBoundary; // The v28 descriptor/DDL is unchanged.
     throw new Error(`Unexpected frozen module import: ${name}`);
+  }, module, module.exports);
+  return module.exports;
+};
+const frozenThreadedModule = (revision, filename, cache = new Map()) => {
+  if (cache.has(filename)) return cache.get(filename);
+  const source = execFileSync('git', ['show', `${revision}:${filename}`], { encoding: 'utf8', cwd: new URL('..', import.meta.url) });
+  const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} };
+  cache.set(filename, module.exports);
+  new Function('require', 'module', 'exports', js)(name => {
+    if (name === 'node:crypto') return { createHash, randomUUID };
+    if (name === '@agent-gand/shared') return {};
+    if (name.startsWith('./')) return frozenThreadedModule(revision, path.posix.join(path.posix.dirname(filename), name), cache);
+    throw new Error(`Unexpected frozen threaded import: ${name}`);
   }, module, module.exports);
   return module.exports;
 };
@@ -201,6 +217,44 @@ try {
   assert.deepEqual(v27.pragma('foreign_key_check'), []);
   checks.push('actual frozen v27 upgrade preserves Thread/Invocation/resource generations/Session identity; failed v28 rolls back all DDL and retries idempotently');
 
+  const v28Worker = frozenMigration('98b331f');
+  const v28 = bootstrap('v28.sqlite');
+  v28Worker.applyOrchestrationSchemaMigrations(v28);
+  addAgent(v28, 'agent-a');
+  const v28Store = createThreadedStore(v28), v28Thread = v28Store.createThread(input());
+  v28.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(v28Thread.id);
+  const v28Messages = frozenThreadedModule('98b331f', 'apps/server/src/threaded/messages.ts').createThreadedMessages(v28);
+  const v28Input = { ownerId: v28Thread.ownerId, threadId: v28Thread.id, clientRequestId: 'preserved-v28-request',
+    body: 'Frozen v28 message and owned attachment', targets: ['agent-a'],
+    attachments: [{ name: 'preserved.txt', mediaType: 'text/plain', contentBase64: Buffer.from('frozen v28 bytes').toString('base64') }] };
+  const v28Receipt = v28Messages.acceptUserMessage(v28Input);
+  const v28Outbox = frozenThreadedModule('98b331f', 'apps/server/src/threaded/outbox.ts').createThreadedOutbox(v28);
+  const v28Event = v28Outbox.claim('frozen-v28-worker');
+  assert.ok(v28Event);
+  assert.equal(v28Outbox.ack(v28Event, 'frozen-v28-consumer'), true);
+  const v28Snapshot = () => ({
+    owner: v28Store.getInstanceOwnerId(), thread: v28Store.getThread(v28Thread.id, v28Thread.ownerId),
+    records: Object.fromEntries(['threaded_message_sequences', 'threaded_messages', 'threaded_message_attachments',
+      'threaded_deliveries', 'threaded_wakes', 'threaded_outbox', 'threaded_outbox_receipts']
+      .map(table => [table, v28.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()])),
+    migrations: v28.prepare('SELECT * FROM orchestration_schema_migrations WHERE version<=28 ORDER BY version').all(),
+  });
+  const v28Before = v28Snapshot();
+  v28.exec(`CREATE TRIGGER fixture_v29_failure BEFORE INSERT ON orchestration_schema_migrations
+    WHEN NEW.version=29 BEGIN SELECT RAISE(ABORT,'fixture_v29_migration_failure'); END;`);
+  const v28SchemaBefore = tables(v28);
+  assert.throws(() => applyOrchestrationSchemaMigrations(v28), /fixture_v29_migration_failure/);
+  assert.deepEqual(tables(v28), v28SchemaBefore);
+  assert.deepEqual(v28Snapshot(), v28Before);
+  v28.exec('DROP TRIGGER fixture_v29_failure');
+  applyOrchestrationSchemaMigrations(v28);
+  applyOrchestrationSchemaMigrations(v28);
+  assert.deepEqual(v28Snapshot(), v28Before);
+  assert.deepEqual(v28Messages.acceptUserMessage(v28Input), v28Receipt);
+  assert.equal(v28.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, latestVersion);
+  assert.deepEqual(v28.pragma('foreign_key_check'), []);
+  checks.push('actual frozen v28 registry/message/outbox create preserved receipt, owned bytes and consumer ACK; failed v29 rolls back all DDL, then repeated upgrade preserves every prior fact');
+
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
   const thread = store.createThread(input());
@@ -308,11 +362,11 @@ try {
   // A future/tampered catalog is rejected before any schema mutations.
   const future = bootstrap('future.sqlite');
   seedV24(future);
-  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(29,'future','unknown','2026-10-19');
+  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(30,'future','unknown','2026-10-19');
   const futureBefore = tables(future);
-  assert.throws(() => applyOrchestrationSchemaMigrations(future), /29.*不受此 worker 支持/);
+  assert.throws(() => applyOrchestrationSchemaMigrations(future), /30.*不受此 worker 支持/);
   assert.deepEqual(tables(future), futureBefore);
-  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=29');
+  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=30');
   future.exec("UPDATE orchestration_schema_migrations SET checksum='changed' WHERE version=24");
   assert.throws(() => applyOrchestrationSchemaMigrations(future), /24.*不受此 worker 支持/);
   checks.push('future version and mutated historical checksum rejected before mutation');
@@ -324,10 +378,11 @@ try {
   assert.throws(() => v25Worker.assertOrchestrationSchemaCompatible(legacy), /26.*不受此 worker 支持/);
   assert.throws(() => v26Worker.assertOrchestrationSchemaCompatible(legacy), /27.*不受此 worker 支持/);
   assert.throws(() => v27Worker.assertOrchestrationSchemaCompatible(legacy), /28.*不受此 worker 支持/);
+  assert.throws(() => v28Worker.assertOrchestrationSchemaCompatible(legacy), /29.*不受此 worker 支持/);
   assert.deepEqual(tables(legacy), upgradedBefore);
-  checks.push('actual frozen v24/v25/v26/v27 worker compatibility guards refuse v25/v26/v27/v28 without mutation');
+  checks.push('actual frozen v24/v25/v26/v27/v28 worker compatibility guards refuse v25/v26/v27/v28/v29 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T05/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T06/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });
