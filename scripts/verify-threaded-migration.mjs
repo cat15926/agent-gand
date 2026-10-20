@@ -20,7 +20,8 @@ const executionBoundary = await import('../apps/server/src/db/threadedExecutionM
 const resourceBoundary = await import('../apps/server/src/db/executionResourcesMigration.ts');
 const messageBoundary = await import('../apps/server/src/db/threadedMessagingMigration.ts');
 const schedulingBoundary = await import('../apps/server/src/db/threadedSchedulingMigration.ts');
-const latestVersion = 30;
+const contextBoundary = await import('../apps/server/src/db/threadedContextMigration.ts');
+const latestVersion = 31;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -69,6 +70,7 @@ const frozenMigration = revision => {
     if (name === './executionResourcesMigration.ts') return resourceBoundary; // The v27 descriptor/DDL is unchanged.
     if (name === './threadedMessagingMigration.ts') return messageBoundary; // The v28 descriptor/DDL is unchanged.
     if (name === './threadedSchedulingMigration.ts') return schedulingBoundary; // The v29 descriptor/DDL is unchanged.
+    if (name === './threadedContextMigration.ts') return contextBoundary; // The v30 descriptor/DDL is unchanged.
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -297,6 +299,25 @@ try {
   assert.deepEqual(v29.pragma('foreign_key_check'), []);
   checks.push('actual frozen v29 message/budget/queue preserve causal root, FIFO and immutable receipts; v30 failure rolls back both context fragments, then repeated upgrade preserves every prior table');
 
+  const v30Worker=frozenMigration('a773698'),v30=bootstrap('v30.sqlite');
+  v30Worker.applyOrchestrationSchemaMigrations(v30);addAgent(v30,'agent-a');
+  const v30Thread=createThreadedStore(v30).createThread(input());v30.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(v30Thread.id);
+  const v30Messages=frozenThreadedModule('a773698','apps/server/src/threaded/messages.ts').createThreadedMessages(v30);
+  const v30Input={ownerId:v30Thread.ownerId,threadId:v30Thread.id,clientRequestId:'v30-stable',body:'old canonical request hash',targets:['agent-a']};
+  const v30Receipt=v30Messages.acceptUserMessage(v30Input);
+  const oldTables=v30.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").all().map(r=>r.name);
+  const snapshot=()=>Object.fromEntries(oldTables.map(t=>[t,v30.prepare(`SELECT * FROM ${t}${t==='orchestration_schema_migrations'?' WHERE version<=30':''}`).all()]));
+  const before31=snapshot();
+  v30.exec("CREATE TRIGGER fixture_v31_failure BEFORE INSERT ON orchestration_schema_migrations WHEN NEW.version=31 BEGIN SELECT RAISE(ABORT,'fixture_v31_failure'); END;");
+  const schemaBefore31=tables(v30);
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v30),/fixture_v31_failure/);
+  assert.deepEqual(tables(v30),schemaBefore31);assert.deepEqual(snapshot(),before31);v30.exec('DROP TRIGGER fixture_v31_failure');
+  applyOrchestrationSchemaMigrations(v30);applyOrchestrationSchemaMigrations(v30);assert.deepEqual(snapshot(),before31);
+  const {createThreadedMessages:currentMessages}=await import('../apps/server/src/threaded/messages.ts');
+  assert.deepEqual(currentMessages(v30).acceptUserMessage(v30Input),v30Receipt,'new optional callback lineage must preserve old message request hashes');
+  assert.equal(count(v30,'threaded_consultations'),0);assert.equal(count(v30,'threaded_waits'),0);assert.deepEqual(v30.pragma('foreign_key_check'),[]);
+  checks.push('actual frozen v30 upgrades to v31 without changing any prior fact or message request hash; callback lineage is additive, DDL failure rolls back and repeated upgrade is stable');
+
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
   const thread = store.createThread(input());
@@ -422,10 +443,11 @@ try {
   assert.throws(() => v27Worker.assertOrchestrationSchemaCompatible(legacy), /28.*不受此 worker 支持/);
   assert.throws(() => v28Worker.assertOrchestrationSchemaCompatible(legacy), /29.*不受此 worker 支持/);
   assert.throws(() => v29Worker.assertOrchestrationSchemaCompatible(legacy), /30.*不受此 worker 支持/);
+  assert.throws(() => v30Worker.assertOrchestrationSchemaCompatible(legacy), /31.*不受此 worker 支持/);
   assert.deepEqual(tables(legacy), upgradedBefore);
-  checks.push('actual frozen v24/v25/v26/v27/v28/v29 worker compatibility guards refuse v25/v26/v27/v28/v29/v30 without mutation');
+  checks.push('actual frozen v24/v25/v26/v27/v28/v29/v30 worker compatibility guards refuse v25/v26/v27/v28/v29/v30/v31 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T07/DB03 isolated SQLite migration; no model execution', checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T08/DB03 isolated SQLite migration; no model execution', checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

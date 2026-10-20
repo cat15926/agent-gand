@@ -66,6 +66,8 @@ export function createThreadedSessionContext(db: Database.Database, options: Thr
   const included = (manifest: ThreadedContextManifest) => ids(manifest.items.filter(item => item.decision === 'included').map(item => item.messageId));
   function allSources(row: VersionRow, ref: ResourceSessionReference): string[] {
     return ids([...JSON.parse(row.boundary_sources) as string[],
+      ...(db.prepare('SELECT DISTINCT message_id FROM threaded_tool_context_exposures WHERE session_id=? AND session_version=?')
+        .all(ref.id,ref.version) as Array<{message_id:string}>).map(item=>item.message_id),
       ...intents(ref).flatMap(intent => JSON.parse(intent.source_message_ids) as string[]),
       ...(db.prepare(`SELECT DISTINCT i.message_id FROM threaded_context_send_intents s
         JOIN threaded_context_manifest_items i ON i.manifest_id=s.manifest_id AND i.decision='included'

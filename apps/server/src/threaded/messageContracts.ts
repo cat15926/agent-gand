@@ -59,6 +59,8 @@ export interface ThreadedSystemMessageInput extends ThreadedMessagePayload {
   threadId: string;
   systemKey: string;
   requestId: string;
+  /** Trusted durable callback lineage. Not accepted from HTTP/model payloads. */
+  causalParentInvocationId?: string;
 }
 export class ThreadedMessageError extends Error {
   readonly status = 409;

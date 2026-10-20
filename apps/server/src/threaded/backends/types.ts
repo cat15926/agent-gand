@@ -51,6 +51,7 @@ export interface BackendPreparedInput {
   nativeEvent?(event: BackendNativeEvent): void;
 }
 export type BackendNativeEvent =
+  | { type:'tool';name:string;id:string }
   | { type: 'bound'; nativeId: string }
   | { type: 'compact'; nativeId: string; evidence: ThreadedSessionCompactionEvidence }
   | { type: 'anchor'; nativeId: string; evidence: ThreadedSessionAnchorEvidence; quiescence: QuiescenceProof };
@@ -67,6 +68,8 @@ export interface BackendSdkProcessInput {
   onRecord(record: Record<string, unknown>): void;
   onProcess(owner: ProcessRegistration): void;
   onProcessStopped(token: string): void;
+  tools?: BackendTool[];
+  executeTool?: (name:string,input:unknown,requestId:string)=>Promise<string>;
 }
 export type BackendSdkProcess = (input: BackendSdkProcessInput) => Promise<void>;
 export interface BackendAdapterOptions {

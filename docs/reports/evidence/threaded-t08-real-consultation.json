@@ -1,0 +1,54 @@
+{
+  "stage": "T08",
+  "date": "2026-10-20T15:53:35.337Z",
+  "platform": "darwin",
+  "sdkVersion": "0.3.288",
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "configVersion": 2,
+    "credentialVersion": 1,
+    "endpointHost": "open.bigmodel.cn",
+    "model": "glm-5.3"
+  },
+  "authorizedTokenLimit": 200000,
+  "checks": [
+    {
+      "name": "Real API consultation with API and SDK independent peers and one callback",
+      "status": "passed",
+      "elapsedMs": 27861,
+      "invocations": 4,
+      "targets": 2,
+      "realBackends": [
+        "api",
+        "claude-sdk"
+      ],
+      "firstResponsesPreserved": true,
+      "settlements": 1,
+      "callbackInvocations": 1,
+      "inheritedRoot": true,
+      "extraAggregationModelCalls": 0,
+      "scope": "Final callback is an ordinary explicitly requested caller Invocation; settlement itself invokes no model"
+    }
+  ],
+  "failures": [],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_revocations",
+      "account_versions",
+      "account_credentials"
+    ],
+    "modelContent": "New synthetic acceptance messages and isolated SDK history only",
+    "dailyConversationOrMessageReads": false,
+    "realCredentialAllowedOnlyInConfiguredEndpointHeaders": true
+  },
+  "actualRequests": 5,
+  "knownTokens": 36317,
+  "unresolvedReservedTokens": 39010,
+  "conservativelyChargedTokens": 75327,
+  "knownTokensThisRun": 6328,
+  "unresolvedReservedTokensThisRun": 0,
+  "passed": true
+}

@@ -7,7 +7,10 @@ import { createThreadedStore } from '../threaded/store.ts';
 import { createThreadedAccess, ThreadedAccessError } from '../threaded/access.ts';
 import type { ThreadedAccess, ThreadedPrincipal } from '../threaded/access.ts';
 import { assertThreadedRequestContract, rejectThreadedAdmission, threadedAdmissionMode, threadedCapabilities } from '../threaded/policy.ts';
-import { threadedLifecycle } from '../threaded/service.ts';
+import { threadedLifecycle, threadedRuntime } from '../threaded/service.ts';
+import type { createThreadedCollaboration } from '../threaded/collaboration.ts';
+import { ThreadedCollaborationError } from '../threaded/collaborationTypes.ts';
+import type {RoutingPolicy} from '../threaded/collaborationTypes.ts';
 import { ThreadedAuthorityError } from '../threaded/contracts.ts';
 import { ThreadedMessageError } from '../threaded/messageContracts.ts';
 import type { ThreadedMessageReadScope } from '../threaded/messageContracts.ts';
@@ -25,6 +28,7 @@ export interface ThreadedRouteContext {
   /** Default production admission remains closed. T06 will supply the full admission policy. */
   messageAdmission?: () => void;
   onMessageNotification?: (listener: (hint: ThreadedInternalNotification) => void) => () => void;
+  collaboration?: ReturnType<typeof createThreadedCollaboration>;
 }
 let defaults: ThreadedRouteContext | undefined;
 function defaultContext(): ThreadedRouteContext {
@@ -32,7 +36,7 @@ function defaultContext(): ThreadedRouteContext {
     const store = createThreadedStore(db);
     const messaging = threadedMessaging();
     defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle,
-      messages: messaging.messages, onMessageNotification: messaging.onNotification };
+      messages: messaging.messages, onMessageNotification: messaging.onNotification,collaboration:threadedRuntime.collaboration };
   }
   return defaults;
 }
@@ -40,6 +44,7 @@ function defaultContext(): ThreadedRouteContext {
 function errorHandler(error: Error, _request: FastifyRequest, reply: FastifyReply) {
   if (error instanceof ThreadedAccessError) return reply.code(error.status).send({ code: error.code, error: error.message });
   if (error instanceof ThreadedAuthorityError) return reply.code(error.status).send({ code: error.code, error: error.message });
+  if (error instanceof ThreadedCollaborationError) return reply.code(error.status).send({code:error.code,error:error.message});
   if (error instanceof ThreadedMessageError || error instanceof ThreadedMessageAclError) {
     return reply.code(error.status).send({ code: error.code, error: error.message });
   }
@@ -92,7 +97,8 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
     threaded.addHook('preValidation', async request => {
       const url = request.routeOptions.url;
       const queries = url === '/api/threaded/threads/:id/messages' ? ['afterSeq', 'limit']
-        : url === '/api/threaded/threads/:id/messages/search' ? ['q', 'afterSeq', 'limit'] : [];
+        : url === '/api/threaded/threads/:id/messages/search' ? ['q', 'afterSeq', 'limit']
+          :url==='/api/threaded/threads/:id/waits'?['agentId']:[];
       assertThreadedRequestContract(request, url === '/api/threaded/ws', queries);
       principal(request);
       if (request.routeOptions.url === '/api/threaded/ws') {
@@ -171,12 +177,46 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
         || typeof body.clientRequestId !== 'string' || !body.clientRequestId.trim() || body.clientRequestId.length > 200
         || typeof body.body !== 'string') throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '消息提交参数无效');
       (context.messageAdmission ?? rejectThreadedAdmission)();
-      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1, receipt: context.messages!.acceptUserMessage({
+      const input={
         ownerId: scope.ownerId, threadId: scope.threadId, clientRequestId: body.clientRequestId, body: body.body,
         ...Object.fromEntries(['targets', 'audience', 'visibility', 'state', 'attachments', 'sourceRefs']
           .filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]])),
-      }) };
+      };
+      const result=context.collaboration?.routing.acceptUserMessage(input);
+      return {httpVersion:THREADED_HTTP_VERSION,schemaVersion:1,...(result??{receipt:context.messages!.acceptUserMessage(input)})};
     });
+    if(context.collaboration){
+      threaded.get<{Params:{id:string}}>('/threads/:id/routing-policy',async request=>{const scope=messageScope(request);
+        return {httpVersion:THREADED_HTTP_VERSION,routing:context.collaboration!.routing.getPolicy(scope.ownerId,scope.threadId)};});
+      threaded.put<{Params:{id:string}}>('/threads/:id/routing-policy',async request=>{
+        const scope=messageScope(request),body=request.body as Record<string,unknown>|undefined;
+        if(!body||!body.policy||typeof body.policy!=='object'||Array.isArray(body.policy)||!Number.isSafeInteger(body.expectedVersion)
+          ||Object.keys(body).some(k=>!['policy','expectedVersion','httpVersion','toolVersion','schemaVersion'].includes(k)))throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','路由配置参数无效');
+        return {httpVersion:THREADED_HTTP_VERSION,routing:context.collaboration!.routing.configure(scope.ownerId,scope.threadId,body.policy as RoutingPolicy,Number(body.expectedVersion))};
+      });
+      threaded.post<{Params:{id:string}}>('/threads/:id/routing-preview',async request=>{
+        const scope=messageScope(request),body=request.body as Record<string,unknown>|undefined;
+        if(!body||typeof body.body!=='string'||Object.keys(body).some(k=>!['body','targets','httpVersion','toolVersion','schemaVersion'].includes(k)))throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','路由参数无效');
+        return {httpVersion:THREADED_HTTP_VERSION,route:context.collaboration!.routing.preview({ownerId:scope.ownerId,threadId:scope.threadId,body:body.body,
+          ...(body.targets===undefined?{}:{targets:body.targets as string[]})})};
+      });
+      threaded.get<{Params:{id:string};Querystring:{agentId:string}}>('/threads/:id/waits',async request=>{
+        const scope=messageScope(request),agentId=request.query.agentId;
+        if(typeof agentId!=='string'||!store.listMembers(scope.threadId,scope.ownerId).some(m=>m.agentId===agentId))notFound();
+        const waits=context.collaboration!.cooperation.list({ownerId:scope.ownerId,threadId:scope.threadId,agentId}) as Array<{
+          id:string;kind:string;state:string;version:number;deadline:number|null;record:string;outcome:string|null}>;
+        return {httpVersion:THREADED_HTTP_VERSION,waits:waits.map(w=>({id:w.id,kind:w.kind,state:w.state,version:w.version,deadline:w.deadline,
+          question:(JSON.parse(w.record) as {question?:string}).question??null,outcome:w.outcome?JSON.parse(w.outcome):null}))};
+      });
+      threaded.post<{Params:{id:string;waitId:string}}>('/threads/:id/decisions/:waitId/responses',async request=>{
+        const scope=messageScope(request),body=request.body as Record<string,unknown>|undefined;
+        if(!body||typeof body.body!=='string'||typeof body.clientRequestId!=='string'||!Number.isSafeInteger(body.expectedVersion)
+          ||Object.keys(body).some(k=>!['body','clientRequestId','expectedVersion','httpVersion','toolVersion','schemaVersion'].includes(k)))throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','回应参数无效');
+        (context.messageAdmission??rejectThreadedAdmission)();
+        return {httpVersion:THREADED_HTTP_VERSION,receipt:context.collaboration!.cooperation.answerDecision({ownerId:scope.ownerId,threadId:scope.threadId,
+          waitId:request.params.waitId,body:body.body,clientRequestId:body.clientRequestId,expectedVersion:Number(body.expectedVersion)})};
+      });
+    }
     function controlInput(request: FastifyRequest, decision = false) {
       const body = request.body as Record<string, unknown> | undefined;
       const field = decision ? 'decision' : 'action';

@@ -176,7 +176,10 @@
     "verify:autonomous-ac6": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac6.mjs",
     "autonomous:acceptance-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/autonomous-real-acceptance.mjs",
     "autonomous:inventory": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/autonomous-collaboration-maintenance.mjs",
-    "verify:autonomous-ac6-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac6-ui.mjs"
+    "verify:autonomous-ac6-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-autonomous-ac6-ui.mjs",
+    "verify:threaded-collaboration": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-collaboration.mjs",
+    "verify:threaded-collaboration-backends": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-collaboration-backends.mjs",
+    "verify:threaded-collaboration-api": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-collaboration-api.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

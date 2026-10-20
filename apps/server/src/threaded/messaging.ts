@@ -10,8 +10,9 @@ import type { ThreadedInternalNotification } from './outbox.ts';
 export function createThreadedMessaging(db: Database.Database, options: {
   authority: ThreadedAuthority;
   repairIntervalMs?: number;
+  now?: () => number;
 } ) {
-  const outbox = createThreadedOutbox(db);
+  const outbox = createThreadedOutbox(db, {now:options.now});
   const listeners = new Set<(hint: ThreadedInternalNotification) => void>();
   const workerId = `threaded-hints:${randomUUID()}`;
   let closed = false, scheduled = false, draining = false;
@@ -52,7 +53,7 @@ export function createThreadedMessaging(db: Database.Database, options: {
     queueMicrotask(() => { scheduled = false; drain(); });
   }
   const messages = createThreadedMessages(db, { authority: options.authority,
-    acl: createThreadedMessageAcl(db), onCommitted: schedule });
+    acl: createThreadedMessageAcl(db), now:options.now, onCommitted: schedule });
   const repairMs = options.repairIntervalMs ?? 1000;
   if (!Number.isSafeInteger(repairMs) || repairMs < 0 || repairMs > 60_000) throw new Error('THREADED_REPAIR_INTERVAL_INVALID');
   const timer = repairMs ? setInterval(schedule, repairMs) : undefined;

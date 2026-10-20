@@ -52,6 +52,7 @@ function normalize(input: ThreadedMessagePayload) {
 type Intent = {
   ownerId: string; threadId: string; origin: ThreadedMessageOrigin; actor: ThreadedMessageActor;
   requestScope: string; requestKey: string; binding?: ThreadedBinding; quiescence?: QuiescenceProof;
+  causalParentInvocationId?: string;
 };
 type MessageRow = { id: string; thread_id: string; request_hash: string; record: string; receipt: string };
 type ListOptions = { afterSeq?: number; limit?: number };
@@ -96,6 +97,7 @@ export function createThreadedMessages(db: Database.Database, options: {
     const requestHash = hash(JSON.stringify({ ownerId: intent.ownerId, threadId: intent.threadId,
       origin: intent.origin, actor: intent.actor, body: payload.body, state: payload.state, visibility: payload.visibility,
       targets: payload.targets, audience: payload.audience, sourceRefs: payload.sourceRefs,
+      ...(intent.causalParentInvocationId ? { causalParentInvocationId: intent.causalParentInvocationId } : {}),
       attachments: payload.attachments.map(a => ({ name: a.name, mediaType: a.mediaType,
         byteLength: a.content.length, contentHash: a.contentHash })) }));
     const existing = db.prepare(`SELECT id,thread_id,request_hash,record,receipt FROM threaded_messages
@@ -122,9 +124,13 @@ export function createThreadedMessages(db: Database.Database, options: {
     if (!Number.isSafeInteger(sequence.last_seq)) deny('THREADED_MESSAGE_SEQUENCE_EXHAUSTED');
     const messageId = randomUUID(), seq = sequence.last_seq, waveId = payload.state === 'published' ? randomUUID() : null;
     const binding = intent.binding;
+    const parent = intent.causalParentInvocationId ? db.prepare(`SELECT causal_root_id,thread_id FROM threaded_invocations
+      WHERE id=? AND owner_id=?`).get(intent.causalParentInvocationId, intent.ownerId) as
+      { causal_root_id: string; thread_id: string } | undefined : undefined;
+    if (intent.causalParentInvocationId && (!parent || !['system','owner'].includes(intent.actor.kind))) deny('THREADED_MESSAGE_BINDING_INVALID');
     const causalRootId = binding ? (db.prepare(`SELECT causal_root_id FROM threaded_invocations
       WHERE id=? AND thread_id=? AND owner_id=? AND agent_id=?`).get(binding.invocationId, binding.threadId,
-      binding.ownerId, binding.agentId) as { causal_root_id: string } | undefined)?.causal_root_id : messageId;
+      binding.ownerId, binding.agentId) as { causal_root_id: string } | undefined)?.causal_root_id : parent?.causal_root_id ?? messageId;
     if (!causalRootId) deny('THREADED_MESSAGE_BINDING_INVALID');
     const attachments: ThreadedAttachmentRecord[] = payload.attachments.map(a => ({ id: randomUUID(),
       name: a.name, mediaType: a.mediaType, byteLength: a.content.length, contentHash: a.contentHash }));
@@ -171,6 +177,7 @@ export function createThreadedMessages(db: Database.Database, options: {
         JSON.stringify(message.targets), JSON.stringify(message.audience), JSON.stringify(message.sourceRefs),
         message.causalRootId, message.waveId, message.inputMaxSeq, message.authorityEpoch,
         JSON.stringify(message), JSON.stringify(receipt), createdAt);
+    if(intent.causalParentInvocationId)db.prepare('INSERT INTO threaded_callback_lineage VALUES(?,?)').run(message.id,intent.causalParentInvocationId);
     for (const [position, attachment] of attachments.entries()) {
       db.prepare(`INSERT INTO threaded_message_attachments(id,message_id,thread_id,owner_id,position,name,
         media_type,byte_length,content_hash,content,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
@@ -239,6 +246,12 @@ export function createThreadedMessages(db: Database.Database, options: {
     return result;
   }
   return {
+    acceptUserMessageWithinTransaction(input: ThreadedUserMessageInput,lineage?:{causalParentInvocationId:string}): ThreadedMessageReceipt {
+      if (!db.inTransaction) deny('THREADED_MESSAGE_RESPONSE_TRANSACTION_REQUIRED');
+      return db.transaction(() => append({ ownerId: identifier(input.ownerId), threadId: identifier(input.threadId),
+        origin: 'user', actor: { kind: 'owner' }, requestScope: identifier(input.threadId),
+        requestKey: identifier(input.clientRequestId),causalParentInvocationId:lineage?.causalParentInvocationId }, input).receipt)();
+    },
     acceptUserMessage(input: ThreadedUserMessageInput): ThreadedMessageReceipt {
       return standalone({ ownerId: identifier(input.ownerId), threadId: identifier(input.threadId),
         origin: 'user', actor: { kind: 'owner' }, requestScope: identifier(input.threadId),
@@ -246,6 +259,17 @@ export function createThreadedMessages(db: Database.Database, options: {
     },
     postAgentMessage(input: ThreadedAgentPostInput): ThreadedMessageReceipt {
       return standalone(agentIntent(input.binding, 'agent_post', input.toolCallId, input.threadId), input);
+    },
+    postAgentMessageWithinTransaction(input: ThreadedAgentPostInput): ThreadedMessageReceipt {
+      if (!db.inTransaction) deny('THREADED_MESSAGE_RESPONSE_TRANSACTION_REQUIRED');
+      return db.transaction(() => append(agentIntent(input.binding, 'agent_post', input.toolCallId, input.threadId), input).receipt)();
+    },
+    postSystemMessageWithinTransaction(input: ThreadedSystemMessageInput): ThreadedMessageReceipt {
+      if (!db.inTransaction) deny('THREADED_MESSAGE_RESPONSE_TRANSACTION_REQUIRED');
+      return db.transaction(() => append({ ownerId: identifier(input.ownerId), threadId: identifier(input.threadId),
+        origin: 'system', actor: { kind: 'system', key: identifier(input.systemKey) },
+        requestScope: identifier(input.systemKey), requestKey: identifier(input.requestId),
+        causalParentInvocationId: input.causalParentInvocationId }, input).receipt)();
     },
     appendResponseWithinTransaction(input: ThreadedAgentResponseInput): ThreadedMessageReceipt {
       if (!db.inTransaction) deny('THREADED_MESSAGE_RESPONSE_TRANSACTION_REQUIRED');
@@ -259,7 +283,8 @@ export function createThreadedMessages(db: Database.Database, options: {
     postSystemMessage(input: ThreadedSystemMessageInput): ThreadedMessageReceipt {
       return standalone({ ownerId: identifier(input.ownerId), threadId: identifier(input.threadId),
         origin: 'system', actor: { kind: 'system', key: identifier(input.systemKey) },
-        requestScope: identifier(input.systemKey), requestKey: identifier(input.requestId) }, input);
+        requestScope: identifier(input.systemKey), requestKey: identifier(input.requestId),
+        causalParentInvocationId: input.causalParentInvocationId }, input);
     },
     getMessage,
     listMessages(scope: ThreadedMessageReadScope, input: ListOptions = {}): ThreadedMessageRecord[] {

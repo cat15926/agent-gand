@@ -28,7 +28,7 @@ function integer(value: unknown, minimum = 0): asserts value is number {
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 type RootRow = { id: string; owner_id: string; home_thread_id: string; current_version: number; state: BudgetRoot['state']; policy: string };
 type InvocationRow = { id: string; owner_id: string; thread_id: string; agent_id: string; causal_root_id: string; reserved_run_id: string };
-type SourceRow = { id: string; owner_id: string; thread_id: string; origin: string; state: string; causal_root_id: string; source_invocation_id: string | null };
+type SourceRow = { id: string; owner_id: string; thread_id: string; origin: string; state: string; causal_root_id: string; source_invocation_id: string | null;parent_delta:number };
 type RequestRow = {
   id: string; root_id: string; owner_id: string; thread_id: string; invocation_id: string; attempt_id: string;
   request_key: string; request_hash: string; policy_version: number; claim_id: string; generation: number;
@@ -103,8 +103,9 @@ export function createThreadedBudget(db: Database.Database, options: {
       executionState: row.execution_state, usageState: row.usage_state };
   }
   function source(id: string): SourceRow {
-    return db.prepare(`SELECT id,owner_id,thread_id,origin,state,causal_root_id,source_invocation_id
-      FROM threaded_messages WHERE id=? AND owner_id=?`).get(id, owner) as SourceRow | undefined
+    return db.prepare(`SELECT m.id,m.owner_id,m.thread_id,m.origin,m.state,m.causal_root_id,
+      COALESCE(m.source_invocation_id,c.parent_invocation_id) source_invocation_id,CASE WHEN c.message_id IS NULL THEN 1 ELSE 0 END parent_delta
+      FROM threaded_messages m LEFT JOIN threaded_callback_lineage c ON c.message_id=m.id WHERE m.id=? AND m.owner_id=?`).get(id, owner) as SourceRow | undefined
       ?? deny('THREADED_BUDGET_SOURCE_REQUIRED');
   }
   function ensureRootForMessage(messageId: string): BudgetRoot {
@@ -210,7 +211,7 @@ export function createThreadedBudget(db: Database.Database, options: {
     const parent = message.source_invocation_id ? db.prepare(`SELECT a2a_depth FROM threaded_budget_invocations
       WHERE invocation_id=? AND root_id=? AND owner_id=?`).get(message.source_invocation_id, root.id, owner) as { a2a_depth: number } | undefined : null;
     const depth = message.origin === 'user' && message.id === root.id ? 0
-      : parent ? parent.a2a_depth + 1 : deny('THREADED_BUDGET_CAUSAL_PARENT_REQUIRED');
+      : parent ? parent.a2a_depth + message.parent_delta : deny('THREADED_BUDGET_CAUSAL_PARENT_REQUIRED');
     const hash = digest({ invocationId: input.invocationId, attemptId: input.attemptId, sourceMessageId: input.sourceMessageId,
       requestKey: input.requestKey ?? 'initial', quote: { maxOutputTokens: input.quote?.maxOutputTokens ?? null,
         estimatedCostMicrousd: input.quote?.estimatedCostMicrousd ?? null, pricingReference: input.quote?.pricingReference ?? null } });

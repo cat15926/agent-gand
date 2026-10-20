@@ -88,6 +88,9 @@ export function createThreadedRunner(
           // A rejected Promise says nothing about the external process or its side effects.
           outcome = { kind: 'unknown', reason: 'EXECUTOR_OUTCOME_UNCONFIRMED' };
         }
+        const abortCode=(controller.signal.reason as {code?:unknown}|undefined)?.code;
+        if(outcome.kind==='cancelled'&&typeof abortCode==='string'&&/^(THREADED|RESOURCE)_[A-Z0-9_]+$/.test(abortCode))
+          outcome={...outcome,reason:abortCode};
         return lifecycle.recordOutcome(binding, outcome);
       } finally {
         if (checkpointTimer) clearTimeout(checkpointTimer);

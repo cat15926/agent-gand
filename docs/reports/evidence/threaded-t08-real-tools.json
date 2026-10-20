@@ -1,0 +1,67 @@
+{
+  "stage": "T08",
+  "date": "2026-10-20T15:49:21.185Z",
+  "platform": "darwin",
+  "sdkVersion": "0.3.288",
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "configVersion": 2,
+    "credentialVersion": 1,
+    "endpointHost": "open.bigmodel.cn",
+    "model": "glm-5.3"
+  },
+  "authorizedTokenLimit": 200000,
+  "checks": [
+    {
+      "name": "api real read and durable post tools",
+      "status": "passed",
+      "elapsedMs": 29799,
+      "invocations": 1,
+      "readTool": true,
+      "postTool": true,
+      "durablePostCount": 1,
+      "logicalSuccessorCount": 1,
+      "actualRequests": 3,
+      "verifiedNativeAnchor": false
+    },
+    {
+      "name": "claude-sdk real read and durable post tools",
+      "status": "passed",
+      "elapsedMs": 22830,
+      "invocations": 1,
+      "readTool": true,
+      "postTool": true,
+      "durablePostCount": 1,
+      "logicalSuccessorCount": 1,
+      "actualRequests": 3,
+      "verifiedNativeAnchor": true
+    }
+  ],
+  "failures": [
+    {
+      "name": "Real API consultation with API and SDK independent peers and one callback",
+      "reason": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'cancelled'\n- 'completed'\n",
+      "elapsedMs": 19902
+    }
+  ],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_revocations",
+      "account_versions",
+      "account_credentials"
+    ],
+    "modelContent": "New synthetic acceptance messages and isolated SDK history only",
+    "dailyConversationOrMessageReads": false,
+    "realCredentialAllowedOnlyInConfiguredEndpointHeaders": true
+  },
+  "actualRequests": 9,
+  "knownTokens": 29989,
+  "unresolvedReservedTokens": 39010,
+  "conservativelyChargedTokens": 68999,
+  "knownTokensThisRun": 16429,
+  "unresolvedReservedTokensThisRun": 0,
+  "passed": false
+}

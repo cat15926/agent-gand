@@ -1,0 +1,177 @@
+{
+  "stage": "T08",
+  "auditedAt": "2026-10-21",
+  "scope": "Read-only retained synthetic acceptance databases; no raw bodies or credentials exported",
+  "databases": [
+    {
+      "fixture": "real-t08-api.sqlite",
+      "run": "initial",
+      "sha256": "e7eda70bc909b2c2ab57143fe7b7a3b9d862f8d0c5646ee15d5fc47cb9fb1380",
+      "credentialRows": 0,
+      "manifests": 1,
+      "allManifestPayloadHashesVerified": true,
+      "backendRequests": 3,
+      "processStates": [],
+      "invocationStates": [
+        {
+          "status": "completed",
+          "count": 1
+        }
+      ],
+      "nativeAnchors": 0,
+      "toolReceipts": [
+        {
+          "name": "post_message",
+          "count": 1
+        },
+        {
+          "name": "read_message",
+          "count": 1
+        }
+      ],
+      "toolSourceExposures": 1,
+      "consultations": 0,
+      "settlements": 0,
+      "callbacks": [],
+      "targets": []
+    },
+    {
+      "fixture": "real-t08-claude-sdk.sqlite",
+      "run": "initial",
+      "sha256": "866e994e973a5590863e5bb04876127149b473c148ded07895e87c2d55f8e3f0",
+      "credentialRows": 0,
+      "manifests": 1,
+      "allManifestPayloadHashesVerified": true,
+      "backendRequests": 3,
+      "processStates": [
+        {
+          "state": "verified_stopped",
+          "count": 1
+        }
+      ],
+      "invocationStates": [
+        {
+          "status": "completed",
+          "count": 1
+        }
+      ],
+      "nativeAnchors": 1,
+      "toolReceipts": [
+        {
+          "name": "post_message",
+          "count": 1
+        },
+        {
+          "name": "read_message",
+          "count": 1
+        }
+      ],
+      "toolSourceExposures": 1,
+      "consultations": 0,
+      "settlements": 0,
+      "callbacks": [],
+      "targets": []
+    },
+    {
+      "fixture": "real-t08-consultation.sqlite",
+      "run": "initial",
+      "sha256": "90375056008ef8dce42cd572518dc946bc2ae1a1fba376c79d310fa64f7f81a1",
+      "credentialRows": 0,
+      "manifests": 2,
+      "allManifestPayloadHashesVerified": true,
+      "backendRequests": 3,
+      "processStates": [
+        {
+          "state": "verified_stopped",
+          "count": 1
+        }
+      ],
+      "invocationStates": [
+        {
+          "status": "cancelled",
+          "count": 1
+        },
+        {
+          "status": "completed",
+          "count": 1
+        },
+        {
+          "status": "queued",
+          "count": 1
+        }
+      ],
+      "nativeAnchors": 0,
+      "toolReceipts": [
+        {
+          "name": "multi_mention",
+          "count": 1
+        }
+      ],
+      "toolSourceExposures": 0,
+      "consultations": 1,
+      "settlements": 0,
+      "callbacks": [],
+      "targets": [
+        {
+          "status": "cancelled",
+          "count": 1
+        },
+        {
+          "status": "pending",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "fixture": "real-t08-consultation.sqlite",
+      "run": "consultation-rerun",
+      "sha256": "2928915de16a961f93ca73372a9d22f0b0bc0cdfed54d2ba8fd51d3ec2670002",
+      "credentialRows": 0,
+      "manifests": 4,
+      "allManifestPayloadHashesVerified": true,
+      "backendRequests": 5,
+      "processStates": [
+        {
+          "state": "verified_stopped",
+          "count": 1
+        }
+      ],
+      "invocationStates": [
+        {
+          "status": "completed",
+          "count": 4
+        }
+      ],
+      "nativeAnchors": 1,
+      "toolReceipts": [
+        {
+          "name": "multi_mention",
+          "count": 1
+        }
+      ],
+      "toolSourceExposures": 0,
+      "consultations": 1,
+      "settlements": 1,
+      "callbacks": [
+        {
+          "state": "delivered",
+          "count": 1
+        }
+      ],
+      "targets": [
+        {
+          "status": "responded",
+          "count": 2
+        }
+      ],
+      "invocationCausalRoots": 1,
+      "exactFirstResponseBodiesVerified": true
+    }
+  ],
+  "operatorLedger": {
+    "actualRequests": 24,
+    "knownTokens": 36317,
+    "unresolvedReservedTokens": 39010,
+    "conservativelyChargedTokens": 75327
+  }
+}

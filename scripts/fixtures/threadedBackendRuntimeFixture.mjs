@@ -25,10 +25,10 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
       db.prepare(`INSERT INTO ${table}(${keys.join(',')}) VALUES(${keys.map(() => '?').join(',')})`).run(...Object.values(row));
     }
   }
-  const agentIds = ['api-member', 'sdk-member', 'other-member'];
+  const agentIds = options.agentIds ?? ['api-member', 'sdk-member', 'other-member'];
   for (const id of agentIds) db.prepare(`INSERT INTO agents(id,name,definition,source,created_at,updated_at)
     VALUES(?,?,?,'threaded-t07-isolated',?,?)`).run(id, id, JSON.stringify({ id, name: id, version: 1, enabled: true,
-      model: options.model ?? 'fixture-model', systemPrompt: 'Reply concisely. Never use tools.', tools: [], permissionMode: 'readonly',
+      model: options.model ?? 'fixture-model', systemPrompt: options.instructions ?? 'Reply concisely. Never use tools.', tools: options.applicationTools ?? [], permissionMode: 'readonly',
       ...(options.account ? { accountRef: options.account.id, requiresAccount: true } : {}) }), stamp, stamp);
   const store = createThreadedStore(db);
   const thread = store.createThread({ title: name, members: agentIds.map(agentId => ({
@@ -40,7 +40,8 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
   mkdirSync(workspace, { recursive: true }); mkdirSync(configDir, { recursive: true, mode: 0o700 });
   const configurations = new Map(agentIds.map(id => [id, {
     kind: id === 'sdk-member' ? 'claude-sdk' : 'api', backendVersion: id === 'sdk-member' ? '0.3.288' : 'threaded-http-v1',
-    model: options.model ?? 'fixture-model', instructions: 'Reply concisely. Never use tools.', workspace, configDir,
+    model: options.model ?? 'fixture-model', instructions: options.instructions ?? 'Reply concisely. Never use tools.', workspace, configDir,
+    applicationTools:options.applicationTools ?? [],
     informationBoundary: 'threaded-ordinary-v1', contextBudget: { maxInputTokens: 250_000, reservedSystemTokens: 1000 },
     quote: options.quote ?? { maxOutputTokens: 256, estimatedCostMicrousd: 1000, pricingReference: 'fixture-only' },
     apiProtocol: 'anthropic-messages', maxRequests: 4,
@@ -49,7 +50,7 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
   }]));
   const attach = connection => {
     let resources;
-    resources = createExecutionResourceCoordinator(connection, { ownerNonce: `t07:${randomUUID()}`, leaseMs: 10_000,
+    resources = createExecutionResourceCoordinator(connection, { ownerNonce: `t07:${randomUUID()}`, leaseMs: 10_000,now:options.now,
       validateRequest: request => assertResourceSessionCurrent(connection, request),
       verifyEvidence: (_request, claim, evidence) => {
         const saved = resources.getClaim(claim.claimId);
@@ -57,8 +58,8 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
       },
     });
     const runtime = createThreadedBackendRuntime(connection, { resources, resolveAgent: scope => configurations.get(scope.agentId),
-      fetch: options.fetch, sdkProcess: options.sdkProcess, dispatchEnabled: false, autoStart: false, repairIntervalMs: 0,
-      onRequestReserved: options.onRequestReserved, onRequestSettled: options.onRequestSettled });
+      fetch: options.fetch, sdkProcess: options.sdkProcess, now:options.now, dispatchEnabled: false, autoStart: false, repairIntervalMs: 0,
+      onRequestReserved: options.onRequestReserved, onRequestSettled: options.onRequestSettled,trackingSources:options.trackingSources });
     return { db: connection, runtime, resources };
   };
   let current = attach(db);

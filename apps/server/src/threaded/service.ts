@@ -13,6 +13,7 @@ const runtime = createThreadedRuntime(db, {
   prepareResources: () => { throw new ThreadedAuthorityError('THREADED_PRODUCTION_ADMISSION_CLOSED'); },
   dispatchEnabled: false,
   autoStart: false,
+  collaborationEnabled: true,
 });
 export const threadedRuntime = { ...runtime, recover() {
   const result = runtime.recover();

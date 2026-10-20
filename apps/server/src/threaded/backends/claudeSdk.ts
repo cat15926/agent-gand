@@ -72,6 +72,11 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
         nativeId,resume:prepared.session.resume,model:prepared.model.replace(/^anthropic:/,''),
         instructions:prepared.instructions,prompt:prepared.serializedContext,maxOutputTokens:prepared.maxOutputTokens,
         timeoutMs:prepared.connection.timeoutMs,signal:input.signal,
+        tools:prepared.tools,executeTool:async(name,args,key)=>{
+          input.assertAuthorized();prepared.assertCurrent();
+          if(!prepared.tools?.some(t=>t.name===name)||!prepared.executeTool)throw new Error('THREADED_SDK_TOOL_NOT_ALLOWED');
+          return prepared.executeTool(name,args,key);
+        },
         environment:cleanEnvironment({HOME:prepared.session.configDir,CLAUDE_CONFIG_DIR:prepared.session.configDir,
           CLAUDE_CODE_PROJECT_DIR_NAME:prepared.session.projectDir??'',ANTHROPIC_API_KEY:token,
           ANTHROPIC_BASE_URL:`http://127.0.0.1:${address.port}`,CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:'1',
@@ -84,13 +89,18 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
             checkpoint={anchorUuid:record.anchorUuid,inputUserUuid:record.inputUserUuid};return;
           }
           input.assertAuthorized();prepared.assertCurrent();
-          if(record.type==='system'&&record.subtype==='init') {
+          if(record.type==='threaded_native_tool_completed') {
+            if(typeof record.tool!=='string'||typeof record.toolUseId!=='string'||!['Read','Grep','Glob'].includes(record.tool))throw new Error('THREADED_SDK_TOOL_FACT_INVALID');
+            prepared.nativeEvent?.({type:'tool',name:record.tool,id:record.toolUseId});
+          } else if(record.type==='system'&&record.subtype==='init') {
             if(typeof record.session_id!=='string')throw new Error('THREADED_SDK_SESSION_REQUIRED');
             prepared.nativeEvent?.({type:'bound',nativeId:record.session_id});
             if(record.session_id!==nativeId)throw new Error('THREADED_SDK_SESSION_MISMATCH');
             if(record.cwd!==undefined&&record.cwd!==prepared.session.cwd)throw new Error('THREADED_SDK_WORKSPACE_MISMATCH');
-            if(Array.isArray(record.tools)&&record.tools.some(tool=>!['Read','Grep','Glob'].includes(String(tool))))throw new Error('THREADED_SDK_TOOLS_UNSUPPORTED');
-            if(Array.isArray(record.mcp_servers)&&record.mcp_servers.length)throw new Error('THREADED_SDK_MCP_UNSUPPORTED');
+            const allowed=['Read','Grep','Glob',...(prepared.tools??[]).map(t=>`mcp__threaded__${t.name}`)];
+            if(Array.isArray(record.tools)&&record.tools.some(tool=>!allowed.includes(String(tool))))throw new Error('THREADED_SDK_TOOLS_UNSUPPORTED');
+            if(Array.isArray(record.mcp_servers)&&record.mcp_servers.some(server=>
+              !prepared.tools?.length||!server||typeof server!=='object'||(server as {name?:unknown}).name!=='threaded'))throw new Error('THREADED_SDK_MCP_UNSUPPORTED');
           } else if(record.type==='system'&&record.subtype==='compact_boundary') {
             if(record.session_id!==nativeId||typeof record.uuid!=='string')throw new Error('THREADED_SDK_COMPACTION_INVALID');
             compactionBoundary=record.uuid;

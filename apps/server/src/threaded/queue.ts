@@ -63,6 +63,7 @@ export function createThreadedQueue(db: Database.Database, options: {
   now?: () => number;
   ownerNonce?: string;
   leaseMs?: number;
+  additionalAdmission?: (queue:ThreadedQueueRecord)=>{allowed:boolean;reason:string;cancelled?:boolean};
 }) {
   if (db.pragma('foreign_keys', { simple: true }) !== 1) deny('THREADED_QUEUE_FOREIGN_KEYS_REQUIRED');
   const ownerId = (db.prepare('SELECT instance_owner_id FROM threaded_instances WHERE singleton=1').get() as
@@ -228,6 +229,8 @@ export function createThreadedQueue(db: Database.Database, options: {
     if (thread.state === 'paused' || (memberControl && memberControl.action !== 'resume')) {
       return { allowed: false, reason: 'THREADED_QUEUE_CONTROL_PAUSED' };
     }
+    const additional=options.additionalAdmission?.(record(row));
+    if(additional&&!additional.allowed)return additional;
     return { allowed: true, reason: '' };
   }
   function refreshWithin(row: QueueRow): QueueRow {

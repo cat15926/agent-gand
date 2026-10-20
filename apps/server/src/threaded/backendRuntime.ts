@@ -17,6 +17,7 @@ import type { BackendAdapterOptions, BackendExecuteInput, BackendPreparedInput, 
 import { createApiBackend } from './backends/api.ts';
 import { createClaudeSdkBackend } from './backends/claudeSdk.ts';
 import { createThreadedBackendRegistry } from './backends/registry.ts';
+import type { ThreadedTrackingSource } from './tracking.ts';
 import { createThreadedBackendEvidence, verifyThreadedBackendUsage, verifyThreadedBackendDelivery,
   verifyThreadedBackendAnchor, verifyThreadedBackendCompaction } from './backends/evidence.ts';
 
@@ -35,6 +36,7 @@ export interface ThreadedBackendAgentConfiguration {
   connection: BackendPreparedInput['connection'];
   apiProtocol?: BackendPreparedInput['apiProtocol'];
   price?: BackendPreparedInput['price'];
+  applicationTools?: string[];
 }
 type StoredPreparation = { session: ThreadedSessionContextDecision['session'];
   threadedContext: { decision: ThreadedSessionContextDecision; configurationHash: string } };
@@ -46,6 +48,7 @@ const configurationHash = (value: ThreadedBackendAgentConfiguration) => hash({
   contextBudget: value.contextBudget, quote: value.quote, maxRequests: value.maxRequests ?? 4,
   endpoint: value.connection.baseUrl, timeoutMs: value.connection.timeoutMs,
   apiProtocol: value.apiProtocol ?? null, price: value.price ?? null,
+  applicationTools: value.applicationTools ?? [],
 });
 
 /** T07 composition. Its explicit caller supplies isolated DB/resources and selected account access. */
@@ -59,6 +62,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
   autoStart?: boolean;
   repairIntervalMs?: number;
   ownerNonce?: string;
+  trackingSources?:Record<string,ThreadedTrackingSource>;
   /** Optional additional operator acceptance cap; reserve runs in the admission transaction. */
   onRequestReserved?: (authorizationId: string, request: BackendRequestDescription) => void;
   onRequestSettled?: (authorizationId: string, receipt: { inputTokens: number | null; outputTokens: number | null }) => void;
@@ -101,7 +105,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
       agentId: scope.queue.agentId, backend: value.kind, backendVersion: value.backendVersion, model: value.model,
       workspace: value.workspace, informationBoundary: `${value.informationBoundary}:execution:${hash({
         instructions: value.instructions, configDir: canonicalWorkspace(value.configDir),
-        nativeTools: value.kind === 'claude-sdk' ? ['Read', 'Grep', 'Glob'] : [], applicationTools: [],
+        nativeTools: value.kind === 'claude-sdk' ? ['Read', 'Grep', 'Glob'] : [], applicationTools: value.applicationTools ?? [],
       })}`, inputMaxSeq: scope.queue.inputMaxSeq });
     const policy = db.prepare('SELECT record FROM execution_resource_sessions WHERE id=? AND version=?')
       .get(decision.session.id, decision.session.version) as { record: string };
@@ -116,9 +120,12 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
       providerKey, accountId: account?.id, accountIdentityGeneration: account?.identity_generation ?? undefined,
       quote: value.quote, threadedContext: { decision, configurationHash: configurationHash(value) } };
   }
+  function instructions(base:string,binding:ThreadedBinding) {
+    return [base,runtime.collaboration?.routing.prompt(binding),runtime.collaboration?.routing.warning(binding)].filter(Boolean).join('\n');
+  }
   function prepareExecution(claim: ThreadedQueueClaim) {
     const { value, decision } = configuration(claim.binding);
-    if (Buffer.byteLength(value.instructions, 'utf8') > value.contextBudget.reservedSystemTokens) {
+    if (Buffer.byteLength(instructions(value.instructions,claim.binding), 'utf8') > value.contextBudget.reservedSystemTokens) {
       fail('THREADED_CONTEXT_SYSTEM_OVER_BUDGET');
     }
     const prepared = context.prepareManifest(claim.binding, { session: decision.session,
@@ -174,7 +181,10 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
       },
       unknown(id) { runtime.budget.markRequestUnknown(binding, id); },
     };
-    return { kind: value.kind, model: value.model, instructions: value.instructions, serializedContext: payload.serialized,
+    return { kind: value.kind, model: value.model, instructions: instructions(value.instructions,binding), serializedContext: payload.serialized,
+      tools:runtime.collaboration!.tools.allowed(binding,value.applicationTools??[]),
+      executeTool:async(name,args,key)=>{input.assertAuthorized();assertContext(binding);
+        return runtime.collaboration!.tools.execute(binding,name,args,key,value.applicationTools??[]);},
       contextManifestId: input.contextManifestId, maxOutputTokens: value.quote.maxOutputTokens ?? 24_576,
       maxRequests: value.maxRequests ?? 4, requests, connection: value.connection, apiProtocol: value.apiProtocol, price: value.price,
       session: { bindingId: decision.session.id, nativeId: decision.session.nativeId, version: decision.session.version,
@@ -184,6 +194,8 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
       delivery(status, reference) { context.recordDeliveryOutcome(binding, { intentId: intent.id, status,
         evidence: { key: reference, reference, nativeId: decision.session.nativeId } }); },
       nativeEvent(event) {
+        if(event.type==='tool')db.prepare('INSERT OR IGNORE INTO threaded_tool_receipts VALUES(?,?,?,?,?,?,?)').run(binding.id,
+          `native:${event.id}`,event.name,hash(event),JSON.stringify({result:{native:true,completed:true},readSourceIds:[]}),1,options.now?.()??Date.now());
         if (event.type === 'bound') assertExpectedNativeSession(db, decision.session, event.nativeId);
         if (event.type === 'compact') {
           sessionContext.recordCompaction(binding, { manifestId: input.contextManifestId, decision,
@@ -218,6 +230,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
     return outcome;
   } };
   runtime = createThreadedRuntime(db, { ...options, executor, prepareResources, prepareExecution, assertExecutionContext: assertContext,
+    collaborationEnabled:true,collaborationContext:context,
     deferRequestStart: true, verifyUsage: (binding, authorization, usage) => verifyThreadedBackendUsage(db, binding, authorization, usage),
     autoStart: false });
   if (options.autoStart !== false) runtime.wakeup();
