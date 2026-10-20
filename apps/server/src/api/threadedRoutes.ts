@@ -9,18 +9,30 @@ import type { ThreadedAccess, ThreadedPrincipal } from '../threaded/access.ts';
 import { assertThreadedRequestContract, rejectThreadedAdmission, threadedAdmissionMode, threadedCapabilities } from '../threaded/policy.ts';
 import { threadedLifecycle } from '../threaded/service.ts';
 import { ThreadedAuthorityError } from '../threaded/contracts.ts';
+import { ThreadedMessageError } from '../threaded/messageContracts.ts';
+import type { ThreadedMessageReadScope } from '../threaded/messageContracts.ts';
+import { ThreadedMessageAclError } from '../threaded/acl.ts';
+import type { createThreadedMessages } from '../threaded/messages.ts';
+import type { ThreadedInternalNotification } from '../threaded/outbox.ts';
+import { threadedMessaging, closeThreadedMessaging } from '../threaded/messagingService.ts';
 
 type ThreadedReadStore = Pick<ReturnType<typeof createThreadedStore>, 'getInstanceOwnerId' | 'getThread' | 'listThreads' | 'listMembers'>;
 export interface ThreadedRouteContext {
   store: ThreadedReadStore;
   access: ThreadedAccess;
   lifecycle?: Pick<typeof threadedLifecycle, 'requestControl' | 'decideApproval'>;
+  messages?: Pick<ReturnType<typeof createThreadedMessages>, 'acceptUserMessage' | 'getMessage' | 'listMessages' | 'searchMessages' | 'getAttachment' | 'getSources'>;
+  /** Default production admission remains closed. T06 will supply the full admission policy. */
+  messageAdmission?: () => void;
+  onMessageNotification?: (listener: (hint: ThreadedInternalNotification) => void) => () => void;
 }
 let defaults: ThreadedRouteContext | undefined;
 function defaultContext(): ThreadedRouteContext {
   if (!defaults) {
     const store = createThreadedStore(db);
-    defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle };
+    const messaging = threadedMessaging();
+    defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle,
+      messages: messaging.messages, onMessageNotification: messaging.onNotification };
   }
   return defaults;
 }
@@ -28,6 +40,9 @@ function defaultContext(): ThreadedRouteContext {
 function errorHandler(error: Error, _request: FastifyRequest, reply: FastifyReply) {
   if (error instanceof ThreadedAccessError) return reply.code(error.status).send({ code: error.code, error: error.message });
   if (error instanceof ThreadedAuthorityError) return reply.code(error.status).send({ code: error.code, error: error.message });
+  if (error instanceof ThreadedMessageError || error instanceof ThreadedMessageAclError) {
+    return reply.code(error.status).send({ code: error.code, error: error.message });
+  }
   if (error instanceof AccountError) return reply.code(error.status).send({ code: 'THREADED_MANAGEMENT_AUTH_REQUIRED', error: error.message });
   const statusCode = (error as { statusCode?: number }).statusCode;
   const status = statusCode && statusCode >= 400 && statusCode < 500 ? statusCode : 500;
@@ -75,7 +90,10 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       principals.set(request, access.requireSession(request));
     });
     threaded.addHook('preValidation', async request => {
-      assertThreadedRequestContract(request, request.routeOptions.url === '/api/threaded/ws');
+      const url = request.routeOptions.url;
+      const queries = url === '/api/threaded/threads/:id/messages' ? ['afterSeq', 'limit']
+        : url === '/api/threaded/threads/:id/messages/search' ? ['q', 'afterSeq', 'limit'] : [];
+      assertThreadedRequestContract(request, url === '/api/threaded/ws', queries);
       principal(request);
       if (request.routeOptions.url === '/api/threaded/ws') {
         const id = (request.query as { threadId?: unknown }).threadId;
@@ -98,6 +116,67 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
         members: store.listMembers(request.params.id, ownerId) };
     });
     threaded.post('/threads', { bodyLimit: 16_384 }, async () => rejectThreadedAdmission());
+    function messageScope(request: FastifyRequest<{ Params: { id: string } }>): ThreadedMessageReadScope {
+      const ownerId = principal(request).ownerId;
+      thread(request.params.id, ownerId);
+      if (!context.messages) throw new ThreadedAccessError(503, 'THREADED_MESSAGES_UNAVAILABLE', '持续协作消息尚未接入');
+      return { ownerId, threadId: request.params.id, viewer: { kind: 'owner' } };
+    }
+    function page(request: FastifyRequest): { afterSeq: number; limit: number } {
+      const query = request.query as Record<string, unknown>;
+      function integer(key: string, fallback: number, min: number, max: number) {
+        if (query[key] === undefined) return fallback;
+        if (typeof query[key] !== 'string' || !/^\d+$/.test(query[key] as string)) throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '消息分页参数无效');
+        const number = Number(query[key]);
+        if (!Number.isSafeInteger(number) || number < min || number > max) throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '消息分页参数无效');
+        return number;
+      }
+      return { afterSeq: integer('afterSeq', 0, 0, Number.MAX_SAFE_INTEGER), limit: integer('limit', 50, 1, 100) };
+    }
+    function notFound(): never { throw new ThreadedAccessError(404, 'THREADED_MESSAGE_NOT_FOUND', '消息不存在或无权访问'); }
+    threaded.get<{ Params: { id: string } }>('/threads/:id/messages', async request => {
+      const scope = messageScope(request);
+      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1, messages: context.messages!.listMessages(scope, page(request)) };
+    });
+    threaded.get<{ Params: { id: string } }>('/threads/:id/messages/search', async request => {
+      const scope = messageScope(request);
+      const query = (request.query as { q?: unknown }).q;
+      if (typeof query !== 'string' || !query.trim() || query.length > 200) throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '消息搜索参数无效');
+      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1,
+        messages: context.messages!.searchMessages(scope, { ...page(request), query }) };
+    });
+    threaded.get<{ Params: { id: string; messageId: string } }>('/threads/:id/messages/:messageId', async request => {
+      const scope = messageScope(request);
+      const message = context.messages!.getMessage(scope, request.params.messageId);
+      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1, message: message ?? notFound() };
+    });
+    threaded.get<{ Params: { id: string; messageId: string } }>('/threads/:id/messages/:messageId/sources', async request => {
+      const scope = messageScope(request);
+      const sources = context.messages!.getSources(scope, request.params.messageId);
+      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1, messages: sources ?? notFound() };
+    });
+    threaded.get<{ Params: { id: string; attachmentId: string } }>('/threads/:id/attachments/:attachmentId', async (request, reply) => {
+      const scope = messageScope(request);
+      const found = context.messages!.getAttachment(scope, request.params.attachmentId) ?? notFound();
+      const name = encodeURIComponent(found.attachment.name).replace(/['()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+      reply.header('content-disposition', `attachment; filename*=UTF-8''${name}`)
+        .header('x-content-type-options', 'nosniff').type('application/octet-stream');
+      return reply.send(found.content);
+    });
+    threaded.post<{ Params: { id: string } }>('/threads/:id/messages', { bodyLimit: 2_000_000 }, async request => {
+      const scope = messageScope(request);
+      const body = request.body as Record<string, unknown> | undefined;
+      const fields = ['clientRequestId', 'body', 'targets', 'audience', 'visibility', 'state', 'attachments', 'sourceRefs', 'httpVersion', 'toolVersion', 'schemaVersion'];
+      if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !fields.includes(key))
+        || typeof body.clientRequestId !== 'string' || !body.clientRequestId.trim() || body.clientRequestId.length > 200
+        || typeof body.body !== 'string') throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '消息提交参数无效');
+      (context.messageAdmission ?? rejectThreadedAdmission)();
+      return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: 1, receipt: context.messages!.acceptUserMessage({
+        ownerId: scope.ownerId, threadId: scope.threadId, clientRequestId: body.clientRequestId, body: body.body,
+        ...Object.fromEntries(['targets', 'audience', 'visibility', 'state', 'attachments', 'sourceRefs']
+          .filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]])),
+      }) };
+    });
     function controlInput(request: FastifyRequest, decision = false) {
       const body = request.body as Record<string, unknown> | undefined;
       const field = decision ? 'decision' : 'action';
@@ -139,13 +218,22 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       const id = (request.query as { threadId: string }).threadId;
       const close = () => { socket.close(1008, 'Session or access invalidated'); };
       const unwatch = access.watch(current, close);
+      const unwatchMessages = context.onMessageNotification?.(hint => {
+        if (hint.threadId !== id || hint.ownerId !== current.ownerId) return;
+        try {
+          access.assertActive(current); thread(id, current.ownerId);
+          if (socket.readyState === 1) socket.send(JSON.stringify({ type: 'threaded.change', httpVersion: THREADED_HTTP_VERSION,
+            schemaVersion: 1, eventId: hint.eventId, eventType: hint.eventType, threadId: id,
+            sourceId: hint.sourceId, sourceVersion: hint.sourceVersion }));
+        } catch { close(); }
+      });
       const recheck = setInterval(() => {
         try { access.assertActive(current); thread(id, current.ownerId); }
         catch { close(); }
       }, 1000);
       recheck.unref();
-      socket.on('close', () => { clearInterval(recheck); unwatch(); });
-      socket.on('error', () => { clearInterval(recheck); unwatch(); });
+      socket.on('close', () => { clearInterval(recheck); unwatch(); unwatchMessages?.(); });
+      socket.on('error', () => { clearInterval(recheck); unwatch(); unwatchMessages?.(); });
       // T02 deliberately has no subscription to the unfiltered legacy message bus.
       access.assertActive(current);
       socket.send(JSON.stringify({ type: 'threaded.snapshot', ...snapshot(id, current.ownerId) }));
@@ -157,5 +245,5 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       throw new ThreadedAccessError(404, 'THREADED_RESOURCE_NOT_IMPLEMENTED', '持续协作资源尚未实现');
     });
   }, { prefix: '/api/threaded' });
-  app.addHook('onClose', async () => { access.close(); if (defaults === context) defaults = undefined; });
+  app.addHook('onClose', async () => { access.close(); if (defaults === context) { defaults = undefined; closeThreadedMessaging(); } });
 }

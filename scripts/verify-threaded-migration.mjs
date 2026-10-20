@@ -6,15 +6,19 @@ import os from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
 import Database from '../apps/server/node_modules/better-sqlite3/lib/index.js';
-import {
-  ORCHESTRATION_MIGRATIONS, applyOrchestrationSchemaMigrations,
-  assertOrchestrationSchemaCompatible, migrationChecksum, migrateRoomPreferences,
-} from '../apps/server/src/db/orchestrationMigrations.ts';
-import { createThreadedStore } from '../apps/server/src/threaded/store.ts';
-import * as foundation from '../apps/server/src/db/threadedMigration.ts';
-import * as executionBoundary from '../apps/server/src/db/threadedExecutionMigration.ts';
-
 const root = await mkdtemp(path.join(os.tmpdir(), 'threaded-migration-'));
+Object.assign(process.env, { AGENT_GAND_ISOLATED_WORKER: '1', NODE_ENV: 'test',
+  DB_PATH: path.join(root, 'unused-singleton.sqlite'), AGENTS_DIR: path.join(root, 'agents'), LOG_LEVEL: 'silent' });
+const { config } = await import('../apps/server/src/config.ts');
+config.sandboxDir = path.join(root, 'sandbox');
+const { ORCHESTRATION_MIGRATIONS, applyOrchestrationSchemaMigrations,
+  assertOrchestrationSchemaCompatible, migrationChecksum, migrateRoomPreferences,
+} = await import('../apps/server/src/db/orchestrationMigrations.ts');
+const { createThreadedStore } = await import('../apps/server/src/threaded/store.ts');
+const foundation = await import('../apps/server/src/db/threadedMigration.ts');
+const executionBoundary = await import('../apps/server/src/db/threadedExecutionMigration.ts');
+const resourceBoundary = await import('../apps/server/src/db/executionResourcesMigration.ts');
+const latestVersion = 28;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -60,6 +64,7 @@ const frozenMigration = revision => {
     if (name === '@agent-gand/shared') return {};
     if (name === './threadedMigration.ts') return foundation; // The v25 descriptor/DDL is unchanged.
     if (name === './threadedExecutionMigration.ts') return executionBoundary; // The v26 descriptor/DDL is unchanged.
+    if (name === './executionResourcesMigration.ts') return resourceBoundary; // The v27 descriptor/DDL is unchanged.
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -70,7 +75,7 @@ try {
   const empty = bootstrap('empty.sqlite');
   const oldMessageColumns = empty.pragma('table_info(messages)');
   applyOrchestrationSchemaMigrations(empty);
-  assert.equal(empty.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, 27);
+  assert.equal(empty.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, latestVersion);
   const emptyStore = createThreadedStore(empty);
   const owner = emptyStore.getInstanceOwnerId();
   assert.match(owner, /^[0-9a-f-]{36}$/);
@@ -133,7 +138,7 @@ try {
   applyOrchestrationSchemaMigrations(v25);
   assert.deepEqual(v25Snapshot(),v25Before);
   assert.equal(v25.prepare('SELECT goal FROM threaded_invocations WHERE id=?').get('preserved-invocation').goal,'');
-  assert.equal(v25.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,27);
+  assert.equal(v25.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, latestVersion);
   checks.push('actual v25 upgrade preserves identity/history/checksums; v26 failure rolls back added columns and tables, then retries');
 
   const v26Worker = frozenMigration('c3b36db');
@@ -160,9 +165,41 @@ try {
   applyOrchestrationSchemaMigrations(v26);
   applyOrchestrationSchemaMigrations(v26);
   assert.deepEqual(v26Snapshot(), v26Before);
-  assert.equal(v26.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, 27);
+  assert.equal(v26.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, latestVersion);
   assert.deepEqual(v26.pragma('foreign_key_check'), []);
   checks.push('actual v26 upgrade preserves Thread/Invocation and historical descriptors; v27 migration rolls back atomically and repeats safely');
+
+  const v27Worker = frozenMigration('12d99e6');
+  const v27 = bootstrap('v27.sqlite');
+  v27Worker.applyOrchestrationSchemaMigrations(v27);
+  addAgent(v27, 'agent-a');
+  const v27Store = createThreadedStore(v27);
+  const v27Thread = v27Store.createThread(input());
+  sqlInvocation(v27, 'preserved-v27-invocation', v27Thread);
+  v27.prepare('INSERT INTO execution_resource_epochs(resource_key,generation) VALUES(?,?)').run('fixture:preserved-generation', 17);
+  v27.prepare(`INSERT INTO execution_resource_sessions(id,owner_id,binding_key,version,native_id,resource_key,state,record,updated_at)
+    VALUES('preserved-session',?,'preserved-binding',1,'preserved-native','preserved-resource','ready','{}',1)`).run(v27Thread.ownerId);
+  const v27Snapshot = () => ({
+    owner: v27Store.getInstanceOwnerId(), thread: v27Store.getThread(v27Thread.id, v27Thread.ownerId),
+    invocations: v27.prepare('SELECT * FROM threaded_invocations ORDER BY id').all(),
+    epochs: v27.prepare('SELECT * FROM execution_resource_epochs ORDER BY resource_key').all(),
+    sessions: v27.prepare('SELECT * FROM execution_resource_sessions ORDER BY id').all(),
+    migrations: v27.prepare('SELECT * FROM orchestration_schema_migrations WHERE version<=27 ORDER BY version').all(),
+  });
+  const v27Before = v27Snapshot();
+  v27.exec(`CREATE TRIGGER fixture_v28_failure BEFORE INSERT ON orchestration_schema_migrations
+    WHEN NEW.version=28 BEGIN SELECT RAISE(ABORT,'fixture_v28_migration_failure'); END;`);
+  const v27SchemaBefore = tables(v27);
+  assert.throws(() => applyOrchestrationSchemaMigrations(v27), /fixture_v28_migration_failure/);
+  assert.deepEqual(tables(v27), v27SchemaBefore);
+  assert.deepEqual(v27Snapshot(), v27Before);
+  v27.exec('DROP TRIGGER fixture_v28_failure');
+  applyOrchestrationSchemaMigrations(v27);
+  applyOrchestrationSchemaMigrations(v27);
+  assert.deepEqual(v27Snapshot(), v27Before);
+  assert.equal(v27.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version, latestVersion);
+  assert.deepEqual(v27.pragma('foreign_key_check'), []);
+  checks.push('actual frozen v27 upgrade preserves Thread/Invocation/resource generations/Session identity; failed v28 rolls back all DDL and retries idempotently');
 
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
@@ -271,11 +308,11 @@ try {
   // A future/tampered catalog is rejected before any schema mutations.
   const future = bootstrap('future.sqlite');
   seedV24(future);
-  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(28,'future','unknown','2026-10-19');
+  future.prepare('INSERT INTO orchestration_schema_migrations VALUES(?,?,?,?)').run(29,'future','unknown','2026-10-19');
   const futureBefore = tables(future);
-  assert.throws(() => applyOrchestrationSchemaMigrations(future), /28.*不受此 worker 支持/);
+  assert.throws(() => applyOrchestrationSchemaMigrations(future), /29.*不受此 worker 支持/);
   assert.deepEqual(tables(future), futureBefore);
-  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=28');
+  future.exec('DELETE FROM orchestration_schema_migrations WHERE version=29');
   future.exec("UPDATE orchestration_schema_migrations SET checksum='changed' WHERE version=24");
   assert.throws(() => applyOrchestrationSchemaMigrations(future), /24.*不受此 worker 支持/);
   checks.push('future version and mutated historical checksum rejected before mutation');
@@ -286,10 +323,11 @@ try {
   assert.throws(() => oldWorker.assertOrchestrationSchemaCompatible(legacy), /25.*不受此 worker 支持/);
   assert.throws(() => v25Worker.assertOrchestrationSchemaCompatible(legacy), /26.*不受此 worker 支持/);
   assert.throws(() => v26Worker.assertOrchestrationSchemaCompatible(legacy), /27.*不受此 worker 支持/);
+  assert.throws(() => v27Worker.assertOrchestrationSchemaCompatible(legacy), /28.*不受此 worker 支持/);
   assert.deepEqual(tables(legacy), upgradedBefore);
-  checks.push('actual frozen v24/v25/v26 worker compatibility guards refuse v25/v26/v27 without mutation');
+  checks.push('actual frozen v24/v25/v26/v27 worker compatibility guards refuse v25/v26/v27/v28 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T04/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T05/DB03 isolated SQLite migration; no application or model execution', checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

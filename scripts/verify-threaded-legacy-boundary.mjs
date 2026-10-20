@@ -46,6 +46,18 @@ try {
     database.run("UPDATE runs SET workspace='shared-fixture' WHERE id=?", id + '-run');
     database.run('INSERT INTO run_agent_snapshots(run_id,agent_id,version,definition,created_at) VALUES (?,?,?,?,?)', id + '-run', 'fixture-agent', 1, JSON.stringify({ accountRef: 'fixture-account' }), now);
   }
+  const { createThreadedStore } = await import('../apps/server/src/threaded/store.ts');
+  const { createThreadedMessages } = await import('../apps/server/src/threaded/messages.ts');
+  database.run(`INSERT INTO agents(id,name,definition,source,created_at,updated_at)
+    VALUES('t05-fixture','T05','{}','fixture',?,?)`, now, now);
+  const messageThread = createThreadedStore(database.db).createThread({ title: 'private-T05-room', members: [
+    { agentId: 't05-fixture', handle: 't05', roleVersion: 1, permissionVersion: 1 },
+  ] });
+  database.run("UPDATE threaded_threads SET state='open' WHERE id=?", messageThread.id);
+  const authored = createThreadedMessages(database.db).acceptUserMessage({ ownerId: messageThread.ownerId,
+    threadId: messageThread.id, clientRequestId: 'private-source', visibility: 'private', audience: ['t05-fixture'],
+    body: 'private-T05-authored-body', targets: ['t05-fixture'],
+    attachments: [{ name: 'private-T05.txt', mediaType: 'text/plain', contentBase64: Buffer.from('private-T05-attachment').toString('base64') }] });
   await app.ready();
   const headers = { host: '127.0.0.1:41973' };
   const call = (url, method = 'GET', payload, extra = {}) => app.inject({ method, url, headers: { ...headers, ...extra }, ...(payload === undefined ? {} : { payload }) });
@@ -58,6 +70,9 @@ try {
     '/api/tasks/private-task', '/api/tasks/private-task/attempts', '/api/tasks/private-task/reviews',
     '/api/messages?runId=private-run', '/api/tasks?runId=private-run',
     '/api/conversations/legacy-room/task-state?runIds=private-run',
+    `/api/conversations/${messageThread.conversationId}/history`,
+    `/api/conversations/${messageThread.conversationId}/history/search?q=private-T05`,
+    `/api/messages/${authored.message.id}`,
   ];
   for (const url of forbidden) assert.equal((await call(url)).statusCode, 404, url);
   for (const [url, method, body] of [
@@ -113,12 +128,14 @@ try {
     emit({ type: 'llm.delta', runId: id + '-run', spanId: id + '-span', text: id + '-token' });
     emit({ type: 'usage', usage: { runId: id + '-run', tokensIn: 11, tokensOut: 22, costUsd: .01, llmCalls: 1, toolCalls: 0 } });
   }
+  emit({ type: 'threaded.message', threadId: messageThread.id, message: authored.message });
   await new Promise(resolve => setImmediate(resolve));
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(received.some(event => event.type === 'run.updated'), 'legacy WS lost events');
   assert.ok(!JSON.stringify(received).includes('private-'), 'legacy WS leaked a scoped event');
   assert.equal(database.get('SELECT COUNT(*) n FROM runs').n, 2);
   assert.equal(database.get('SELECT COUNT(*) n FROM messages').n, 0);
+  assert.equal(database.get('SELECT COUNT(*) n FROM threaded_messages').n, 1);
   assert.equal(database.get('SELECT COUNT(*) n FROM tasks').n, 2);
   assert.equal(database.get("SELECT status FROM approvals WHERE id='private-approval'").status, 'pending');
   assert.equal(getRun('private-run').status, 'waiting_for_user');

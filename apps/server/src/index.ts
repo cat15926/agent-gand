@@ -33,6 +33,7 @@ import { recoverMemberAdmissions } from './execution/memberAdmission.ts';
 import { reopenInterruptedTaskResponsibilities } from './runtime/taskAdapter.ts';
 import { recoverCostReservations } from './orchestration/costBudget.ts';
 import { threadedLifecycle } from './threaded/service.ts';
+import { threadedMessaging } from './threaded/messagingService.ts';
 
 claimRuntimeHost();
 
@@ -60,6 +61,7 @@ await recoverAccountLogins();
 await recoverAccountTests();
 await recoverExternalExecutions();
 recoverCostReservations();
+threadedMessaging().recover();
 recoverMemberAdmissions();
 interruptRunningAttempts();
 reopenInterruptedTaskResponsibilities();

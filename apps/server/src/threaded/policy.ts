@@ -14,15 +14,17 @@ export function threadedAdmissionMode(): ThreadedAdmissionMode {
 export function threadedCapabilities(): ThreadedCapabilities {
   return {
     httpVersion: THREADED_HTTP_VERSION, toolVersion: THREADED_TOOL_VERSION, schemaVersion: THREADED_SCHEMA_VERSION,
-    implemented: { readSnapshots: true, authenticatedWs: true, admission: false, execution: false, tools: false },
+    implemented: { readSnapshots: true, authenticatedWs: true, admission: false, execution: false, tools: false,
+      messageReads: true, messagePersistence: true, outbox: true },
     configured: { mode: threadedAdmissionMode() },
     // T02 fixtures cannot stand in for production/backend/business verification.
-    verified: { readSnapshots: false, authenticatedWs: false, admission: false, execution: false, tools: false },
+    verified: { readSnapshots: false, authenticatedWs: false, admission: false, execution: false, tools: false,
+      messageReads: false, messagePersistence: false, outbox: false },
   };
 }
 
 /** Explicitly supplied unknown contracts fail closed; omission negotiates the sole implemented HTTP v1. */
-export function assertThreadedRequestContract(request: FastifyRequest, allowThreadId = false): void {
+export function assertThreadedRequestContract(request: FastifyRequest, allowThreadId = false, queryFields: readonly string[] = []): void {
   const query = request.query as Record<string, unknown>;
   const body = request.body && typeof request.body === 'object' && !Array.isArray(request.body)
     ? request.body as Record<string, unknown> : {};
@@ -40,7 +42,7 @@ export function assertThreadedRequestContract(request: FastifyRequest, allowThre
   if (authorityFields.some(key => Object.hasOwn(query, key) || Object.hasOwn(body, key))) {
     throw new ThreadedAccessError(400, 'THREADED_IDENTITY_FIELD_REJECTED', '执行身份必须由服务端认证绑定提供');
   }
-  const allowedQuery = allowThreadId ? ['httpVersion', 'threadId'] : ['httpVersion'];
+  const allowedQuery = ['httpVersion', ...(allowThreadId ? ['threadId'] : []), ...queryFields];
   if (Object.keys(query).some(key => !allowedQuery.includes(key))) {
     throw new ThreadedAccessError(400, 'THREADED_REQUEST_INVALID', '持续协作查询参数无效');
   }

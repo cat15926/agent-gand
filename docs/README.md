@@ -21,6 +21,7 @@
 
 ### 架构与协议
 
+- [持续协作 T05：消息、授权与持久通知 v1](./architecture/threaded-messaging-v1.md)
 - [持续协作 T04：共享资源与 Session 围栏 v1](./architecture/threaded-resources-v1.md)
 - [持续协作 T03：可信执行与生命周期边界 v1（真实执行关闭）](./architecture/threaded-execution-boundary-v1.md)
 - [持续协作 T02：模式、身份与存储基础 v1（执行关闭）](./architecture/threaded-foundation-v1.md)
@@ -61,7 +62,7 @@
 
 ### 实施计划
 
-- [持续协作模式实施指导（Issue #16，T01–T04 交付，T05 待实施）](./plans/threaded-collaboration-implementation-guide.md)
+- [持续协作模式实施指导（Issue #16，T01–T05 交付，T06 待实施）](./plans/threaded-collaboration-implementation-guide.md)
 - [持续协作实施状态与下一项任务](./plans/threaded-collaboration-implementation-status.md)
 - [持续协作 T01 设计决策与实施接口](./plans/threaded-collaboration-t01-decisions.md)
 - [持续协作核心合同、兼容矩阵与能力范围](./plans/threaded-collaboration-compatibility-matrix.md)
@@ -93,6 +94,7 @@
 
 ### 测试与评估报告
 
+- [持续协作 T05 消息账本验收（2026-10-20）](./reports/threaded-collaboration-t05-messaging-2026-10-20.md)
 - [持续协作 T04 共享资源验收（2026-10-20）](./reports/threaded-collaboration-t04-resources-2026-10-20.md)
 - [持续协作 T03 执行边界验收（2026-10-20）](./reports/threaded-collaboration-t03-execution-2026-10-20.md)
 - [持续协作 T02 基础边界验收（2026-10-19）](./reports/threaded-collaboration-t02-foundation-2026-10-19.md)

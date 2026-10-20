@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**实施中**（T01–T04 已交付，T05–T12 待实施）。用户已确认产品命名与验收目标；新模式真实执行尚未开放。更新：2026-10-20。
+状态：**实施中**（T01–T05 已交付，T06–T12 待实施）。用户已确认产品命名与验收目标；新模式真实执行尚未开放。更新：2026-10-20。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -10,7 +10,7 @@
 
 验收目标（用户已确认，2026-10-19）：**核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。**具体证据与发布要求见第 8 节。
 
-T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容矩阵](threaded-collaboration-compatibility-matrix.md)、[接入地图](threaded-collaboration-integration-map.md)与[基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)。T02 已完成默认关闭的类型、身份、路由、旧路径隔离与 v25 迁移，见[基础架构合同](../architecture/threaded-foundation-v1.md)和[验收报告](../reports/threaded-collaboration-t02-foundation-2026-10-19.md)。T03 已增加可信 Binding、Run adapter 与生命周期控制，见[执行边界合同](../architecture/threaded-execution-boundary-v1.md)和[验收报告](../reports/threaded-collaboration-t03-execution-2026-10-20.md)。T04 已接入持久共享资源、旧模式兼容桥与 Session 身份准备，见[资源合同](../architecture/threaded-resources-v1.md)和[验收报告](../reports/threaded-collaboration-t04-resources-2026-10-20.md)。下一项为 T05，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。可靠消息闭环通过确定性测试后接真实后端。阶段 4 可交付持续协作核心能力；完整责任、评审、恢复与发布要求仍须完成后续阶段。
+T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容矩阵](threaded-collaboration-compatibility-matrix.md)、[接入地图](threaded-collaboration-integration-map.md)与[基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)。T02 已完成默认关闭的类型、身份、路由、旧路径隔离与 v25 迁移，见[基础架构合同](../architecture/threaded-foundation-v1.md)和[验收报告](../reports/threaded-collaboration-t02-foundation-2026-10-19.md)。T03 已增加可信 Binding、Run adapter 与生命周期控制，见[执行边界合同](../architecture/threaded-execution-boundary-v1.md)和[验收报告](../reports/threaded-collaboration-t03-execution-2026-10-20.md)。T04 已接入持久共享资源、旧模式兼容桥与 Session 身份准备，见[资源合同](../architecture/threaded-resources-v1.md)和[验收报告](../reports/threaded-collaboration-t04-resources-2026-10-20.md)。T05 已交付独立消息、统一 ACL、附件、冻结 wave 和持久通知，见[消息合同](../architecture/threaded-messaging-v1.md)和[验收报告](../reports/threaded-collaboration-t05-messaging-2026-10-20.md)。下一项为 T06，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。可靠消息闭环通过确定性测试后接真实后端。阶段 4 可交付持续协作核心能力；完整责任、评审、恢复与发布要求仍须完成后续阶段。
 
 ## 1 T01 固定基线与初始差距
 
@@ -277,11 +277,11 @@ pnpm verify:docs
 
 ## 10 当前交接与下一项工作
 
-T01 设计（`0a2f1b4`）、T02 基础（`5298a9d`）和 T03 执行边界（`c3b36db`）已提交推送。T04 已实现持久资源、旧模式兼容桥、共享容量、公平性、Session 身份准备与 v27 迁移；T04 代码及文档留在工作区。未迁移日常数据库、未启动真实模型、未回写 GitHub issue；T05–T12 尚未开始。
+T01 设计（`0a2f1b4`）、T02 基础（`5298a9d`）、T03 执行边界（`c3b36db`）及 T04 资源（`12d99e6`）已提交推送。T05 已实现消息、ACL、owned 附件、逻辑投递/Wake、Outbox 围栏和 v28 迁移；T05 代码及文档留在工作区。未迁移日常数据库、未启动真实模型、未回写 GitHub issue；T06–T12 尚未开始。
 
-检查结果与可复核证据见[实施状态](threaded-collaboration-implementation-status.md)和 T04 报告。DB03 的 v25–v27 范围通过；ISO、Q 与恢复类目前为所列边界/资源子场景通过，其余完整行为验收仍待后续实施。
+检查结果与可复核证据见[实施状态](threaded-collaboration-implementation-status.md)和 T05 报告。DB03 的 v25–v28 范围通过；DB、M、CTX、ISO、Q 与恢复类目前为所列接收/授权/资源/通知子场景通过，其余完整行为验收仍待后续实施。
 
-**下一项具体任务是 T05。**建立独立消息、ACL、Delivery、Wake 和 Outbox 账本，验证接收幂等、内容/目标冲突和持久提交故障窗口。T06 再消费 T03–T05 的端口完成调度/响应闭环，T07 接入真实后端；新模式工作入场与真实执行继续关闭。详细输入与退出门槛见实施状态。
+**下一项具体任务是 T06。**消费 T03–T05 的执行、资源与消息端口，完成 Wake/Invocation 映射、调度、响应/终态/后继原子提交、根预算与恢复闭环。T07 接入真实后端；新模式工作入场与真实执行继续关闭。详细输入与退出门槛见实施状态。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 
@@ -289,6 +289,6 @@ T01 设计（`0a2f1b4`）、T02 基础（`5298a9d`）和 T03 执行边界（`c3b
 
 可交给实施会话的启动指令：
 
-> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T04 实现为依据，从当前首个未完成任务 T05 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，使用隔离数据库与 fake executor。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
+> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T05 实现为依据，从当前首个未完成任务 T06 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，使用隔离数据库与 fake executor。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
 >
 > 验收遵守已确认目标：核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。交接时分别附兼容结果、差异表、增强验收证据与能力范围，不用通过用例的数量推导复刻百分比。
