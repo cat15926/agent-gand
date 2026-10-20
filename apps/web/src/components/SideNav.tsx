@@ -5,6 +5,7 @@ import type { ViewKey } from '../App';
 
 const ITEMS: Array<{ key: ViewKey; label: string; icon: string }> = [
   { key: 'run', label: '聊天', icon: '◉' },
+  { key: 'threaded', label: '持续协作', icon: '⇄' },
   { key: 'canvas', label: '任务图', icon: '⬡' },
   { key: 'fleet', label: '舰队', icon: '▦' },
   { key: 'accounts', label: '账户', icon: '⚿' },
@@ -27,7 +28,7 @@ export function SideNav({ view, onChange }: { view: ViewKey; onChange: (v: ViewK
           }`}
         >
           <span className="text-base leading-none">{item.icon}</span>
-          {item.label}
+          {item.key==='threaded'?'持续':item.label}
         </button>
       ))}
     </nav>

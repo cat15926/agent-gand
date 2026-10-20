@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {openBackendRuntimeFixture} from './fixtures/threadedBackendRuntimeFixture.mjs';
+const root=await mkdtemp(path.join(tmpdir(),'agent-gand-t09-api-'));
+Object.assign(process.env,{AGENT_GAND_ISOLATED_WORKER:'1',NODE_ENV:'test',LOG_LEVEL:'silent',DB_PATH:path.join(root,'unused.sqlite'),AGENTS_DIR:path.join(root,'agents'),HOST:'127.0.0.1',PORT:'3010',ACCOUNT_TRUSTED_ORIGINS:'http://127.0.0.1:3010'});
+const checks=[];let f,app,access,database;
+try{
+  f=await openBackendRuntimeFixture(root,'projection',{fetch:async()=>new Response(JSON.stringify({id:'fake',type:'message',content:[{type:'text',text:'final'}],stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:4}}),{headers:{'content-type':'application/json'}})});
+  const {createThreadedStore}=await import('../apps/server/src/threaded/store.ts');
+  const {createThreadedView}=await import('../apps/server/src/threaded/view.ts');
+  const {createThreadedAccess}=await import('../apps/server/src/threaded/access.ts');
+  const {registerThreadedAccessBridge,registerThreadedRoutes}=await import('../apps/server/src/api/threadedRoutes.ts');
+  const management=await import('../apps/server/src/accounts/access.ts');database=await import('../apps/server/src/db/database.ts');
+  const {default:Fastify}=await import('../apps/server/node_modules/fastify/fastify.js');const {default:websocket}=await import('../apps/server/node_modules/@fastify/websocket/index.js');
+  const store=createThreadedStore(f.db);let deniedId;
+  const messages={...f.runtime.messages,getMessage(scope,id){return id===deniedId?null:f.runtime.messages.getMessage(scope,id);}};
+  const view=createThreadedView(f.db,{store,messages});access=createThreadedAccess(()=>f.thread.ownerId);
+  const context={store,access,messages,lifecycle:f.runtime.lifecycle,collaboration:f.runtime.collaboration,view,onMessageNotification:f.runtime.messaging.onNotification};
+  const seed=f.user('visible user source');const claim=f.runtime.queue.claimNext('projection');await f.runtime.executeClaim(claim);
+  const changesBefore=f.db.prepare('SELECT total_changes() n').get().n;
+  const first=view.snapshot(f.thread.ownerId,f.thread.id);assert.equal(first.messages.length,2);assert.equal(first.invocations[0].status,'completed');assert.equal(first.business.available,false);
+  const delivered=first.progress.find(p=>p.messageId===seed.message.id&&p.agentId==='api-member');assert.ok(delivered.delivered);assert.equal(delivered.seen,false);assert.equal(delivered.mentionAcknowledged,false);
+  assert.equal(f.db.prepare('SELECT total_changes() n').get().n,changesBefore);
+  assert.doesNotMatch(JSON.stringify(first),/fencing_token|fencingToken|nativeId|serializedContext|agent_definition_hash/);
+  assert.throws(()=>view.snapshot('wrong-owner',f.thread.id),/无权/);
+  checks.push('Owner snapshot is read-only, source-scoped and contains independent context receipt facts; Invocation complete never claims business completion; fences, raw transcript and wrong owner are excluded');
+  for(let i=0;i<110;i++)f.user(`history ${i}`,[]);
+  const latest=view.snapshot(f.thread.ownerId,f.thread.id);assert.equal(latest.messages.length,100);assert.ok(latest.nextBeforeSeq);
+  const earlier=view.snapshot(f.thread.ownerId,f.thread.id,{beforeSeq:latest.nextBeforeSeq});assert.ok(earlier.messages.length);assert.ok(earlier.messages.every(m=>m.seq<latest.messages[0].seq));
+  let seq=0,ids=[];for(let i=0;i<10;i++){const page=view.changes(f.thread.ownerId,f.thread.id,seq);ids.push(...page.events.map(e=>e.id));seq=page.throughSeq;if(!page.hasMore)break;}
+  assert.equal(new Set(ids).size,ids.length);assert.ok(ids.length>100);
+  deniedId=seed.message.id;assert.ok(!view.snapshot(f.thread.ownerId,f.thread.id,{beforeSeq:latest.nextBeforeSeq}).messages.some(m=>m.id===deniedId));
+  assert.ok(!view.changes(f.thread.ownerId,f.thread.id,0).events.some(e=>e.messageId===deniedId));deniedId=undefined;
+  checks.push('Timeline pages and durable change pages cross 100 entries without duplication; every fresh source projection and replay rechecks the injected current read policy instead of retaining old bodies/IDs');
+  app=Fastify({logger:false});await app.register(websocket);await app.register(async accounts=>{
+    accounts.addHook('onRequest',async request=>{management.assertManagementBoundary(request);if(request.routeOptions.url!=='/api/accounts/session'||request.method!=='POST')management.requireManagementSession(request);});
+    accounts.post('/api/accounts/session',async(request,reply)=>management.createManagementSession(request,reply));await registerThreadedAccessBridge(accounts,context);
+  });await registerThreadedRoutes(app,context);await app.ready();
+  const headers={host:'127.0.0.1:3010',origin:'http://127.0.0.1:3010'};
+  const parent=await app.inject({method:'POST',url:'/api/accounts/session',headers:{...headers,'x-gand-bootstrap':'1'}});
+  const grant=await app.inject({method:'POST',url:'/api/accounts/threaded/access-session',headers:{...headers,cookie:parent.headers['set-cookie'].split(';')[0],'x-gand-csrf':parent.json().csrfToken}});
+  const auth={...headers,cookie:grant.headers['set-cookie'].split(';')[0],'x-gand-csrf':grant.json().csrfToken};const url=`/api/threaded/threads/${f.thread.id}/view`;
+  assert.equal((await app.inject({url,headers})).statusCode,401);
+  for(const query of ['ownerId=forged','beforeSeq=-1','afterEventSeq=1.5'])assert.equal((await app.inject({url:`${url}?${query}`,headers:auth})).statusCode,400);
+  assert.equal((await app.inject({url:`${url}?afterEventSeq=9999999`,headers:auth})).statusCode,409);
+  const valid=await app.inject({url,headers:auth});assert.equal(valid.statusCode,200,valid.body);
+  checks.push('Dedicated view endpoint enforces actual session/origin/version, rejects forged identities and malformed/future cursors, and returns bounded authoritative data');
+  const frames=[];const socket=await app.injectWS(`/api/threaded/ws?threadId=${f.thread.id}&view=timeline&afterEventSeq=0`,{headers:auth,socket:{remoteAddress:'127.0.0.1'}},
+    {onInit:ws=>ws.on('message',data=>frames.push(JSON.parse(String(data))))});
+  const deadline=Date.now()+3000;while(!frames.length&&Date.now()<deadline)await new Promise(r=>setTimeout(r,20));assert.ok(frames.length);
+  const previous=frames.at(-1).revision;
+  f.runtime.lifecycle.requestControl({ownerId:f.thread.ownerId,scope:{kind:'member',threadId:f.thread.id,agentId:'api-member'},action:'pause',requestId:'t09-pause'});
+  const end=Date.now()+3000;while(!frames.some(x=>x.revision!==previous)&&Date.now()<end)await new Promise(r=>setTimeout(r,20));assert.ok(frames.some(x=>x.revision!==previous));
+  assert.ok(frames.every(x=>x.type==='threaded.invalidate'&&!JSON.stringify(x).includes('history')));
+  const closed=new Promise(resolve=>socket.once('close',resolve));await app.inject({method:'DELETE',url:'/api/threaded/session',headers:auth});await closed;
+  assert.equal((await app.inject({url,headers:auth})).statusCode,401);
+  checks.push('Actual injected WebSocket emits only authorized invalidation metadata, catches control-only changes without message events, and closes on session invalidation before subsequent reads');
+  console.log(JSON.stringify({ok:true,groups:checks.length,checks,realModelCalls:0,externalNetworkCalls:0},null,2));
+}finally{await app?.close();access?.close();f?.close();database?.closeDatabase();await rm(root,{recursive:true,force:true});}

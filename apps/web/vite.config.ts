@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/api/threaded/ws': {target:'ws://127.0.0.1:3010',ws:true},
       '/api': 'http://127.0.0.1:3010',
       '/ws': { target: 'ws://127.0.0.1:3010', ws: true },
     },

@@ -15,26 +15,27 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
   const { createThreadedBackendRuntime } = await import('../../apps/server/src/threaded/backendRuntime.ts');
   const file = path.join(root, `${name}.sqlite`), db = new Database(file, { timeout: 10_000 });
   db.pragma('foreign_keys = ON'); db.pragma('journal_mode = WAL');
-  db.exec(readFileSync(new URL('../../apps/server/src/db/schema.sql', import.meta.url), 'utf8'));
-  db.exec('ALTER TABLE accounts ADD COLUMN identity_generation INTEGER');
+  if(!options.restore){db.exec(readFileSync(new URL('../../apps/server/src/db/schema.sql', import.meta.url), 'utf8'));
+  db.exec('ALTER TABLE accounts ADD COLUMN identity_generation INTEGER');}
   applyOrchestrationSchemaMigrations(db);
   const stamp = new Date().toISOString();
-  if (options.account) {
+  if (options.account&&!options.restore) {
     for (const [table, rows] of Object.entries(options.account.rows)) for (const row of rows) {
       const keys = Object.keys(row);
       db.prepare(`INSERT INTO ${table}(${keys.join(',')}) VALUES(${keys.map(() => '?').join(',')})`).run(...Object.values(row));
     }
   }
   const agentIds = options.agentIds ?? ['api-member', 'sdk-member', 'other-member'];
-  for (const id of agentIds) db.prepare(`INSERT INTO agents(id,name,definition,source,created_at,updated_at)
+  if(!options.restore)for (const id of agentIds) db.prepare(`INSERT INTO agents(id,name,definition,source,created_at,updated_at)
     VALUES(?,?,?,'threaded-t07-isolated',?,?)`).run(id, id, JSON.stringify({ id, name: id, version: 1, enabled: true,
       model: options.model ?? 'fixture-model', systemPrompt: options.instructions ?? 'Reply concisely. Never use tools.', tools: options.applicationTools ?? [], permissionMode: 'readonly',
       ...(options.account ? { accountRef: options.account.id, requiresAccount: true } : {}) }), stamp, stamp);
   const store = createThreadedStore(db);
-  const thread = store.createThread({ title: name, members: agentIds.map(agentId => ({
+  const thread = options.restore?store.listThreads(store.getInstanceOwnerId())[0]:store.createThread({ title: name, members: agentIds.map(agentId => ({
     agentId, handle: agentId, roleVersion: 1, permissionVersion: 1,
   })) });
-  db.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(thread.id);
+  if(!thread)throw new Error('RESTORE_THREAD_REQUIRED');
+  if(!options.restore)db.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(thread.id);
   const workspace = path.join(root, 'sandbox', name, 'workspace');
   const configDir = path.join(root, name, 'sdk-home');
   mkdirSync(workspace, { recursive: true }); mkdirSync(configDir, { recursive: true, mode: 0o700 });

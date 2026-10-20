@@ -18,6 +18,7 @@ import { ThreadedMessageAclError } from '../threaded/acl.ts';
 import type { createThreadedMessages } from '../threaded/messages.ts';
 import type { ThreadedInternalNotification } from '../threaded/outbox.ts';
 import { threadedMessaging, closeThreadedMessaging } from '../threaded/messagingService.ts';
+import {createThreadedView} from '../threaded/view.ts';
 
 type ThreadedReadStore = Pick<ReturnType<typeof createThreadedStore>, 'getInstanceOwnerId' | 'getThread' | 'listThreads' | 'listMembers'>;
 export interface ThreadedRouteContext {
@@ -29,6 +30,7 @@ export interface ThreadedRouteContext {
   messageAdmission?: () => void;
   onMessageNotification?: (listener: (hint: ThreadedInternalNotification) => void) => () => void;
   collaboration?: ReturnType<typeof createThreadedCollaboration>;
+  view?:ReturnType<typeof createThreadedView>;
 }
 let defaults: ThreadedRouteContext | undefined;
 function defaultContext(): ThreadedRouteContext {
@@ -36,7 +38,8 @@ function defaultContext(): ThreadedRouteContext {
     const store = createThreadedStore(db);
     const messaging = threadedMessaging();
     defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle,
-      messages: messaging.messages, onMessageNotification: messaging.onNotification,collaboration:threadedRuntime.collaboration };
+      messages: messaging.messages, onMessageNotification: messaging.onNotification,collaboration:threadedRuntime.collaboration,
+      view:createThreadedView(db,{store,messages:messaging.messages}) };
   }
   return defaults;
 }
@@ -98,7 +101,9 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       const url = request.routeOptions.url;
       const queries = url === '/api/threaded/threads/:id/messages' ? ['afterSeq', 'limit']
         : url === '/api/threaded/threads/:id/messages/search' ? ['q', 'afterSeq', 'limit']
-          :url==='/api/threaded/threads/:id/waits'?['agentId']:[];
+          :url==='/api/threaded/threads/:id/waits'?['agentId']
+            :url==='/api/threaded/threads/:id/view'?['beforeSeq','afterEventSeq']
+              :url==='/api/threaded/ws'?['view','afterEventSeq']:[];
       assertThreadedRequestContract(request, url === '/api/threaded/ws', queries);
       principal(request);
       if (request.routeOptions.url === '/api/threaded/ws') {
@@ -107,6 +112,9 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
           throw new ThreadedAccessError(400, 'THREADED_THREAD_REQUIRED', 'WebSocket 需要明确的持续协作空间');
         }
         thread(id, principal(request).ownerId);
+        const query=request.query as {view?:string;afterEventSeq?:string};
+        if(query.view!==undefined&&(query.view!=='timeline'||!context.view))throw new ThreadedAccessError(400,'THREADED_VIEW_INVALID','持续协作视图无效');
+        numericQuery(query.afterEventSeq,0);
       }
     });
     threaded.get('/capabilities', async () => threadedCapabilities());
@@ -115,6 +123,19 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
     threaded.get('/threads', async request => ({ httpVersion: THREADED_HTTP_VERSION,
       schemaVersion: THREADED_SCHEMA_VERSION, threads: store.listThreads(principal(request).ownerId) }));
     threaded.get<{ Params: { id: string } }>('/threads/:id', async request => snapshot(request.params.id, principal(request).ownerId));
+    function numericQuery(value:unknown,fallback:number):number {
+      if(value===undefined)return fallback;
+      if(typeof value!=='string'||!/^\d+$/.test(value)||!Number.isSafeInteger(Number(value)))throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','持续协作分页参数无效');
+      return Number(value);
+    }
+    if(context.view)threaded.get<{Params:{id:string};Querystring:{beforeSeq?:string;afterEventSeq?:string}}>('/threads/:id/view',async request=>{
+      const ownerId=principal(request).ownerId,id=request.params.id;
+      const beforeSeq=numericQuery(request.query.beforeSeq,Number.MAX_SAFE_INTEGER),afterSeq=numericQuery(request.query.afterEventSeq,0);
+      const current=context.view!.snapshot(ownerId,id,{beforeSeq});
+      if(afterSeq>current.eventCursor)throw new ThreadedAccessError(409,'THREADED_CURSOR_AHEAD','变化游标已失效，请重新同步');
+      const result={snapshot:current,changes:context.view!.changes(ownerId,id,afterSeq)};
+      principal(request);return result;
+    });
     threaded.get<{ Params: { id: string } }>('/threads/:id/members', async request => {
       const ownerId = principal(request).ownerId;
       thread(request.params.id, ownerId);
@@ -256,19 +277,29 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
     const websocket: WebsocketHandler = (socket, request) => {
       const current = principal(request);
       const id = (request.query as { threadId: string }).threadId;
+      const timeline=(request.query as {view?:string}).view==='timeline';
+      let revision:string|undefined;
+      const sendViewHint=()=>{
+        access.assertActive(current);thread(id,current.ownerId);
+        const view=context.view!.snapshot(current.ownerId,id);
+        access.assertActive(current);
+        if(view.revision!==revision&&socket.readyState===1){revision=view.revision;
+          socket.send(JSON.stringify({type:'threaded.invalidate',httpVersion:THREADED_HTTP_VERSION,threadId:id,revision,eventCursor:view.eventCursor}));}
+      };
       const close = () => { socket.close(1008, 'Session or access invalidated'); };
       const unwatch = access.watch(current, close);
       const unwatchMessages = context.onMessageNotification?.(hint => {
         if (hint.threadId !== id || hint.ownerId !== current.ownerId) return;
         try {
           access.assertActive(current); thread(id, current.ownerId);
+          if(timeline){sendViewHint();return;}
           if (socket.readyState === 1) socket.send(JSON.stringify({ type: 'threaded.change', httpVersion: THREADED_HTTP_VERSION,
             schemaVersion: 1, eventId: hint.eventId, eventType: hint.eventType, threadId: id,
             sourceId: hint.sourceId, sourceVersion: hint.sourceVersion }));
         } catch { close(); }
       });
       const recheck = setInterval(() => {
-        try { access.assertActive(current); thread(id, current.ownerId); }
+        try { access.assertActive(current); thread(id, current.ownerId);if(timeline)sendViewHint(); }
         catch { close(); }
       }, 1000);
       recheck.unref();
@@ -276,7 +307,7 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       socket.on('error', () => { clearInterval(recheck); unwatch(); unwatchMessages?.(); });
       // T02 deliberately has no subscription to the unfiltered legacy message bus.
       access.assertActive(current);
-      socket.send(JSON.stringify({ type: 'threaded.snapshot', ...snapshot(id, current.ownerId) }));
+      if(timeline)sendViewHint();else socket.send(JSON.stringify({ type: 'threaded.snapshot', ...snapshot(id, current.ownerId) }));
       socket.on('message', () => { socket.close(1008, 'Snapshot connection is read-only'); });
     };
     threaded.get('/ws', { websocket: true }, websocket);
