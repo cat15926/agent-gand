@@ -8,15 +8,15 @@ export interface ThreadedRunnerLifecycle {
   recordOutcome(binding: ThreadedBinding, outcome: ExecutionOutcome): unknown;
 }
 
-/** No production provider or legacy runner is reachable from this T03 port. */
+/** Dedicated Invocation runner; backend effects require the current Binding and budget authority. */
 export function createThreadedRunner(
   authority: ThreadedAuthority,
   lifecycle: ThreadedRunnerLifecycle,
   executor: InvocationExecutionPort,
   options: {
     onEvent?: (binding: ThreadedBinding, event: ScopedExecutionEvent) => void;
-    assertExecutionAuthorized?: (binding: ThreadedBinding, authorizationId: string) => void;
-    checkpoint?: (binding: ThreadedBinding, authorizationId: string) => { validUntil: number };
+    assertExecutionAuthorized?: (binding: ThreadedBinding, authorizationId: string | null) => void;
+    checkpoint?: (binding: ThreadedBinding, authorizationId: string | null) => { validUntil: number };
     now?: () => number;
   } = {},
 ) {
@@ -40,19 +40,20 @@ export function createThreadedRunner(
       const binding = Object.freeze({ ...authority.capture(input.binding.attemptId) });
       options.assertExecutionAuthorized?.(binding, input.budgetAuthorizationId);
       lifecycle.startAttempt(binding);
+      let currentAuthorizationId: string | null = input.budgetAuthorizationId;
       const controller = new AbortController();
       const unwatch = watchThreadedExecution(binding.invocationId, controller);
       const assertAuthorized = () => {
         if (controller.signal.aborted) throw new ThreadedAuthorityError('THREADED_EXECUTION_ABORTED');
         authority.assertAuthorized(binding);
-        options.assertExecutionAuthorized?.(binding, input.budgetAuthorizationId);
+        options.assertExecutionAuthorized?.(binding, currentAuthorizationId);
       };
       let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
       const checkpoint = () => {
         if (!options.checkpoint || controller.signal.aborted) return;
         try {
           assertAuthorized();
-          const { validUntil } = options.checkpoint(binding, input.budgetAuthorizationId);
+          const { validUntil } = options.checkpoint(binding, currentAuthorizationId);
           const remaining = validUntil - (options.now?.() ?? Date.now());
           if (!Number.isFinite(remaining) || remaining <= 0) throw new ThreadedAuthorityError('THREADED_ACTIVITY_ALLOWANCE_EXPIRED');
           checkpointTimer = setTimeout(checkpoint, Math.max(1, Math.min(remaining, Math.floor(remaining / 2))));
@@ -69,6 +70,15 @@ export function createThreadedRunner(
           assertAuthorized();
           outcome = await executor.execute({
             ...input, binding, signal: controller.signal, assertAuthorized,
+            setBudgetAuthorization(authorizationId) {
+              if (authorizationId !== null && (typeof authorizationId !== 'string' || !authorizationId.trim())) {
+                throw new ThreadedAuthorityError('THREADED_BUDGET_AUTHORIZATION_REQUIRED');
+              }
+              if (controller.signal.aborted) throw new ThreadedAuthorityError('THREADED_EXECUTION_ABORTED');
+              authority.assertAuthorized(binding);
+              options.assertExecutionAuthorized?.(binding, authorizationId);
+              currentAuthorizationId = authorizationId;
+            },
             onEvent(event) {
               assertAuthorized();
               options.onEvent?.(binding, event);

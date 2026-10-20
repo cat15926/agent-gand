@@ -302,6 +302,26 @@ export function createThreadedBudget(db: Database.Database, options: {
     }
     return authorization(row);
   }
+  function attemptRequest(binding: ThreadedBinding): RequestRow {
+    const row = db.prepare('SELECT * FROM threaded_budget_requests WHERE attempt_id=? AND owner_id=? ORDER BY created_at,id LIMIT 1')
+      .get(binding.attemptId, owner) as RequestRow | undefined;
+    if (!row) deny('THREADED_BUDGET_AUTHORIZATION_REQUIRED');
+    return persisted(row.id, binding);
+  }
+  function assertAttemptAuthorized(binding: ThreadedBinding): void {
+    const row = attemptRequest(binding);
+    options.authority.assertAuthorized(binding);
+    const root = rootRequired(row.root_id); activeRoot(root);
+    if (db.prepare("SELECT 1 FROM threaded_budget_requests WHERE attempt_id=? AND execution_state='unknown'")
+      .get(binding.attemptId) || db.prepare("SELECT 1 FROM threaded_budget_activity WHERE attempt_id=? AND state='unknown'")
+      .get(binding.attemptId)) deny('THREADED_BUDGET_EXECUTION_UNKNOWN');
+    const current = usage({ rootId: row.root_id });
+    if (current.outputTokens > root.policy.maxOutputTokens || current.costMicrousd > root.policy.maxCostMicrousd ||
+      current.activityMs > root.policy.maxActivityMs) deny('THREADED_BUDGET_EXCEEDED');
+    ownerCheck({});
+    if (db.prepare("SELECT 1 FROM threaded_budget_activity WHERE attempt_id=? AND state<>'closed'").get(binding.attemptId) &&
+      (attempt(binding.attemptId)?.activity_valid_until ?? 0) <= now()) deny('THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED');
+  }
   function allowActivity(row: RequestRow): number {
     const root = rootRequired(row.root_id); activeRoot(root);
     const charged = usage({ rootId: root.id }), stored = attempt(row.attempt_id)!;
@@ -371,16 +391,18 @@ export function createThreadedBudget(db: Database.Database, options: {
     return db.transaction(() => {
       const row = persisted(id, binding), fingerprint = digest(outcome);
       if (row.outcome_hash !== null) {
-        if (row.outcome_hash === fingerprint) return attemptUsageState(row.attempt_id);
+        if (row.outcome_hash === fingerprint) return outcome.kind==='unknown'?'unknown':attemptUsageState(row.attempt_id);
         if (row.outcome_kind !== 'unknown' || outcome.kind === 'unknown') deny('THREADED_BUDGET_SETTLEMENT_CONFLICT');
       }
       if (outcome.kind === 'unknown') {
-        db.prepare(`UPDATE threaded_budget_requests SET execution_state='unknown',usage_state='unknown',outcome_hash=?,outcome_kind='unknown'
-          WHERE id=?`).run(fingerprint, id);
+        db.prepare("UPDATE threaded_budget_requests SET outcome_hash=?,outcome_kind='unknown' WHERE id=?").run(fingerprint,id);
+        db.prepare(`UPDATE threaded_budget_requests SET execution_state='unknown',
+          usage_state=CASE WHEN known_output IS NOT NULL AND known_cost IS NOT NULL THEN 'settled' ELSE 'unknown' END
+          WHERE attempt_id=? AND execution_state='started'`).run(row.attempt_id);
         db.prepare(`INSERT INTO threaded_budget_outcomes(authorization_id,outcome_hash,kind,record,created_at)
           VALUES(?,?,'unknown',?,?)`).run(id, fingerprint, JSON.stringify(outcome), now());
-        db.prepare("UPDATE threaded_budget_activity SET state='unknown',observed_at=MAX(observed_at,?) WHERE authorization_id=? AND state='active'")
-          .run(now(), id);
+        db.prepare("UPDATE threaded_budget_activity SET state='unknown',observed_at=MAX(observed_at,?) WHERE attempt_id=? AND state='active'")
+          .run(now(), row.attempt_id);
         return 'unknown';
       }
       if (!options.resources) deny('THREADED_BUDGET_RESOURCES_REQUIRED');
@@ -388,7 +410,8 @@ export function createThreadedBudget(db: Database.Database, options: {
       if (outcome.kind === 'not_started' && (outcome.quiescence.reason !== 'not_started' || outcome.quiescence.sideEffects !== 'none')) {
         deny('THREADED_BUDGET_NOT_STARTED_PROOF_REQUIRED');
       }
-      const reported = outcome.kind === 'not_started' ? { output: 0, cost: 0 }
+      const unused = outcome.kind === 'not_started' || row.execution_state === 'reserved' && row.started_at === null;
+      const reported = unused ? { output: 0, cost: 0 }
         : verifiedUsage(binding, row, outcome.budgetUsage);
       if (row.known_output !== null && reported.output !== null && row.known_output !== reported.output ||
         row.known_cost !== null && reported.cost !== null && row.known_cost !== reported.cost) deny('THREADED_BUDGET_SETTLEMENT_CONFLICT');
@@ -411,7 +434,7 @@ export function createThreadedBudget(db: Database.Database, options: {
       }
       db.prepare(`UPDATE threaded_budget_requests SET execution_state=?,usage_state=?,known_output=?,known_cost=?,
         outcome_hash=?,outcome_kind=?,evidence_reference=?,settled_at=? WHERE id=?`)
-        .run(outcome.kind === 'not_started' ? 'not_started' : 'quiescent', state, usageResult.output, usageResult.cost,
+        .run(unused ? 'not_started' : 'quiescent', state, usageResult.output, usageResult.cost,
           fingerprint, outcome.kind, outcome.kind === 'not_started' ? outcome.quiescence.id : outcome.budgetUsage?.evidenceReference ?? null, now(), id);
       db.prepare(`INSERT INTO threaded_budget_outcomes(authorization_id,outcome_hash,kind,record,created_at)
         VALUES(?,?,?,?,?)`).run(id, fingerprint, outcome.kind, JSON.stringify(outcome), now());
@@ -420,14 +443,47 @@ export function createThreadedBudget(db: Database.Database, options: {
   }
   return {
     ensureRootForMessage, getRoot, assessAdmission, reserveAdmission, assertAuthorized, markStartedWithinTransaction,
-    settleOutcomeWithinTransaction, getOwnerWindow,
+    settleOutcomeWithinTransaction, getOwnerWindow, assertAttemptAuthorized,
+    markRequestUnknown(binding:ThreadedBinding,id:string):void {
+      db.transaction(()=>{
+        const row=persisted(id,binding);
+        if(row.execution_state==='unknown')return;
+        if(row.execution_state!=='started')deny('THREADED_BUDGET_REQUEST_NOT_STARTED');
+        db.prepare(`UPDATE threaded_budget_requests SET execution_state='unknown',
+          usage_state=CASE WHEN known_output IS NOT NULL AND known_cost IS NOT NULL THEN 'settled' ELSE 'unknown' END WHERE id=?`).run(id);
+        db.prepare("UPDATE threaded_budget_activity SET state='unknown',observed_at=MAX(observed_at,?) WHERE authorization_id=? AND state='active'").run(now(),id);
+      }).immediate();
+    },
+    /** Native initialization/tools remain activity, but are not themselves a model HTTP request. */
+    beginAttemptActivity(binding: ThreadedBinding, initialAuthorizationId: string): { validUntil: number } {
+      requireTransaction();
+      return db.transaction(() => {
+        const row = persisted(initialAuthorizationId, binding);
+        assertAttemptAuthorized(binding);
+        const validUntil = allowActivity(row);
+        beginSpan(row, `attempt-runtime:${binding.attemptId}`, 'tool');
+        return { validUntil };
+      })();
+    },
+    checkpointAttempt(binding: ThreadedBinding): { validUntil: number } {
+      return db.transaction(() => {
+        assertAttemptAuthorized(binding);
+        const row = attemptRequest(binding);
+        if (!db.prepare("SELECT 1 FROM threaded_budget_activity WHERE attempt_id=? AND state='active'").get(binding.attemptId)) {
+          deny('THREADED_BUDGET_ACTIVITY_REQUIRED');
+        }
+        db.prepare("UPDATE threaded_budget_activity SET observed_at=MAX(observed_at,?) WHERE attempt_id=? AND state='active'")
+          .run(now(), binding.attemptId);
+        return { validUntil: allowActivity(row) };
+      }).immediate();
+    },
     getAuthorization(id: string): BudgetAuthorization | null { const row = request(id); return row ? authorization(row) : null; },
     getUsage(rootId: string): BudgetUsage { rootRequired(rootId); return usage({ rootId }); },
     maxAttemptsForInvocation(id: string): number { return rootRequired(invocation(id).causal_root_id).policy.maxAttemptsPerInvocation; },
     /** Another actual provider request in the same Attempt needs its own unique reservation. */
     reserveRequest(binding: ThreadedBinding, requestKey: string, quoted: BudgetQuote): BudgetAuthorization {
       return db.transaction(() => {
-        options.authority.assertAuthorized(binding);
+        assertAttemptAuthorized(binding);
         const original = db.prepare('SELECT source_message_id FROM threaded_budget_invocations WHERE invocation_id=?')
           .get(binding.invocationId) as { source_message_id: string } | undefined;
         if (!original) deny('THREADED_BUDGET_INVOCATION_REQUIRED');
@@ -470,7 +526,10 @@ export function createThreadedBudget(db: Database.Database, options: {
     settleRequest(binding: ThreadedBinding, id: string, evidence: BudgetUsageEvidence): BudgetAuthorization {
       return db.transaction(() => {
         const row = persisted(id, binding), known = verifiedUsage(binding, row, evidence);
-        if (known.output === null && known.cost === null) deny('THREADED_BUDGET_USAGE_EVIDENCE_REQUIRED');
+        // A verified final transport receipt can prove completion while both usage dimensions remain unknown.
+        if (known.output === null && known.cost === null && options.verifyUsage?.(binding, authorization(row), evidence) !== true) {
+          deny('THREADED_BUDGET_USAGE_EVIDENCE_REQUIRED');
+        }
         if (row.started_at === null || row.execution_state === 'not_started') deny('THREADED_BUDGET_REQUEST_NOT_STARTED');
         if (row.known_output !== null && known.output !== null && row.known_output !== known.output ||
           row.known_cost !== null && known.cost !== null && row.known_cost !== known.cost) deny('THREADED_BUDGET_SETTLEMENT_CONFLICT');
@@ -578,6 +637,9 @@ export function createThreadedBudget(db: Database.Database, options: {
           db.prepare("UPDATE threaded_budget_activity SET state='unknown',observed_at=MAX(observed_at,?) WHERE authorization_id=? AND state='active'")
             .run(now(), row.id);
         }
+        db.prepare(`UPDATE threaded_budget_activity SET state='unknown',observed_at=MAX(observed_at,?)
+          WHERE state='active' AND attempt_id IN (SELECT id FROM threaded_attempts WHERE execution_stage IN ('started','unknown'))`)
+          .run(now());
         return { unknownRequests: rows.length };
       }).immediate();
     },

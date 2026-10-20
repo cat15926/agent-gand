@@ -4,6 +4,7 @@ import { hostOwner } from '../host.ts';
 import { createExecutionResourceCoordinator } from './coordinator.ts';
 import { verifyLegacyResourceEvidence } from './legacyEvidence.ts';
 import { assertResourceSessionCurrent } from './sessions.ts';
+import { verifyThreadedBackendResourceEvidence } from '../../threaded/backends/evidence.ts';
 
 /** One shared instance for all production modes, including the active availability signal. */
 export const executionResources = createExecutionResourceCoordinator(db, {
@@ -12,7 +13,8 @@ export const executionResources = createExecutionResourceCoordinator(db, {
   validateRequest: request => assertResourceSessionCurrent(db, request),
   verifyEvidence: (_request, claim, evidence) => {
     const saved = executionResources.getClaim(claim.claimId);
-    // T04 does not install a production Threaded executor/proof producer. Fail closed there.
-    return !!saved && verifyLegacyResourceEvidence(db, saved, evidence);
+    return !!saved && (saved.request.mode === 'threaded'
+      ? verifyThreadedBackendResourceEvidence(db, saved, evidence)
+      : verifyLegacyResourceEvidence(db, saved, evidence));
   },
 });

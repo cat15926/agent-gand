@@ -1,0 +1,29 @@
+{
+  "api": {
+    "canonicalPayloadHashMatchesBackendReceipts": true,
+    "verifiedCompletedRequests": 2,
+    "encryptedCredentialsInExecutionDatabase": 0,
+    "otherMemberPrivateTextAbsentFromEveryCanonicalInput": true
+  },
+  "sdk": {
+    "canonicalPayloadHashMatchesBackendReceipts": true,
+    "verifiedCompletedRequests": 3,
+    "encryptedCredentialsInExecutionDatabase": 0,
+    "nativeAnchorCount": 3,
+    "nativeIdsAcrossPermissionBoundary": 2
+  },
+  "sdkReopen": {
+    "canonicalPayloadHashMatchesBackendReceipts": true,
+    "verifiedCompletedRequests": 3,
+    "encryptedCredentialsInExecutionDatabase": 0,
+    "nativeAnchorCount": 3,
+    "nativeIdsAcrossPermissionBoundary": 2,
+    "unknownCancelledRequests": 1
+  },
+  "cumulativeTokenLedger": {
+    "requests": 10,
+    "knownTokens": 13560,
+    "unresolvedReservedTokens": 39010,
+    "conservativelyChargedTokens": 52570
+  }
+}

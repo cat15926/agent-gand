@@ -14,7 +14,7 @@ import { createThreadedRunner } from './runner.ts';
 import { createThreadedDispatcher } from './dispatcher.ts';
 import { abortThreadedExecution } from './executionSignals.ts';
 
-/** Pure composition. T06 has no provider, credentials, context builder or legacy executor. */
+/** Core composition; context preparation and execution are supplied through explicit ports. */
 export function createThreadedRuntime(db: Database.Database, options: {
   resources: ReturnType<typeof createExecutionResourceCoordinator>;
   prepareResources: (context: ThreadedQueuePreparationContext) => ThreadedQueueResourcePreparation;
@@ -27,6 +27,10 @@ export function createThreadedRuntime(db: Database.Database, options: {
   repairIntervalMs?: number;
   autoStart?: boolean;
   dispatchEnabled?: boolean;
+  /** T07 prepares an actual manifest; T06 fixtures keep their explicit metadata references. */
+  prepareExecution?: (claim: ThreadedQueueClaim) => { contextManifestId: string; sessionBindingId: string };
+  assertExecutionContext?: (binding: ThreadedBinding) => void;
+  deferRequestStart?: boolean;
 }) {
   const { resources } = options;
   const authority = createThreadedAuthority(db, resources);
@@ -68,7 +72,8 @@ export function createThreadedRuntime(db: Database.Database, options: {
     onStartWithinTransaction(binding) {
       if (!mapped(binding.invocationId)) return;
       queue.startWithinTransaction(binding);
-      budget.markStartedWithinTransaction(binding, queue.authorizationForBinding(binding).id);
+      if (options.deferRequestStart) budget.beginAttemptActivity(binding, queue.authorizationForBinding(binding).id);
+      else budget.markStartedWithinTransaction(binding, queue.authorizationForBinding(binding).id);
     },
     onOutcomeWithinTransaction(binding, outcome) {
       if (!mapped(binding.invocationId)) return;
@@ -105,10 +110,15 @@ export function createThreadedRuntime(db: Database.Database, options: {
   const runner = createThreadedRunner(authority, lifecycle, executor, {
     assertExecutionAuthorized(binding, authorizationId) {
       queue.assertExecutable(binding);
-      budget.assertAuthorized(authorizationId, binding);
+      options.assertExecutionContext?.(binding);
+      if (options.deferRequestStart) budget.assertAttemptAuthorized(binding);
+      if (authorizationId !== null) budget.assertAuthorized(authorizationId, binding);
+      else if (!options.deferRequestStart) throw new ThreadedAuthorityError('THREADED_BUDGET_AUTHORIZATION_REQUIRED');
     },
     checkpoint(binding, authorizationId) {
-      const allowance = budget.checkpoint(binding, authorizationId);
+      const allowance = options.deferRequestStart ? budget.checkpointAttempt(binding)
+        : authorizationId !== null ? budget.checkpoint(binding, authorizationId)
+          : (() => { throw new ThreadedAuthorityError('THREADED_BUDGET_AUTHORIZATION_REQUIRED'); })();
       resources.renew(authority.claim(binding));
       queue.renew(binding);
       return allowance;
@@ -120,10 +130,26 @@ export function createThreadedRuntime(db: Database.Database, options: {
     if (activeInvocations.has(claim.binding.invocationId)) throw new ThreadedAuthorityError('THREADED_INVOCATION_ALREADY_EXECUTING');
     activeInvocations.add(claim.binding.invocationId);
     try {
+      let prepared: { contextManifestId: string; sessionBindingId: string } | undefined;
+      try {
+        prepared = options.prepareExecution?.(claim);
+        if (options.prepareExecution && (!prepared || typeof prepared.contextManifestId !== 'string' || !prepared.contextManifestId
+          || typeof prepared.sessionBindingId !== 'string' || !prepared.sessionBindingId)) {
+          throw new ThreadedAuthorityError('THREADED_EXECUTION_CONTEXT_REQUIRED');
+        }
+      } catch (error) {
+        // Metadata preparation performs no external I/O. Park this source without spinning
+        // through retries or keeping capacity while its input/Session needs an Owner decision.
+        const reason = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+          && /^THREADED_[A-Z0-9_]+$/.test(error.code) ? error.code : 'THREADED_CONTEXT_PREPARATION_FAILED';
+        const proof = resources.recordQuiescence(authority.claim(claim.binding), { reason: 'not_started', sideEffects: 'none' });
+        lifecycle.requestControl({ ownerId: claim.binding.ownerId, scope: { kind: 'invocation', threadId: claim.binding.threadId,
+          invocationId: claim.binding.invocationId }, action: 'pause', requestId: `context-block:${claim.binding.attemptId}:${reason}` });
+        return { ...lifecycle.recordOutcome(claim.binding, { kind: 'not_started', reason, quiescence: proof }), contextBlocked: reason };
+      }
       return await runner.execute({ binding: claim.binding,
-        // References are deliberately metadata only until T07 builds actual input manifests.
-        contextManifestId: `wake:${claim.queue.wakeId}:${claim.waveId}:${claim.inputMaxSeq}`,
-        sessionBindingId: claim.sessionBindingId, budgetAuthorizationId: claim.budgetAuthorization.id });
+        contextManifestId: prepared?.contextManifestId ?? `wake:${claim.queue.wakeId}:${claim.waveId}:${claim.inputMaxSeq}`,
+        sessionBindingId: prepared?.sessionBindingId ?? claim.sessionBindingId, budgetAuthorizationId: claim.budgetAuthorization.id });
     } finally { activeInvocations.delete(claim.binding.invocationId); }
   }
   dispatcher = createThreadedDispatcher<ThreadedQueueClaim>({

@@ -102,6 +102,14 @@ export function prepareThreadedSession(db: Database.Database, input: ThreadedSes
     const record = { kind: 'threaded', policy };
     if (current?.state === 'reconciling') fail('RESOURCE_SESSION_RECONCILIATION_REQUIRED');
     if (current?.state === 'ready' && current.record === JSON.stringify(record)) return reference(current);
+    // A changed policy/cold boundary is a new identity, never a way to escape an
+    // unconfirmed native process or pending exact-claim cleanup.
+    if (current && db.prepare(`SELECT 1 FROM execution_resource_claims c
+      JOIN execution_resource_tickets t ON t.id=c.ticket_id
+      WHERE c.state<>'released' AND json_extract(t.request,'$.session.id')=?
+        AND json_extract(t.request,'$.session.version')=? LIMIT 1`).get(current.id, current.version)) {
+      fail('RESOURCE_SESSION_ACTIVE_IDENTITY');
+    }
     const nativeId = input.backend === 'claude-sdk' ? randomUUID() : null;
     const accountIdentity = policy.account ? `${policy.account.id}:${policy.account.identity_generation ?? 0}` : `instance:${input.ownerId}`;
     const resourceKey = nativeId ? nativeSessionResourceKey({ backend: input.backend, accountIdentity, host: policy.host, nativeId }) : null;

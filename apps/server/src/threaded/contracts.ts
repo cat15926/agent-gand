@@ -93,5 +93,7 @@ export interface InvocationExecutionPort {
     signal: AbortSignal;
     assertAuthorized: () => void;
     onEvent: (event: ScopedExecutionEvent) => void;
+    /** Trusted adapter switches only after reserving the exact next actual request. */
+    setBudgetAuthorization?: (authorizationId: string | null) => void;
   }): Promise<ExecutionOutcome>;
 }

@@ -1,0 +1,73 @@
+{
+  "stage": "T07",
+  "date": "2026-10-20T11:31:35.668Z",
+  "platform": "darwin",
+  "sdkVersion": "0.3.288",
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "configVersion": 2,
+    "credentialVersion": 1,
+    "endpointHost": "open.bigmodel.cn",
+    "model": "glm-5.3"
+  },
+  "authorizedTokenLimit": 200000,
+  "checks": [
+    {
+      "name": "SDK cold, reopened runtime native resume and permission cold boundary",
+      "status": "passed",
+      "elapsedMs": 15283,
+      "invocations": 3,
+      "cold": true,
+      "nativeResume": true,
+      "memoryMatched": true,
+      "permissionChangeCold": true,
+      "runtimeFactoryAndSqliteReopened": true,
+      "freshResourceOwner": true,
+      "persistedAnchorReused": true,
+      "recoveryRequests": 0,
+      "restartScope": "Runtime factory and SQLite connection rebuilt in the same harness process; separate SDK workers execute each Invocation",
+      "processStates": [
+        "verified_stopped"
+      ]
+    },
+    {
+      "name": "SDK cancel and persistent unknown recovery",
+      "status": "passed",
+      "elapsedMs": 7163,
+      "invocationStatus": "unknown",
+      "claimState": "unknown",
+      "noReplay": true,
+      "requestUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 4096,
+        "costMicrousd": 1000000,
+        "activityMs": 7077,
+        "activityReservedMs": 291,
+        "unknownRequests": 1
+      }
+    }
+  ],
+  "failures": [],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_revocations",
+      "account_versions",
+      "account_credentials"
+    ],
+    "modelContent": "New synthetic acceptance messages and isolated SDK history only",
+    "dailyConversationOrMessageReads": false,
+    "realCredentialAllowedOnlyInConfiguredEndpointHeaders": true
+  },
+  "actualRequests": 4,
+  "knownTokens": 13560,
+  "unresolvedReservedTokens": 39010,
+  "conservativelyChargedTokens": 52570,
+  "knownTokensThisRun": 6431,
+  "unresolvedReservedTokensThisRun": 19505,
+  "passed": true
+}

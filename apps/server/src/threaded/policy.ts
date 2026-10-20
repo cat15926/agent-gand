@@ -17,7 +17,7 @@ export function threadedCapabilities(): ThreadedCapabilities {
     implemented: { readSnapshots: true, authenticatedWs: true, admission: false, execution: false, tools: false,
       messageReads: true, messagePersistence: true, outbox: true },
     configured: { mode: threadedAdmissionMode() },
-    // Deterministic T02–T06 fixtures cannot stand in for backend/business verification.
+    // Scoped T07 backend acceptance does not enable this production service or verify business tools.
     verified: { readSnapshots: false, authenticatedWs: false, admission: false, execution: false, tools: false,
       messageReads: false, messagePersistence: false, outbox: false },
   };

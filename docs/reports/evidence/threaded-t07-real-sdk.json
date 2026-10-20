@@ -1,0 +1,68 @@
+{
+  "stage": "T07",
+  "date": "2026-10-20T11:22:36.862Z",
+  "platform": "darwin",
+  "sdkVersion": "0.3.288",
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "configVersion": 2,
+    "credentialVersion": 1,
+    "endpointHost": "open.bigmodel.cn",
+    "model": "glm-5.3"
+  },
+  "authorizedTokenLimit": 200000,
+  "checks": [
+    {
+      "name": "SDK cold, native resume and permission cold boundary",
+      "status": "passed",
+      "elapsedMs": 20981,
+      "invocations": 3,
+      "cold": true,
+      "nativeResume": true,
+      "memoryMatched": true,
+      "permissionChangeCold": true,
+      "processStates": [
+        "verified_stopped"
+      ]
+    },
+    {
+      "name": "SDK cancel and persistent unknown recovery",
+      "status": "passed",
+      "elapsedMs": 2533,
+      "claimState": "unknown",
+      "noReplay": true,
+      "requestUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 4096,
+        "costMicrousd": 1000000,
+        "activityMs": 2432,
+        "activityReservedMs": 156,
+        "unknownRequests": 1
+      },
+      "invocationStatus": "unknown"
+    }
+  ],
+  "failures": [],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_revocations",
+      "account_versions",
+      "account_credentials"
+    ],
+    "modelContent": "New synthetic acceptance messages and isolated SDK history only",
+    "dailyConversationOrMessageReads": false,
+    "realCredentialAllowedOnlyInConfiguredEndpointHeaders": true
+  },
+  "actualRequests": 4,
+  "knownTokens": 7129,
+  "unresolvedReservedTokens": 19505,
+  "conservativelyChargedTokens": 26634,
+  "passed": true,
+  "knownTokensThisRun": 6441,
+  "unresolvedReservedTokensThisRun": 19505
+}
