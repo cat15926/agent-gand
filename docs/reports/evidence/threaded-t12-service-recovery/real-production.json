@@ -1,0 +1,392 @@
+{
+  "stage": "T12",
+  "date": "2026-10-21T11:54:08.198Z",
+  "composition": "production-factory HTTP server",
+  "actualMainIndex": false,
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "model": "glm-5.3",
+    "endpointHost": "open.bigmodel.cn",
+    "configVersion": 2,
+    "credentialVersion": 1
+  },
+  "authorizedTokenLimit": 200000,
+  "priorUsage": {
+    "knownTokens": 36317,
+    "unresolvedReservedTokens": 39010,
+    "conservativelyChargedTokens": 75327
+  },
+  "checks": [
+    {
+      "name": "api real production HTTP knowledge/SOP tools",
+      "status": "completed",
+      "privateSourceExcluded": true,
+      "selfReportStayedAttested": true,
+      "durableTools": [
+        "knowledge_publish",
+        "knowledge_read",
+        "knowledge_search",
+        "update_sop",
+        "read_sop"
+      ],
+      "pid": 87996,
+      "invocationId": "56025768-97d9-4f4e-ae39-96c10542d259",
+      "runId": "ba3c740f-eae2-4f1b-8d85-cf2ca4af2d2c",
+      "bindingId": "0569b0ca-c6db-40f0-aa50-9cee41c5dbaf",
+      "resourceOwner": "t12-production-real:87996",
+      "agentId": "t12-real-api",
+      "decision": {
+        "mode": "reconstructed",
+        "sessionKind": "reconstructed",
+        "nativeId": null,
+        "anchorId": null,
+        "sessionId": "00c99c70-47ec-493f-87f6-42262a2f67ec"
+      },
+      "answer": "T12_TOOLS_DONE",
+      "manifestId": "94801199-c74d-4ddc-9cfc-f2b4fb204079",
+      "receipts": [
+        {
+          "name": "knowledge_publish",
+          "result": {
+            "knowledgeId": "19fc9192-c45f-4545-8cc2-9a73c72b607b",
+            "version": 1,
+            "title": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+            "body": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+            "anchors": [
+              {
+                "kind": "message",
+                "id": "106cd014-305e-4441-aa9e-c049918a724c"
+              }
+            ],
+            "sourceMessageIds": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "status": "active",
+            "replacementId": null,
+            "reason": null,
+            "expiresAt": null,
+            "createdBy": "t12-real-api",
+            "createdAt": 1792583691291,
+            "bindingId": "0569b0ca-c6db-40f0-aa50-9cee41c5dbaf",
+            "collection": "home",
+            "latestVersion": 1,
+            "isCurrent": true,
+            "privacySourceIds": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "currentStatus": "active",
+            "currentReplacementId": null
+          },
+          "privacySourceIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "update_sop",
+          "result": {
+            "id": "c4fe6517-a460-4074-822d-fabd400c129d",
+            "sopKey": "t12-api",
+            "version": 1,
+            "title": "T12 api synthetic SOP",
+            "stage": "ready",
+            "baton": "t12-real-api",
+            "checks": [
+              {
+                "id": "self",
+                "label": "Self report only",
+                "state": "attested",
+                "attestedBy": "t12-real-api",
+                "attestedAt": 1792583691324
+              }
+            ],
+            "visibility": "private",
+            "audience": [
+              "t12-real-api"
+            ],
+            "sourceRefs": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "updatedBy": "t12-real-api",
+            "updatedAt": 1792583691325
+          },
+          "privacySourceIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "knowledge_read",
+          "result": {
+            "knowledgeId": "19fc9192-c45f-4545-8cc2-9a73c72b607b",
+            "version": 1,
+            "title": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+            "body": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+            "anchors": [
+              {
+                "kind": "message",
+                "id": "106cd014-305e-4441-aa9e-c049918a724c"
+              }
+            ],
+            "sourceMessageIds": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "status": "active",
+            "replacementId": null,
+            "reason": null,
+            "expiresAt": null,
+            "createdBy": "t12-real-api",
+            "createdAt": 1792583691291,
+            "bindingId": "0569b0ca-c6db-40f0-aa50-9cee41c5dbaf",
+            "collection": "home",
+            "latestVersion": 1,
+            "isCurrent": true,
+            "privacySourceIds": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "currentStatus": "active",
+            "currentReplacementId": null
+          },
+          "privacySourceIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "knowledge_search",
+          "result": {
+            "collection": "home",
+            "retrieval": "literal_substring",
+            "items": [
+              {
+                "knowledgeId": "19fc9192-c45f-4545-8cc2-9a73c72b607b",
+                "version": 1,
+                "title": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+                "body": "T12_API_243c7d97b80c439baabb8481f2aa2933",
+                "anchors": [
+                  {
+                    "kind": "message",
+                    "id": "106cd014-305e-4441-aa9e-c049918a724c"
+                  }
+                ],
+                "sourceMessageIds": [
+                  "106cd014-305e-4441-aa9e-c049918a724c",
+                  "54638824-bc70-49d8-9f3e-13f246c49ce6"
+                ],
+                "status": "active",
+                "replacementId": null,
+                "reason": null,
+                "expiresAt": null,
+                "createdBy": "t12-real-api",
+                "createdAt": 1792583691291,
+                "bindingId": "0569b0ca-c6db-40f0-aa50-9cee41c5dbaf",
+                "collection": "home",
+                "latestVersion": 1,
+                "isCurrent": true,
+                "privacySourceIds": [
+                  "106cd014-305e-4441-aa9e-c049918a724c",
+                  "54638824-bc70-49d8-9f3e-13f246c49ce6"
+                ],
+                "currentStatus": "active",
+                "currentReplacementId": null
+              }
+            ],
+            "sourceMessageIds": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ]
+          },
+          "privacySourceIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "read_sop",
+          "result": {
+            "id": "c4fe6517-a460-4074-822d-fabd400c129d",
+            "sopKey": "t12-api",
+            "version": 1,
+            "title": "T12 api synthetic SOP",
+            "stage": "ready",
+            "baton": "t12-real-api",
+            "checks": [
+              {
+                "id": "self",
+                "label": "Self report only",
+                "state": "attested",
+                "attestedBy": "t12-real-api",
+                "attestedAt": 1792583691324
+              }
+            ],
+            "visibility": "private",
+            "audience": [
+              "t12-real-api"
+            ],
+            "sourceRefs": [
+              "106cd014-305e-4441-aa9e-c049918a724c",
+              "54638824-bc70-49d8-9f3e-13f246c49ce6"
+            ],
+            "updatedBy": "t12-real-api",
+            "updatedAt": 1792583691325
+          },
+          "privacySourceIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "readSourceIds": []
+        }
+      ],
+      "knowledgePermissions": [
+        {
+          "knowledgeId": "19fc9192-c45f-4545-8cc2-9a73c72b607b",
+          "sourceMessageIds": [
+            "106cd014-305e-4441-aa9e-c049918a724c",
+            "54638824-bc70-49d8-9f3e-13f246c49ce6"
+          ],
+          "authorCanRead": true,
+          "otherAgentCanRead": false
+        }
+      ],
+      "anchors": [],
+      "processes": [],
+      "requests": 3,
+      "requestsThisProcess": 3,
+      "foreignDestinationAttempts": 0,
+      "forbiddenInputMatches": 0,
+      "budget": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 3,
+        "outputTokens": 847,
+        "costMicrousd": 3000000,
+        "activityMs": 68491,
+        "activityReservedMs": 0,
+        "unknownRequests": 3
+      },
+      "release": {
+        "readOnly": true,
+        "mode": "execute",
+        "control": {
+          "ownerId": "64e82ee9-e285-4c9e-adc2-a1eac4b0fc76",
+          "version": 3,
+          "admissionOpen": true,
+          "dispatchOpen": true,
+          "updatedAt": 1792583648773
+        },
+        "grants": [
+          {
+            "ownerId": "64e82ee9-e285-4c9e-adc2-a1eac4b0fc76",
+            "threadId": "72e16c1a-3d3b-4501-911b-f78ee5527204",
+            "controlVersion": 1,
+            "members": [
+              {
+                "agentId": "t12-real-api",
+                "backend": "api",
+                "backendVersion": "threaded-http-v1",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "4f5a527641f34a7dd161b717477601dc00ef4b7960702e65c8dc0a850b5e4f65"
+              },
+              {
+                "agentId": "t12-real-sdk",
+                "backend": "claude-sdk",
+                "backendVersion": "0.3.288",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "71000d3e7333f87f2455acce10e06bbae6d7cf378614a8f9beb60423b335cb84"
+              }
+            ],
+            "grantedAt": 1792583648743
+          }
+        ],
+        "work": {
+          "queued": 0,
+          "running": 0,
+          "waiting": 0,
+          "unknownExecutions": 0,
+          "undispatchedWakes": 0,
+          "activeClaims": 0,
+          "unresolvedActions": 0,
+          "pendingOutbox": 0,
+          "unresolvedCommands": 0,
+          "durableWaits": 0,
+          "consultations": 0,
+          "callbacks": 0,
+          "pendingApprovals": 0,
+          "unknownUsage": 3,
+          "activeProcesses": 0
+        },
+        "drain": {
+          "scope": "threaded_only",
+          "compatibleWorkerRequired": true,
+          "ready": false,
+          "dispatchAllowed": true,
+          "unknownNeedsReview": true
+        },
+        "wholeDatabaseRollbackReady": false,
+        "rollback": "Retain new schema and compatible workers. Restore only a matching consistent backup with its matching application revision; never erase unknown facts or lower migration versions."
+      },
+      "foreignKeys": [],
+      "sourceMessageId": "106cd014-305e-4441-aa9e-c049918a724c"
+    }
+  ],
+  "failures": [
+    {
+      "reason": "{\"status\":\"unknown\",\"release\":{\"readOnly\":true,\"mode\":\"execute\",\"control\":{\"ownerId\":\"64e82ee9-e285-4c9e-adc2-a1eac4b0fc76\",\"version\":6,\"admissionOpen\":true,\"dispatchOpen\":true,\"updatedAt\":1792583717698},\"grants\":[{\"ownerId\":\"64e82ee9-e285-4c9e-adc2-a1eac4b0fc76\",\"threadId\":\"72e16c1a-3d3b-4501-911b-f78ee5527204\",\"controlVersion\":1,\"members\":[{\"agentId\":\"t12-real-api\",\"backend\":\"api\",\"backendVersion\":\"threaded-http-v1\",\"model\":\"glm-5.3\",\"roleVersion\":1,\"permissionVersion\":1,\"accountId\":\"267c2e27-b25f-43cf-acaa-143327f7f714\",\"accountConfigVersion\":2,\"accountCredentialVersion\":1,\"accountIdentityGeneration\":null,\"memberVersion\":1,\"definitionHash\":\"4f5a527641f34a7dd161b717477601dc00ef4b7960702e65c8dc0a850b5e4f65\"},{\"agentId\":\"t12-real-sdk\",\"backend\":\"claude-sdk\",\"backendVersion\":\"0.3.288\",\"model\":\"glm-5.3\",\"roleVersion\":1,\"permissionVersion\":1,\"accountId\":\"267c2e27-b25f-43cf-acaa-143327f7f714\",\"accountConfigVersion\":2,\"accountCredentialVersion\":1,\"accountIdentityGeneration\":null,\"memberVersion\":1,\"definitionHash\":\"71000d3e7333f87f2455acce10e06bbae6d7cf378614a8f9beb60423b335cb84\"}],\"grantedAt\":1792583648743}],\"work\":{\"queued\":0,\"running\":0,\"waiting\":0,\"unknownExecutions\":1,\"undispatchedWakes\":0,\"activeClaims\":1,\"unresolvedActions\":0,\"pendingOutbox\":0,\"unresolvedCommands\":0,\"durableWaits\":0,\"consultations\":0,\"callbacks\":0,\"pendingApprovals\":0,\"unknownUsage\":4,\"activeProcesses\":0},\"drain\":{\"scope\":\"threaded_only\",\"compatibleWorkerRequired\":true,\"ready\":false,\"dispatchAllowed\":true,\"unknownNeedsReview\":true},\"wholeDatabaseRollbackReady\":false,\"rollback\":\"Retain new schema and compatible workers. Restore only a matching consistent backup with its matching application revision; never erase unknown facts or lower migration versions.\"}}\n+ actual - expected\n\n+ 'unknown'\n- 'completed'\n"
+    }
+  ],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_versions",
+      "account_credentials",
+      "account_revocations"
+    ],
+    "dailyConversationOrMessageReads": false,
+    "credentialInMemoryOnly": true,
+    "credentialPassedViaPrivateIPCOnly": true,
+    "isolatedSdkHomeAndWorkspace": true,
+    "configuredEndpointOnly": true,
+    "remoteWrites": 0,
+    "syntheticPrivateHistorySeededThroughFixtureMessagePort": true,
+    "realInvocationsAdmittedThroughAuthenticatedHTTP": true
+  },
+  "limitations": [
+    "This real HTTP server uses production factories/routes/settings, not apps/server/src/index.ts or the legacy recovery composition.",
+    "No unknown billable crash is manufactured. Existing unknown reservations remain in the shared ledger.",
+    "Independent PR review, semantic retrieval and OS commands are outside this real-supplier test."
+  ],
+  "knownTokens": 44305,
+  "unresolvedReservedTokens": 65051,
+  "conservativelyChargedTokens": 109356,
+  "actualRequests": 4,
+  "passed": false,
+  "priorReservationsUnchanged": true,
+  "priorReservationsDigest": "cc056a6eb31c937cf464c3fcae19b24dda78dd5625f1eaed311ec1512881cad5",
+  "knownTokensThisRun": 7988,
+  "unresolvedReservedTokensThisRun": 26041
+}

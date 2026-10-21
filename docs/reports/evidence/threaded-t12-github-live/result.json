@@ -1,0 +1,1110 @@
+{
+  "ok": true,
+  "status": "not_observed",
+  "startedAt": "2026-10-21T11:49:11.871Z",
+  "repository": "zts212653/clowder-ai",
+  "windowSeconds": 600,
+  "pollSeconds": 30,
+  "scope": "Official GitHub REST GET and real runtime track_event/SQLite with injected model response; natural public PR changes only",
+  "provider": {
+    "ok": true,
+    "checks": 6,
+    "injectedProviderReads": 6,
+    "realNetworkRequests": 0,
+    "coverage": [
+      "baseline headChanged=false",
+      "unchanged baseline no event",
+      "updated_at-only no event",
+      "new HEAD headChanged=true",
+      "unchanged after HEAD event no duplicate",
+      "state-only change is not a HEAD change"
+    ]
+  },
+  "selected": [
+    {
+      "number": 1663,
+      "subject": "zts212653/clowder-ai#1663",
+      "url": "https://github.com/zts212653/clowder-ai/pull/1663",
+      "listedUpdatedAt": "2026-10-21T11:46:40Z",
+      "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+      "baseline": {
+        "eventSeq": 1,
+        "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+        "updatedAt": "2026-10-21T11:46:40Z",
+        "observedAt": "2026-10-21T11:49:08.159Z"
+      }
+    },
+    {
+      "number": 1649,
+      "subject": "zts212653/clowder-ai#1649",
+      "url": "https://github.com/zts212653/clowder-ai/pull/1649",
+      "listedUpdatedAt": "2026-10-21T11:45:10Z",
+      "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+      "baseline": {
+        "eventSeq": 2,
+        "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+        "updatedAt": "2026-10-21T11:45:10Z",
+        "observedAt": "2026-10-21T11:49:10.766Z"
+      }
+    },
+    {
+      "number": 1658,
+      "subject": "zts212653/clowder-ai#1658",
+      "url": "https://github.com/zts212653/clowder-ai/pull/1658",
+      "listedUpdatedAt": "2026-10-21T11:43:49Z",
+      "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+      "baseline": {
+        "eventSeq": 3,
+        "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+        "updatedAt": "2026-10-21T11:43:49Z",
+        "observedAt": "2026-10-21T11:49:11.819Z"
+      }
+    }
+  ],
+  "polls": [
+    {
+      "at": "2026-10-21T11:49:48.665Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:49:44.829Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:49:47.679Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:49:48.663Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:50:28.474Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:50:21.239Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:50:24.030Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:50:28.473Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:51:05.587Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:51:01.369Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:51:04.082Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:51:05.584Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:51:52.888Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:51:43.547Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:51:48.717Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:51:52.885Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:52:30.344Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:52:26.037Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:52:29.179Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:52:30.342Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:53:16.429Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "unavailable"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:52:26.037Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:53:13.507Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:53:16.427Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:54:01.823Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:53:49.341Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:53:57.978Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:54:01.822Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:54:47.423Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "unavailable"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:53:49.341Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:54:44.822Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:54:47.423Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:55:32.883Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:55:20.289Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:55:28.031Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:55:32.882Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:56:10.491Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:56:06.663Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:56:09.176Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:56:10.490Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:56:47.942Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:56:43.244Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:56:46.706Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:56:47.941Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:57:30.609Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:57:25.634Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:57:28.681Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:57:30.608Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:58:14.344Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:58:04.376Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:58:09.313Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:58:14.342Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:58:47.870Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:58:45.771Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:58:46.910Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:58:47.868Z"
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-10-21T11:59:17.627Z",
+      "refresh": [
+        {
+          "waitId": "31841027-6e5d-4406-a992-cefedff15bd8",
+          "status": "observed"
+        },
+        {
+          "waitId": "5e06758a-fbc7-4c49-9a43-e3529ede8305",
+          "status": "observed"
+        },
+        {
+          "waitId": "98a39b38-fa98-4e19-b171-ee9c8a4d3ab8",
+          "status": "observed"
+        }
+      ],
+      "waits": [
+        {
+          "subject": "zts212653/clowder-ai#1663",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "ae1aac85910699ea78e3d271581908de20f0825e",
+            "updatedAt": "2026-10-21T11:46:40Z",
+            "observedAt": "2026-10-21T11:59:15.302Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1649",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "9fc682d9310f48ed8cf9f99260bf61998d215ab5",
+            "updatedAt": "2026-10-21T11:45:10Z",
+            "observedAt": "2026-10-21T11:59:16.473Z"
+          }
+        },
+        {
+          "subject": "zts212653/clowder-ai#1658",
+          "state": "awaiting",
+          "callbackCount": 0,
+          "latest": {
+            "headSha": "2eaba4fdd1b7b89b8b74418244afd10fe810b84a",
+            "updatedAt": "2026-10-21T11:43:49Z",
+            "observedAt": "2026-10-21T11:59:17.626Z"
+          }
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:06.152Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls?state=open&sort=updated&direction=desc&per_page=3",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:06.633Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:08.044Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:10.682Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:11.673Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:44.649Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:47.394Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:49:48.510Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:50:21.145Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:50:23.695Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:50:24.873Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:01.214Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:03.834Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:05.384Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:42.070Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:48.219Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:51:52.689Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:52:25.954Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:52:28.906Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:52:30.108Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:53:13.245Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:53:16.109Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:53:49.171Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:53:57.718Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:54:00.250Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:54:44.724Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:54:47.223Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:55:20.188Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:55:24.948Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:55:32.710Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:06.469Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:09.175Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:10.087Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:42.970Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:46.640Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:56:47.625Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:57:21.568Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:57:28.516Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:57:30.051Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:04.234Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:09.040Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:14.264Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:45.571Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:46.720Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:58:47.864Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1663",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:59:15.072Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:59:16.328Z"
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658",
+      "method": "GET",
+      "status": 200,
+      "at": "2026-10-21T11:59:17.395Z"
+    }
+  ],
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "injectedModelCalls": 1,
+  "realExternalWrites": 0,
+  "productionOpened": false,
+  "completedAt": "2026-10-21T11:59:17.668Z",
+  "elapsedSeconds": 606,
+  "rebuild": {
+    "runtimeAndSQLite": true,
+    "modelReplays": 0,
+    "duplicateCallbacks": 0,
+    "eventsUnchanged": true
+  },
+  "observedHeadChanges": 0,
+  "limits": [
+    "No PR, comment, review, branch or commit was modified.",
+    "A no-change observation window is not a passed live HEAD event test.",
+    "Runtime/SQLite rebuild recovery is covered here; a full main-service restart uses the separate service recovery fixture."
+  ]
+}

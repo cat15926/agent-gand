@@ -1,7 +1,7 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {ThreadedThreadRecord,ThreadedViewSnapshot,ThreadedWaitView,ThreadedMessageRecord} from '@agent-gand/shared';
 import {ThreadedApi} from '../../services/threadedApi';
-import type {ThreadedRoutePreview,ThreadedRoutingPolicy} from '../../services/threadedApi';
+import type {ThreadedRoutePreview,ThreadedRoutingPolicy,ThreadedAdmissionView,ThreadedReleaseView} from '../../services/threadedApi';
 import {ThreadedSync} from '../../services/threadedSync';
 import type {ThreadedSyncState} from '../../services/threadedSync';
 import {MarkdownBody} from '../Markdown';
@@ -18,19 +18,30 @@ export function ThreadedView({onAccounts}:{onAccounts:()=>void}) {
   const [api]=useState(()=>new ThreadedApi());
   const [ready,setReady]=useState(false),[connecting,setConnecting]=useState(false),[error,setError]=useState('');
   const [threads,setThreads]=useState<ThreadedThreadRecord[]>([]),[id,setId]=useState(selectedThread),[generation,setGeneration]=useState(0);
+  const [admission,setAdmission]=useState<ThreadedAdmissionView|null>(null),[release,setRelease]=useState<ThreadedReleaseView|null>(null);
+  const [title,setTitle]=useState(''),[creating,setCreating]=useState(false),[operationsBusy,setOperationsBusy]=useState(false);
+  const createPending=useRef<{title:string;key:string}|null>(null),operationPending=useRef<{signature:string;key:string}|null>(null);
   const alive=useRef(true),authEpoch=useRef(0);
   async function load(connect=false){const epoch=++authEpoch.current;setConnecting(true);setError('');
-    try{if(connect)await api.connect();else await api.resume();const list=await api.threads();if(!alive.current||epoch!==authEpoch.current)return;
-      setThreads(list);setReady(true);setId(current=>current??list[0]?.id??null);setGeneration(n=>n+1);
-    }catch(reason){if(alive.current&&epoch===authEpoch.current){setError(explain(reason));setReady(false);setThreads([]);}}
+    try{if(connect)await api.connect();else await api.resume();const [list,available,operations]=await Promise.all([api.threads(),api.admission().catch(()=>null),api.release().catch(()=>null)]);if(!alive.current||epoch!==authEpoch.current)return;
+      setThreads(list);setAdmission(available);setRelease(operations);setReady(true);setId(current=>current??list[0]?.id??null);setGeneration(n=>n+1);
+    }catch(reason){if(alive.current&&epoch===authEpoch.current){setError(explain(reason));setReady(false);setThreads([]);setAdmission(null);setRelease(null);}}
     finally{if(alive.current&&epoch===authEpoch.current)setConnecting(false);}}
   useEffect(()=>{alive.current=true;void load();const back=()=>setId(selectedThread());window.addEventListener('popstate',back);
     return()=>{alive.current=false;++authEpoch.current;window.removeEventListener('popstate',back);};},[]);
   function select(threadId:string){const url=new URL(location.href);url.searchParams.set('surface','threaded');url.searchParams.set('thread',threadId);if(url.href!==location.href)history.pushState(null,'',url);setId(threadId);}
-  async function logout(){++authEpoch.current;setReady(false);setThreads([]);setError('');try{await api.disconnect();}catch(reason){setError(explain(reason));}}
+  async function logout(){++authEpoch.current;setReady(false);setThreads([]);setAdmission(null);setRelease(null);setError('');try{await api.disconnect();}catch(reason){setError(explain(reason));}}
+  async function create(){if(creating||!title.trim())return;setCreating(true);setError('');
+    const request=createPending.current?.title===title.trim()?createPending.current:{title:title.trim(),key:crypto.randomUUID()};createPending.current=request;
+    try{const result=await api.createThread(request.title,request.key);createPending.current=null;setTitle('');await load();select(result.thread.id);}
+    catch(reason){setError(explain(reason));setAdmission(await api.admission().catch(()=>null));}finally{setCreating(false);}}
+  async function changeRelease(admissionOpen:boolean,dispatchOpen:boolean,reason:string){if(!release||operationsBusy)return;setOperationsBusy(true);setError('');
+    const signature=`${release.control.version}:${admissionOpen}:${dispatchOpen}`,request=operationPending.current?.signature===signature?operationPending.current:{signature,key:crypto.randomUUID()};operationPending.current=request;
+    try{await api.releaseControl({expectedVersion:release.control.version,requestId:request.key,admissionOpen,dispatchOpen,reason});operationPending.current=null;await load();}
+    catch(reason){setError(explain(reason));setRelease(await api.release().catch(()=>null));}finally{setOperationsBusy(false);}}
   if(!ready)return <section className="mx-auto max-w-xl p-6" aria-label="持续协作连接"><h1 className="text-xl font-semibold">持续协作</h1>
     <p className="my-3 text-sm text-zinc-400">与多位 Agent 持续交流、接力执行，共同推进工作。</p>
-    <p className="mb-4 text-sm text-zinc-400">连接后查看已有空间。新空间与真实执行将在发布验收后开放。</p>
+    <p className="mb-4 text-sm text-zinc-400">连接后查看已有空间；获准发布范围内可新建空间并持续协作。</p>
     {error&&<p role="alert" className="my-3 text-sm text-amber-300">{error}</p>}
     <div className="flex gap-2"><button className={button} disabled={connecting} onClick={()=>void load(true)}>{connecting?'正在连接…':'连接持续协作'}</button>
       <button className={button} onClick={onAccounts}>账户与访问设置</button></div></section>;
@@ -40,7 +51,10 @@ export function ThreadedView({onAccounts}:{onAccounts:()=>void}) {
       <div className="mb-3 hidden items-center justify-between md:flex"><h1 className="text-sm font-semibold">持续协作</h1><button className="min-h-11 px-2 text-xs text-zinc-400" onClick={()=>void logout()}>断开会话</button></div>
       <div className="hidden gap-2 md:flex md:flex-col">{threads.map(t=><button key={t.id} className={`${button} shrink-0 text-left ${t.id===id?'border-violet-500 bg-violet-500/15':''}`} aria-current={t.id===id?'page':undefined} onClick={()=>select(t.id)}>{t.title}<span className="ml-2 text-xs text-zinc-400">{label[t.state]}</span></button>)}</div>
       {!threads.length&&<p role="status" className="text-sm text-zinc-400">暂无持续协作空间</p>}
-      <p className="mt-3 hidden text-xs text-zinc-500 md:block">新建空间尚未开放</p>
+      {admission?.canCreate?<form className="mt-3 space-y-2" onSubmit={e=>{e.preventDefault();void create();}}><label className="text-xs text-zinc-400" htmlFor="threaded-new-title">新空间名称</label><input id="threaded-new-title" className="input text-sm" value={title} maxLength={200} disabled={creating} onChange={e=>setTitle(e.target.value)}/><p className="break-words text-xs text-zinc-500">获准成员：{admission.members.map(m=>`@${m.agentId}`).join('、')}</p><button className={button} disabled={creating||!title.trim()}>{creating?'正在创建…':'新建空间'}</button></form>:<p className="mt-3 text-xs text-zinc-500">新建空间尚未开放</p>}
+      {release&&<details className="mt-3 break-words text-xs text-zinc-400"><summary className="min-h-11 cursor-pointer">工作入场与排空</summary><p>新工作：{release.control.admissionOpen&&release.mode==='execute'?'开放':'已关闭'} · 后续执行：{release.control.dispatchOpen&&release.mode!=='observe'?'允许':'已暂停'}</p><p className="my-2">{release.drain.ready?'持续协作工作已排空':'仍需保留兼容服务处理现有工作'}{release.drain.unknownNeedsReview?'；有执行或用量待核验':''}。</p><p>关闭新工作保留已接收工作；停止运行中的工作请使用空间或成员控制。</p>
+        {admission?.configured&&<div className="mt-2 flex flex-wrap gap-1"><button className={button} disabled={operationsBusy||release.mode==='observe'||!release.control.admissionOpen} onClick={()=>void changeRelease(false,release.control.dispatchOpen,'Owner closed new work ingress')}>停止新工作</button><button className={button} disabled={operationsBusy||release.mode==='observe'||!release.control.dispatchOpen} onClick={()=>void changeRelease(release.control.admissionOpen,false,'Owner paused future dispatch')}>暂停后续执行</button><button className={button} disabled={operationsBusy||release.control.dispatchOpen||release.mode==='observe'} onClick={()=>void changeRelease(release.control.admissionOpen,true,'Owner continued accepted work')}>继续已有工作</button><button className={button} disabled={operationsBusy||!admission.ready||release.mode!=='execute'||release.control.admissionOpen} onClick={()=>void changeRelease(true,true,'Owner enabled registered rollout')}>开放新工作</button></div>}
+      </details>}{error&&<p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
     </aside>
     {id?<ThreadWorkspace key={`${id}:${generation}`} api={api} id={id} reconnect={()=>void load(true)}/>:<p className="p-6 text-zinc-400">选择已有空间查看消息与成员状态。</p>}
   </section>;
@@ -68,7 +82,9 @@ function ThreadWorkspace({api,id,reconnect}:{api:ThreadedApi;id:string;reconnect
   if(!s)return <div className="flex-1 p-6"><p role="status">{sync.status==='disconnected'?'访问已中断':sync.status==='reconnecting'?'正在重连并重新核验访问…':'正在加载授权快照…'}</p>
     {sync.error&&<p role="alert" className="my-3 text-sm text-amber-300">{sync.error}</p>}
     <button className={`${button} mt-3`} onClick={reconnect}>重新连接持续协作</button></div>;
-  const canSend=s.capabilities.implemented.admission&&s.thread.state!=='closed'&&s.thread.state!=='archived';
+  const readOnly=s.capabilities.configured.mode==='observe';
+  const canContinue=!readOnly&&s.capabilities.implemented.execution&&s.thread.state!=='closed'&&s.thread.state!=='archived';
+  const canSend=!readOnly&&s.capabilities.implemented.admission&&s.thread.state!=='closed'&&s.thread.state!=='archived';
   const control=(kind:'thread'|'member'|'invocation',target:string|undefined,action:'pause'|'stop'|'resume')=>
     mutate(`control:${kind}:${target??id}:${action}`,requestId=>api.control(id,{kind,id:target},action,requestId));
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="threaded-workspace">
@@ -77,8 +93,8 @@ function ThreadWorkspace({api,id,reconnect}:{api:ThreadedApi;id:string;reconnect
       <button className={button} onClick={()=>void controller.current?.refresh()}>重新同步</button></div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-400"><span>空间：{label[s.thread.state]}</span><span className="hidden sm:inline">业务状态：{s.business.label}</span>
         <details className="relative"><summary className="flex min-h-11 cursor-pointer items-center rounded px-2 hover:bg-zinc-800">空间控制 ▾</summary><div className="absolute left-0 z-30 flex w-40 flex-col rounded-lg border border-zinc-700 bg-zinc-950 p-1 shadow-xl">
-        {(['pause','stop','resume'] as const).map(action=><button key={action} className="min-h-11 rounded px-2 text-left hover:bg-zinc-800 disabled:opacity-40" disabled={busy} onClick={event=>{event.currentTarget.closest('details')?.removeAttribute('open');void control('thread',undefined,action);}}>{action==='pause'?'暂停空间':action==='stop'?'停止空间工作':'恢复空间'}</button>)}</div></details></div>
-      {!s.capabilities.implemented.admission&&<p className="mt-1 text-xs text-amber-300">新工作入场已关闭；现有历史与控制可用。</p>}
+        {(['pause','stop','resume'] as const).map(action=><button key={action} className="min-h-11 rounded px-2 text-left hover:bg-zinc-800 disabled:opacity-40" disabled={busy||readOnly} onClick={event=>{event.currentTarget.closest('details')?.removeAttribute('open');void control('thread',undefined,action);}}>{action==='pause'?'暂停空间':action==='stop'?'停止空间工作':'恢复空间'}</button>)}</div></details></div>
+      {!s.capabilities.implemented.admission&&<p className="mt-1 text-xs text-amber-300">{readOnly?'当前为只读演练；历史可读取。':'新工作入场已关闭；现有历史与控制可用。'}</p>}
       <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400" aria-label="协作进度"><span>已保存（本页）：{s.messages.length}</span><span>已排队：{s.memberQueues.reduce((n,m)=>n+m.count,0)}</span><span>执行中：{s.invocations.filter(i=>i.status==='running').length}</span><span>上下文已交付：{s.progress.filter(p=>p.delivered).length}</span><span>等待回应：{s.waits.filter(w=>w.state==='awaiting').length}</span><span>业务责任：{s.business.label}</span></div>
       {!!s.business.actions?.length&&<details className="mt-2 text-xs text-zinc-400"><summary className="cursor-pointer py-2">业务责任与领域校验</summary><ul className="max-h-48 space-y-2 overflow-auto" data-testid="threaded-actions">
         {s.business.actions.map(a=><li key={a.id} className="break-words rounded border border-zinc-800 p-2"><div>{a.subject.kind==='task'?`平台任务 ${a.subject.taskId}`:`${a.subject.repository}#${a.subject.number}`} · 第 {a.generation} 代 · {a.state==='completed'?'责任已完成':a.state==='replaceable'?'等待合法替换':'责任进行中'}</div>
@@ -109,15 +125,15 @@ function ThreadWorkspace({api,id,reconnect}:{api:ThreadedApi;id:string;reconnect
       {showStatus&&<aside className="absolute inset-0 z-20 overflow-y-auto border-t border-zinc-800 bg-zinc-950 p-3 lg:static lg:z-auto lg:w-80 lg:shrink-0 lg:border-t-0 lg:border-l" aria-label="成员与调用状态">
         <button className="mb-2 min-h-11 text-sm text-violet-300 lg:hidden" onClick={()=>setShowStatus(false)}>关闭成员与调用状态</button><h3 className="mb-2 font-medium">成员状态</h3>{s.members.map(m=>{const calls=s.invocations.filter(i=>i.agentId===m.agentId),active=calls.find(i=>['running','unknown','queued','waiting'].includes(i.status));
           const state=s.memberControls.find(c=>c.agentId===m.agentId)?.state??'available';return <div key={m.agentId} className="mb-3 rounded-lg bg-zinc-900 p-3 text-sm"><p className="break-all font-medium">@{m.handle}</p><p className="my-1 text-xs text-zinc-400">{m.status==='left'?'已离开':label[state]} · {active?label[active.status]:'当前无执行'}{(s.memberQueues.find(q=>q.agentId===m.agentId)?.count??0)>0?` · 已排队 ${s.memberQueues.find(q=>q.agentId===m.agentId)!.count}`:''}</p>
-            <div className="flex gap-1">{(['pause','stop','resume'] as const).map(a=><button key={a} className="min-h-11 px-2 text-xs text-zinc-300 disabled:opacity-40" aria-label={`${a==='pause'?'暂停':a==='stop'?'停止':'恢复'} @${m.handle}`} disabled={busy||m.status==='left'} onClick={()=>void control('member',m.agentId,a)}>{a==='pause'?'暂停':a==='stop'?'停止':'恢复'}</button>)}</div></div>;})}
+            <div className="flex gap-1">{(['pause','stop','resume'] as const).map(a=><button key={a} className="min-h-11 px-2 text-xs text-zinc-300 disabled:opacity-40" aria-label={`${a==='pause'?'暂停':a==='stop'?'停止':'恢复'} @${m.handle}`} disabled={busy||readOnly||m.status==='left'} onClick={()=>void control('member',m.agentId,a)}>{a==='pause'?'暂停':a==='stop'?'停止':'恢复'}</button>)}</div></div>;})}
         <p className="my-3 text-xs text-zinc-500">停止或暂停请求不代表外部进程已停止。结果待核实时保留原执行围栏。</p>
-        <h3 className="my-2 font-medium">等待与人类回应</h3>{s.waits.map(w=><WaitCard key={`${w.id}:${w.version}`} wait={w} enabled={canSend&&!busy} submit={body=>mutate(`answer:${w.id}:${w.version}:${body}`,requestId=>api.answer(id,w.id,{body,clientRequestId:requestId,expectedVersion:w.version}))}/>)}
+        <h3 className="my-2 font-medium">等待与人类回应</h3>{s.waits.map(w=><WaitCard key={`${w.id}:${w.version}`} wait={w} enabled={(canSend||canContinue)&&!busy} submit={body=>mutate(`answer:${w.id}:${w.version}:${body}`,requestId=>api.answer(id,w.id,{body,clientRequestId:requestId,expectedVersion:w.version}))}/>)}
         <h3 className="my-3 font-medium">征询</h3>{s.consultations.map(g=><div key={g.id} className="mb-2 rounded bg-zinc-900 p-3 text-xs"><p>{label[g.state]} · {g.kind?label[g.kind]:new Date(g.deadline).toLocaleTimeString('zh-CN')}</p>{g.targets.map(t=><p key={t.agentId} className="mt-1 break-all">@{t.agentId}：{label[t.status]??t.status}</p>)}{g.callback&&<p className="mt-2 text-zinc-400">{label[g.callback.state]??g.callback.state}{g.callback.reason?` · ${g.callback.reason}`:''}</p>}</div>)}
-        <h3 className="my-3 font-medium">执行审批</h3>{s.approvals.map(a=><div key={a.id} className="mb-2 rounded bg-amber-500/10 p-3 text-xs"><p>原生执行待审批 · @{a.agentId}</p><p className="my-2 text-zinc-400">与普通问题回应分开；不代表业务验收。</p>{(['approve','reject'] as const).map(decision=><button key={decision} className={button} disabled={busy} onClick={()=>void mutate(`approval:${a.id}:${decision}`,requestId=>api.approval(id,a.id,decision,requestId))}>{decision==='approve'?'批准执行':'拒绝执行'}</button>)}</div>)}
+        <h3 className="my-3 font-medium">执行审批</h3>{s.approvals.map(a=><div key={a.id} className="mb-2 rounded bg-amber-500/10 p-3 text-xs"><p>原生执行待审批 · @{a.agentId}</p><p className="my-2 text-zinc-400">与普通问题回应分开；不代表业务验收。</p>{(['approve','reject'] as const).map(decision=><button key={decision} className={button} disabled={busy||readOnly} onClick={()=>void mutate(`approval:${a.id}:${decision}`,requestId=>api.approval(id,a.id,decision,requestId))}>{decision==='approve'?'批准执行':'拒绝执行'}</button>)}</div>)}
         <h3 className="my-3 font-medium">Invocation 日志（最近 200 条）</h3>{s.invocations.map(i=><details key={i.id} className="mb-2 rounded bg-zinc-900 p-3 text-xs"><summary className="cursor-pointer break-all">@{i.agentId} · {label[i.status]}</summary>
           <p className="my-2 break-all text-zinc-400">调用 {i.id}{i.reason?` · ${i.reason}`:''}</p>{i.attempts.map(a=><p key={a.id} className="my-1 break-all">Attempt {a.number} · {a.status} · {a.stage}{a.reason?` · ${a.reason}`:''}</p>)}
           <p className="my-2 text-zinc-500">{i.pauseRequested?'暂停请求待核实 ':''}{i.cancelRequested?'停止请求待核实':''}</p>
-          {(['pause','stop','resume'] as const).map(a=><button key={a} disabled={busy} className="min-h-11 px-2 text-zinc-300 disabled:opacity-40" onClick={()=>void control('invocation',i.id,a)}>{a==='pause'?'暂停此调用':a==='stop'?'停止此调用':'恢复此调用'}</button>)}</details>)}
+          {(['pause','stop','resume'] as const).map(a=><button key={a} disabled={busy||readOnly} className="min-h-11 px-2 text-zinc-300 disabled:opacity-40" onClick={()=>void control('invocation',i.id,a)}>{a==='pause'?'暂停此调用':a==='stop'?'停止此调用':'恢复此调用'}</button>)}</details>)}
       </aside>}
     </div>
   </div>;
@@ -174,7 +190,7 @@ function ThreadComposer({api,snapshot:s,enabled,onSaved}:{api:ThreadedApi;snapsh
       <textarea className="input text-sm" rows={2} aria-label="持续协作消息" placeholder="输入消息，使用 @成员 或 @群组点名" value={body} onChange={e=>setBody(e.target.value)} disabled={busy} maxLength={1048576}/>
       <div className="mt-2 flex flex-wrap items-center gap-3"><button className={`${button} bg-violet-500/20 text-violet-200`} disabled={!enabled||busy||!body.trim()||!preview}>{busy?'提交中…':'发送消息'}</button>
         {preview&&<p role="status" className="min-w-0 break-all text-xs text-zinc-400">预览：{preview.targets.map(id=>`@${id}`).join('、')} · {preview.strategy==='parallel'?'独立并行':'依次执行'}{preview.promptTags.includes('critique')?' · 批判性分析':''}</p>}
-        <button type="button" className="min-h-11 text-xs text-zinc-400" onClick={()=>setPolicyOpen(!policyOpen)}>路由设置</button></div>
+        <button type="button" className="min-h-11 text-xs text-zinc-400 disabled:opacity-40" disabled={s.capabilities.configured.mode==='observe'} onClick={()=>setPolicyOpen(!policyOpen)}>路由设置</button></div>
       {error&&<p role="alert" className="mt-2 text-xs text-red-300">{error}</p>}
     </form>
     <Drawer open={policyOpen} title="路由设置" onClose={()=>setPolicyOpen(false)}>{policyOpen&&<RoutingEditor key={policy?.version??0} policy={policy} members={s.members.filter(m=>m.status==='joined').map(m=>m.agentId)} save={async(value,version)=>{await api.configure(s.thread.id,value,version);setPolicy((await api.policy(s.thread.id)).routing);setPolicyOpen(false);await onSaved();}}/>}</Drawer>

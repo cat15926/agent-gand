@@ -28,6 +28,8 @@ export interface TrustedResourceRequest {
   workspaces?: Array<{ path: string; access: 'read' | 'write' }>;
   /** A preparation reservation does not consume model-call capacity. */
   capacity?: boolean;
+  /** Trusted registered command workload; independent from the Invocation execution slot. */
+  threadedCommand?: { commandId: string; registrationId: string };
   /** Optional parent reservation: its exact fence must remain current. */
   parentClaim?: ResourceClaimIdentity;
   eligible?: boolean;

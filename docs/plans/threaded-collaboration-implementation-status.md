@@ -1,6 +1,6 @@
 # 持续协作模式实施状态
 
-状态：**实施中**（T01–T11 已实现并通过所列分层验收；T12 未实施）。更新：2026-10-21。
+状态：**实施中**（T01–T11 已交付；T12 发布/恢复/OS 接线及所列隔离验收完成，真实组合和发布条件未全部通过）。更新：2026-10-21。
 
 产品名“持续协作”，内部模式 `threaded`。实施遵守已确认目标：**核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。**本表记录任务进度；已批准的设计不等于功能可用。
 
@@ -20,14 +20,15 @@
 | T09 实现 | [Thread UI与同步合同](../architecture/threaded-ui-v1.md)与[验收报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)：独立入口/认证、只读投影/精确回执、路由/Decision/控制、快照与事件引用同步，4/4/11组及实际隔离服务进程重启验证；仍为v31 |
 | T10 实现 | [Action与领域合同](../architecture/threaded-actions-v1.md)及[验收报告](../reports/threaded-collaboration-t10-actions-2026-10-21.md)：独立责任、平台任务、真实GitHub GET/本地交付、替换/返回与命令代际，v32；12组Action、12组Chrome及分层真实域验证 |
 | T11 实现 | [工作流合同](../architecture/threaded-workflows-v1.md)及[验收报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)：完整来源/版本/作者评审合同、finding/修订/独立门禁、SOP CAS与可信任务核验、基础知识/ACL，v33；9/6/8组隔离验证、15组Chrome及22次真实GitHub GET |
+| T12 实现 | [发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)：v34、固定发布名单/根授权、独立入场/派发控制、只读演练、启动屏障/有界退出及 macOS 注册命令；7/16/9/4/8/5组分层验收 |
 | 合同与能力 | [兼容矩阵](threaded-collaboration-compatibility-matrix.md)：K01–K16、59 项原验收、细化行为、平台差异、E01–E06 独立增强和高级能力范围 |
 | 代码接入 | [接入地图](threaded-collaboration-integration-map.md)及[候选检索证据](../reports/evidence/threaded-t01-mode-origin-inventory.json)：全部扫描文件、hash、搜索模式、命中行、职责和局限可复核；不是静态可达性证明 |
 | 固定源码 | [基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)及[来源清单](../reports/evidence/threaded-t01-source-manifest.json)：本地差异、环境、迁移目录、上游定点核验及许可 |
-| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d` 已推送 origin/main；T11在此基础上实施 |
+| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d`、T11 `ba438b1` 已推送 origin/main；T12在其上实施 |
 | Clowder 参考 | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；固定版本，不跟随远端 HEAD |
-| 迁移 | 已交付 v25–v33，v25–v32 源码与 descriptor 不变；冻结实际 v32 升级 v33、失败回滚和旧 worker 拒绝新版本通过。未迁移日常业务库，不推断已部署 schema |
-| 交付 | T01–T10 已提交推送；T11代码、测试、分层证据及文档已完成，尚未提交推送；未回写 Issue |
-| 真实验收边界 | macOS 上选定同一账号的 Anthropic 兼容 API 与 claude-sdk 0.3.288 合成上下文验收通过；不代表全部配置账号/供应商均已验证。只读业务库账号/凭据元数据并在隔离库执行，不读取日常会话。用户授权总 input+output 上限 1000 万 token，本轮累计硬门禁 20 万；实际用量与未知预留见 T08 报告：累计75,327含39,010旧未知预留 |
+| 迁移 | T12追加 v34，v25–v33 源码与 descriptor 不变；冻结实际 ba438b1 v33 升级 v34、失败全回滚和旧 worker 零修改拒绝通过。未迁移日常业务库，不推断已部署 schema |
+| 交付 | T01–T11 已提交推送；T12代码、测试和所列证据随本次交付提交，提交版本以 Git 日志为准；生产发布未执行，未回写 Issue |
+| 真实验收边界 | macOS 上选定同一账号的 Anthropic 兼容 API 与 claude-sdk 0.3.288 合成上下文验收通过；不代表全部配置账号/供应商均已验证。只读业务库账号/凭据元数据并在隔离库执行，不读取日常会话。用户授权总 input+output 上限 1000 万 token，本轮累计硬门禁 20 万；T12后累计153,094含89,758未知预留（其中39,010为T07旧未知）；真实API工具与修复后SDK工具/隔离HTTP服务原生续接通过，两次失败保留，准确增量见T12报告 |
 
 ## 2 T01 退出条件
 
@@ -36,14 +37,14 @@
 | 固定本地、上游、依赖、环境及迁移目录；解释基线变化 | 已完成，保留新 HEAD 的 control_draft 展示规则；源码清单可按固定 URL/hash 复查 |
 | Thread、Invocation、Action 分离；明确 Run 与重试 | 已冻结：一 Invocation 对一 Run，多个 Attempt；unknown 不终结或盲重试；Action 独立领域验收 |
 | 消息不依赖永久 Run，定义 owner 与版本 | 已冻结：独立 threaded_messages、稳定 instance_owner_id、独立 HTTP/工具/记录版本、前向迁移 |
-| 防止旧入口、恢复器、终态及查询误接管 | T01 已分配责任；T02 的旧路径拒绝/跳过及 HTTP/WS 隔离已验证，T03 专用执行/控制端口、T04 资源、T06 调度与 T07 隔离真实后端已接；生产 executor 与工作入场继续关闭 |
+| 防止旧入口、恢复器、终态及查询误接管 | T01 已分配责任；T02 的旧路径拒绝/跳过及 HTTP/WS 隔离已验证，T03 专用执行/控制端口、T04 资源、T06 调度与 T07 隔离真实后端已接；T12生产factory已接，日常配置与工作入场保持关闭 |
 | 冻结混合资源、Session、取消和 unknown 语义 | 已完成：旧 exclusive 与新 thread-slot 共用竞争；Session 先解析再验证领取；代际不重置；未知外部执行不被异常 cleanup 释放 |
 | 核心合同、平台差异、增强、高级范围各自有台账 | 已完成，保留原 K/验收原文；不把范围外或未验证写成支持，不按通过数量计算复刻比例 |
 | 后端与领域来源明确 | API、claude-sdk 0.3.288 在 macOS 的 T07 所列真实后端范围通过；T10已接平台任务和真实GitHub当前HEAD/本地review交付；真实模型与全部业务故障组合仍待T12 |
 | T02–T04 可继续实施 | 已给出接口责任、最小 schema 约束、迁移分配、负向用例和退出条件；真实执行保持关闭 |
 | 文档及证据可复核 | T01 固定证据保留为历史基线；T02 实际变更及验证另记报告 |
 
-交叉复核已修正三项设计风险：Session 身份未解析就领取锁、runner 异常后无条件释放未知执行资源、Decision/hold 创建即终止 Invocation。未知进程与生命周期部分已由 T03 fake 验证，T04 已增加持久资源及 Session 身份准备，T07 已完成所列真实后端验收；非阻塞工具与等待已由 T08 独立验证，T10命令/Action代际已有独立验证，实际OS命令执行器仍待T12。
+交叉复核已修正三项设计风险：Session 身份未解析就领取锁、runner 异常后无条件释放未知执行资源、Decision/hold 创建即终止 Invocation。未知进程与生命周期部分已由 T03 fake 验证，T04 已增加持久资源及 Session 身份准备，T07 已完成所列真实后端验收；非阻塞工具与等待已由 T08 独立验证，T10命令/Action代际已有独立验证，实际macOS注册命令端口已由T12验证8组，生产默认未注册。
 
 ## 3 任务进度
 
@@ -59,14 +60,14 @@
 | T08 路由、工具、等待、持久征询 | **实现及所列分层验证完成，已推送606a8c0** | 17/4/4组及E01–E06独立证据；真实API/SDK工具与双成员征询复验通过；领域依赖留T10，下一项T10 |
 | T09 UI、回执、重连、状态面板 | **实现及所列隔离浏览器验证完成，已推送72efefd** | 4组同步/4组投影HTTP/11组Chrome；刷新/断线/实际HTTP进程SIGKILL与新SQLite连接恢复通过，业务发布待后续 |
 | T10 Action、完成谓词、替换/返回 | **实现及所列分层验收完成，已推送c944c9d** | 12组Action/多进程/故障；真实平台任务和GitHub只读域通过；新远端事件及实际OS执行器完整验收留T12 |
-| T11 Review/Revision、SOP、共享记忆 | **实现及所列分层验收完成，尚未提交** | 9组Review、6组SOP、8组知识、15组实际Chrome；22次真实GitHub GET，仅本地评审交付，无新增模型token；语义检索仍未实现 |
-| T12 综合验收、兼容、发布与回滚 | 未开始 | 按实际后端/平台/领域范围收口证据 |
+| T11 Review/Revision、SOP、共享记忆 | **实现及所列分层验收完成，已推送ba438b1** | 9组Review、6组SOP、8组知识、15组实际Chrome；22次真实GitHub GET，仅本地评审交付，无新增模型token；语义检索仍未实现 |
+| T12 综合验收、兼容、发布与回滚 | **接线及所列隔离/宿主验收完成，真实组合未全部通过** | 17组迁移、7组release、16组production、9组24恢复进程、4组index、8组macOS、5组Chrome；真实SDK补验已通过；远端新HEAD及完整发布条件见T12报告 |
 
-**功能验证总状态：**T02–T11 已实现并通过所列隔离 fixture；DB03 的 v25–v33 范围通过。T06 的 Wake/Invocation、共享资源/预算领取、响应/Run/Outbox 事务与控制恢复已接 T07 实际上下文投递。macOS 上 API 两次请求的重建与私密排除、SDK 冷开/原生续接/权限变化冷开及取消 unknown 验证通过。SDK 补验在同一验收进程中关闭旧数据库连接，重新创建 runtime、SQLite 连接和资源 owner，再从持久锚点恢复同 nativeId 与记忆；每次 Invocation 启动独立 SDK worker，恢复自身不发送请求，见[补验证据](../reports/evidence/threaded-t07-real-sdk-reopen.json)。这不构成整个主服务进程 kill/restart 的验收。
+**功能验证总状态：**T02–T11 已实现并通过所列隔离 fixture；DB03 的 v25–v34 范围通过。T06 的 Wake/Invocation、共享资源/预算领取、响应/Run/Outbox 事务与控制恢复已接 T07 实际上下文投递。macOS 上 API 两次请求的重建与私密排除、SDK 冷开/原生续接/权限变化冷开及取消 unknown 验证通过。SDK 补验在同一验收进程中关闭旧数据库连接，重新创建 runtime、SQLite 连接和资源 owner，再从持久锚点恢复同 nativeId 与记忆；每次 Invocation 启动独立 SDK worker，恢复自身不发送请求，见[补验证据](../reports/evidence/threaded-t07-real-sdk-reopen.json)。这不构成整个主服务进程 kill/restart 的验收。
 
-生产仍只有历史读取、内部提示和无 executor 的恢复，`closed`、`observe`、`execute` 均不放行新工作；真实生产业务闭环未执行，T10隔离平台任务及获权GitHub只读领域已验。T08 工具、等待与 E01–E06 征询增强已独立验证，见[T08 报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)；真实工具成功，征询首轮取消保留失败、新场景复验通过，根因未定位。T09独立UI、授权快照和实际隔离HTTP进程重启已验证，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)；T11已实现并完成所列分层验证，T12未实施，不能把现有结果计为全部59项通过。
+T12已接真实生产factory与受信pack，但默认closed、未配置名单、未打开持久许可；日常生产仍未启用。所列主服务烟测、模块组合故障恢复、macOS命令和真实Chrome通过；它们不等于真实供应商的全部主服务故障窗口通过。真实API五类知识/SOP工具通过；两次SDK失败保留，活动心跳修复后真实SDK五工具和隔离HTTP服务SIGKILL原生续接复验通过。T12报告逐项记录未通过及未验证项，不能计为全部59项通过。
 
-真实 SDK 短会话未触发自动压缩；压缩事件、摘要来源与 seal 目前只有确定性证据。完整主服务退出/启动、其他供应商/驱动与实际平台组合仍按 T12 和矩阵逐项验收。
+T08首次征询取消根因未定位，旧未知费用与围栏保留。原生自动压缩仍未真实触发；完整主服务真实执行、远端新HEAD事件、其他供应商/驱动及平台组合按矩阵补验。
 
 完整语义检索、Collective 特殊隔离、扩展载体、多租户/多机按矩阵单列后续或范围外；普通私密 ACL、核心 Action、基础知识和 SOP 仍在首版目标。MEM01 包含语义检索，基础部分完成时仍不能将整项标为全部通过。Linux 与 WSL 分别待验证，Windows 原生首批范围外。
 
@@ -74,11 +75,11 @@
 
 | 检查 | 结果与能证明的范围 |
 | --- | --- |
-| `pnpm typecheck` | T11后通过（shared、server、web） |
+| `pnpm typecheck` | T12后通过（shared、server、web） |
 | 固定源码 hash、Git 差异、迁移 descriptor 清单 | 已核对；不证明部署数据库状态或上游全产品行为 |
 | K01–K16、原 59 项逐条比对 | 通过；ID 和原文全部保留，不执行行为 |
 | T01 生产检索清单重现及 hash | T01 时通过；296 个源文件 hash、1,225 条分类命中完全重现；22 个本地基线文件及 34 个上游引用条目（33 个唯一文件）已核对。T02 改动后不再把旧 hash 当当前源码保证 |
-| `pnpm verify:threaded-migration` | 通过16组，冻结实际 `c944c9d` v32 升v33、完整失败回滚、旧消息hash重试及旧guard拒写 |
+| `pnpm verify:threaded-migration` | 通过17组，保留既有16组，追加实际 `ba438b1` v33升v34、历史源码/数据hash保留、DDL/注册失败全回滚及旧worker零修改拒绝 |
 | `pnpm verify:threaded-isolation` | 通过，6 组新模式/未知/错配 fixture；恢复无写入，零 executor/callback；旧三模式正向终态通过 |
 | `pnpm verify:threaded-access` | 通过，管理桥接、专用会话/CSRF、owner、版本、HTTP/WS、注销/过期和关闭入场 |
 | `pnpm verify:threaded-legacy-boundary` | 通过，旧 HTTP/WS 列表/派生 ID/写入前隔离，既有记录仍可用，零外部调用 |
@@ -125,13 +126,14 @@ T02–T06 只在隔离 SQLite、注入式 Fastify、fake provider/executor 和�
 | `pnpm verify:threaded-reviews-github -- --authorized-git-credential` | 22次官方GET；旧HEAD/错误来源版本拒绝、精确普通A2A作者唤醒、交付completed而门禁blocked，零远端写 |
 | T11 Chrome/UI | 15组、5张截图，真实来源认证GET、390px和实际隔离HTTP进程SIGKILL恢复；见T11报告 |
 
-## 5 下一项：T12
+## 5 T12交接与剩余退出条件
 
-输入：已推送T10 `c944c9d`、当前T11工作区、[工作流合同](../architecture/threaded-workflows-v1.md)及[报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)、T01冻结的首版目标和兼容矩阵。开始时检查HEAD、工作区及迁移，不改历史descriptor。
+输入为已推送 T11 `ba438b1`、T12交付、[发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[分层报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。日常配置/数据库未改，T12提交版本以Git日志为准。
 
-1. 按实际支持的后端、平台和领域组合收口集成证据；包含真实PR等待中新HEAD、具体OS命令、主服务/真实模型完整故障组合。
-2. 保留普通A2A与责任授权、可见受众、因果根预算及私密来源闭包；每个未验证组合明确登记。
-3. 复核生产入口/executor接线、迁移/版本不兼容拒绝、可回滚发布步骤，完成具体审阅结果后再处理发布。
-4. 语义检索、Collective、多租户/多机及扩展载体逐项保留范围；MEM01整体不能标全过。
+1. 真实SDK知识/SOP及静止执行后的隔离HTTP服务SIGKILL同nativeId续接已补验通过，两个失败/unknown原样保留；mid-flight SDK及真实index供应商完整故障仍需按范围补证。
+2. W05实际新HEAD观察窗口606秒/48 GET未出现变化，状态not_observed；需要受权业务事件或后续自然变化证明真实动态唤醒，不写远端制造事件。
+3. 主服务真实供应商完整故障、自动压缩、未知费用/副作用对账及选定provider注册仍按组合验收；生产没有默认GitHub或OS注册。
+4. 实际小流量启用和日常迁移未执行。保留匹配pack与兼容worker；threaded-only drain不允许整库回退，不能删除unknown。
+5. MEM01语义检索、Collective和扩展平台/载体保持原范围，K01–K16及59项场景/预期不改。
 
-T11新增模型token为0，累计占额仍75,327（含未知预留39,010）；T11成功真实GitHub验收22 GET、远端写0。生产入口/executor继续关闭，T08首次征询取消未定位风险保留。
+T12三轮共9实际请求，新增确认27,019 token、未知预留50,748；账本累计153,094（确认63,336/未知89,758），旧记录逐行原样保留；更严20万累计门禁继续生效。T08取消风险未定位。准确命令和分层限制见T12报告。

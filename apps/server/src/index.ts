@@ -59,7 +59,7 @@ await recoverAccountTests();
 await recoverExternalExecutions();
 recoverCostReservations();
 // Reconcile native/host facts first. Threaded then repairs its own durable queue,
-// budget and release receipts; the production service has no execution port.
+// budget and release receipts. Dispatch waits until all mode recovery has completed.
 threadedRuntime.recover();
 recoverMemberAdmissions();
 interruptRunningAttempts();
@@ -71,6 +71,7 @@ recoverPendingConversationRuns();
 recoverDurableHolds();
 recoverCollaborationRuns();
 recoverDurableRuns();
+threadedRuntime.startDispatch();
 
 await app.listen({ port: config.port, host: config.host });
 app.log.info(`agent-gand server 就绪: http://localhost:${config.port}（agents=${agents.length}）`);
@@ -83,7 +84,8 @@ durableHoldTimer.unref();
 async function shutdown(signal: string): Promise<void> {
   clearInterval(collaborationLeaseTimer);
   clearInterval(durableHoldTimer);
-  threadedRuntime.close();
+  const threadedShutdown=await threadedRuntime.shutdown();
+  app.log.info({threadedShutdown}, '持续协作退出核验完成，未核实执行继续保留围栏');
   app.log.info(`收到 ${signal}，正在关闭…`);
   await Promise.all([shutdownAccountTests(), shutdownAccountLogins(), shutdownExternalAgents()]);
   await app.close();

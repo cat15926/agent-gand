@@ -4,6 +4,7 @@ import { hostOwner } from '../host.ts';
 import { createExecutionResourceCoordinator } from './coordinator.ts';
 import { verifyLegacyResourceEvidence } from './legacyEvidence.ts';
 import { assertResourceSessionCurrent } from './sessions.ts';
+import {verifyThreadedOsCommandResourceEvidence} from '../../threaded/osCommands.ts';
 import { verifyThreadedBackendResourceEvidence } from '../../threaded/backends/evidence.ts';
 
 /** One shared instance for all production modes, including the active availability signal. */
@@ -14,7 +15,7 @@ export const executionResources = createExecutionResourceCoordinator(db, {
   verifyEvidence: (_request, claim, evidence) => {
     const saved = executionResources.getClaim(claim.claimId);
     return !!saved && (saved.request.mode === 'threaded'
-      ? verifyThreadedBackendResourceEvidence(db, saved, evidence)
+      ? (verifyThreadedBackendResourceEvidence(db, saved, evidence)||verifyThreadedOsCommandResourceEvidence(db,saved,evidence))
       : verifyLegacyResourceEvidence(db, saved, evidence));
   },
 });

@@ -17,11 +17,22 @@ import { createThreadedCollaboration } from './collaboration.ts';
 import type { createThreadedContext } from './context.ts';
 import type { ThreadedTrackingSource } from './tracking.ts';
 
+export interface ThreadedProductionExecutionPolicy {
+  admit(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void;
+  assertAuthorized?(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void;
+}
+
 /** Core composition; context preparation and execution are supplied through explicit ports. */
 export function createThreadedRuntime(db: Database.Database, options: {
   resources: ReturnType<typeof createExecutionResourceCoordinator>;
   prepareResources: (context: ThreadedQueuePreparationContext) => ThreadedQueueResourcePreparation;
   executor?: InvocationExecutionPort;
+  /** Trusted production release policy; HTTP/model input cannot supply this port. */
+  executionPolicy?:{admit(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void;assertAuthorized?(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void};
+  ingress?:import('./collaborationTypes.ts').CollaborationOptions['ingress'];
+  deferDispatchUntilStart?:boolean;
+  /** Read-only observation must not let account invalidations arm repairs or acknowledge outbox. */
+  notificationsEnabled?:boolean;
   verifyUsage?: (binding: ThreadedBinding, authorization: BudgetAuthorization, usage: BudgetUsageEvidence) => boolean;
   messaging?: ReturnType<typeof createThreadedMessaging>;
   now?: () => number;
@@ -46,19 +57,21 @@ export function createThreadedRuntime(db: Database.Database, options: {
   let queue: ReturnType<typeof createThreadedQueue>;
   let dispatcher: ReturnType<typeof createThreadedDispatcher<ThreadedQueueClaim>>;
   const activeInvocations = new Set<string>();
-  let closed = false;
+  let closed = false,dispatchStarted=options.deferDispatchUntilStart!==true;
+  const idleWaiters=new Set<()=>void>();
   const enabled = options.dispatchEnabled ?? Boolean(options.executor);
-  if (enabled && (!options.executor || process.env.AGENT_GAND_ISOLATED_WORKER !== '1')) {
+  if (enabled && (!options.executor || process.env.AGENT_GAND_ISOLATED_WORKER !== '1'&&!options.executionPolicy)) {
     throw new ThreadedAuthorityError('THREADED_EXECUTION_NOT_ENABLED');
   }
   const notify = () => {
+    if(options.notificationsEnabled===false)return;
     messaging.notifyCommitted();
-    if (enabled) dispatcher?.wakeup();
+    if (enabled&&dispatchStarted) dispatcher?.wakeup();
     collaboration?.notifyCommitted();
   };
   const collaboration = options.collaborationEnabled ? createThreadedCollaboration(db,{authority,messages:messaging.messages,
-    now:options.now,context:options.collaborationContext,trackingSources:options.trackingSources,actions:options.actions,
-    onCommitted:()=>{messaging.notifyCommitted();if(enabled)dispatcher?.wakeup();}}) : undefined;
+    now:options.now,context:options.collaborationContext,trackingSources:options.trackingSources,actions:options.actions,ingress:options.ingress,
+    onCommitted:()=>{if(options.notificationsEnabled===false)return;messaging.notifyCommitted();if(enabled&&dispatchStarted)dispatcher?.wakeup();}}) : undefined;
   const mapped = (invocationId: string) => db.prepare('SELECT 1 FROM threaded_invocation_wakes WHERE invocation_id=?').get(invocationId);
   const lifecycle = createThreadedLifecycle(db, authority, {
     resources,
@@ -121,20 +134,27 @@ export function createThreadedRuntime(db: Database.Database, options: {
     },
     onCommitted: notify,
   });
-  queue = createThreadedQueue(db, { lifecycle, resources, budget, prepareResources: options.prepareResources,
-    additionalAdmission:collaboration?row=>{
+  queue = createThreadedQueue(db, { lifecycle, resources, budget,allowProductionExecution:!!options.executionPolicy, prepareResources: options.prepareResources,
+    additionalAdmission:row=>{
+      if(options.executionPolicy&&row.state!=='claimed'&&row.state!=='unknown'){
+        try{options.executionPolicy.admit(row);}catch(error){return {allowed:false,reason:error instanceof ThreadedAuthorityError?error.code:'THREADED_RELEASE_WORK_BLOCKED'};}
+      }
+      if(!collaboration)return {allowed:true,reason:''};
       if(row.state==='claimed'||row.state==='unknown')return {allowed:true,reason:''};
       if(!collaboration.actions.admission(row.sourceMessageId,row.agentId))return {allowed:false,reason:'THREADED_ACTION_STALE_GENERATION',cancelled:true};
       const group=db.prepare(`SELECT g.state,g.deadline FROM threaded_consultation_targets t JOIN threaded_consultations g ON g.id=t.group_id
         WHERE t.question_message_id=? AND t.agent_id=?`).get(row.sourceMessageId,row.agentId) as {state:string;deadline:number}|undefined;
       return group&&(group.state!=='collecting'||group.deadline<=(options.now?.()??Date.now()))
         ?{allowed:false,reason:'THREADED_CONSULTATION_EXPIRED',cancelled:true}:{allowed:true,reason:''};
-    }:undefined,
+    },
     now: options.now, ownerNonce: options.ownerNonce, leaseMs: options.leaseMs });
   const executor = options.executor ?? { async execute(): Promise<never> { throw new ThreadedAuthorityError('THREADED_EXECUTION_NOT_ENABLED'); } };
   const runner = createThreadedRunner(authority, lifecycle, executor, {
+    allowProductionExecution:!!options.executionPolicy,
     assertExecutionAuthorized(binding, authorizationId) {
       queue.assertExecutable(binding);
+      if(options.executionPolicy){const root=db.prepare('SELECT causal_root_id FROM threaded_invocations WHERE id=?').get(binding.invocationId) as {causal_root_id:string};
+        (options.executionPolicy.assertAuthorized??options.executionPolicy.admit)({...binding,causalRootId:root.causal_root_id});}
       options.assertExecutionContext?.(binding);
       if (options.deferRequestStart) budget.assertAttemptAuthorized(binding);
       if (authorizationId !== null) budget.assertAuthorized(authorizationId, binding);
@@ -175,10 +195,10 @@ export function createThreadedRuntime(db: Database.Database, options: {
       return await runner.execute({ binding: claim.binding,
         contextManifestId: prepared?.contextManifestId ?? `wake:${claim.queue.wakeId}:${claim.waveId}:${claim.inputMaxSeq}`,
         sessionBindingId: prepared?.sessionBindingId ?? claim.sessionBindingId, budgetAuthorizationId: claim.budgetAuthorization.id });
-    } finally { activeInvocations.delete(claim.binding.invocationId); }
+    } finally { activeInvocations.delete(claim.binding.invocationId);if(!activeInvocations.size){for(const resolve of idleWaiters)resolve();idleWaiters.clear();} }
   }
   dispatcher = createThreadedDispatcher<ThreadedQueueClaim>({
-    claimNext() { queue.scanPending(); return queue.claimNext('threaded-runtime-v1'); },
+    claimNext() { if(!dispatchStarted)return null;queue.scanPending(); return queue.claimNext('threaded-runtime-v1'); },
     execute: executeClaim,
     onAvailable: enabled ? listener => resources.onAvailable(listener) : undefined,
     onWake: enabled ? listener => {
@@ -219,12 +239,12 @@ export function createThreadedRuntime(db: Database.Database, options: {
     }
     queue.scanPending(); messaging.recover();
     collaboration?.recover();
-    if (enabled) dispatcher.wakeup();
+    if (enabled&&dispatchStarted) dispatcher.wakeup();
     return { lifecycle: lifecyclePlans, budget: budgetPlan, queue: queue.recover() };
   }
   if (options.autoStart !== false) {
     queue.scanPending();
-    if (enabled) dispatcher.wakeup();
+    if (enabled&&dispatchStarted) dispatcher.wakeup();
   }
   return {
     authority, resources, lifecycle, budget, queue, messaging, messages: messaging.messages, runner, dispatcher, collaboration,
@@ -237,7 +257,19 @@ export function createThreadedRuntime(db: Database.Database, options: {
       if (db.inTransaction) throw new ThreadedAuthorityError('THREADED_BUDGET_DECISION_REQUIRES_OUTERMOST_TRANSACTION');
       const receipt = budget.configureOwnerWindow(input); notify(); return receipt;
     },
-    wakeup() { if (enabled) dispatcher.wakeup(); },
+    startDispatch(){if(closed)throw new ThreadedAuthorityError('THREADED_RUNTIME_CLOSED');dispatchStarted=true;if(enabled)dispatcher.wakeup();},
+    wakeup() { if (enabled&&dispatchStarted) dispatcher.wakeup(); },
+    async shutdown(timeoutMs=15_000){
+      if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60_000)throw new ThreadedAuthorityError('THREADED_SHUTDOWN_TIMEOUT_INVALID');
+      closed=true;dispatcher.close();collaboration?.close();for(const id of activeInvocations)abortThreadedExecution(id);
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      const complete=Promise.all([dispatcher.whenIdle(),activeInvocations.size?new Promise<void>(resolve=>idleWaiters.add(resolve)):Promise.resolve()]).then(()=>true);
+      const idle=await Promise.race([complete,new Promise<false>(resolve=>{timer=setTimeout(()=>resolve(false),timeoutMs);})]);if(timer)clearTimeout(timer);
+      const unknown:string[]=[];
+      if(!idle)for(const id of activeInvocations){const row=db.prepare("SELECT current_attempt_id FROM threaded_invocations WHERE id=? AND status='running'").get(id) as {current_attempt_id:string}|undefined;
+        if(row)try{lifecycle.recordOutcome(authority.capture(row.current_attempt_id),{kind:'unknown',reason:'THREADED_SHUTDOWN_QUIESCENCE_UNCONFIRMED'});unknown.push(id);}catch{/* Keep existing durable fences if outcome cannot be committed. */}}
+      if(!options.messaging)messaging.close();return {idle,unknown};
+    },
     whenIdle: dispatcher.whenIdle,
     diagnostics: () => ({ ...dispatcher.diagnostics(), executionEnabled: enabled, notifications: messaging.diagnostics() }),
     close() {

@@ -30,7 +30,9 @@ export function digest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(ordered(value)) ?? 'undefined').digest('hex');
 }
 export type CollaborationMessages = ReturnType<typeof createThreadedMessages>;
-export interface CollaborationOptions { authority: ThreadedAuthority; messages: CollaborationMessages; now?: () => number; onCommitted?: () => void }
+export interface CollaborationOptions { authority: ThreadedAuthority; messages: CollaborationMessages; now?: () => number; onCommitted?: () => void;
+  ingress?:{assert(input:import('./messageContracts.ts').ThreadedUserMessageInput,targets:string[]):void;record(receipt:ThreadedMessageReceipt):void};
+}
 export interface CollaborationTerminal { binding: ThreadedBinding; status: 'completed'|'failed'|'cancelled';
   response?: ThreadedMessageReceipt; quiescence: QuiescenceProof }
 export interface RoutingPolicy { preferred: string[]; duty?: string; defaultAgent: string; groups?: Record<string,string[]> }

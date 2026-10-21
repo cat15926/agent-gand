@@ -3,7 +3,8 @@ import type { WebsocketHandler } from '@fastify/websocket';
 import { THREADED_HTTP_VERSION, THREADED_SCHEMA_VERSION } from '@agent-gand/shared';
 import { db } from '../db/database.ts';
 import { AccountError } from '../accounts/errors.ts';
-import { createThreadedStore } from '../threaded/store.ts';
+import {ThreadedReleaseError} from '../threaded/release.ts';
+import { createThreadedStore,ThreadedStoreError } from '../threaded/store.ts';
 import { createThreadedAccess, ThreadedAccessError } from '../threaded/access.ts';
 import type { ThreadedAccess, ThreadedPrincipal } from '../threaded/access.ts';
 import { assertThreadedRequestContract, rejectThreadedAdmission, threadedAdmissionMode, threadedCapabilities } from '../threaded/policy.ts';
@@ -26,11 +27,12 @@ export interface ThreadedRouteContext {
   access: ThreadedAccess;
   lifecycle?: Pick<typeof threadedLifecycle, 'requestControl' | 'decideApproval'>;
   messages?: Pick<ReturnType<typeof createThreadedMessages>, 'acceptUserMessage' | 'getMessage' | 'listMessages' | 'searchMessages' | 'getAttachment' | 'getSources'>;
-  /** Default production admission remains closed. T06 will supply the full admission policy. */
+  /** Production admission is resolved by the pinned release pack and durable controls. */
   messageAdmission?: () => void;
   onMessageNotification?: (listener: (hint: ThreadedInternalNotification) => void) => () => void;
   collaboration?: ReturnType<typeof createThreadedCollaboration>;
   view?:ReturnType<typeof createThreadedView>;
+  operations?:Pick<typeof threadedRuntime,'release'|'admission'|'capabilities'|'createThread'|'wakeup'>;
 }
 let defaults: ThreadedRouteContext | undefined;
 function defaultContext(): ThreadedRouteContext {
@@ -38,13 +40,17 @@ function defaultContext(): ThreadedRouteContext {
     const store = createThreadedStore(db);
     const messaging = threadedMessaging();
     defaults = { store, access: createThreadedAccess(() => store.getInstanceOwnerId()), lifecycle: threadedLifecycle,
-      messages: messaging.messages, onMessageNotification: messaging.onNotification,collaboration:threadedRuntime.collaboration,
-      view:createThreadedView(db,{store,messages:messaging.messages}) };
+      messages: messaging.messages,collaboration:threadedRuntime.collaboration,
+      operations:threadedRuntime,messageAdmission:threadedRuntime.messageAdmission,
+      onMessageNotification:threadedAdmissionMode()==='observe'?()=>()=>{}:messaging.onNotification,
+      view:createThreadedView(db,{store,messages:messaging.messages,capabilities:threadedRuntime.capabilities}) };
   }
   return defaults;
 }
 
 function errorHandler(error: Error, _request: FastifyRequest, reply: FastifyReply) {
+  if(error instanceof ThreadedReleaseError)return reply.code(error.status).send({code:error.code,error:error.message});
+  if(error instanceof ThreadedStoreError)return reply.code(error.code==='THREADED_IDEMPOTENCY_CONFLICT'?409:400).send({code:error.code,error:error.message});
   if (error instanceof ThreadedAccessError) return reply.code(error.status).send({ code: error.code, error: error.message });
   if (error instanceof ThreadedAuthorityError) return reply.code(error.status).send({ code: error.code, error: error.message });
   if (error instanceof ThreadedCollaborationError) return reply.code(error.status).send({code:error.code,error:error.message});
@@ -70,7 +76,7 @@ export async function registerThreadedAccessBridge(accounts: FastifyInstance, co
   });
 }
 
-/** Authenticated snapshots and lifecycle controls. New work and provider execution remain closed. */
+/** Authenticated snapshots and controls; production policy authorizes each new root. */
 export async function registerThreadedRoutes(app: FastifyInstance, context = defaultContext()): Promise<void> {
   threadedAdmissionMode(); // Reject unknown operator configuration before serving requests.
   const { store, access } = context;
@@ -106,6 +112,10 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
               :url==='/api/threaded/ws'?['view','afterEventSeq']:[];
       assertThreadedRequestContract(request, url === '/api/threaded/ws', queries);
       principal(request);
+      if(context.operations?.admission().mode==='observe'&&!['GET','HEAD','OPTIONS'].includes(request.method)
+        &&url!=='/api/threaded/session'&&url!=='/api/threaded/threads/:id/routing-preview'){
+        throw new ThreadedReleaseError('THREADED_RELEASE_OBSERVE_ONLY',403);
+      }
       if (request.routeOptions.url === '/api/threaded/ws') {
         const id = (request.query as { threadId?: unknown }).threadId;
         if (typeof id !== 'string' || !id || id.length > 200) {
@@ -117,7 +127,7 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
         numericQuery(query.afterEventSeq,0);
       }
     });
-    threaded.get('/capabilities', async () => threadedCapabilities());
+    threaded.get('/capabilities', async () => context.operations?.capabilities()??threadedCapabilities());
     threaded.get('/session', async request => ({ ...access.view(principal(request)), httpVersion: THREADED_HTTP_VERSION }));
     threaded.delete('/session', async (request, reply) => access.logout(request, reply));
     threaded.get('/threads', async request => ({ httpVersion: THREADED_HTTP_VERSION,
@@ -142,7 +152,25 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       return { httpVersion: THREADED_HTTP_VERSION, schemaVersion: THREADED_SCHEMA_VERSION,
         members: store.listMembers(request.params.id, ownerId) };
     });
-    threaded.post('/threads', { bodyLimit: 16_384 }, async () => rejectThreadedAdmission());
+    if(context.operations){
+      threaded.get('/release',async request=>context.operations!.release.snapshot(principal(request).ownerId));
+      threaded.get('/admission',async()=>context.operations!.admission());
+      threaded.post('/release/controls',{bodyLimit:4096},async request=>{
+        const b=request.body as Record<string,unknown>;
+        if(!b||Array.isArray(b)||Object.keys(b).some(k=>!['expectedVersion','requestId','admissionOpen','dispatchOpen','reason','httpVersion'].includes(k))
+          ||!Number.isSafeInteger(b.expectedVersion)||typeof b.requestId!=='string'||typeof b.reason!=='string'
+          ||typeof b.admissionOpen!=='boolean'||typeof b.dispatchOpen!=='boolean')throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','发布控制参数无效');
+        const result=context.operations!.release.change({ownerId:principal(request).ownerId,expectedVersion:Number(b.expectedVersion),requestId:b.requestId,reason:b.reason,admissionOpen:b.admissionOpen,dispatchOpen:b.dispatchOpen});
+        context.operations!.wakeup();return result;
+      });
+    }
+    threaded.post('/threads', { bodyLimit: 16_384 }, async request => {
+      if(!context.operations)return rejectThreadedAdmission();
+      const b=request.body as Record<string,unknown>;
+      if(!b||Array.isArray(b)||Object.keys(b).some(k=>!['title','clientRequestId','httpVersion','toolVersion','schemaVersion'].includes(k))
+        ||typeof b.title!=='string'||typeof b.clientRequestId!=='string'||!b.clientRequestId.trim()||b.clientRequestId.length>200)throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','新空间参数无效');
+      return {thread:context.operations.createThread({ownerId:principal(request).ownerId,title:b.title,clientRequestId:b.clientRequestId})};
+    });
     function messageScope(request: FastifyRequest<{ Params: { id: string } }>): ThreadedMessageReadScope {
       const ownerId = principal(request).ownerId;
       thread(request.params.id, ownerId);
@@ -210,6 +238,7 @@ export async function registerThreadedRoutes(app: FastifyInstance, context = def
       threaded.get<{Params:{id:string}}>('/threads/:id/routing-policy',async request=>{const scope=messageScope(request);
         return {httpVersion:THREADED_HTTP_VERSION,routing:context.collaboration!.routing.getPolicy(scope.ownerId,scope.threadId)};});
       threaded.put<{Params:{id:string}}>('/threads/:id/routing-policy',async request=>{
+        if(context.operations?.admission().mode==='observe')throw new ThreadedReleaseError('THREADED_RELEASE_OBSERVE_ONLY',403);
         const scope=messageScope(request),body=request.body as Record<string,unknown>|undefined;
         if(!body||!body.policy||typeof body.policy!=='object'||Array.isArray(body.policy)||!Number.isSafeInteger(body.expectedVersion)
           ||Object.keys(body).some(k=>!['policy','expectedVersion','httpVersion','toolVersion','schemaVersion'].includes(k)))throw new ThreadedAccessError(400,'THREADED_REQUEST_INVALID','路由配置参数无效');

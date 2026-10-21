@@ -21,6 +21,10 @@
 
 ### 架构与协议
 
+- [持续协作 T12：发布控制、排空与宿主命令](./architecture/threaded-release-v1.md)
+- [持续协作 T11：评审修订、SOP 与基础知识](./architecture/threaded-workflows-v1.md)
+- [持续协作 T10：Action 与领域事实](./architecture/threaded-actions-v1.md)
+
 - [持续协作 T05：消息、授权与持久通知 v1](./architecture/threaded-messaging-v1.md)
 - [持续协作 T06：持久调度与根预算 v1](./architecture/threaded-runtime-v1.md)
 - [持续协作 T09：Thread 界面与授权同步 v1](./architecture/threaded-ui-v1.md)
@@ -66,7 +70,7 @@
 
 ### 实施计划
 
-- [持续协作模式实施指导（Issue #16，T01–T09 交付，T10 待实施）](./plans/threaded-collaboration-implementation-guide.md)
+- [持续协作模式实施指导（Issue #16，T12 分层验收与发布条件收口）](./plans/threaded-collaboration-implementation-guide.md)
 - [持续协作实施状态与下一项任务](./plans/threaded-collaboration-implementation-status.md)
 - [持续协作 T01 设计决策与实施接口](./plans/threaded-collaboration-t01-decisions.md)
 - [持续协作核心合同、兼容矩阵与能力范围](./plans/threaded-collaboration-compatibility-matrix.md)
@@ -176,6 +180,9 @@
 - [架构评估](./reports/architecture-assessment.md)
 - [依赖与构建分析](./reports/dependency-build-analysis.md)
 - [工程分析报告](./reports/engineering-analysis-report.md)
+
+- [持续协作 T12：综合恢复与发布验收](./reports/threaded-collaboration-t12-release-2026-10-21.md)
+- [持续协作发布、排空与恢复手册](./operations/threaded-release-runbook.md)
 
 ## 文档状态规则
 

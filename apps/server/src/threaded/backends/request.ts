@@ -28,9 +28,14 @@ export async function executeBackendRequest(options: BackendAdapterOptions, inpu
       method:'POST',headers:{'content-type':'application/json',...prepared.connection.headers,...request.headers},
       body,redirect:'error',signal:AbortSignal.any([input.signal,AbortSignal.timeout(prepared.connection.timeoutMs)]),
     });
+    input.checkpointActivity?.();
     const contentType=response.headers.get('content-type')??'application/json';
     request.onHeaders?.(response.status,contentType);
-    const raw=await readBackendResponse(response,request.onChunk);
+    const raw=await readBackendResponse(response,chunk=>{
+      input.checkpointActivity?.();
+      request.onChunk?.(chunk);
+    });
+    input.checkpointActivity?.();
     if (!response.ok) {
       const usage=options.evidence.complete(receipt.id,{delivered:false});
       prepared.requests.settle(authorization.id,usage);

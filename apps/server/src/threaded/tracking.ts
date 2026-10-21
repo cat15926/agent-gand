@@ -69,6 +69,6 @@ export function githubPrTrackingSource(input:{authorize:(scope:TrackingScope,rep
     async observe(scope,subject,previous){const parsed=parse(subject);if(!parsed||!input.authorize(scope,parsed.repository))reject('THREADED_TRACKING_SOURCE_NOT_AUTHORIZED',403);
       const pr=await input.fetch(`/repos/${parsed.repository}/pulls/${parsed.number}`);
       const event={type:'github_pr',headSha:text(pr.head.sha),state:text(pr.state),merged:pr.merged,mergeCommitSha:pr.merge_commit_sha};
-      if(previous&&digest(event)===digest(Object.fromEntries(Object.entries(previous).filter(([k])=>!k.startsWith('__')))))return [];
-      return [{key:digest({updatedAt:pr.updated_at,event}),event}];}};
+      if(previous&&digest(event)===digest(Object.fromEntries(Object.entries(previous).filter(([k])=>!k.startsWith('__')&&k!=='headChanged'))))return [];
+      return [{key:digest({updatedAt:pr.updated_at,event}),event:{...event,headChanged:!!previous&&previous.headSha!==event.headSha}}];}};
 }

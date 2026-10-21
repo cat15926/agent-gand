@@ -135,7 +135,9 @@ export function createThreadedRouting(db: Database.Database, options: Collaborat
         WHERE owner_id=? AND thread_id=? AND request_key=?`).get(input.ownerId,input.threadId,input.clientRequestId) as {request_hash:string;record:string}|undefined;
       if(prior) {if(prior.request_hash!==fingerprint)reject('THREADED_ROUTING_IDEMPOTENCY_CONFLICT');return JSON.parse(prior.record) as {receipt:ThreadedMessageReceipt;route:RoutingDecision};}
       const route=preview(input), targets=route.strategy==='serial'?route.targets.slice(0,1):route.targets;
+      options.ingress?.assert(input,route.targets);
       const receipt=options.messages.acceptUserMessageWithinTransaction({...input,targets});
+      options.ingress?.record(receipt);
       save(receipt,route,'user',{originalBody:input.body,targetIdentities:Object.fromEntries(route.targets.map(agentId=>[agentId,options.identity?.({...input,agentId})]))});
       const value={receipt,route};
       db.prepare('INSERT INTO threaded_user_route_requests VALUES(?,?,?,?,?,?)').run(input.ownerId,input.threadId,input.clientRequestId,fingerprint,receipt.message.id,JSON.stringify(value));

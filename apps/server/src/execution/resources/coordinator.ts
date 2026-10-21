@@ -129,7 +129,26 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
     if (request.ownerId !== owner) deny('RESOURCE_OWNER_MISMATCH');
     const agent = db.prepare('SELECT enabled FROM agents WHERE id=?').get(request.agentId) as { enabled: number } | undefined;
     if (!agent || agent.enabled !== 1) deny('RESOURCE_AGENT_UNAVAILABLE');
-    if (request.mode === 'threaded') {
+    if (request.threadedCommand) {
+      if (request.mode !== 'threaded' || request.capacity !== false || request.parentClaim || request.session || request.accountId || request.providerKey
+        || request.workspaces?.length !== 1 || request.workspaces[0]?.access !== 'write') deny('RESOURCE_COMMAND_REQUEST_INVALID');
+      const command = db.prepare(`SELECT c.*,o.registration_id,o.binding_id os_binding_id,json_extract(o.record,'$.cwd') command_cwd,b.attempt_id,b.invocation_id,b.run_id,
+        t.state thread_state,m.status member_status,a.state action_state,a.generation action_generation,h.outcome
+        FROM threaded_commands c JOIN threaded_os_commands o ON o.command_id=c.id
+        JOIN threaded_execution_bindings b ON b.id=c.binding_id
+        JOIN threaded_threads t ON t.id=c.thread_id AND t.owner_id=c.owner_id
+        JOIN threaded_members m ON m.thread_id=c.thread_id AND m.owner_id=c.owner_id AND m.agent_id=c.agent_id
+        JOIN threaded_actions a ON a.id=c.action_id
+        JOIN threaded_action_holders h ON h.action_id=c.action_id AND h.generation=c.generation AND h.agent_id=c.agent_id WHERE c.id=?`)
+        .get(request.threadedCommand.commandId) as {owner_id:string;thread_id:string;agent_id:string;binding_id:string;os_binding_id:string;
+          port:string;registration_id:string;command_cwd:string;generation:number;attempt_id:string;invocation_id:string;run_id:string;thread_state:string;member_status:string;
+          action_state:string;action_generation:number;outcome:string|null}|undefined;
+      if (!command || command.owner_id !== request.ownerId || command.thread_id !== request.threadId || command.agent_id !== request.agentId
+        || command.attempt_id !== request.attemptId || command.invocation_id !== request.invocationId || command.run_id !== request.runId
+        || command.binding_id !== command.os_binding_id || command.registration_id !== request.threadedCommand.registrationId
+        || command.port !== command.registration_id || command.command_cwd !== request.workspaces?.[0]?.path || command.thread_state !== 'open' || command.member_status !== 'joined'
+        || command.action_state !== 'active' || command.action_generation !== command.generation || command.outcome !== null) deny('RESOURCE_COMMAND_SCOPE_UNAVAILABLE');
+    } else if (request.mode === 'threaded') {
       const inv = db.prepare(`SELECT i.*,t.state thread_state,m.status member_status FROM threaded_invocations i
         JOIN threaded_threads t ON t.id=i.thread_id AND t.owner_id=i.owner_id
         JOIN threaded_members m ON m.thread_id=i.thread_id AND m.owner_id=i.owner_id AND m.agent_id=i.agent_id WHERE i.id=?`)
@@ -175,6 +194,7 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
     if (input.accountIdentityGeneration !== undefined && (!Number.isSafeInteger(input.accountIdentityGeneration) || input.accountIdentityGeneration < 1)) deny('RESOURCE_INVALID_ACCOUNT_IDENTITY');
     if (input.providerKey !== undefined) required(input.providerKey);
     if (input.legacyExecutionId !== undefined) required(input.legacyExecutionId);
+    if (input.threadedCommand) { required(input.threadedCommand.commandId); required(input.threadedCommand.registrationId); }
     const workspaces = new Map<string, 'read' | 'write'>();
     for (const workspace of input.workspaces ?? []) {
       if (!path.isAbsolute(workspace.path) || !['read','write'].includes(workspace.access)) deny('RESOURCE_INVALID_WORKSPACE');
@@ -190,6 +210,7 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
       ...(input.legacyExecutionId ? { legacyExecutionId: input.legacyExecutionId } : {}),
       ...(input.session ? { session: { ...input.session } } : {}),
       workspaces: [...workspaces].sort(([a],[b]) => a.localeCompare(b)).map(([workspace, access]) => ({ path: workspace, access })),
+      ...(input.threadedCommand ? { threadedCommand: { ...input.threadedCommand } } : {}),
       capacity: input.capacity !== false, ...(input.parentClaim ? { parentClaim: { ...input.parentClaim } } : {}),
     };
     if (request.session && ((!Number.isSafeInteger(request.session.version) || request.session.version < 1)
@@ -198,6 +219,7 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
   }
   function items(request: TrustedResourceRequest): Item[] {
     const list: Item[] = [];
+    if (request.threadedCommand) list.push({key: `command:${request.threadedCommand.commandId}`,kind:'agent',access:'exclusive'});
     if (!request.parentClaim) list.push({ key: `agent:${request.agentId}`, kind: 'agent', access: request.mode === 'legacy' ? 'exclusive' : 'slot' });
     if (request.session?.resourceKey) list.push({ key: `session:${request.session.resourceKey}`, kind: 'session', access: 'exclusive' });
     for (const workspace of request.workspaces ?? []) list.push({ key: `workspace:${workspace.path}`, kind: 'workspace', access: workspace.access });
@@ -224,7 +246,7 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
     if (!request.parentClaim) {
       const older = pending.filter(other => other.seq < ticket.seq && other.request.agentId === request.agentId && !other.request.parentClaim);
       if (older.some(other => other.request.mode === 'legacy' || request.mode === 'legacy'
-        || other.request.threadId === request.threadId)) return false;
+        || other.request.threadId === request.threadId && !request.threadedCommand && !other.request.threadedCommand)) return false;
     }
     const ownItems = items(request);
     const activeRequests = active.filter(row => !family.has(row.id)).map(row => ({ row, request: JSON.parse(row.request) as TrustedResourceRequest }));
@@ -238,7 +260,7 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
           && (mine.key.startsWith(`${theirs.key}${path.sep}`) || theirs.key.startsWith(`${mine.key}${path.sep}`));
         if (mine.key !== theirs.key && !workspaceOverlap) continue;
         if (mine.kind === 'agent' && mine.access === 'slot' && theirs.access === 'slot'
-          && request.threadId !== other.request.threadId) continue;
+          && (request.threadId !== other.request.threadId || !!request.threadedCommand || !!other.request.threadedCommand)) continue;
         if (mine.kind === 'workspace' && mine.access === 'read' && theirs.access === 'read') continue;
         return false;
       }

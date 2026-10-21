@@ -3,6 +3,10 @@ import type {ThreadedThreadRecord,ThreadedViewSnapshot,ThreadedChangePage,Thread
 import {managementRequest} from './accounts';
 import {ApiError} from './apiError';
 
+export interface ThreadedAdmissionView {mode:'closed'|'observe'|'execute';configured:boolean;ready:boolean;canCreate:boolean;
+  members:Array<{agentId:string;backend:string;model:string}>;control:{version:number;admissionOpen:boolean;dispatchOpen:boolean}}
+export interface ThreadedReleaseView {mode:'closed'|'observe'|'execute';control:ThreadedAdmissionView['control'];work:Record<string,number>;
+  drain:{ready:boolean;compatibleWorkerRequired:boolean;unknownNeedsReview:boolean}}
 export interface ThreadedRoutingPolicy {preferred:string[];defaultAgent:string;duty?:string;groups?:Record<string,string[]>}
 export interface ThreadedRoutePreview {targets:string[];strategy:'serial'|'parallel';intent:'ideate'|'execute';promptTags:string[];reason:string;warnings:string[]}
 /** One mounted view owns its in-memory CSRF token. Never persist private messages or session material. */
@@ -22,6 +26,10 @@ export class ThreadedApi {
     if(result.httpVersion!==THREADED_HTTP_VERSION)throw new Error('持续协作协议版本不兼容');this.csrf=result.csrfToken;}
   async connect(){const result=await managementRequest<{csrfToken:string}>('/api/accounts/threaded/access-session','POST',{httpVersion:THREADED_HTTP_VERSION});this.csrf=result.csrfToken;}
   async disconnect(){try{await this.request('/api/threaded/session','DELETE');}finally{this.csrf=null;}}
+  admission(){return this.request<ThreadedAdmissionView>('/api/threaded/admission');}
+  release(){return this.request<ThreadedReleaseView>('/api/threaded/release');}
+  releaseControl(input:{expectedVersion:number;requestId:string;admissionOpen:boolean;dispatchOpen:boolean;reason:string}){return this.request('/api/threaded/release/controls','POST',input);}
+  createThread(title:string,clientRequestId:string){return this.request<{thread:ThreadedThreadRecord}>('/api/threaded/threads','POST',{title,clientRequestId});}
   async threads(){return(await this.request<{threads:ThreadedThreadRecord[]}>('/api/threaded/threads')).threads;}
   async view(threadId:string,beforeSeq?:number,afterEventSeq=0){
     const query=new URLSearchParams({afterEventSeq:String(afterEventSeq)});if(beforeSeq!==undefined)query.set('beforeSeq',String(beforeSeq));

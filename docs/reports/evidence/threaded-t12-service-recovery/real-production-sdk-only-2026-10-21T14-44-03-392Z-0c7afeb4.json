@@ -1,0 +1,744 @@
+{
+  "stage": "T12",
+  "case": "sdk-only",
+  "date": "2026-10-21T14:44:03.513Z",
+  "composition": "production-factory HTTP server",
+  "actualMainIndex": false,
+  "skippedChecks": [
+    "API real model invocation; previous API acceptance report is retained separately"
+  ],
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "model": "glm-5.3",
+    "endpointHost": "open.bigmodel.cn",
+    "configVersion": 2,
+    "credentialVersion": 1
+  },
+  "authorizedTokenLimit": 200000,
+  "priorUsage": {
+    "knownTokens": 44305,
+    "unresolvedReservedTokens": 89758,
+    "conservativelyChargedTokens": 134063
+  },
+  "checks": [
+    {
+      "pid": 91722,
+      "invocationId": "4b950ea4-8eab-42c4-aad6-72e4081aa8f0",
+      "status": "passed",
+      "runId": "60c57d26-9801-4d4c-abca-3a2cbfbfffb3",
+      "invocationReason": null,
+      "invocationUpdatedAt": "2026-10-21T14:44:26.935Z",
+      "queue": {
+        "state": "settled",
+        "reason": null
+      },
+      "attempt": {
+        "id": "314bf937-b0aa-434f-ae21-a85d300655b7",
+        "attempt_no": 1,
+        "status": "completed",
+        "execution_stage": "quiescent",
+        "execution_reason": null,
+        "resource_release_state": "released",
+        "created_at": "2026-10-21T14:44:04.079Z",
+        "updated_at": "2026-10-21T14:44:26.935Z"
+      },
+      "backendRequests": [
+        {
+          "id": "37a7be80-bd58-4109-9d83-1934caf1284e",
+          "binding_id": "c0694579-d825-40a9-9ab5-41765a8977bb",
+          "authorization_id": "18979281-bb93-43f5-9df0-b7ec10ef9a5a",
+          "backend": "claude-sdk",
+          "request_key": "sdk:1",
+          "model": "glm-5.3",
+          "state": "complete",
+          "payload_included": 1,
+          "delivered": 1,
+          "input_tokens": 3460,
+          "output_tokens": 229,
+          "cost_microusd": null,
+          "created_at": 1792593846026,
+          "settled_at": 1792593853472
+        },
+        {
+          "id": "f3220517-1534-4b62-817b-d72584ae509c",
+          "binding_id": "c0694579-d825-40a9-9ab5-41765a8977bb",
+          "authorization_id": "db7892c5-0e31-44c5-81de-5557c4840463",
+          "backend": "claude-sdk",
+          "request_key": "sdk:2",
+          "model": "glm-5.3",
+          "state": "complete",
+          "payload_included": 1,
+          "delivered": 1,
+          "input_tokens": 4243,
+          "output_tokens": 106,
+          "cost_microusd": null,
+          "created_at": 1792593855708,
+          "settled_at": 1792593860939
+        },
+        {
+          "id": "89655aac-ba6c-4d47-bd1f-9de0555eddcb",
+          "binding_id": "c0694579-d825-40a9-9ab5-41765a8977bb",
+          "authorization_id": "e2af5a27-5c78-4744-8780-018b5a15ae35",
+          "backend": "claude-sdk",
+          "request_key": "sdk:3",
+          "model": "glm-5.3",
+          "state": "complete",
+          "payload_included": 1,
+          "delivered": 1,
+          "input_tokens": 5316,
+          "output_tokens": 7,
+          "cost_microusd": null,
+          "created_at": 1792593861773,
+          "settled_at": 1792593866254
+        }
+      ],
+      "transport": [
+        {
+          "sequence": 1,
+          "method": "POST",
+          "endpointHost": "open.bigmodel.cn",
+          "pathname": "/api/anthropic/v1/messages",
+          "requestBytes": 12419,
+          "startedAt": 1792593846051,
+          "state": "body_complete",
+          "bodyBytes": 28422,
+          "headersAt": 1792593851061,
+          "status": 200,
+          "contentType": "text/event-stream; charset=utf-8",
+          "declaredBodyBytes": null,
+          "finishedAt": 1792593853470,
+          "elapsedMs": 7419,
+          "bodySha256": "cb290d380ae1979b5fad54e91a271d78f6f282d41f3c6ee696e61344ac22f8ee"
+        },
+        {
+          "sequence": 2,
+          "method": "POST",
+          "endpointHost": "open.bigmodel.cn",
+          "pathname": "/api/anthropic/v1/messages",
+          "requestBytes": 14784,
+          "startedAt": 1792593855739,
+          "state": "body_complete",
+          "bodyBytes": 11638,
+          "headersAt": 1792593859673,
+          "status": 200,
+          "contentType": "text/event-stream; charset=utf-8",
+          "declaredBodyBytes": null,
+          "finishedAt": 1792593860939,
+          "elapsedMs": 5200,
+          "bodySha256": "3db4e178aabb34673c5b5d0bd219ffed7da3d6314319aed2108592128debbf1f"
+        },
+        {
+          "sequence": 3,
+          "method": "POST",
+          "endpointHost": "open.bigmodel.cn",
+          "pathname": "/api/anthropic/v1/messages",
+          "requestBytes": 18053,
+          "startedAt": 1792593861792,
+          "state": "body_complete",
+          "bodyBytes": 1105,
+          "headersAt": 1792593866026,
+          "status": 200,
+          "contentType": "text/event-stream; charset=utf-8",
+          "declaredBodyBytes": null,
+          "finishedAt": 1792593866254,
+          "elapsedMs": 4462,
+          "bodySha256": "e21c0bc6add6f6c4a160926e1083825a17633f221a9fcb6e8734209280f28513"
+        }
+      ],
+      "runtimeDiagnostics": {
+        "closed": false,
+        "scheduled": false,
+        "draining": false,
+        "requested": false,
+        "active": 0,
+        "lastError": null,
+        "executionEnabled": true,
+        "notifications": {
+          "lastError": null,
+          "subscribers": 1
+        }
+      },
+      "bindingId": "c0694579-d825-40a9-9ab5-41765a8977bb",
+      "resourceOwner": "t12-production-real:91722",
+      "agentId": "t12-real-sdk",
+      "decision": {
+        "mode": "cold",
+        "sessionKind": "native",
+        "nativeId": "71142e26-2b4d-4fd3-8d55-25fff92aac70",
+        "anchorId": null,
+        "sessionId": "37aef22a-95f3-420c-9338-46ec336b30f3"
+      },
+      "answer": "T12_TOOLS_DONE",
+      "manifestId": "4d4e6c47-3976-4023-ab74-a517ac9fba30",
+      "receipts": [
+        {
+          "name": "knowledge_publish",
+          "result": {
+            "knowledgeId": "6af53720-caa8-45b2-87a4-0859f9112089",
+            "version": 1,
+            "title": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+            "body": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+            "anchors": [
+              {
+                "kind": "message",
+                "id": "248c4dae-a40d-4ad2-aebd-0a97a276b7ac"
+              }
+            ],
+            "sourceMessageIds": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "status": "active",
+            "replacementId": null,
+            "reason": null,
+            "expiresAt": null,
+            "createdBy": "t12-real-sdk",
+            "createdAt": 1792593855532,
+            "bindingId": "c0694579-d825-40a9-9ab5-41765a8977bb",
+            "collection": "home",
+            "latestVersion": 1,
+            "isCurrent": true,
+            "privacySourceIds": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "currentStatus": "active",
+            "currentReplacementId": null
+          },
+          "privacySourceIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "update_sop",
+          "result": {
+            "id": "a81be3cf-72a2-4f9f-a5f9-653350309c70",
+            "sopKey": "t12-sdk",
+            "version": 1,
+            "title": "T12 sdk synthetic SOP",
+            "stage": "ready",
+            "baton": "t12-real-sdk",
+            "checks": [
+              {
+                "id": "self",
+                "label": "Self report only",
+                "state": "attested",
+                "attestedBy": "t12-real-sdk",
+                "attestedAt": 1792593855634
+              }
+            ],
+            "visibility": "private",
+            "audience": [
+              "t12-real-sdk"
+            ],
+            "sourceRefs": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "updatedBy": "t12-real-sdk",
+            "updatedAt": 1792593855634
+          },
+          "privacySourceIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "knowledge_read",
+          "result": {
+            "knowledgeId": "6af53720-caa8-45b2-87a4-0859f9112089",
+            "version": 1,
+            "title": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+            "body": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+            "anchors": [
+              {
+                "kind": "message",
+                "id": "248c4dae-a40d-4ad2-aebd-0a97a276b7ac"
+              }
+            ],
+            "sourceMessageIds": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "status": "active",
+            "replacementId": null,
+            "reason": null,
+            "expiresAt": null,
+            "createdBy": "t12-real-sdk",
+            "createdAt": 1792593855532,
+            "bindingId": "c0694579-d825-40a9-9ab5-41765a8977bb",
+            "collection": "home",
+            "latestVersion": 1,
+            "isCurrent": true,
+            "privacySourceIds": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "currentStatus": "active",
+            "currentReplacementId": null
+          },
+          "privacySourceIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "knowledge_search",
+          "result": {
+            "collection": "home",
+            "retrieval": "literal_substring",
+            "items": [
+              {
+                "knowledgeId": "6af53720-caa8-45b2-87a4-0859f9112089",
+                "version": 1,
+                "title": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+                "body": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+                "anchors": [
+                  {
+                    "kind": "message",
+                    "id": "248c4dae-a40d-4ad2-aebd-0a97a276b7ac"
+                  }
+                ],
+                "sourceMessageIds": [
+                  "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+                  "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+                ],
+                "status": "active",
+                "replacementId": null,
+                "reason": null,
+                "expiresAt": null,
+                "createdBy": "t12-real-sdk",
+                "createdAt": 1792593855532,
+                "bindingId": "c0694579-d825-40a9-9ab5-41765a8977bb",
+                "collection": "home",
+                "latestVersion": 1,
+                "isCurrent": true,
+                "privacySourceIds": [
+                  "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+                  "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+                ],
+                "currentStatus": "active",
+                "currentReplacementId": null
+              }
+            ],
+            "sourceMessageIds": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ]
+          },
+          "privacySourceIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "readSourceIds": []
+        },
+        {
+          "name": "read_sop",
+          "result": {
+            "id": "a81be3cf-72a2-4f9f-a5f9-653350309c70",
+            "sopKey": "t12-sdk",
+            "version": 1,
+            "title": "T12 sdk synthetic SOP",
+            "stage": "ready",
+            "baton": "t12-real-sdk",
+            "checks": [
+              {
+                "id": "self",
+                "label": "Self report only",
+                "state": "attested",
+                "attestedBy": "t12-real-sdk",
+                "attestedAt": 1792593855634
+              }
+            ],
+            "visibility": "private",
+            "audience": [
+              "t12-real-sdk"
+            ],
+            "sourceRefs": [
+              "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+              "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+            ],
+            "updatedBy": "t12-real-sdk",
+            "updatedAt": 1792593855634
+          },
+          "privacySourceIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "readSourceIds": []
+        }
+      ],
+      "knowledgePermissions": [
+        {
+          "knowledgeId": "6af53720-caa8-45b2-87a4-0859f9112089",
+          "sourceMessageIds": [
+            "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+            "aea0b70b-b42a-4a15-8591-19bdc052d47a"
+          ],
+          "authorCanRead": true,
+          "otherAgentCanRead": false
+        }
+      ],
+      "anchors": [
+        {
+          "id": "c58e3005-bf51-4a34-b17b-5ddadca9f7e4",
+          "recordDigest": "5e9879b13ba67e16776d1d7dd7b33aad22781f9a9da3d9b3d01a66e9009605b6"
+        }
+      ],
+      "processes": [
+        {
+          "token": "67d0b2c3-1bba-4fbe-b9e8-53400fdee684",
+          "host": "ruhonglindeAir",
+          "pid": 91732,
+          "state": "verified_stopped",
+          "created_at": 1792593844229,
+          "stopped_at": 1792593866905,
+          "groupStoppedAtInspection": true
+        }
+      ],
+      "requests": 3,
+      "requestsThisProcess": 3,
+      "foreignDestinationAttempts": 0,
+      "forbiddenInputMatches": 0,
+      "budget": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 3,
+        "outputTokens": 342,
+        "costMicrousd": 3000000,
+        "activityMs": 22821,
+        "activityReservedMs": 0,
+        "unknownRequests": 3
+      },
+      "release": {
+        "readOnly": true,
+        "mode": "execute",
+        "control": {
+          "ownerId": "9e82354a-eca5-495b-a6a6-b00179a233cf",
+          "version": 3,
+          "admissionOpen": true,
+          "dispatchOpen": true,
+          "updatedAt": 1792593844070
+        },
+        "grants": [
+          {
+            "ownerId": "9e82354a-eca5-495b-a6a6-b00179a233cf",
+            "threadId": "02dfa26a-39d5-4358-9817-aeb943b941e2",
+            "controlVersion": 1,
+            "members": [
+              {
+                "agentId": "t12-real-api",
+                "backend": "api",
+                "backendVersion": "threaded-http-v1",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "4f5a527641f34a7dd161b717477601dc00ef4b7960702e65c8dc0a850b5e4f65"
+              },
+              {
+                "agentId": "t12-real-sdk",
+                "backend": "claude-sdk",
+                "backendVersion": "0.3.288",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "71000d3e7333f87f2455acce10e06bbae6d7cf378614a8f9beb60423b335cb84"
+              }
+            ],
+            "grantedAt": 1792593844044
+          }
+        ],
+        "work": {
+          "queued": 0,
+          "running": 0,
+          "waiting": 0,
+          "unknownExecutions": 0,
+          "undispatchedWakes": 0,
+          "activeClaims": 0,
+          "unresolvedActions": 0,
+          "pendingOutbox": 0,
+          "unresolvedCommands": 0,
+          "durableWaits": 0,
+          "consultations": 0,
+          "callbacks": 0,
+          "pendingApprovals": 0,
+          "unknownUsage": 3,
+          "activeProcesses": 0
+        },
+        "drain": {
+          "scope": "threaded_only",
+          "compatibleWorkerRequired": true,
+          "ready": false,
+          "dispatchAllowed": true,
+          "unknownNeedsReview": true
+        },
+        "wholeDatabaseRollbackReady": false,
+        "rollback": "Retain new schema and compatible workers. Restore only a matching consistent backup with its matching application revision; never erase unknown facts or lower migration versions."
+      },
+      "foreignKeys": [],
+      "sourceMessageId": "248c4dae-a40d-4ad2-aebd-0a97a276b7ac",
+      "name": "sdk real production HTTP knowledge/SOP tools",
+      "invocationStatus": "completed",
+      "privateSourceExcluded": true,
+      "selfReportStayedAttested": true,
+      "durableTools": [
+        "knowledge_publish",
+        "knowledge_read",
+        "knowledge_search",
+        "update_sop",
+        "read_sop"
+      ]
+    },
+    {
+      "pid": 91823,
+      "invocationId": "7ebef6e2-ab0c-432a-9c61-53968df701c1",
+      "status": "passed",
+      "runId": "e50f6bc9-127a-47c5-8a8c-b2ad3ecc0503",
+      "invocationReason": null,
+      "invocationUpdatedAt": "2026-10-21T14:44:35.315Z",
+      "queue": {
+        "state": "settled",
+        "reason": null
+      },
+      "attempt": {
+        "id": "789a708a-65fc-4b1c-aab9-33aaeb243b5d",
+        "attempt_no": 1,
+        "status": "completed",
+        "execution_stage": "quiescent",
+        "execution_reason": null,
+        "resource_release_state": "released",
+        "created_at": "2026-10-21T14:44:27.804Z",
+        "updated_at": "2026-10-21T14:44:35.315Z"
+      },
+      "backendRequests": [
+        {
+          "id": "a5d730f7-4f31-41d5-95bb-4fa427d4fa1b",
+          "binding_id": "74b7190b-9429-4ec1-81d2-cec7b1f1698e",
+          "authorization_id": "bfb8c208-5136-46d1-bc8f-0f2442c1e388",
+          "backend": "claude-sdk",
+          "request_key": "sdk:1",
+          "model": "glm-5.3",
+          "state": "complete",
+          "payload_included": 1,
+          "delivered": 1,
+          "input_tokens": 5638,
+          "output_tokens": 32,
+          "cost_microusd": null,
+          "created_at": 1792593868899,
+          "settled_at": 1792593874486
+        }
+      ],
+      "transport": [
+        {
+          "sequence": 1,
+          "method": "POST",
+          "endpointHost": "open.bigmodel.cn",
+          "pathname": "/api/anthropic/v1/messages",
+          "requestBytes": 19051,
+          "startedAt": 1792593868922,
+          "state": "body_complete",
+          "bodyBytes": 4996,
+          "headersAt": 1792593873592,
+          "status": 200,
+          "contentType": "text/event-stream; charset=utf-8",
+          "declaredBodyBytes": null,
+          "finishedAt": 1792593874483,
+          "elapsedMs": 5561,
+          "bodySha256": "45bad0187488b4e4d4b8a9994583aed671e17fd9223667b184eb13e4bbff62dd"
+        }
+      ],
+      "runtimeDiagnostics": {
+        "closed": false,
+        "scheduled": false,
+        "draining": false,
+        "requested": false,
+        "active": 0,
+        "lastError": null,
+        "executionEnabled": true,
+        "notifications": {
+          "lastError": null,
+          "subscribers": 1
+        }
+      },
+      "bindingId": "74b7190b-9429-4ec1-81d2-cec7b1f1698e",
+      "resourceOwner": "t12-production-real:91823",
+      "agentId": "t12-real-sdk",
+      "decision": {
+        "mode": "resume",
+        "sessionKind": "native",
+        "nativeId": "71142e26-2b4d-4fd3-8d55-25fff92aac70",
+        "anchorId": "c58e3005-bf51-4a34-b17b-5ddadca9f7e4",
+        "sessionId": "37aef22a-95f3-420c-9338-46ec336b30f3"
+      },
+      "answer": "T12_SDK_7e298fa42b4042a4b2fb268915b46b44",
+      "manifestId": "27b63065-c8d3-4769-893f-39af7e912a62",
+      "receipts": [],
+      "knowledgePermissions": [],
+      "anchors": [
+        {
+          "id": "fcc4fa2f-d8a6-4284-9d9e-e1643aa0ebee",
+          "recordDigest": "c149226ebe88ae3b8cb3a45d758b80d2d31519403d81a9f00185962f7724f82d"
+        }
+      ],
+      "processes": [
+        {
+          "token": "0221c39a-9021-4175-a2eb-4dca98b5d671",
+          "host": "ruhonglindeAir",
+          "pid": 91842,
+          "state": "verified_stopped",
+          "created_at": 1792593867960,
+          "stopped_at": 1792593875285,
+          "groupStoppedAtInspection": true
+        }
+      ],
+      "requests": 4,
+      "requestsThisProcess": 1,
+      "foreignDestinationAttempts": 0,
+      "forbiddenInputMatches": 0,
+      "budget": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 32,
+        "costMicrousd": 1000000,
+        "activityMs": 7475,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      },
+      "release": {
+        "readOnly": true,
+        "mode": "execute",
+        "control": {
+          "ownerId": "9e82354a-eca5-495b-a6a6-b00179a233cf",
+          "version": 5,
+          "admissionOpen": true,
+          "dispatchOpen": true,
+          "updatedAt": 1792593867794
+        },
+        "grants": [
+          {
+            "ownerId": "9e82354a-eca5-495b-a6a6-b00179a233cf",
+            "threadId": "02dfa26a-39d5-4358-9817-aeb943b941e2",
+            "controlVersion": 1,
+            "members": [
+              {
+                "agentId": "t12-real-api",
+                "backend": "api",
+                "backendVersion": "threaded-http-v1",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "4f5a527641f34a7dd161b717477601dc00ef4b7960702e65c8dc0a850b5e4f65"
+              },
+              {
+                "agentId": "t12-real-sdk",
+                "backend": "claude-sdk",
+                "backendVersion": "0.3.288",
+                "model": "glm-5.3",
+                "roleVersion": 1,
+                "permissionVersion": 1,
+                "accountId": "267c2e27-b25f-43cf-acaa-143327f7f714",
+                "accountConfigVersion": 2,
+                "accountCredentialVersion": 1,
+                "accountIdentityGeneration": null,
+                "memberVersion": 1,
+                "definitionHash": "71000d3e7333f87f2455acce10e06bbae6d7cf378614a8f9beb60423b335cb84"
+              }
+            ],
+            "grantedAt": 1792593844044
+          }
+        ],
+        "work": {
+          "queued": 0,
+          "running": 0,
+          "waiting": 0,
+          "unknownExecutions": 0,
+          "undispatchedWakes": 0,
+          "activeClaims": 0,
+          "unresolvedActions": 0,
+          "pendingOutbox": 0,
+          "unresolvedCommands": 0,
+          "durableWaits": 0,
+          "consultations": 0,
+          "callbacks": 0,
+          "pendingApprovals": 0,
+          "unknownUsage": 4,
+          "activeProcesses": 0
+        },
+        "drain": {
+          "scope": "threaded_only",
+          "compatibleWorkerRequired": true,
+          "ready": false,
+          "dispatchAllowed": true,
+          "unknownNeedsReview": true
+        },
+        "wholeDatabaseRollbackReady": false,
+        "rollback": "Retain new schema and compatible workers. Restore only a matching consistent backup with its matching application revision; never erase unknown facts or lower migration versions."
+      },
+      "foreignKeys": [],
+      "sourceMessageId": "13d70d44-2d3c-4b5f-ba96-f28b99ecdfd8",
+      "name": "real SDK full HTTP server SIGKILL and separate-process native resume",
+      "invocationStatus": "completed",
+      "oldServerPid": 91722,
+      "newServerPid": 91823,
+      "recoveryProviderRequests": 0,
+      "priorAnchorId": "c58e3005-bf51-4a34-b17b-5ddadca9f7e4",
+      "sameNativeId": true,
+      "freshResourceOwner": true,
+      "memoryMatched": true,
+      "incrementalManifestExcludedRememberedMarker": true
+    }
+  ],
+  "failures": [],
+  "privacy": {
+    "sourceDatabaseReadOnly": true,
+    "sourceTablesRead": [
+      "accounts",
+      "account_versions",
+      "account_credentials",
+      "account_revocations"
+    ],
+    "dailyConversationOrMessageReads": false,
+    "credentialInMemoryOnly": true,
+    "credentialPassedViaPrivateIPCOnly": true,
+    "isolatedSdkHomeAndWorkspace": true,
+    "configuredEndpointOnly": true,
+    "remoteWrites": 0,
+    "syntheticPrivateHistorySeededThroughFixtureMessagePort": true,
+    "realInvocationsAdmittedThroughAuthenticatedHTTP": true
+  },
+  "limitations": [
+    "This real HTTP server uses production factories/routes/settings, not apps/server/src/index.ts or the legacy recovery composition.",
+    "No unknown billable crash is manufactured. Existing unknown reservations remain in the shared ledger.",
+    "Independent PR review, semantic retrieval and OS commands are outside this real-supplier test."
+  ],
+  "knownTokens": 63336,
+  "unresolvedReservedTokens": 89758,
+  "conservativelyChargedTokens": 153094,
+  "actualRequests": 4,
+  "passed": true,
+  "priorReservationsUnchanged": true,
+  "priorReservationsDigest": "dbfcdd6414b26a2c7df0cf2e3ee09ce21bd7688a26afd4f01b49761ea1f272bf",
+  "knownTokensThisRun": 19031,
+  "unresolvedReservedTokensThisRun": 0
+}

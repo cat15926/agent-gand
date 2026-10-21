@@ -1,0 +1,178 @@
+{
+  "ok": true,
+  "date": "2026-10-21T14:35:20.953Z",
+  "groups": 5,
+  "checks": [
+    "Actual Chrome + production HTTP factory: execute mode without operator pack offers no create form, direct authenticated creation rejects, no Thread/credential resolution/model request occurs",
+    "Actual title-only Chrome creation posts exactly title/clientRequestId; server freezes both pinned pack members and rejects client roster injection without resolving credentials or invoking a model",
+    "Pause future dispatch preserves open ingress and accepts a durable message without model execution; closing ingress then persists across Chrome reload, hides creation/disables sending and retains Thread/roster/history",
+    "Continue accepted work changes dispatch alone while ingress remains closed; one actual production scheduler request uses injected transport and completes the persisted message; pausing again preserves the independent ingress control",
+    "Actual HTTP process SIGKILL/restart in observe mode retains prior history/control data, disables create/send/release/space/member/Invocation/routing mutations, rejects authenticated release/Thread writes with 403, changes no database row and resolves no credentials or model requests; 390px view has no horizontal overflow and keeps a nonzero historical timeline"
+  ],
+  "browser": "155.0.8059.85",
+  "platform": "darwin",
+  "modelEvidence": "One actual production scheduler request, injected Anthropic-compatible transport; no supplier network or real credential access",
+  "injectedModelCalls": 1,
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "realExternalWrites": 0,
+  "productionAuthority": true,
+  "fixtureDatabase": true,
+  "processRestart": "Actual isolated HTTP fixture SIGKILL and new process on same SQLite",
+  "creationPayload": {
+    "title": "T12 Chrome 固定成员空间",
+    "clientRequestId": "19e7ad60-fc2a-41b6-bbd7-cd402a296743"
+  },
+  "pinnedMembers": [
+    "pinned-alpha",
+    "pinned-beta"
+  ],
+  "observeDatabaseUnchanged": true,
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads",
+      "body": {
+        "title": "Cannot bypass pack",
+        "clientRequestId": "70e234d6-660e-4dce-b332-fd4d1ca4a7ec"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 0,
+        "requestId": "6e3f1399-5bdd-4509-8ed5-8c4eb81045bc",
+        "admissionOpen": true,
+        "dispatchOpen": true,
+        "reason": "Owner enabled registered rollout"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads",
+      "body": {
+        "title": "T12 Chrome 固定成员空间",
+        "clientRequestId": "19e7ad60-fc2a-41b6-bbd7-cd402a296743"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads",
+      "body": {
+        "title": "Forged roster",
+        "clientRequestId": "5b788841-de55-4c8f-b309-6b0fcf1e24b2",
+        "members": [
+          {
+            "agentId": "unregistered"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 1,
+        "requestId": "f7421e67-4349-477f-af54-23e857cd1c54",
+        "admissionOpen": true,
+        "dispatchOpen": false,
+        "reason": "Owner paused future dispatch"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads/51127e94-fffb-4bbe-ad8e-2412574b5c80/routing-preview",
+      "body": {
+        "body": "@pinned-alpha T12_UI_HISTORY_PRESERVED"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads/51127e94-fffb-4bbe-ad8e-2412574b5c80/messages",
+      "body": {
+        "body": "@pinned-alpha T12_UI_HISTORY_PRESERVED",
+        "visibility": "public",
+        "clientRequestId": "77423262-669e-47e4-a0f1-1f7a03a33f76"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 2,
+        "requestId": "37403607-1622-4e04-9b46-f03a0f785561",
+        "admissionOpen": false,
+        "dispatchOpen": false,
+        "reason": "Owner closed new work ingress"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 3,
+        "requestId": "2d1e5b54-ad19-4587-ab34-1c64e3f311da",
+        "admissionOpen": false,
+        "dispatchOpen": true,
+        "reason": "Owner continued accepted work"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 4,
+        "requestId": "130433fe-1bc7-4a69-813d-971f0910e64d",
+        "admissionOpen": false,
+        "dispatchOpen": false,
+        "reason": "Owner paused future dispatch"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 5,
+        "requestId": "6faffabb-aece-4b14-b1ac-bf3c407bc46b",
+        "admissionOpen": true,
+        "dispatchOpen": true,
+        "reason": "Owner enabled registered rollout"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/release/controls",
+      "body": {
+        "expectedVersion": 6,
+        "requestId": "a5dc8c8b-1d9f-4eba-b7e2-94e6a0e30787",
+        "reason": "Readonly browser rejection",
+        "admissionOpen": false,
+        "dispatchOpen": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads",
+      "body": {
+        "title": "Observe cannot create",
+        "clientRequestId": "432db329-0479-4ac0-8c14-7841e72cc89b"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/threaded/threads/51127e94-fffb-4bbe-ad8e-2412574b5c80/controls",
+      "body": {
+        "action": "pause",
+        "requestId": "1d3d1a1e-b28d-46f7-979e-7c438dc5b6f1"
+      }
+    }
+  ],
+  "screenshots": [
+    "no-pack-desktop.png",
+    "created-desktop.png",
+    "closed-history-desktop.png",
+    "observe-desktop.png",
+    "observe-mobile.png"
+  ]
+}

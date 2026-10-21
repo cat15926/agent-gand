@@ -63,6 +63,8 @@ export function createThreadedQueue(db: Database.Database, options: {
   now?: () => number;
   ownerNonce?: string;
   leaseMs?: number;
+  /** Set only by the trusted production runtime with its per-root policy. */
+  allowProductionExecution?:boolean;
   additionalAdmission?: (queue:ThreadedQueueRecord)=>{allowed:boolean;reason:string;cancelled?:boolean};
 }) {
   if (db.pragma('foreign_keys', { simple: true }) !== 1) deny('THREADED_QUEUE_FOREIGN_KEYS_REQUIRED');
@@ -359,7 +361,7 @@ export function createThreadedQueue(db: Database.Database, options: {
   }
   function claimNext(workerId: string): ThreadedQueueClaim | null {
     identifier(workerId);
-    if (process.env.AGENT_GAND_ISOLATED_WORKER !== '1') deny('THREADED_EXECUTION_NOT_ENABLED');
+    if (process.env.AGENT_GAND_ISOLATED_WORKER !== '1'&&!options.allowProductionExecution) deny('THREADED_EXECUTION_NOT_ENABLED');
     scanPending();
     const rows = db.prepare(`SELECT * FROM threaded_wake_queue WHERE owner_id=? AND state IN ('queued','blocked')
       AND available_at<=? ORDER BY seq`).all(ownerId, stamp()) as QueueRow[];
@@ -380,7 +382,7 @@ export function createThreadedQueue(db: Database.Database, options: {
       try { ready = prepare(ready); }
       catch (error) {
         const code = error instanceof Error ? ('code' in error ? String(error.code) : error.message) : '';
-        if (!/^(THREADED_(BUDGET|ROOT|ACCOUNT|MEMBER|SESSION)|RESOURCE_(SESSION|ACCOUNT))/.test(code)) throw error;
+        if (!/^(THREADED_(BUDGET|ROOT|ACCOUNT|MEMBER|SESSION|RELEASE)|RESOURCE_(SESSION|ACCOUNT))/.test(code)) throw error;
         db.transaction(() => {
           const fresh = queueRow(candidate.id)!;
           if (['queued', 'blocked'].includes(fresh.state)) state(fresh, 'blocked', code);

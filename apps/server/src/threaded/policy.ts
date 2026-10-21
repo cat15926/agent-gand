@@ -17,7 +17,7 @@ export function threadedCapabilities(): ThreadedCapabilities {
     implemented: { readSnapshots: true, authenticatedWs: true, admission: false, execution: false, tools: false,
       messageReads: true, messagePersistence: true, outbox: true },
     configured: { mode: threadedAdmissionMode() },
-    // Scoped T07 backend acceptance does not enable this production service or verify business tools.
+    // Verification is deployment evidence; opening a release control cannot self-attest it.
     verified: { readSnapshots: false, authenticatedWs: false, admission: false, execution: false, tools: false,
       messageReads: false, messagePersistence: false, outbox: false },
   };
@@ -48,7 +48,7 @@ export function assertThreadedRequestContract(request: FastifyRequest, allowThre
   }
 }
 
-/** Production admission stays closed through T11, including configured observe/execute. */
+/** Missing a trusted release pack never enables execution, regardless of configured mode. */
 export function rejectThreadedAdmission(): never {
   if (threadedAdmissionMode() === 'closed') throw new ThreadedAccessError(403, 'THREADED_MODE_CLOSED', '持续协作新工作入场已关闭');
   throw new ThreadedAccessError(501, 'THREADED_ADMISSION_NOT_IMPLEMENTED', '持续协作真实后端工作入场尚未开放');

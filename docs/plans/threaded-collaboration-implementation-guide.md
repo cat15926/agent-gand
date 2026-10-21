@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**实施中**（T01–T09 已实现并通过所列分层验收，T10–T12 待实施）。用户已确认产品命名与验收目标；新模式生产工作入场与 executor 继续关闭。更新：2026-10-21。
+状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-21。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -12,7 +12,7 @@
 
 T01 已交付[设计决策](threaded-collaboration-t01-decisions.md)、[兼容矩阵](threaded-collaboration-compatibility-matrix.md)、[接入地图](threaded-collaboration-integration-map.md)与[基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)。T02 已完成默认关闭的类型、身份、路由、旧路径隔离与 v25 迁移，见[基础架构合同](../architecture/threaded-foundation-v1.md)和[验收报告](../reports/threaded-collaboration-t02-foundation-2026-10-19.md)。T03 已增加可信 Binding、Run adapter 与生命周期控制，见[执行边界合同](../architecture/threaded-execution-boundary-v1.md)和[验收报告](../reports/threaded-collaboration-t03-execution-2026-10-20.md)。T04 已接入持久共享资源、旧模式兼容桥与 Session 身份准备，见[资源合同](../architecture/threaded-resources-v1.md)和[验收报告](../reports/threaded-collaboration-t04-resources-2026-10-20.md)。T05 已交付独立消息、统一 ACL、附件、冻结 wave 和持久通知，见[消息合同](../architecture/threaded-messaging-v1.md)和[验收报告](../reports/threaded-collaboration-t05-messaging-2026-10-20.md)。T06 已完成持久调度、响应终态与根预算闭环并推送 `79bad41`，见[运行时合同](../architecture/threaded-runtime-v1.md)和[验收报告](../reports/threaded-collaboration-t06-runtime-2026-10-20.md)。
 
-T07 已接通冻结输入 manifest、三类游标、Session 恢复锚点与 API/SDK 后端，见[上下文与后端合同](../architecture/threaded-context-backends-v1.md)和[验收报告](../reports/threaded-collaboration-t07-context-backends-2026-10-20.md)。所列隔离场景与 macOS 真实 API 重建、SDK 原生续接/权限变化冷开/取消 unknown 已通过；同一验收进程内重建 runtime 和 SQLite 连接后的原生恢复补验也通过。T07 已推送 `a773698`。T08 已实现用户/Agent 路由、15 个协作工具、持久征询与非阻塞等待/Decision，见[T08 合同](../architecture/threaded-collaboration-v1.md)和[验收报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)。T08已推送`606a8c0`。T09已完成独立Thread界面、专用认证、只读投影、精确回执及授权同步，见[T09合同](../architecture/threaded-ui-v1.md)和[验收报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。下一项为 T10，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。阶段 4 可交付持续协作核心能力；完整工具协作、责任、评审、恢复与发布要求仍须完成后续阶段。
+T07 已接通冻结输入 manifest、三类游标、Session 恢复锚点与 API/SDK 后端，见[上下文与后端合同](../architecture/threaded-context-backends-v1.md)和[验收报告](../reports/threaded-collaboration-t07-context-backends-2026-10-20.md)。所列隔离场景与 macOS 真实 API 重建、SDK 原生续接/权限变化冷开/取消 unknown 已通过；同一验收进程内重建 runtime 和 SQLite 连接后的原生恢复补验也通过。T07 已推送 `a773698`。T08 已实现用户/Agent 路由、15 个协作工具、持久征询与非阻塞等待/Decision，见[T08 合同](../architecture/threaded-collaboration-v1.md)和[验收报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)。T08已推送`606a8c0`。T09已完成独立Thread界面、专用认证、只读投影、精确回执及授权同步，见[T09合同](../architecture/threaded-ui-v1.md)和[验收报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。T10/T11已推送 `c944c9d`/`ba438b1`；T12新增发布控制、恢复及宿主验收，见[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。剩余退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。阶段 4 可交付持续协作核心能力；完整工具协作、责任、评审、恢复与发布要求仍须完成后续阶段。
 
 ## 1 T01 固定基线与初始差距
 
@@ -24,7 +24,7 @@ T07 已接通冻结输入 manifest、三类游标、Session 恢复锚点与 API/
 | Clowder 参考版本 | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；固定版本，不代表当前远端最新状态 |
 | 本地环境 | Node `v22.23.1`，pnpm `9.15.4` |
 | T01 迁移清单 | 当时源码最高 v24；T02 已追加 v25，未据此推断日常数据库的实际版本 |
-| T01 前新模式实现 | 当时无 `threaded` 实现及 `verify:threaded-*` 脚本；当前已推进至 T09，功能范围与真实验收边界见实施状态 |
+| T01 前新模式实现 | 当时无 `threaded` 实现及 `verify:threaded-*` 脚本；当前已推进至 T12，功能范围与真实验收边界见实施状态 |
 
 新增提交把带控制工具的临时正文标为 `control_draft`，正式消息以提交结果为准，并修复完整交付正文和前端展示。Threaded 复用执行循环时必须保留这些改动，同时明确显式 post、普通最终响应和临时流式输出的边界。参考 [turnDisplay.ts](../../apps/server/src/orchestration/turnDisplay.ts)、[agentStep.ts](../../apps/server/src/orchestration/agentStep.ts)、[事件类型](../../packages/shared/src/events.ts)及[展示回归脚本](../../scripts/verify-message-presentation.mjs)。
 
@@ -271,7 +271,7 @@ pnpm verify:docs
 
 ## 9 发布与回滚要求
 
-配置 `THREADED_COLLABORATION_MODE=closed|observe|execute` 已存在；当前生产无 executor，三种配置均不放行新工作。目标发布语义仍为：closed 拒绝新工作但保留历史与控制；observe 只计算选定输入或 fixture 的路由/恢复计划，无外部执行和业务写入；execute 受成员/后端允许列表约束。后两类完整发布能力须按后续任务验收后开放，新入场、已有工作排空、紧急停止分别控制。
+配置 `THREADED_COLLABORATION_MODE=closed|observe|execute` 及固定发布清单由T12生产factory读取；无清单或持久新入场许可时继续拒绝新根。closed保留匹配配置和许可时可排空已有根；observe需重启，仅业务读取/纯预览，不执行模型或控制写入；execute还受固定成员/后端/账号版本与授权Thread约束。新入场、后续派发和运行中停止分别控制，具体步骤见[发布手册](../operations/threaded-release-runbook.md)。日常配置保持关闭。
 
 发布顺序为：验证备份恢复 → 前向迁移 → 关闭新入口跑旧模式回归 → 只读恢复演练 → 已验证组合的小范围新房间 → 核对 unknown/outbox/费用/Action → 演练停止入场、排空和恢复后扩大范围。
 
@@ -279,13 +279,13 @@ pnpm verify:docs
 
 ## 10 当前交接与下一项工作
 
-T01–T08已提交推送，T08为`606a8c0`。T09代码、测试、截图及文档在工作区完成，尚未提交推送。T08追加v31，T09没有新增迁移；既有v25–v31迁移源码/descriptor不变；未迁移日常库、未回写 GitHub issue。
+T01–T11已提交推送，T11为`ba438b1`。T12追加v34，v25–v33源码及descriptor不变，17组迁移验证通过；未迁移日常库、未回写GitHub issue。
 
 T08 17 组协作、4 组后端接线、4 组 HTTP 与14组迁移通过，并通过上下文、预算、队列、生命周期、资源、消息和旧路径回归。API/SDK 的真实 read/post 工具通过；首轮征询 SDK cancelled 的失败保留，新隔离征询复验通过唯一 settlement/callback，取消原因未定位，不能声称已修复。T08 新增14实际请求、22,757确认token；T07+T08累计占额75,327（含39,010旧未知预留），低于20万门禁。准确证据及边界见[T08 报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)。
 
-K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件、实际OS执行器和T12完整发布仍待验证。T11 Review/Revision、SOP和基础知识/ACL已实现并通过所列分层验证；语义检索未实现，MEM01整体未全过。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
+K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件未观察；T12实际macOS命令端口已验，完整发布条件未全部通过。T11 Review/Revision、SOP和基础知识/ACL已实现并通过所列分层验证；语义检索未实现，MEM01整体未全过。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
 
-**下一项具体任务是 T12。**T10已推送 `c944c9d`；T11追加v33并完成Review/Revision/独立门禁、SOP CAS及精确任务核验、基础知识/来源ACL，见[T11报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)和[工作流合同](../architecture/threaded-workflows-v1.md)。9/6/8组隔离、15组实际Chrome、16组迁移及22次真实GitHub GET通过；真实新HEAD修订闭环仍为注入传输证据，语义检索未实现。T11尚未提交；生产无executor，`closed|observe|execute`继续拒绝新工作。T12收口实际平台/后端/领域故障与发布回滚，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。
+**当前收口 T12。**固定pack与根授权、独立入场/派发、只读observe、启动屏障/有界退出、macOS注册命令及分层恢复已实现，见[发布合同](../architecture/threaded-release-v1.md)、[手册](../operations/threaded-release-runbook.md)和[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。7组release、16组production、9组24个恢复进程、4组实际index、8组macOS、5组实际Chrome通过；日常服务没有启用。真实API五工具与修复后SDK五工具/隔离HTTP服务原生续接通过，前两次失败保留，实际远端等待未观察到新HEAD；完整真实组合和发布条件未全部通过。具体剩余项见[实施状态](threaded-collaboration-implementation-status.md)。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 
@@ -293,6 +293,6 @@ K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threade
 
 可交给实施会话的启动指令：
 
-> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T11 实现为依据，从当前首个未实施任务 T12 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，隔离 fixture、真实后端和真实业务证据分开记录。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
+> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T11 实现为依据，继续 T12 未通过/未验证的实际组合及发布条件。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，隔离 fixture、真实后端和真实业务证据分开记录。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
 >
 > 验收遵守已确认目标：核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。交接时分别附兼容结果、差异表、增强验收证据与能力范围，不用通过用例的数量推导复刻百分比。

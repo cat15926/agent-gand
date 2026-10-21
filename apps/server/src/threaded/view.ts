@@ -13,7 +13,7 @@ import {threadedCapabilities} from './policy.ts';
 export function createThreadedView(db:Database.Database,options:{
   store:Pick<ReturnType<typeof createThreadedStore>,'getThread'|'listMembers'>;
   messages:Pick<ReturnType<typeof createThreadedMessages>,'getMessage'>;
-  capabilities?:()=>ThreadedCapabilities;
+  capabilities?:(ownerId?:string,threadId?:string)=>ThreadedCapabilities;
 }) {
   const denied=():never=>{throw new ThreadedAccessError(404,'THREADED_THREAD_NOT_FOUND','持续协作空间不存在或无权访问');};
   function assertThread(ownerId:string,threadId:string){const value=options.store.getThread(threadId,ownerId);return value??denied();}
@@ -119,7 +119,7 @@ export function createThreadedView(db:Database.Database,options:{
       const sops=snapshotThreadedSops(db,{messages:options.messages},ownerId,threadId).map(s=>({id:s.id,sopKey:s.sopKey,version:s.version,title:s.title,stage:s.stage,baton:s.baton,checks:s.checks.map(c=>({id:c.id,label:c.label,state:c.state,...(c.verifiedFact?{verifiedFact:{kind:c.verifiedFact.kind,taskId:c.verifiedFact.taskId,taskVersion:c.verifiedFact.taskVersion}}:{})})),sources:sources(s.sourceRefs)}));
       const knowledge={retrieval:'literal_substring' as const,items:threadedKnowledgeOwnerSnapshot(db,ownerId,threadId).items.filter(k=>k.sourceMessageIds.every(id=>sourceReadable(ownerId,id))).map(k=>({knowledgeId:k.knowledgeId,version:k.version,title:k.title,body:k.body,status:k.status,replacementId:k.replacementId,sources:sources(k.sourceMessageIds)}))};
       const value={httpVersion:'threaded-http-v1' as const,schemaVersion:1 as const,thread,members,messages,nextBeforeSeq:rows.length>100?rows[99]!.seq:null,
-        invocations,progress,waits,consultations,memberControls,memberQueues,approvals,eventCursor,routingVersion,capabilities:(options.capabilities??threadedCapabilities)(),
+        invocations,progress,waits,consultations,memberControls,memberQueues,approvals,eventCursor,routingVersion,capabilities:options.capabilities?options.capabilities(ownerId,threadId):threadedCapabilities(),
         business:{available:true,label:actions.length?`${actions.filter(a=>a.state==='completed').length}/${actions.length} 项责任已完成`:'尚无业务责任',actions,reviews,sops,knowledge}};
       return {...value,revision:createHash('sha256').update(JSON.stringify(value)).digest('hex')};
     })();

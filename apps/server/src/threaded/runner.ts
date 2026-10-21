@@ -14,6 +14,8 @@ export function createThreadedRunner(
   lifecycle: ThreadedRunnerLifecycle,
   executor: InvocationExecutionPort,
   options: {
+    /** Requires the runtime's trusted per-root production policy; never an HTTP/model field. */
+    allowProductionExecution?:boolean;
     onEvent?: (binding: ThreadedBinding, event: ScopedExecutionEvent) => void;
     assertExecutionAuthorized?: (binding: ThreadedBinding, authorizationId: string | null) => void;
     checkpoint?: (binding: ThreadedBinding, authorizationId: string | null) => { validUntil: number };
@@ -28,7 +30,7 @@ export function createThreadedRunner(
       sessionBindingId: string;
       budgetAuthorizationId: string;
     }): Promise<unknown> {
-      if (process.env.AGENT_GAND_ISOLATED_WORKER !== '1') {
+      if (process.env.AGENT_GAND_ISOLATED_WORKER !== '1'&&!options.allowProductionExecution) {
         throw new ThreadedAuthorityError('THREADED_EXECUTION_NOT_ENABLED');
       }
       if (!input || !input.binding) throw new ThreadedAuthorityError('THREADED_BINDING_REQUIRED');
@@ -49,14 +51,22 @@ export function createThreadedRunner(
         options.assertExecutionAuthorized?.(binding, currentAuthorizationId);
       };
       let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
+      let nextProgressCheckpointAt = 0;
       const checkpoint = () => {
         if (!options.checkpoint || controller.signal.aborted) return;
         try {
-          assertAuthorized();
+          // Reserve the next bounded activity slice while the current one is
+          // still valid, before the more expensive full effect/context check.
+          // The budget checkpoint itself rechecks exact authority and quotas.
+          authority.assertAuthorized(binding);
           const { validUntil } = options.checkpoint(binding, currentAuthorizationId);
+          assertAuthorized();
           const remaining = validUntil - (options.now?.() ?? Date.now());
           if (!Number.isFinite(remaining) || remaining <= 0) throw new ThreadedAuthorityError('THREADED_ACTIVITY_ALLOWANCE_EXPIRED');
-          checkpointTimer = setTimeout(checkpoint, Math.max(1, Math.min(remaining, Math.floor(remaining / 2))));
+          const delay = Math.max(1, Math.floor(remaining / 4));
+          nextProgressCheckpointAt = (options.now?.() ?? Date.now()) + delay;
+          if (checkpointTimer) clearTimeout(checkpointTimer);
+          checkpointTimer = setTimeout(checkpoint, delay);
           checkpointTimer.unref();
         } catch (error) {
           controller.abort(error);
@@ -70,6 +80,11 @@ export function createThreadedRunner(
           assertAuthorized();
           outcome = await executor.execute({
             ...input, binding, signal: controller.signal, assertAuthorized,
+            checkpointActivity() {
+              if (controller.signal.aborted) throw controller.signal.reason;
+              if (options.checkpoint && (options.now?.() ?? Date.now()) >= nextProgressCheckpointAt) checkpoint();
+              if (controller.signal.aborted) throw controller.signal.reason;
+            },
             setBudgetAuthorization(authorizationId) {
               if (authorizationId !== null && (typeof authorizationId !== 'string' || !authorizationId.trim())) {
                 throw new ThreadedAuthorityError('THREADED_BUDGET_AUTHORIZATION_REQUIRED');

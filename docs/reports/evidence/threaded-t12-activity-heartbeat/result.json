@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "groups": 6,
+  "checks": [
+    "API: buffered SSE microtasks span multiple unchanged 1000ms allowances; trusted progress renews the same Attempt/request and charges all elapsed activity.",
+    "SDK relay: buffered SSE microtasks span multiple unchanged 1000ms allowances; trusted progress renews the same Attempt/request and charges all elapsed activity.",
+    "A trusted full configuration/context validation taking 600ms does not consume the preceding allowance before atomic renewal; full effect authorization still runs.",
+    "expired-gap: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay.",
+    "hard-cap: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay.",
+    "revoked-permission: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay."
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "localSdkRelayOnly": true,
+  "defaultAllowanceUnchanged": 1000,
+  "sharedTokenLedgerAccess": false
+}

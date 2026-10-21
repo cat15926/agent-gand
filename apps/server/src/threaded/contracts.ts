@@ -92,6 +92,8 @@ export interface InvocationExecutionPort {
     budgetAuthorizationId: string;
     signal: AbortSignal;
     assertAuthorized: () => void;
+    /** Trusted adapter progress; throttled by the Runner, never callable by model tools. */
+    checkpointActivity?: () => void;
     onEvent: (event: ScopedExecutionEvent) => void;
     /** Trusted adapter switches only after reserving the exact next actual request. */
     setBudgetAuthorization?: (authorizationId: string | null) => void;

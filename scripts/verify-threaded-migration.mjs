@@ -23,7 +23,8 @@ const schedulingBoundary = await import('../apps/server/src/db/threadedSchedulin
 const contextBoundary = await import('../apps/server/src/db/threadedContextMigration.ts');
 const collaborationBoundary = await import('../apps/server/src/db/threadedCollaborationMigration.ts');
 const actionBoundary = await import('../apps/server/src/db/threadedActionMigration.ts');
-const latestVersion = 33;
+const workflowBoundary = await import('../apps/server/src/db/threadedWorkflowMigration.ts');
+const latestVersion = 34;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -75,6 +76,8 @@ const frozenMigration = revision => {
     if (name === './threadedContextMigration.ts') return contextBoundary; // The v30 descriptor/DDL is unchanged.
     if (name === './threadedCollaborationMigration.ts') return collaborationBoundary;
     if (name === './threadedActionMigration.ts') return actionBoundary; // The v32 descriptor/DDL is unchanged.
+    if (name === './threadedWorkflowMigration.ts') return workflowBoundary; // The v33 descriptor and all workflow fragments are unchanged.
+
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -386,6 +389,67 @@ try {
   assert.deepEqual(tables(v32),upgradedV33Schema);assert.deepEqual(snapshot32(),upgradedV33Rows);
   checks.push('actual frozen pushed v32/c944c9d upgrades to v33; DDL failure rolls back all Review/SOP/Knowledge fragments and registration, repeated upgrade preserves every prior table including task/Action/budget/queue, pre-v33 review compatibility admissions freeze once and never adopt new Actions on reopen, and the v32 worker rejects v33 without mutation');
 
+  // Execute the actual pushed T11/v33 catalog. Current imports are permitted only after byte equality with that revision.
+  const frozenV33Revision='ba438b1';
+  for(const fragment of ['threadedMigration.ts','threadedExecutionMigration.ts','executionResourcesMigration.ts','threadedMessagingMigration.ts',
+    'threadedSchedulingMigration.ts','threadedContextMigration.ts','threadedCollaborationMigration.ts','threadedActionMigration.ts',
+    'threadedWorkflowMigration.ts','threadedReviewSchema.ts','threadedSopSchema.ts','threadedKnowledgeSchema.ts']) {
+    const file=`apps/server/src/db/${fragment}`,frozenSource=execFileSync('git',['show',`${frozenV33Revision}:${file}`],{cwd:new URL('..',import.meta.url)});
+    const currentSource=await readFile(new URL(`../${file}`,import.meta.url));
+    assert.equal(createHash('sha256').update(currentSource).digest('hex'),createHash('sha256').update(frozenSource).digest('hex'),`Historical migration source changed: ${fragment}`);
+  }
+  const v33Worker=frozenMigration(frozenV33Revision),v33=bootstrap('v33.sqlite');
+  v33Worker.applyOrchestrationSchemaMigrations(v33);addAgent(v33,'agent-a');
+  assert.equal(v33.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,33);
+  const v33Thread=createThreadedStore(v33).createThread(input());v33.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(v33Thread.id);
+  const v33Messages=frozenThreadedModule(frozenV33Revision,'apps/server/src/threaded/messages.ts').createThreadedMessages(v33);
+  const v33Input={ownerId:v33Thread.ownerId,threadId:v33Thread.id,clientRequestId:'v33-stable',body:'Frozen review, SOP and knowledge provenance',targets:['agent-a']};
+  const v33Receipt=v33Messages.acceptUserMessage(v33Input);
+  const v33Budget=frozenThreadedModule(frozenV33Revision,'apps/server/src/threaded/budget.ts').createThreadedBudget(v33,{});
+  const v33Root=v33Budget.ensureRootForMessage(v33Receipt.message.id);
+  const v33Queue=frozenThreadedModule(frozenV33Revision,'apps/server/src/threaded/queue.ts').createThreadedQueue(v33,{budget:v33Budget});
+  const v33Queued=v33Queue.enqueueWake(v33Receipt.wakes[0].id);
+  v33.prepare("INSERT INTO threaded_actions VALUES('v33-review',?,?,'github:zts212653/clowder-ai#33','review','review',1,1,'active',?,1,1)")
+    .run(v33Thread.ownerId,v33Thread.id,v33Root.id);
+  const priorWorkflow=JSON.stringify({actionId:'v33-review',generation:1,version:1,findings:[{id:'frozen-finding',state:'open'}],scope:{sourceRefs:[v33Receipt.message.id]}});
+  v33.prepare("INSERT INTO threaded_review_workflows VALUES('v33-review',?,?,1,1,?,?,1)").run(v33Thread.ownerId,v33Thread.id,'a'.repeat(40),priorWorkflow);
+  v33.prepare("INSERT INTO threaded_review_versions VALUES('v33-review',1,1,?,?,1)").run('a'.repeat(40),priorWorkflow);
+  v33.prepare("INSERT INTO threaded_review_gate_checks VALUES('v33-gate','v33-review',1,1,?,'blocked',?,1)").run('a'.repeat(40),JSON.stringify({approvalGateSatisfied:false}));
+  v33.prepare("INSERT INTO threaded_sops VALUES('v33-sop',?,?,'frozen-sop',1,?,1,1)").run(v33Thread.ownerId,v33Thread.id,JSON.stringify({stage:'review',checks:[{id:'c1',state:'attested'}],sourceRefs:[v33Receipt.message.id]}));
+  v33.prepare("INSERT INTO threaded_knowledge VALUES('v33-knowledge',?,?,1,1,1)").run(v33Thread.ownerId,v33Thread.id);
+  v33.prepare("INSERT INTO threaded_knowledge_versions VALUES('v33-knowledge',1,?,1)").run(JSON.stringify({title:'Frozen knowledge',body:'Preserve provenance and expiry',status:'active',sourceMessageIds:[v33Receipt.message.id]}));
+  const v33Tables=v33.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").all().map(r=>r.name);
+  const snapshot33=()=>Object.fromEntries(v33Tables.map(t=>[t,v33.prepare(`SELECT * FROM ${t}${t==='orchestration_schema_migrations'?' WHERE version<=33':''}`).all()]));
+  const rowsBefore34=snapshot33(),historyHash33=createHash('sha256').update(JSON.stringify(rowsBefore34)).digest('hex');
+  const new34Tables=['threaded_release_controls','threaded_release_changes','threaded_release_grants','threaded_release_roots','threaded_os_commands','threaded_os_command_events'];
+  const noV34Tables=()=>{for(const table of new34Tables)assert.equal(v33.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type='table' AND name=?").get(table).n,0);};
+  // A real DDL collision occurs after earlier v34 release fragments have executed; none may escape the outer transaction.
+  v33.exec('CREATE VIEW threaded_os_commands AS SELECT 1 AS fixture_collision');
+  const failedDdlSchema=tables(v33),priorView=v33.prepare("SELECT sql FROM sqlite_master WHERE type='view' AND name='threaded_os_commands'").get();
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v33),/view|already exists|cannot create/i);
+  assert.deepEqual(tables(v33),failedDdlSchema);assert.deepEqual(snapshot33(),rowsBefore34);noV34Tables();
+  assert.deepEqual(v33.prepare("SELECT sql FROM sqlite_master WHERE type='view' AND name='threaded_os_commands'").get(),priorView);
+  v33.exec('DROP VIEW threaded_os_commands');
+  // Registration failure comes after every v34 table/index/trigger; the entire six-table fragment still rolls back.
+  v33.exec("CREATE TRIGGER fixture_v34_failure BEFORE INSERT ON orchestration_schema_migrations WHEN NEW.version=34 BEGIN SELECT RAISE(ABORT,'fixture_v34_failure'); END;");
+  const schemaBefore34=tables(v33);
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v33),/fixture_v34_failure/);
+  assert.deepEqual(tables(v33),schemaBefore34);assert.deepEqual(snapshot33(),rowsBefore34);noV34Tables();
+  assert.equal(v33.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,33);
+  v33.exec('DROP TRIGGER fixture_v34_failure');applyOrchestrationSchemaMigrations(v33);applyOrchestrationSchemaMigrations(v33);
+  assert.deepEqual(snapshot33(),rowsBefore34);assert.equal(createHash('sha256').update(JSON.stringify(snapshot33())).digest('hex'),historyHash33);
+  for(const table of new34Tables)assert.equal(count(v33,table),0);
+  assert.equal(v33.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,latestVersion);
+  assert.deepEqual(v33Messages.acceptUserMessage(v33Input),v33Receipt,'v33 request hash and receipt survive v34');
+  assert.deepEqual(v33Queue.enqueueWake(v33Receipt.wakes[0].id),v33Queued,'v33 queue idempotency and budget root survive v34');
+  assert.deepEqual(v33.pragma('foreign_key_check'),[]);
+  const upgradedV34Schema=tables(v33),upgradedV34Rows=Object.fromEntries(v33.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").all().map(r=>[r.name,v33.prepare(`SELECT * FROM ${r.name}`).all()]));
+  assert.throws(()=>v33Worker.assertOrchestrationSchemaCompatible(v33),/34.*不受此 worker 支持/);
+  assert.throws(()=>v33Worker.applyOrchestrationSchemaMigrations(v33),/34.*不受此 worker 支持/);
+  assert.deepEqual(tables(v33),upgradedV34Schema);
+  assert.deepEqual(Object.fromEntries(Object.keys(upgradedV34Rows).map(t=>[t,v33.prepare(`SELECT * FROM ${t}`).all()])),upgradedV34Rows);
+  checks.push('actual frozen pushed v33/ba438b1 upgrades to v34; historical v25-v33 source hashes and all prior facts/request receipts/queue roots stay identical; failed intermediate DDL and final registration roll back release controls/changes/grants/roots and OS intents/events atomically; repeated upgrade is stable and the actual v33 worker refuses v34 before any schema or row mutation');
+
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
   const thread = store.createThread(input());
@@ -515,7 +579,7 @@ try {
   assert.deepEqual(tables(legacy), upgradedBefore);
   checks.push('actual frozen v24/v25/v26/v27/v28/v29/v30 worker compatibility guards refuse v25/v26/v27/v28/v29/v30/v31 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T11/DB03 isolated SQLite migration; no model execution',groups:checks.length,checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T12/DB03 isolated SQLite migration; no model execution',groups:checks.length,checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

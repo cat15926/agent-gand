@@ -73,6 +73,7 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
         instructions:prepared.instructions,prompt:prepared.serializedContext,maxOutputTokens:prepared.maxOutputTokens,
         timeoutMs:prepared.connection.timeoutMs,signal:input.signal,
         tools:prepared.tools,executeTool:async(name,args,key)=>{
+          input.checkpointActivity?.();
           input.assertAuthorized();prepared.assertCurrent();
           if(!prepared.tools?.some(t=>t.name===name)||!prepared.executeTool)throw new Error('THREADED_SDK_TOOL_NOT_ALLOWED');
           return prepared.executeTool(name,args,key);
@@ -81,9 +82,10 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
           CLAUDE_CODE_PROJECT_DIR_NAME:prepared.session.projectDir??'',ANTHROPIC_API_KEY:token,
           ANTHROPIC_BASE_URL:`http://127.0.0.1:${address.port}`,CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:'1',
           AGENT_GAND_ISOLATED_WORKER:'1'}),
-        onProcess(owner){input.assertAuthorized();prepared.assertCurrent();options.evidence.registerProcess(input.binding,owner);},
+        onProcess(owner){input.checkpointActivity?.();input.assertAuthorized();prepared.assertCurrent();options.evidence.registerProcess(input.binding,owner);},
         onProcessStopped(token){options.evidence.processClosed(token);},
         onRecord(record) {
+          input.checkpointActivity?.();
           if(record.type==='threaded_checkpoint') {
             if(record.sessionId!==nativeId||typeof record.anchorUuid!=='string'||typeof record.inputUserUuid!=='string')throw new Error('THREADED_SDK_CHECKPOINT_INVALID');
             checkpoint={anchorUuid:record.anchorUuid,inputUserUuid:record.inputUserUuid};return;

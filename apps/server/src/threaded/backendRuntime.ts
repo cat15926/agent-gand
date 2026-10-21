@@ -54,6 +54,11 @@ const configurationHash = (value: ThreadedBackendAgentConfiguration) => hash({
 /** T07 composition. Its explicit caller supplies isolated DB/resources and selected account access. */
 export function createThreadedBackendRuntime(db: Database.Database, options: {
   resources: ReturnType<typeof createExecutionResourceCoordinator>;
+  messaging?:ReturnType<typeof import('./messaging.ts').createThreadedMessaging>;
+  executionPolicy?:import('./runtime.ts').ThreadedProductionExecutionPolicy;
+  ingress?:import('./collaborationTypes.ts').CollaborationOptions['ingress'];
+  deferDispatchUntilStart?:boolean;
+  notificationsEnabled?:boolean;
   resolveAgent: (scope: { ownerId: string; threadId: string; agentId: string }) => ThreadedBackendAgentConfiguration;
   fetch?: BackendFetch;
   sdkProcess?: BackendSdkProcess;
