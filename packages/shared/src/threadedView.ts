@@ -29,7 +29,12 @@ export interface ThreadedViewSnapshot {
   memberControls:Array<{agentId:string;state:'available'|'paused'|'stopped'}>;
   memberQueues:Array<{agentId:string;count:number}>;
   approvals:Array<{id:string;invocationId:string;agentId:string;state:string}>;
-  business:{available:false;label:string};
+  business:{available:boolean;label:string;actions?:Array<{
+    id:string;subject:{kind:'task';taskId:string}|{kind:'github_pr';repository:string;number:number};
+    predicate:string;generation:number;state:string;freshness:string;freshnessStatus:string;approvalGateSatisfied:false;
+    holders:Array<{agentId:string;outcome:string|null}>;
+    commands?:Array<{id:string;agentId:string;generation:number;state:string;waitState:string|null}>;
+  }>};
 }
 /** Durable invalidation references only. Each replay is authorized against current source facts. */
 export interface ThreadedChangePage {

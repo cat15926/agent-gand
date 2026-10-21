@@ -25,6 +25,10 @@ if(restore!=='restore'){
     await tool('hold_ball',{idempotencyKey:'timer',jobKey:'timer',seconds:3600,waitSourceRef:'timer:followup'});
     await tool('conversation_decision',{idempotencyKey:'decision',jobKey:'decision',question:'下一步优先检查哪一项？',block:'interactive',once:true});
     await tool('multi_mention',{idempotencyKey:'consult',targets:['other-member','sdk-member'],question:'给出各自不同意见',callbackTo:'api-member',overrideReason:'T09 synthetic UI acceptance'});
+    if(process.env.THREADED_UI_ACTIONS==='1'){
+      const task=await tool('create_task',{idempotencyKey:'ui-task',title:'T10 UI 领域任务',acceptanceCriteria:['保存可核验的交付结果']});
+      await tool('transfer_action',{idempotencyKey:'ui-action',subject:{kind:'task',taskId:task.taskId},predicate:'task_done',family:'work',successorSlot:'primary',targets:['other-member']});
+    }
   };
   const result=await f.runtime.executeClaim(claim);if(result.status!=='completed')throw new Error(JSON.stringify(result));handler=undefined;
   f.user('PRIVATE_T09_OWNER_ONLY',[],{visibility:'private',audience:['api-member']});

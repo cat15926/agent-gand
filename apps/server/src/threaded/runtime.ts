@@ -37,6 +37,7 @@ export function createThreadedRuntime(db: Database.Database, options: {
   collaborationEnabled?: boolean;
   collaborationContext?: Pick<ReturnType<typeof createThreadedContext>,'markSeen'|'acknowledgeMentions'>;
   trackingSources?:Record<string,ThreadedTrackingSource>;
+  actions?:import('./actionTypes.ts').ActionOptions;
 }) {
   const { resources } = options;
   const authority = createThreadedAuthority(db, resources);
@@ -56,7 +57,7 @@ export function createThreadedRuntime(db: Database.Database, options: {
     collaboration?.notifyCommitted();
   };
   const collaboration = options.collaborationEnabled ? createThreadedCollaboration(db,{authority,messages:messaging.messages,
-    now:options.now,context:options.collaborationContext,trackingSources:options.trackingSources,
+    now:options.now,context:options.collaborationContext,trackingSources:options.trackingSources,actions:options.actions,
     onCommitted:()=>{messaging.notifyCommitted();if(enabled)dispatcher?.wakeup();}}) : undefined;
   const mapped = (invocationId: string) => db.prepare('SELECT 1 FROM threaded_invocation_wakes WHERE invocation_id=?').get(invocationId);
   const lifecycle = createThreadedLifecycle(db, authority, {
@@ -123,6 +124,7 @@ export function createThreadedRuntime(db: Database.Database, options: {
   queue = createThreadedQueue(db, { lifecycle, resources, budget, prepareResources: options.prepareResources,
     additionalAdmission:collaboration?row=>{
       if(row.state==='claimed'||row.state==='unknown')return {allowed:true,reason:''};
+      if(!collaboration.actions.admission(row.sourceMessageId,row.agentId))return {allowed:false,reason:'THREADED_ACTION_STALE_GENERATION',cancelled:true};
       const group=db.prepare(`SELECT g.state,g.deadline FROM threaded_consultation_targets t JOIN threaded_consultations g ON g.id=t.group_id
         WHERE t.question_message_id=? AND t.agent_id=?`).get(row.sourceMessageId,row.agentId) as {state:string;deadline:number}|undefined;
       return group&&(group.state!=='collecting'||group.deadline<=(options.now?.()??Date.now()))

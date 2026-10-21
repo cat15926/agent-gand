@@ -60,7 +60,7 @@ export async function openBackendRuntimeFixture(root, name, options = {}) {
     });
     const runtime = createThreadedBackendRuntime(connection, { resources, resolveAgent: scope => configurations.get(scope.agentId),
       fetch: options.fetch, sdkProcess: options.sdkProcess, now:options.now, dispatchEnabled: false, autoStart: false, repairIntervalMs: 0,
-      onRequestReserved: options.onRequestReserved, onRequestSettled: options.onRequestSettled,trackingSources:options.trackingSources });
+      onRequestReserved: options.onRequestReserved, onRequestSettled: options.onRequestSettled,trackingSources:options.trackingSources,actions:options.actions });
     return { db: connection, runtime, resources };
   };
   let current = attach(db);

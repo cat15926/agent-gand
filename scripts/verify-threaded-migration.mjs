@@ -21,7 +21,8 @@ const resourceBoundary = await import('../apps/server/src/db/executionResourcesM
 const messageBoundary = await import('../apps/server/src/db/threadedMessagingMigration.ts');
 const schedulingBoundary = await import('../apps/server/src/db/threadedSchedulingMigration.ts');
 const contextBoundary = await import('../apps/server/src/db/threadedContextMigration.ts');
-const latestVersion = 31;
+const collaborationBoundary = await import('../apps/server/src/db/threadedCollaborationMigration.ts');
+const latestVersion = 32;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -71,6 +72,7 @@ const frozenMigration = revision => {
     if (name === './threadedMessagingMigration.ts') return messageBoundary; // The v28 descriptor/DDL is unchanged.
     if (name === './threadedSchedulingMigration.ts') return schedulingBoundary; // The v29 descriptor/DDL is unchanged.
     if (name === './threadedContextMigration.ts') return contextBoundary; // The v30 descriptor/DDL is unchanged.
+    if (name === './threadedCollaborationMigration.ts') return collaborationBoundary;
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -317,6 +319,17 @@ try {
   assert.deepEqual(currentMessages(v30).acceptUserMessage(v30Input),v30Receipt,'new optional callback lineage must preserve old message request hashes');
   assert.equal(count(v30,'threaded_consultations'),0);assert.equal(count(v30,'threaded_waits'),0);assert.deepEqual(v30.pragma('foreign_key_check'),[]);
   checks.push('actual frozen v30 upgrades to v31 without changing any prior fact or message request hash; callback lineage is additive, DDL failure rolls back and repeated upgrade is stable');
+
+  const v31Worker=frozenMigration('72efefd'),v31=bootstrap('v31.sqlite');
+  v31Worker.applyOrchestrationSchemaMigrations(v31);
+  const before32=tables(v31),rows31=v31.prepare('SELECT * FROM orchestration_schema_migrations ORDER BY version').all();
+  v31.exec("CREATE TRIGGER fixture_v32_failure BEFORE INSERT ON orchestration_schema_migrations WHEN NEW.version=32 BEGIN SELECT RAISE(ABORT,'fixture_v32_failure'); END;");
+  const faultSchema=tables(v31);assert.throws(()=>applyOrchestrationSchemaMigrations(v31),/fixture_v32_failure/);assert.deepEqual(tables(v31),faultSchema);
+  v31.exec('DROP TRIGGER fixture_v32_failure');applyOrchestrationSchemaMigrations(v31);applyOrchestrationSchemaMigrations(v31);
+  assert.deepEqual(v31.prepare('SELECT * FROM orchestration_schema_migrations WHERE version<=31 ORDER BY version').all(),rows31);
+  assert.equal(count(v31,'threaded_actions'),0);assert.deepEqual(v31.pragma('foreign_key_check'),[]);
+  assert.throws(()=>v31Worker.assertOrchestrationSchemaCompatible(v31),/32.*不受此 worker 支持/);
+  checks.push('actual frozen v31 upgrades atomically to v32; injected failure rolls back DDL, repeated upgrade preserves prior descriptors and a v31 worker rejects v32');
 
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);

@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import type { ThreadedBinding, ThreadedMessageRecord, ThreadedMessageReceipt } from '@agent-gand/shared';
 import { createThreadedMessages } from './messages.ts';
 import { digest, reject, text, strings, integer, type CollaborationOptions, type CollaborationTerminal } from './collaborationTypes.ts';
+import type {ActionFence} from './actionTypes.ts';
 
 type Group = {id:string;owner_id:string;thread_id:string;binding_id:string;caller_id:string;parent_invocation_id:string;
   root_id:string;request_hash:string;callback_to:string;deadline:number;state:string;version:number;record:string;created_at:number};
@@ -10,7 +11,10 @@ type Wait = {id:string;owner_id:string;thread_id:string;agent_id:string;binding_
   job_key:string;kind:'timer'|'tracking'|'decision';request_hash:string;state:string;version:number;deadline:number|null;record:string;
   outcome:string|null;created_at:number;updated_at:number};
 type Scope = {ownerId:string;threadId:string;agentId:string};
-export function createThreadedCooperation(db:Database.Database,options:CollaborationOptions) {
+export function createThreadedCooperation(db:Database.Database,options:CollaborationOptions&{actionScope?:{
+  capture:(binding:ThreadedBinding)=>ActionFence|null;valid:(fence:ActionFence,agent:string)=>boolean;
+  bindMessage:(messageId:string,fence:ActionFence|null)=>void;assertBinding:(binding:ThreadedBinding)=>void;
+}}) {
   const now=options.now??Date.now;
   const messages=createThreadedMessages(db,{authority:options.authority,now,authorizeSystem:v=>v.systemKey==='threaded-collaboration-v1'});
   const notify=()=>{try{options.onCommitted?.();}catch{/* durable outbox owns recovery */}};
@@ -22,8 +26,9 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       WHERE q.invocation_id=? AND m.owner_id=?`).get(binding.invocationId,binding.ownerId) as {record:string}|undefined;
     return row?JSON.parse(row.record) as ThreadedMessageRecord:reject('THREADED_COLLABORATION_SOURCE_REQUIRED');
   }
-  function running(binding:ThreadedBinding) {
+  function running(binding:ThreadedBinding,allowStale=false) {
     options.authority.assertAuthorized(binding);
+    if(!allowStale)options.actionScope?.assertBinding(binding);
     if(!db.prepare("SELECT 1 FROM threaded_attempts WHERE id=? AND execution_stage='started' AND status='running'").get(binding.attemptId))reject('THREADED_COLLABORATION_ATTEMPT_REQUIRED');
     return source(binding);
   }
@@ -42,6 +47,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
   }
   function frozen(binding:ThreadedBinding) {
     return {identity:identity(binding), sourceId:source(binding).id,
+      actionFence:options.actionScope?.capture(binding)??null,
       controlSeq:(db.prepare('SELECT COALESCE(MAX(rowid),0) seq FROM threaded_control_requests WHERE owner_id=? AND thread_id=?').get(binding.ownerId,binding.threadId) as {seq:number}).seq};
   }
   function boundary(binding:ThreadedBinding,extra:string[]=[]):{visibility:'public'|'private';audience:string[];sourceRefs:string[]} {
@@ -58,7 +64,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       for(const id of anchor.sourceMessageIds){const m=options.messages.getMessage({ownerId:binding.ownerId,threadId:binding.threadId,viewer:{kind:'agent',agentId:binding.agentId}},id);if(m?.visibility==='private')ids.add(id);}
     }
     for(const row of db.prepare('SELECT record FROM threaded_tool_receipts WHERE binding_id=?').all(binding.id) as Array<{record:string}>) {
-      const value=JSON.parse(row.record) as {readSourceIds?:string[]};for(const id of value.readSourceIds??[])ids.add(id);
+      const value=JSON.parse(row.record) as {readSourceIds?:string[];privacySourceIds?:string[]};for(const id of [...(value.readSourceIds??[]),...(value.privacySourceIds??[])])ids.add(id);
     }
     let audience:string[]|undefined;
     for(const id of ids){const row=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=?').get(id) as {thread_id:string}|undefined;
@@ -93,7 +99,8 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
         .all(row.owner_id,row.thread_id,row.agent_id,input.frozen.controlSeq) as Array<{action:string}>;
       const control=controls[0];
       let state='pending',reason:string|null=null;
-      if(!thread||['closed','archived'].includes(thread.state)||controls.some(c=>c.action==='cancel')){state='cancelled';reason='THREADED_CALLBACK_CLOSED';}
+      if(input.frozen.actionFence&&!options.actionScope?.valid(input.frozen.actionFence,row.agent_id)){state='rejected';reason='THREADED_ACTION_STALE_GENERATION';}
+      else if(!thread||['closed','archived'].includes(thread.state)||controls.some(c=>c.action==='cancel')){state='cancelled';reason='THREADED_CALLBACK_CLOSED';}
       else if(identity(scope)!==input.frozen.identity||!options.messages.getMessage({ownerId:row.owner_id,threadId:row.thread_id,viewer:{kind:'agent',agentId:row.agent_id}},input.frozen.sourceId)){state='rejected';reason='THREADED_CALLBACK_AUTHORITY_CHANGED';}
       else if(thread.state==='paused'||control?.action==='pause'){state='waiting';reason='THREADED_CALLBACK_PAUSED';}
       if(state==='pending')for(const id of input.sourceRefs){const source=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=?').get(id) as {thread_id:string}|undefined;
@@ -103,6 +110,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       const receipt=messages.postSystemMessageWithinTransaction({ownerId:row.owner_id,threadId:row.thread_id,
         systemKey:'threaded-collaboration-v1',requestId:`callback:${row.id}`,causalParentInvocationId:row.parent_invocation_id,
         body:input.body,targets:[row.agent_id],visibility:input.visibility,audience:input.audience,sourceRefs:input.sourceRefs});
+      options.actionScope?.bindMessage(receipt.message.id,input.frozen.actionFence??null);
       db.prepare("UPDATE threaded_collaboration_callbacks SET state='delivered',reason=NULL,message_id=? WHERE id=?").run(receipt.message.id,row.id);
       const previous=db.prepare(`SELECT r.* FROM threaded_relay_events r JOIN threaded_messages m ON m.id=r.message_id
         WHERE m.source_invocation_id=? AND m.origin='agent_response' ORDER BY m.seq DESC LIMIT 1`).get(row.parent_invocation_id) as

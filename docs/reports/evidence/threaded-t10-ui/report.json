@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "date": "2026-10-21T04:45:44.401Z",
+  "groups": 12,
+  "checks": [
+    "Dedicated authenticated Thread surface hydrates zero legacy endpoints; public/private/draft, independent post/final and exact delivery/seen/mention ACK render without treating an Invocation as business completion",
+    "T10 actual browser renders canonical platform Action, current holder and generation, verified domain freshness independently of Invocation completion; no approval gate is invented",
+    "Authorized bounded projection omits fences/native data; identity spoof and future cursor reject; durable change pages cross 100 events with unique replay IDs",
+    "Earlier authorized page, Thread switch, browser back and reload restore the selected Thread without merging another Thread or persisting private bodies",
+    "Ordinary Decision is versioned canonical user input, distinct from execution approval; member-scoped controls reflect persisted state with explicit unknown/fence wording",
+    "Accessible routing editor saves project group membership through expectedVersion CAS; the new policy version updates the same server preview without JSON or identity impersonation",
+    "Composer preview follows group/intent policy; transport drops the committed POST response and exact retry keeps one canonical message",
+    "Private composer keeps routing recipients separate from visible audience: an additional authorized observer can read without creating its Wake",
+    "Browser offline/online gap restores an authoritative snapshot and durable cursor, one visible message per ID",
+    "Desktop 1440x1000 and mobile 390x844 layouts render without horizontal page overflow",
+    "Actual isolated HTTP server SIGKILL/restart with the same SQLite: private UI cache clears on disconnect; fresh session restores canonical messages, waits and controls without model replay",
+    "Closed admission disables new message/Decision input while history/control remains; logout removes private content and no Threaded bodies or tokens enter localStorage"
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "processRestart": "Actual fixture HTTP process SIGKILL, new process and SQLite connection; no production service or business database",
+  "screenshots": [
+    "desktop.png",
+    "mobile.png",
+    "mobile-timeline.png"
+  ]
+}

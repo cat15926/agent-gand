@@ -20,7 +20,7 @@ try{
   const context={store,access,messages,lifecycle:f.runtime.lifecycle,collaboration:f.runtime.collaboration,view,onMessageNotification:f.runtime.messaging.onNotification};
   const seed=f.user('visible user source');const claim=f.runtime.queue.claimNext('projection');await f.runtime.executeClaim(claim);
   const changesBefore=f.db.prepare('SELECT total_changes() n').get().n;
-  const first=view.snapshot(f.thread.ownerId,f.thread.id);assert.equal(first.messages.length,2);assert.equal(first.invocations[0].status,'completed');assert.equal(first.business.available,false);
+  const first=view.snapshot(f.thread.ownerId,f.thread.id);assert.equal(first.messages.length,2);assert.equal(first.invocations[0].status,'completed');assert.equal(first.business.available,true);assert.deepEqual(first.business.actions,[]);
   const delivered=first.progress.find(p=>p.messageId===seed.message.id&&p.agentId==='api-member');assert.ok(delivered.delivered);assert.equal(delivered.seen,false);assert.equal(delivered.mentionAcknowledged,false);
   assert.equal(f.db.prepare('SELECT total_changes() n').get().n,changesBefore);
   assert.doesNotMatch(JSON.stringify(first),/fencing_token|fencingToken|nativeId|serializedContext|agent_definition_hash/);

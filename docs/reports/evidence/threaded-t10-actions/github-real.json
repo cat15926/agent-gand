@@ -1,0 +1,147 @@
+{
+  "ok": true,
+  "date": "2026-10-21T04:45:49.918Z",
+  "scope": "Actual GitHub official REST GET + authenticated local published Thread delivery and real domain resolver in isolated SQLite; model transport injected",
+  "subject": {
+    "kind": "github_pr",
+    "repository": "zts212653/clowder-ai",
+    "number": 1649
+  },
+  "prUrl": "https://github.com/zts212653/clowder-ai/pull/1649",
+  "headSha": "8efc87c6ba530c665f2f1d5960ae54b4e0f3280d",
+  "author": "zts212653",
+  "reviewerLogin": "cat15926",
+  "historicalApprovedReview": null,
+  "olderHeadRejected": true,
+  "review": {
+    "verdict": "changes_requested",
+    "acceptedSource": "thread",
+    "published": true
+  },
+  "actionState": "completed",
+  "approvalGateSatisfied": false,
+  "tracking": {
+    "liveBaseline": true,
+    "unchangedHeadWakeCount": 0,
+    "newLiveHeadObserved": false
+  },
+  "requests": [
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls?state=all&per_page=20",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1648/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1645/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1643/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1642/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1641/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1639/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1638/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1637/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1635/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649/commits?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649/files?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "realModelCalls": 0,
+  "realExternalWrites": 0,
+  "tokens": 0,
+  "limits": [
+    "No PR was modified. A new remote HEAD occurring during the wait was not observed; dynamic new-event wake and HEAD-change races remain covered by injected transport tests.",
+    "This is domain integration acceptance, not a complete engineering code review or production release acceptance."
+  ]
+}

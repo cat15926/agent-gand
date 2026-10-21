@@ -656,8 +656,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     if (!task) throw httpError(404, `task 不存在: ${req.params.id}`);
     return task;
   });
-  app.get<{ Params: { id: string } }>('/api/tasks/:id/attempts', async (req) => listAttempts(req.params.id));
-  app.get<{ Params: { id: string } }>('/api/tasks/:id/reviews', async (req) => listReviews(req.params.id));
+  app.get<{ Params: { id: string } }>('/api/tasks/:id/attempts', async (req) => { if(!getTask(req.params.id)) throw httpError(404, 'task 不存在'); return listAttempts(req.params.id); });
+  app.get<{ Params: { id: string } }>('/api/tasks/:id/reviews', async (req) => { if(!getTask(req.params.id)) throw httpError(404, 'task 不存在'); return listReviews(req.params.id); });
   app.post<{ Params: { id: string } }>('/api/tasks/:id/retry', async req => retryTaskExecution(req.params.id));
   app.post<{ Params: { id: string } }>('/api/tasks/:id/cancel', async req => cancelTaskExecution(req.params.id));
 

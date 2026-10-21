@@ -38,6 +38,14 @@ try{
   await page.getByText('上下文已交付 · 已读 · 提及已确认',{exact:false}).waitFor();
   await page.getByText('独立发送的消息',{exact:true}).waitFor();await page.getByText('本次调用的结果已保存。持续工作仍可继续。',{exact:true}).waitFor();
   checks.push('Dedicated authenticated Thread surface hydrates zero legacy endpoints; public/private/draft, independent post/final and exact delivery/seen/mention ACK render without treating an Invocation as business completion');
+  if(process.env.THREADED_UI_ACTIONS==='1'){
+    await page.getByText('业务责任与领域校验',{exact:true}).click();await page.getByTestId('threaded-actions').getByText(/责任进行中/).waitFor();
+    await page.getByTestId('threaded-actions').getByText(/领域校验：已核验/).waitFor();
+    const business=await page.evaluate(async id=>(await(await fetch(`/api/threaded/threads/${id}/view`)).json()).snapshot.business,metadata.threadId);
+    assert.equal(business.available,true);assert.equal(business.actions.length,1);assert.equal(business.actions[0].state,'active');
+    assert.equal(business.actions[0].approvalGateSatisfied,false);
+    checks.push('T10 actual browser renders canonical platform Action, current holder and generation, verified domain freshness independently of Invocation completion; no approval gate is invented');
+  }
   const snapshot=await page.evaluate(async id=>(await fetch(`/api/threaded/threads/${id}/view`)).json(),metadata.threadId);
   assert.ok(snapshot.snapshot.progress.some(p=>p.delivered&&p.seen&&p.mentionAcknowledged));
   assert.ok(!JSON.stringify(snapshot).includes('fencing_token'));assert.ok(!JSON.stringify(snapshot).includes('nativeId'));

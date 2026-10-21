@@ -8,11 +8,15 @@ import { createThreadedCooperation } from './cooperation.ts';
 import { createThreadedTools } from './tools.ts';
 import {reject,type CollaborationOptions,type CollaborationTerminal,type RoutingDecision} from './collaborationTypes.ts';
 import { createThreadedTracking, threadedMessageTrackingSource, type ThreadedTrackingSource } from './tracking.ts';
+import {createThreadedActions} from './actions.ts';
+import type {ActionOptions} from './actionTypes.ts';
+import {createActionCommands} from './actionCommands.ts';
 
 /** Persistent cooperation state. Timers are only hints; recover reads original durable deadlines. */
 export function createThreadedCollaboration(db:Database.Database,options:CollaborationOptions&{
   context?:Pick<ReturnType<typeof createThreadedContext>,'markSeen'|'acknowledgeMentions'>;
   trackingSources?:Record<string,ThreadedTrackingSource>;
+  actions?:ActionOptions;
 }) {
   let timer:ReturnType<typeof setTimeout>|undefined,closed=false,scheduled=false,lastError:string|null=null;
   const now=options.now??Date.now;
@@ -22,9 +26,13 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
       SELECT deadline FROM threaded_consultations WHERE state='collecting'
       UNION ALL SELECT deadline FROM threaded_waits WHERE state='awaiting' AND kind='timer')`).get() as {deadline:number|null};
     const hasTracking=!!db.prepare("SELECT 1 FROM threaded_waits WHERE state='awaiting' AND kind='tracking'").get();
-    const deadline=hasTracking?Math.min(row.deadline??Infinity,now()+5000):row.deadline;
+    const hasCommands=!!db.prepare("SELECT 1 FROM threaded_commands WHERE state IN ('running','unknown')").get();
+    const hasReviews=!!options.actions?.pr&&!!db.prepare("SELECT 1 FROM threaded_actions WHERE family='review'").get();
+    const hasTaskProjection=!!db.prepare(`SELECT 1 FROM threaded_action_evidence e JOIN threaded_actions a ON a.id=e.action_id
+      AND a.generation=e.generation WHERE a.state='active' AND e.kind='task_transition' AND NOT EXISTS(SELECT 1 FROM threaded_action_candidates c WHERE c.evidence_id=e.id)`).get();
+    const deadline=hasTracking||hasCommands||hasReviews||hasTaskProjection?Math.min(row.deadline??Infinity,now()+5000):row.deadline;
     if(deadline!==null){timer=setTimeout(()=>{if(closed)return;
-      void (async()=>{try{cooperation.recover();if(hasTracking)await tracking.refresh();lastError=null;arm();}
+      void (async()=>{try{cooperation.recover();cooperation.transaction(()=>actions.recoverWithin());if(hasTracking)await tracking.refresh();if(hasCommands)await commands.recover();if(hasReviews)await actions.refreshFreshness();lastError=null;arm();}
         catch{lastError='THREADED_COLLABORATION_REPAIR_FAILED';arm(1000);}})();
     },Math.max(floor,Math.min(2_147_483_647,deadline-now())));timer.unref();}
   }
@@ -32,10 +40,15 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
     options.onCommitted?.();
     if(!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;if(!closed&&db.open&&!db.inTransaction)arm();});}
   }
-  const cooperation=createThreadedCooperation(db,{...options,onCommitted:notifyCommitted});
+  let actions:ReturnType<typeof createThreadedActions>;
+  const cooperation=createThreadedCooperation(db,{...options,onCommitted:notifyCommitted,actionScope:{
+    capture:b=>actions?.capture(b)??null,valid:(f,a)=>actions.valid(f,a),
+    assertBinding:b=>actions?.assertBinding(b),bindMessage:(id,f)=>actions.bindMessage(id,f)}});
   const routing=createThreadedRouting(db,{...options,onCommitted:notifyCommitted,identity:cooperation.identity});
+  actions=createThreadedActions(db,{...options,...options.actions,cooperation,routing});
+  const commands=createActionCommands(db,{...options,actions,cooperation,ports:options.actions?.commands});
   const tracking=createThreadedTracking(db,cooperation,{thread_messages:threadedMessageTrackingSource(db,options.messages),...options.trackingSources});
-  const tools=createThreadedTools(db,{...options,onCommitted:notifyCommitted,cooperation,routing,prepareTracking:tracking.prepare});
+  const tools=createThreadedTools(db,{...options,onCommitted:notifyCommitted,cooperation,routing,actions,commands,prepareTracking:tracking.prepare});
   function terminalWithin(input:CollaborationTerminal) {
     const route=routing.sourceRoute(input.binding);
     const source=cooperation.source(input.binding);
@@ -53,18 +66,21 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
       }
     }
     cooperation.onTerminalWithin(input);
+    actions.onTerminalWithin(input);
   }
-  return {routing,cooperation,tools,tracking,terminalWithin,notifyCommitted,
+  return {routing,cooperation,tools,tracking,actions,commands,terminalWithin,notifyCommitted,
     responseWithin(binding:ThreadedBinding,key:string,proof:QuiescenceProof,input:ThreadedMessagePayload) {
       const boundary=cooperation.boundary(binding,input.sourceRefs??[]);
       if(input.visibility==='private'){
         const audience=input.audience??boundary.audience;
         if(boundary.visibility==='private'&&audience.some(id=>!boundary.audience.includes(id)))reject('THREADED_TOOL_VISIBILITY_CONFLICT',403);
-        return routing.responseWithin(binding,key,proof,{...input,...boundary,visibility:'private',audience});
+        const receipt=routing.responseWithin(binding,key,proof,{...input,...boundary,visibility:'private',audience});
+        actions.bindMessage(receipt.message.id,actions.capture(binding));return receipt;
       }
-      return routing.responseWithin(binding,key,proof,{...input,...boundary});
+      const receipt=routing.responseWithin(binding,key,proof,{...input,...boundary});
+      actions.bindMessage(receipt.message.id,actions.capture(binding));return receipt;
     },
-    recover(){const result=cooperation.recover();arm();return result;},
+    recover(){const result=cooperation.recover();cooperation.transaction(()=>{actions.recoverWithin();cooperation.recoverWithin();});arm();return result;},
     diagnostics:()=>({lastError,closed}),
     close(){closed=true;if(timer)clearTimeout(timer);},
   };

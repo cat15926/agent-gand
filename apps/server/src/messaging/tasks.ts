@@ -1,4 +1,4 @@
-import { legacyRunIdsSql } from '../runs/legacyMode.ts';
+import { legacyRunIdsSql,assertLegacyRun } from '../runs/legacyMode.ts';
 /**
  * 共享任务列表（规格 §6：P0-3 收件箱 + 共享任务列表 + 锁 → messaging/*）
  * 三态流转 pending → in_progress → completed；
@@ -76,6 +76,7 @@ export interface CreateTaskInput {
 }
 
 export function createTask(input: CreateTaskInput): Task {
+  if(input.runId)assertLegacyRun(input.runId);
   const task: Task = {
     id: randomUUID(),
     runId: input.runId ?? null,
@@ -123,16 +124,16 @@ export function createTask(input: CreateTaskInput): Task {
 export function listTasks(runId?: string): Task[] {
   const rows =
     runId === undefined
-      ? all<TaskRow>('SELECT * FROM tasks ORDER BY created_at ASC, rowid ASC')
+      ? all<TaskRow>('SELECT * FROM tasks WHERE NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id) ORDER BY created_at ASC, rowid ASC')
       : all<TaskRow>(
-          'SELECT * FROM tasks WHERE run_id = ? ORDER BY created_at ASC, rowid ASC',
+          'SELECT * FROM tasks WHERE run_id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id) ORDER BY created_at ASC, rowid ASC',
           runId,
         );
   return rows.map(rowToTask);
 }
 
 export function getTask(id: string): Task | undefined {
-  const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+  const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
   return row ? rowToTask(row) : undefined;
 }
 
@@ -156,7 +157,7 @@ function assertBlockersResolved(row: TaskRow): void {
  */
 export function claimTask(id: string, agentId: string): Task {
   return tx(() => {
-    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
     if (!row) throw new TaskError(`task 不存在: ${id}`, 404);
     if (row.status !== 'pending') {
       throw new TaskError(
@@ -190,7 +191,7 @@ export function claimTask(id: string, agentId: string): Task {
 /** 完成任务：仅 assignee 本人在 in_progress 状态可完成 */
 export function completeTask(id: string, agentId: string, result?: string | null): Task {
   return tx(() => {
-    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
     if (!row) throw new TaskError(`task 不存在: ${id}`, 404);
     if (row.status !== 'in_progress') {
       throw new TaskError(`task 不在 in_progress 状态（当前 ${row.status}）`, 409);
@@ -222,7 +223,7 @@ export interface TransitionTaskInput {
 /** 调度状态转换：expected status 与更新在同一事务，防重复 scheduler tick。 */
 export function transitionTask(id: string, input: TransitionTaskInput): Task {
   return tx(() => {
-    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
     if (!row) throw new TaskError(`task 不存在: ${id}`, 404);
     const allowed = Array.isArray(input.from) ? input.from : [input.from];
     if (!allowed.includes(row.status as TaskStatus)) {
@@ -247,7 +248,7 @@ export function transitionTask(id: string, input: TransitionTaskInput): Task {
 /** needs_revision 再次交给原 assignee，增加工作尝试次数。 */
 export function claimRevision(id: string, agentId: string): Task {
   return tx(() => {
-    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
     if (!row) throw new TaskError(`task 不存在: ${id}`, 404);
     if (row.status !== 'needs_revision') throw new TaskError(`task 不在 needs_revision 状态`, 409);
     if (row.assignee !== agentId) throw new TaskError(`返工只能由原 assignee ${row.assignee ?? '-'} 执行`, 409);
@@ -276,7 +277,7 @@ export function failTask(id: string, error: string): Task {
 
 export function retryTask(id: string): Task {
   return tx(() => {
-    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ?', id);
+    const row = get<TaskRow>('SELECT * FROM tasks WHERE id = ? AND NOT EXISTS(SELECT 1 FROM threaded_task_ownership WHERE task_id=tasks.id)', id);
     if (!row) throw new TaskError(`task 不存在: ${id}`, 404);
     if (row.status !== 'failed') throw new TaskError(`仅 failed task 可人工重试`, 409);
     const now = new Date().toISOString();

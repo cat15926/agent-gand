@@ -63,6 +63,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
   repairIntervalMs?: number;
   ownerNonce?: string;
   trackingSources?:Record<string,ThreadedTrackingSource>;
+  actions?:import('./actionTypes.ts').ActionOptions;
   /** Optional additional operator acceptance cap; reserve runs in the admission transaction. */
   onRequestReserved?: (authorizationId: string, request: BackendRequestDescription) => void;
   onRequestSettled?: (authorizationId: string, receipt: { inputTokens: number | null; outputTokens: number | null }) => void;

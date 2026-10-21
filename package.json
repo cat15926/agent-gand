@@ -182,7 +182,9 @@
     "verify:threaded-collaboration-api": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-collaboration-api.mjs",
     "verify:threaded-view": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-view.mjs",
     "verify:threaded-view-api": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-view-api.mjs",
-    "verify:threaded-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-ui.mjs"
+    "verify:threaded-ui": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-ui.mjs",
+    "verify:threaded-actions": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-actions.mjs",
+    "verify:threaded-actions-github": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-actions-github.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

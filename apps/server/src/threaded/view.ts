@@ -90,9 +90,20 @@ export function createThreadedView(db:Database.Database,options:{
         .map(a=>({id:a.id,invocationId:a.invocation_id,agentId:a.agent_id,state:a.status}));
       const eventCursor=(db.prepare('SELECT COALESCE(MAX(seq),0) seq FROM threaded_outbox WHERE owner_id=? AND thread_id=?').get(ownerId,threadId) as {seq:number}).seq;
       const routingVersion=(db.prepare('SELECT version FROM threaded_routing_policies WHERE owner_id=? AND thread_id=?').get(ownerId,threadId) as {version:number}|undefined)?.version??0;
+      const actions=(db.prepare('SELECT a.id,a.generation,a.state,g.record FROM threaded_actions a JOIN threaded_action_generations g ON g.action_id=a.id AND g.generation=a.generation WHERE a.owner_id=? AND a.thread_id=? ORDER BY a.updated_at DESC LIMIT 100')
+        .all(ownerId,threadId) as Array<{id:string;generation:number;state:string;record:string}>).flatMap(a=>{
+        const g=JSON.parse(a.record) as import('./actionTypes.ts').ActionGeneration;
+        if(g.scope.sourceRefs.some(id=>!sourceReadable(ownerId,id)))return [];
+        const check=db.prepare('SELECT status,checked_at FROM threaded_action_freshness WHERE action_id=? AND generation=?').get(a.id,a.generation) as {status:string;checked_at:number}|undefined;
+        return [{id:a.id,subject:g.subject,predicate:g.predicate,generation:a.generation,state:a.state,freshness:g.freshness,
+          freshnessStatus:g.subject.kind==='task'?'verified':check&&Date.now()-check.checked_at<=30_000?check.status:'unverifiable',approvalGateSatisfied:false as const,
+          commands:db.prepare(`SELECT c.id,c.agent_id agentId,c.generation,c.state,w.state waitState FROM threaded_commands c
+            LEFT JOIN threaded_command_waits w ON w.command_id=c.id WHERE c.action_id=? AND (c.generation=? OR c.state IN ('running','unknown')) ORDER BY c.created_at DESC LIMIT 100`)
+            .all(a.id,a.generation) as Array<{id:string;agentId:string;generation:number;state:string;waitState:string|null}>,
+          holders:db.prepare('SELECT agent_id agentId,outcome FROM threaded_action_holders WHERE action_id=? AND generation=?').all(a.id,a.generation) as Array<{agentId:string;outcome:string|null}>}];});
       const value={httpVersion:'threaded-http-v1' as const,schemaVersion:1 as const,thread,members,messages,nextBeforeSeq:rows.length>100?rows[99]!.seq:null,
         invocations,progress,waits,consultations,memberControls,memberQueues,approvals,eventCursor,routingVersion,capabilities:(options.capabilities??threadedCapabilities)(),
-        business:{available:false as const,label:'业务责任与完成状态待接入'}};
+        business:{available:true,label:actions.length?`${actions.filter(a=>a.state==='completed').length}/${actions.length} 项责任已完成`:'尚无业务责任',actions}};
       return {...value,revision:createHash('sha256').update(JSON.stringify(value)).digest('hex')};
     })();
   }
