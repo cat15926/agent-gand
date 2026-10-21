@@ -23,8 +23,19 @@ async function run(f,receipt,handler){if(receipt)for(const w of receipt.wakes)f.
   const claim=f.runtime.queue.claimNext('t10');assert.ok(claim,'claim expected');f.activeClaim=claim;f.handler=handler;
   const result=await f.runtime.executeClaim(claim);f.handler=undefined;if(f.handlerError)throw f.handlerError;assert.equal(result.status,'completed',JSON.stringify(result));return claim;
 }
+async function runFor(f,agent,handler){
+  for(let n=0;n<8;n++){let handled=false;const claim=await run(f,undefined,async claim=>{
+    if(claim.binding.agentId===agent){handled=true;return handler(claim);}return 'Unrelated durable notification processed';});if(handled)return claim;}
+  assert.fail(`No queued work for ${agent}`);
+}
 const tool=async(f,claim,name,input,key=randomUUID())=>JSON.parse(await f.runtime.collaboration.tools.execute(claim.binding,name,input,key,THREADED_APPLICATION_TOOL_NAMES));
 const ok=value=>{assert.equal(value.ok,true,JSON.stringify(value));return value.result;};
+/** New Actions exercise the complete T11 request/revision/author-route contract, including negative HEAD checks. */
+async function submitReview(f,claim,input){
+  const context=ok(await tool(f,claim,'review_context',{actionId:input.actionId}));
+  return tool(f,claim,'submit_review',{expectedVersion:context.workflowVersion,authorAgentId:context.authorAgentId,
+    acceptedSourceMessageId:context.acceptedSourceMessageId,acceptedRevision:context.acceptedRevision,resolvedFindingIds:[],...input});
+}
 const transfer=(taskId,targets=['other-member'],extra={})=>({idempotencyKey:randomUUID(),subject:{kind:'task',taskId},predicate:'task_done',family:'work',successorSlot:'primary',targets,...extra});
 const prTransfer=(extra={})=>({idempotencyKey:randomUUID(),subject:{kind:'github_pr',repository:'test/repo',number:16},predicate:'review_delivered',family:'review',successorSlot:'review',targets:['other-member'],...extra});
 let head='a'.repeat(40),unavailable=false,authVersion=1,prReads=0;
@@ -132,7 +143,7 @@ try{
       const answer=ok(await tool(f,claim,'transfer_action',prTransfer({operation:'return',expectedGeneration:1,targets:['api-member'],parallelIntent:'Independent security and correctness review'})));
       assert.equal(answer.returned,false);assert.equal(answer.generation,1);assert.equal(f.db.prepare('SELECT state FROM threaded_actions').get().state,'active');return 'one parallel holder rejected ownership';});
     await run(f,undefined,async claim=>{
-      const review=ok(await tool(f,claim,'publish_action_review',{idempotencyKey:'review',actionId:action.actionId,expectedGeneration:1,reviewedHeadSha:head,verdict:'approved',findings:[],body:'Independent other holder delivery.'}));
+      const review=ok(await submitReview(f,claim,{idempotencyKey:'review',actionId:action.actionId,expectedGeneration:1,reviewedHeadSha:head,verdict:'approved',findings:[],body:'Independent other holder delivery.'}));
       const done=ok(await tool(f,claim,'complete_action',{idempotencyKey:'done',actionId:action.actionId,expectedGeneration:1,evidenceId:review.evidenceId}));
       assert.equal(done.state,'replaceable');return 'other parallel holder retained its responsibility';});
     // All holders are terminal but one rejected ownership: never leave an active lease with no eligible holder.
@@ -141,18 +152,17 @@ try{
     checks.push('Parallel review: explicit intent is mandatory, one rejection cannot transfer other holders to a predecessor, and one successful review does not complete a failed parallel responsibility');
   }
   {
-    head='a'.repeat(40);const f=await fixture('two-process-complete-replace',{actions:{pr:prSource}});let action;
-    await run(f,f.user('completion versus replacement'),async claim=>{action=ok(await tool(f,claim,'transfer_action',prTransfer()));return 'assigned';});
-    await run(f,undefined,async claim=>{ok(await tool(f,claim,'transfer_action',prTransfer({operation:'return',expectedGeneration:1,targets:['api-member']})));return 'return';});
+    head='a'.repeat(40);const f=await fixture('two-process-complete-return',{actions:{pr:prSource}});let action;
+    await run(f,f.user('completion versus return'),async claim=>{action=ok(await tool(f,claim,'transfer_action',prTransfer()));return 'assigned';});
     await run(f,undefined,async claim=>{
-      const review=ok(await tool(f,claim,'publish_action_review',{idempotencyKey:'review',actionId:action.actionId,expectedGeneration:2,reviewedHeadSha:head,verdict:'approved',findings:[],body:'Current returned responsibility reviewed independently.'}));
-      const results=await race(f,claim.binding,[{name:'complete_action',input:{idempotencyKey:'complete-race',actionId:action.actionId,expectedGeneration:2,evidenceId:review.evidenceId}},
-        {name:'transfer_action',input:prTransfer({operation:'replace',expectedGeneration:2,targets:['sdk-member']})}]);
+      const review=ok(await submitReview(f,claim,{idempotencyKey:'review',actionId:action.actionId,expectedGeneration:1,reviewedHeadSha:head,verdict:'approved',findings:[],body:'Current independent holder published the complete accepted-source review.'}));
+      const results=await race(f,claim.binding,[{name:'complete_action',input:{idempotencyKey:'complete-race',actionId:action.actionId,expectedGeneration:1,evidenceId:review.evidenceId}},
+        {name:'transfer_action',input:prTransfer({operation:'return',expectedGeneration:1,targets:['api-member']})}]);
       assert.equal(results.filter(r=>r.ok).length,1);
-      const state=f.db.prepare('SELECT generation,state FROM threaded_actions').get();assert.ok((state.generation===2&&state.state==='completed')||(state.generation===3&&state.state==='active'));
+      const state=f.db.prepare('SELECT generation,state FROM threaded_actions').get();assert.ok((state.generation===1&&state.state==='completed')||(state.generation===2&&state.state==='active'));
       const rejected=results.find(r=>!r.ok);assert.ok(['THREADED_ACTION_STALE_GENERATION','THREADED_ACTION_ALREADY_COMPLETED','THREADED_ACTION_REPLACEMENT_PROOF_REQUIRED'].includes(rejected.code));
       return 'CAS race settled once';});
-    checks.push('A03: actual two-process completion versus proven returned-holder replacement commits one winner; stale generation cannot complete or replace a successor and immutable history remains');
+    checks.push('A03: actual two-process completion versus exact-predecessor return commits one winner after a full independent review; stale generation cannot complete or return a successor and immutable history remains. Proven returned/failed-holder replacement is separately checked below; the original author cannot self-review a returned responsibility');
   }
   {
     const f=await fixture('replacement-and-return');let task,action;
@@ -200,17 +210,23 @@ try{
       const args={actionId:action.actionId,expectedGeneration:1};
       assert.equal((await tool(f,claim,'run_command',{idempotencyKey:'unregistered',...args,command:'arbitrary-shell',args:{job:'safe'}})).code,'THREADED_COMMAND_NOT_AUTHORIZED');
       assert.equal((await tool(f,claim,'multi_mention',{idempotencyKey:'forbidden',targets:['api-member'],question:'review',callbackTo:'other-member',overrideReason:'action review',action:{family:'review'}})).ok,false);
-      const review=ok(await tool(f,claim,'publish_action_review',{idempotencyKey:'review',...args,reviewedHeadSha:head,verdict:'changes_requested',findings:['Missing test'],body:'Please add the missing test.'}));
+      assert.equal((await tool(f,claim,'publish_action_review',{idempotencyKey:'legacy-first-bypass',...args,reviewedHeadSha:head,verdict:'approved',findings:[],body:'A newly admitted Action cannot bypass the complete review contract.'})).code,'THREADED_REVIEW_FULL_CONTRACT_REQUIRED');
+      const review=ok(await submitReview(f,claim,{idempotencyKey:'review',...args,reviewedHeadSha:head,verdict:'changes_requested',findings:['Missing test'],body:'Please add the missing test.'}));
       assert.equal(review.approvalGateSatisfied,false);
       const done=ok(await tool(f,claim,'complete_action',{idempotencyKey:'review-done',...args,evidenceId:review.evidenceId}));assert.equal(done.state,'completed');assert.equal(done.approvalGateSatisfied,false);return 'review delivered';});
     head='b'.repeat(40);await f.runtime.collaboration.actions.refreshFreshness();
     assert.equal(f.runtime.collaboration.actions.snapshot(f.thread.ownerId,f.thread.id)[0].freshnessStatus,'stale');
     await run(f,undefined,async claim=>{assert.equal(claim.binding.agentId,'api-member');
-      const revision=ok(await tool(f,claim,'transfer_action',prTransfer({operation:'revision',expectedGeneration:1})));
+      assert.equal((await tool(f,claim,'transfer_action',prTransfer({operation:'revision',expectedGeneration:1}))).code,'THREADED_REVIEW_REVISION_RESPONSES_REQUIRED');
+      const context=ok(await tool(f,claim,'review_context',{actionId:action.actionId}));
+      const revision=ok(await tool(f,claim,'start_review_revision',{idempotencyKey:'t11-legacy-revision',actionId:action.actionId,expectedGeneration:1,expectedVersion:context.workflowVersion,targets:['other-member'],
+        responses:context.findings.map(finding=>({findingId:finding.id,body:'Missing test addressed for the new HEAD.',disposition:'addressed'}))}));
       assert.equal(revision.generation,2);return 'new HEAD needs new independent review';});
-    await run(f,undefined,async claim=>{const args={actionId:action.actionId,expectedGeneration:2};
-      assert.equal((await tool(f,claim,'publish_action_review',{idempotencyKey:'old-head',...args,reviewedHeadSha:'a'.repeat(40),verdict:'approved',findings:[],body:'old report'})).code,'THREADED_REVIEW_STALE_HEAD');
-      const review=ok(await tool(f,claim,'publish_action_review',{idempotencyKey:'new-review',...args,reviewedHeadSha:head,verdict:'approved',findings:[],body:'New HEAD independently reviewed.'}));
+    await runFor(f,'other-member',async claim=>{const args={actionId:action.actionId,expectedGeneration:2};
+      assert.equal((await submitReview(f,claim,{idempotencyKey:'old-head',...args,reviewedHeadSha:'a'.repeat(40),verdict:'approved',findings:[],body:'old report'})).code,'THREADED_REVIEW_STALE_HEAD');
+      const context=ok(await tool(f,claim,'review_context',{actionId:action.actionId}));
+      const review=ok(await tool(f,claim,'submit_review',{idempotencyKey:'new-review',...args,expectedVersion:context.workflowVersion,authorAgentId:context.authorAgentId,acceptedSourceMessageId:context.acceptedSourceMessageId,acceptedRevision:context.acceptedRevision,
+        reviewedHeadSha:head,verdict:'approved',findings:[],resolvedFindingIds:context.findings.map(f=>f.id),body:'New HEAD independently reviewed.'}));
       head='c'.repeat(40);
       assert.equal((await tool(f,claim,'complete_action',{idempotencyKey:'head-race',...args,evidenceId:review.evidenceId})).code,'THREADED_REVIEW_STALE_HEAD');return 'HEAD changed during completion';});
     unavailable=true;await f.runtime.collaboration.actions.refreshFreshness();unavailable=false;
@@ -226,7 +242,7 @@ try{
       assert.equal(returned.generation,2);return 'author receives exactly the frozen old responsibility';});
     await run(f,undefined,async claim=>{
       const view=ok(await tool(f,claim,'read_action',{actionId:action.actionId}));assert.equal(view.freshness,`head:${'a'.repeat(40)}`);
-      assert.equal((await tool(f,claim,'publish_action_review',{idempotencyKey:'self-review',actionId:action.actionId,expectedGeneration:2,reviewedHeadSha:head,verdict:'approved',findings:[],body:'author assertion'})).code,'THREADED_REVIEW_STALE_HEAD');
+      assert.equal((await submitReview(f,claim,{idempotencyKey:'self-review',actionId:action.actionId,expectedGeneration:2,reviewedHeadSha:head,verdict:'approved',findings:[],body:'author assertion'})).code,'THREADED_REVIEW_STALE_HEAD');
       const newGeneration=ok(await tool(f,claim,'transfer_action',prTransfer({operation:'replace',expectedGeneration:2})));
       assert.equal(newGeneration.generation,3);return 'new current HEAD goes to a fresh independent reviewer';});
     checks.push('Return semantics: author/predecessor may receive rejected responsibility without gaining independent-review approval; return preserves the original frozen HEAD, and exact returned-holder proof is required to reassign a fresh HEAD');
@@ -275,5 +291,5 @@ try{
   }
   const report={ok:true,groups:checks.length,checks,faults,injectedHttpCalls,prReads,realModelCalls:0,externalNetworkCalls:0,
     scope:'real platform task tables/facade and SQLite/runtime; PR and command transport explicitly injected; not real GitHub acceptance'};
-  const evidence=path.resolve('docs/reports/evidence/threaded-t10-actions');await mkdir(evidence,{recursive:true});await writeFile(path.join(evidence,'isolated.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
+  const evidence=path.resolve(process.env.THREADED_ACTIONS_OUTPUT??'docs/reports/evidence/threaded-t10-actions');await mkdir(evidence,{recursive:true});await writeFile(path.join(evidence,'isolated.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));
 }finally{for(const f of fixtures)f.close();await rm(root,{recursive:true,force:true});}

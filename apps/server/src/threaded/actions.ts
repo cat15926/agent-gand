@@ -140,7 +140,7 @@ export function createThreadedActions(db:Database.Database,options:Collaboration
       else if(!db.prepare('SELECT 1 FROM threaded_action_holders WHERE action_id=? AND generation=? AND outcome IS NULL').get(a.id,a.generation))markReplaceable(a);
       c.recoverWithin();return {candidateId,verified:true,state:row(a.id)!.state,approvalGateSatisfied:false};
   }
-  function transfer(binding:ThreadedBinding,input:Record<string,unknown>,p:Prepared){
+  function transfer(binding:ThreadedBinding,input:Record<string,unknown>,p:Prepared,workflowRevision=false){
     const s=subject(input.subject),predicate=text(input.predicate),family=text(input.family),slot=text(input.successorSlot);
     if(slot!==(s.kind==='task'?'primary':'review'))reject('THREADED_ACTION_SUCCESSOR_SLOT_UNREGISTERED',400);
     if((s.kind==='task'&&(predicate!=='task_done'||family!=='work'))||(s.kind==='github_pr'&&(predicate!=='review_delivered'||family!=='review')))
@@ -152,6 +152,7 @@ export function createThreadedActions(db:Database.Database,options:Collaboration
     const existing=db.prepare('SELECT * FROM threaded_actions WHERE owner_id=? AND subject_key=? AND family=? AND slot=?')
       .get(binding.ownerId,subjectKey(s),family,slot) as ActionRow|undefined;
     const prior=existing?generation(existing):undefined;
+    if(existing&&operation==='revision'&&!workflowRevision&&(db.prepare('SELECT 1 FROM threaded_review_workflows WHERE action_id=?').get(existing.id)||db.prepare("SELECT 1 FROM threaded_action_evidence WHERE action_id=? AND kind='published_review'").get(existing.id)))reject('THREADED_REVIEW_REVISION_RESPONSES_REQUIRED');
     // Canonical identity is instance-wide, while standing and return routes remain frozen to their home Thread.
     if(existing&&existing.thread_id!==binding.threadId)reject('THREADED_ACTION_CANONICAL_CONFLICT');
     if(existing){owned(binding,existing.id);
@@ -190,6 +191,8 @@ export function createThreadedActions(db:Database.Database,options:Collaboration
       criteriaHash=t.criteria_hash;freshness=`task:${s.taskId}:criteria:${criteriaHash}`;standing=digest({creator:t.creator_id,criteriaHash});
     }else{
       const {auth,fact}=pr(binding,s,p);prFact=fact;freshness=`head:${fact.headSha}`;standing=prior?.standing??auth.fingerprint;
+      if(existing&&prior&&operation==='replace'&&!workflowRevision&&freshness!==prior.freshness
+        &&(db.prepare('SELECT 1 FROM threaded_review_workflows WHERE action_id=?').get(existing.id)||db.prepare("SELECT 1 FROM threaded_action_evidence WHERE action_id=? AND kind='published_review'").get(existing.id)))reject('THREADED_REVIEW_REVISION_RESPONSES_REQUIRED');
       if(prior&&options.pr?.authorize(prior.predecessor.binding,s.repository)?.fingerprint!==prior.standing)reject('THREADED_ACTION_STANDING_MISMATCH',403);
       if(!existing&&!auth.mayAssign)reject('THREADED_ACTION_STANDING_MISMATCH',403);
       for(const target of operation==='return'?[]:targets){const actor=options.pr?.authorize({...binding,agentId:target},s.repository);
@@ -243,6 +246,8 @@ export function createThreadedActions(db:Database.Database,options:Collaboration
       return {...transition,evidenceId,status:'completed',actionCompleted:false};
     }
     if(name==='publish_action_review'){
+      if(!db.prepare('SELECT 1 FROM threaded_review_legacy_admissions WHERE action_id=? AND generation=?').get(a.id,a.generation)
+        ||db.prepare('SELECT 1 FROM threaded_review_workflows WHERE action_id=?').get(a.id))reject('THREADED_REVIEW_FULL_CONTRACT_REQUIRED');
       if(g.subject.kind!=='github_pr')reject('THREADED_ACTION_PREDICATE_MISMATCH');
       const {auth,fact}=pr(binding,g.subject,p),head=text(input.reviewedHeadSha).toLowerCase();
       if(fact.headSha!==g.pr?.headSha||head!==fact.headSha)reject('THREADED_REVIEW_STALE_HEAD');
@@ -346,6 +351,10 @@ export function createThreadedActions(db:Database.Database,options:Collaboration
       if(valid({actionId:v.action_id,generation:v.generation},v.agent_id))recordOutcome(row(v.action_id)!,v.agent_id,'unavailable',{queueId:v.id,reason:v.reason});
     }
   }
-  return {prepare,executeWithin,capture,valid,assertBinding,bindMessage,admission,snapshot,held,generation,owned,refreshFreshness,onTerminalWithin,recoverWithin,
+  function reviewRevisionWithin(binding:ThreadedBinding,input:Record<string,unknown>,p:Prepared){
+    c.running(binding);if(!db.inTransaction||!['revision','replace'].includes(String(input.operation))||object(input.subject).kind!=='github_pr')reject('THREADED_REVIEW_REVISION_INTERNAL_REQUIRED');
+    return transfer(binding,input,p,true);
+  }
+  return {prepare,executeWithin,reviewRevisionWithin,capture,valid,assertBinding,bindMessage,admission,snapshot,held,generation,owned,refreshFreshness,onTerminalWithin,recoverWithin,
     privacySources,assertReadable(binding:ThreadedBinding,id:string){if(!readable(binding,id))reject('THREADED_ACTION_SOURCE_FORBIDDEN',403);}};
 }

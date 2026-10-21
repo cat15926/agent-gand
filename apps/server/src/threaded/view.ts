@@ -4,6 +4,9 @@ import type {ThreadedViewSnapshot,ThreadedChangePage,ThreadedCapabilities,Thread
 import type {createThreadedStore} from './store.ts';
 import type {createThreadedMessages} from './messages.ts';
 import {ThreadedAccessError} from './access.ts';
+import {snapshotThreadedSops} from './sop.ts';
+import {threadedKnowledgeOwnerSnapshot} from './knowledge.ts';
+import type {ThreadedReviewWorkflow} from './reviews.ts';
 import {threadedCapabilities} from './policy.ts';
 
 /** Read-only Owner projection. No native transcript, execution fence, credentials or write ports. */
@@ -101,9 +104,23 @@ export function createThreadedView(db:Database.Database,options:{
             LEFT JOIN threaded_command_waits w ON w.command_id=c.id WHERE c.action_id=? AND (c.generation=? OR c.state IN ('running','unknown')) ORDER BY c.created_at DESC LIMIT 100`)
             .all(a.id,a.generation) as Array<{id:string;agentId:string;generation:number;state:string;waitState:string|null}>,
           holders:db.prepare('SELECT agent_id agentId,outcome FROM threaded_action_holders WHERE action_id=? AND generation=?').all(a.id,a.generation) as Array<{agentId:string;outcome:string|null}>}];});
+      const sources=(ids:string[])=>ids.flatMap(id=>{const m=sourceReadable(ownerId,id);return m?[{id:m.id,threadId:m.threadId,seq:m.seq}]:[];});
+      const reviews=(db.prepare('SELECT w.record,a.generation current_generation FROM threaded_review_workflows w JOIN threaded_actions a ON a.id=w.action_id WHERE w.owner_id=? AND w.thread_id=? ORDER BY w.updated_at DESC LIMIT 100')
+        .all(ownerId,threadId) as Array<{record:string;current_generation:number}>).flatMap(row=>{
+        const w=JSON.parse(row.record) as ThreadedReviewWorkflow;if(w.scope.sourceRefs.some(id=>!sourceReadable(ownerId,id)))return [];
+        const gate=db.prepare('SELECT record FROM threaded_review_gate_checks WHERE action_id=? ORDER BY rowid DESC LIMIT 1').get(w.actionId) as {record:string}|undefined;
+        const last=gate?JSON.parse(gate.record) as {status:string;checkedAt:number;headSha:string;workflowVersion:number;generation:number;sourceRefs:string[]}:null;
+        // A read-only projection has no live remote authority. Successful past checks remain historical facts.
+        const valid=last&&last.sourceRefs.every(id=>sourceReadable(ownerId,id));
+        return [{actionId:w.actionId,version:w.version,generation:w.generation,headSha:w.headSha,state:row.current_generation===w.generation?w.state:'stale',authorAgentId:w.authorAgentId,
+          findings:w.findings.map(f=>({id:f.id,text:f.text,state:f.state})),reports:Object.values(w.reports).map(r=>({reviewerId:r.reviewerId,verdict:r.verdict,messageId:r.messageId,headSha:r.headSha})),
+          sources:sources(w.scope.sourceRefs),lastGate:valid?{status:last.generation!==row.current_generation||last.workflowVersion!==w.version?'stale':last.status,checkedAt:last.checkedAt,headSha:last.headSha,currentApproval:false as const}:null}];
+      });
+      const sops=snapshotThreadedSops(db,{messages:options.messages},ownerId,threadId).map(s=>({id:s.id,sopKey:s.sopKey,version:s.version,title:s.title,stage:s.stage,baton:s.baton,checks:s.checks.map(c=>({id:c.id,label:c.label,state:c.state,...(c.verifiedFact?{verifiedFact:{kind:c.verifiedFact.kind,taskId:c.verifiedFact.taskId,taskVersion:c.verifiedFact.taskVersion}}:{})})),sources:sources(s.sourceRefs)}));
+      const knowledge={retrieval:'literal_substring' as const,items:threadedKnowledgeOwnerSnapshot(db,ownerId,threadId).items.filter(k=>k.sourceMessageIds.every(id=>sourceReadable(ownerId,id))).map(k=>({knowledgeId:k.knowledgeId,version:k.version,title:k.title,body:k.body,status:k.status,replacementId:k.replacementId,sources:sources(k.sourceMessageIds)}))};
       const value={httpVersion:'threaded-http-v1' as const,schemaVersion:1 as const,thread,members,messages,nextBeforeSeq:rows.length>100?rows[99]!.seq:null,
         invocations,progress,waits,consultations,memberControls,memberQueues,approvals,eventCursor,routingVersion,capabilities:(options.capabilities??threadedCapabilities)(),
-        business:{available:true,label:actions.length?`${actions.filter(a=>a.state==='completed').length}/${actions.length} 项责任已完成`:'尚无业务责任',actions}};
+        business:{available:true,label:actions.length?`${actions.filter(a=>a.state==='completed').length}/${actions.length} 项责任已完成`:'尚无业务责任',actions,reviews,sops,knowledge}};
       return {...value,revision:createHash('sha256').update(JSON.stringify(value)).digest('hex')};
     })();
   }

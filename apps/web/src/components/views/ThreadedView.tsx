@@ -85,6 +85,15 @@ function ThreadWorkspace({api,id,reconnect}:{api:ThreadedApi;id:string;reconnect
           <div>持有人：{a.holders.map(h=>`${h.agentId}（${h.outcome??'待交付'}）`).join('、')}</div><div>领域校验：{a.freshnessStatus==='verified'?'已核验':a.freshnessStatus==='stale'?'版本已变化，需新评审':'当前不可核验'} · {a.freshness}</div>
           {a.predicate==='review_delivered'&&<div>评审交付与批准门禁分别核验；此处不授予业务批准。</div>}
           {a.commands?.map(command=><div key={command.id} className={command.state==='unknown'?'text-amber-300':''}>命令 {command.id} · 第 {command.generation} 代 · {command.state==='unknown'?'执行结果待核验':command.state==='running'?'执行中':command.state}{command.generation!==a.generation?'（历史责任，仍需对账）':''}</div>)}</li>)}</ul></details>}
+      {(!!s.business.reviews?.length||!!s.business.sops?.length||!!s.business.knowledge?.items.length)&&<details className="mt-2 text-xs text-zinc-400" data-testid="threaded-workflows"><summary className="min-h-11 cursor-pointer py-2">评审、SOP 与基础知识</summary><div className="max-h-64 space-y-3 overflow-auto">
+        {s.business.reviews?.map(r=><section key={r.actionId} className="break-words rounded border border-zinc-800 p-2"><h3>评审 · 第 {r.generation} 轮 · 版本 {r.version}</h3><p className="break-all">HEAD {r.headSha} · {r.state} · 作者 @{r.authorAgentId}</p>
+          {r.reports.map(report=><p key={report.messageId}>@{report.reviewerId}：{report.verdict==='approved'?'评审通过':report.verdict==='changes_requested'?'要求修改':'已交付意见'}</p>)}
+          <p>最近门禁：{r.lastGate?`${r.lastGate.status==='approved'?'当时核验通过':r.lastGate.status} · ${new Date(r.lastGate.checkedAt).toLocaleString('zh-CN')}`:'未核验'}；历史检查不授予当前批准，请重新核验当前 HEAD 与权限。</p>
+          <ul>{r.findings.map(f=><li key={f.id}>{f.state==='verified'?'已由独立评审核验':f.state==='attested'?'作者自述已修改':'待处理'} · {f.text}</li>)}</ul><WorkflowSources api={api} sources={r.sources}/></section>)}
+        {s.business.sops?.map(board=><section key={board.id} className="break-words rounded border border-zinc-800 p-2"><h3>SOP · {board.title} · 版本 {board.version}</h3><p>阶段：{board.stage} · 交棒：{board.baton??'未指定'}；告示状态不授予执行权。</p>
+          <ul>{board.checks.map(c=><li key={c.id}>{c.label} · {c.state==='verified'?`已核验任务事实 ${c.verifiedFact?.taskId} v${c.verifiedFact?.taskVersion}`:c.state==='attested'?'成员自述':'待核验'}</li>)}</ul><WorkflowSources api={api} sources={board.sources}/></section>)}
+        {!!s.business.knowledge?.items.length&&<section><h3>基础知识 · 字面匹配检索</h3>{s.business.knowledge.items.map(k=><details key={k.knowledgeId} className="break-words rounded border border-zinc-800 p-2"><summary className="min-h-11 cursor-pointer">{k.title} · v{k.version} · {k.status==='expired'?'已过期':k.status==='superseded'?'已替代':'有效'}</summary><div className="prose prose-invert max-w-none"><MarkdownBody text={k.body}/></div>{k.replacementId&&<p className="break-all">替代项：{k.replacementId}</p>}<WorkflowSources api={api} sources={k.sources}/></details>)}</section>}
+      </div></details>}
       {error&&<p role="alert" className="mt-2 text-sm text-red-300">{error}</p>}
     </header>
     <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -185,4 +194,9 @@ function RoutingEditor({policy,members,save}:{policy:{version:number;policy:Thre
       <div className="flex flex-wrap gap-2">{members.map(id=><label key={id} className="flex min-h-11 items-center gap-1"><input type="checkbox" checked={g.targets.includes(id)} onChange={e=>setGroups(rows=>rows.map((row,i)=>i===index?{...row,targets:e.target.checked?[...row.targets,id]:row.targets.filter(v=>v!==id)}:row))}/>@{id}</label>)}<button type="button" className="min-h-11 text-zinc-400" onClick={()=>setGroups(rows=>rows.filter((_,i)=>i!==index))}>移除群组</button></div></div>)}<button type="button" className="min-h-11 text-sky-300" onClick={()=>setGroups(rows=>[...rows,{name:'',targets:[]}])}>添加群组</button></fieldset>
     <button className={button} disabled={busy||!defaultAgent}>保存路由设置</button><span className="ml-2 text-zinc-500">版本 {policy?.version??0}</span>{error&&<p role="alert" className="text-red-300">{error}；重新加载设置后再试。</p>}
   </form>;
+}
+
+function WorkflowSources({api,sources}:{api:ThreadedApi;sources:Array<{id:string;threadId:string;seq:number}>}){
+  const [expanded,setExpanded]=useState<ThreadedMessageRecord[]>([]),[error,setError]=useState('');
+  return <details><summary className="min-h-11 cursor-pointer">获权来源（{sources.length}）</summary>{sources.map(source=><div key={source.id} className="break-all"><button className="min-h-11 text-sky-300" onClick={()=>void api.message(source.threadId,source.id).then(r=>{setExpanded(values=>[...values.filter(v=>v.id!==source.id),r.message]);setError('');}).catch(e=>{setExpanded(values=>values.filter(v=>v.id!==source.id));setError(explain(e));})}>展开 #{source.seq} · {source.id}</button>{expanded.find(v=>v.id===source.id)&&<div className="prose prose-invert max-w-none break-words"><MarkdownBody text={expanded.find(v=>v.id===source.id)!.body}/></div>}</div>)}{error&&<p role="alert" className="text-red-300">{error}</p>}</details>;
 }

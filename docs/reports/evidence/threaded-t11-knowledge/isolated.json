@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "groups": 8,
+  "checks": [
+    "MEM01 basics: exact message/Invocation anchors expand only authorized published platform messages, immutable versions and provenance survive SQLite/runtime rebuild; retrieval explicitly reports literal_substring, not semantics",
+    "MEM02/K09: fixed server-owned home collection, arbitrary collection/owner/thread/actor fields and future messages rejected; private knowledge, source bodies and another actor cursor cannot self-authorize",
+    "MEM02/CTX02: recursive cross-Thread source membership revocation hides derived read/search/expansion with the current home Binding still authorized, and privacySources rejects cached result reuse",
+    "MEM01 basics: natural expiry, explicit supersession, current replacement metadata and immutable historical content remain distinct; mutation idempotency, expectedVersion CAS and replacement validity enforced",
+    "MEM02: server-issued cursor pages are frozen, disjoint and bound to owner, home Thread, actor, authority fingerprint and expiry; a fresh legitimate Binding cannot reuse a cursor from before permission drift",
+    "DB01/REC01: two real IPC worker processes with independent SQLite connections compete at one barrier, exactly one expectedVersion update wins; producer SIGKILL after commit and a retry preserve one immutable version; runtime/SQLite rebuild reads durable result",
+    "DB01: injected faults at version/event/idempotency writes roll back the whole item/version/event receipt transaction; a successful retry commits one complete version",
+    "K09/CTX02 tool composition: all seven tools use the actual application allowlist and authenticated runtime; publish/read/literal search/source expansion/recent/anchor results persist complete privacySourceIds and session-version input exposures; downstream post/final cannot widen private source audience"
+  ],
+  "faults": [
+    {
+      "table": "threaded_knowledge_versions",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_knowledge_events",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_knowledge_operations",
+      "rolledBack": true
+    }
+  ],
+  "injectedModelCalls": 14,
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "isolated actual SQLite, runtime, authority, messages and knowledge domain; model transport injected; MEM01 semantic retrieval remains unimplemented; production entry closed"
+}

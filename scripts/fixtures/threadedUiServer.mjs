@@ -29,6 +29,18 @@ if(restore!=='restore'){
       const task=await tool('create_task',{idempotencyKey:'ui-task',title:'T10 UI 领域任务',acceptanceCriteria:['保存可核验的交付结果']});
       await tool('transfer_action',{idempotencyKey:'ui-action',subject:{kind:'task',taskId:task.taskId},predicate:'task_done',family:'work',successorSlot:'primary',targets:['other-member']});
     }
+    if(process.env.THREADED_UI_WORKFLOWS==='1'){
+      await tool('update_sop',{idempotencyKey:'ui-sop-create',sopKey:'ui-workflow',expectedVersion:0,title:'T11 UI 协作告示',stage:'准备评审',baton:'other-member',
+        checks:[{id:'attested',label:'T11 UI 自述检查',state:'attested'},{id:'unknown',label:'T11 UI 待核验检查',state:'unknown'}]});
+      await tool('update_sop',{idempotencyKey:'ui-sop-version',sopKey:'ui-workflow',expectedVersion:1,stage:'评审准备'});
+      const anchors=[{kind:'message',id:receipt.message.id}];
+      const expired=await tool('knowledge_publish',{idempotencyKey:'ui-knowledge-v1',title:'T11 UI 过期知识',body:'T11_UI_KNOWLEDGE_V1：初始授权记录。',anchors});
+      await tool('knowledge_publish',{idempotencyKey:'ui-knowledge-v2',knowledgeId:expired.knowledgeId,expectedVersion:1,title:'T11 UI 过期知识',body:'T11_UI_KNOWLEDGE_V2：第二版保留原始消息溯源。',anchors});
+      await tool('knowledge_mark',{idempotencyKey:'ui-knowledge-expire',knowledgeId:expired.knowledgeId,expectedVersion:2,status:'expired',reason:'T11 隔离验收显式过期，保留版本历史。'});
+      const current=await tool('knowledge_publish',{idempotencyKey:'ui-knowledge-current',title:'T11 UI 当前知识',body:'T11_UI_KNOWLEDGE_CURRENT：当前有效且有明确来源。',anchors});
+      const prior=await tool('knowledge_publish',{idempotencyKey:'ui-knowledge-prior',title:'T11 UI 替代知识',body:'T11_UI_KNOWLEDGE_SUPERSEDED：由当前知识替代。',anchors});
+      await tool('knowledge_mark',{idempotencyKey:'ui-knowledge-supersede',knowledgeId:prior.knowledgeId,expectedVersion:1,status:'superseded',replacementId:current.knowledgeId,reason:'T11 隔离验收显式替代。'});
+    }
   };
   const result=await f.runtime.executeClaim(claim);if(result.status!=='completed')throw new Error(JSON.stringify(result));handler=undefined;
   f.user('PRIVATE_T09_OWNER_ONLY',[],{visibility:'private',audience:['api-member']});
@@ -64,4 +76,6 @@ process.on('message',message=>{try{
   process.send?.({id:message.id,ok:true});
 }catch(e){process.send?.({id:message.id,error:e.message});}});
 process.send?.({type:'ready',threadId:f.thread.id,secondId:store.listThreads(f.thread.ownerId).find(t=>t.id!==f.thread.id).id,
-  decisionId:f.db.prepare("SELECT id FROM threaded_waits WHERE kind='decision'").get().id});
+  decisionId:f.db.prepare("SELECT id FROM threaded_waits WHERE kind='decision'").get().id,
+  ...(process.env.THREADED_UI_WORKFLOWS==='1'?{workflowSourceId:f.db.prepare("SELECT id FROM threaded_messages WHERE thread_id=? AND body='确认来源与三类回执'").get(f.thread.id).id}:{}),
+});

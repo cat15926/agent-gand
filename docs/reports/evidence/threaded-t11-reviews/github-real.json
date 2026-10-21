@@ -1,0 +1,167 @@
+{
+  "ok": true,
+  "date": "2026-10-21T11:08:25.084Z",
+  "scope": "Actual official GitHub REST GET, authorized Git credential in memory, exact accepted request/revision, authenticated local A2A report and real workflow/domain resolver in isolated SQLite; model transport injected",
+  "subject": {
+    "kind": "github_pr",
+    "repository": "zts212653/clowder-ai",
+    "number": 1660
+  },
+  "prUrl": "https://github.com/zts212653/clowder-ai/pull/1660",
+  "headSha": "e7cd997f308fe80d278bc2a451e12011339b42f2",
+  "olderHead": "5f133cf181dc18262846cf7f2fb8d8ba3c04cf6f",
+  "historicalApprovedReview": null,
+  "olderHeadRejected": true,
+  "acceptedRevisionMismatchRejected": true,
+  "authorLogin": "mindfn",
+  "reviewerLogin": "cat15926",
+  "localAuthorRoute": "api-member",
+  "localReviewer": "other-member",
+  "review": {
+    "verdict": "changes_requested",
+    "acceptedSource": "thread",
+    "acceptedRevision": 2,
+    "published": true,
+    "ordinaryA2ARoute": true,
+    "findingStates": [
+      "open"
+    ]
+  },
+  "actionState": "completed",
+  "gate": {
+    "status": "blocked",
+    "approvalGateSatisfied": false,
+    "externalApprovalGranted": false,
+    "reasons": [
+      "REQUIRED_REVIEW_NOT_APPROVED",
+      "FINDINGS_NOT_INDEPENDENTLY_VERIFIED"
+    ]
+  },
+  "authorWake": {
+    "ordinary": true,
+    "grantsActionStanding": false,
+    "sameCausalRoot": true,
+    "afterRuntimeAndSQLiteRebuild": true
+  },
+  "requests": [
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls?state=all&per_page=20",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1659/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1658/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1655/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1652/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1649/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1648/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1645/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1643/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1642/reviews?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660/commits?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660/files?per_page=100",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1660",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "injectedModelCalls": 3,
+  "realModelCalls": 0,
+  "realExternalWrites": 0,
+  "tokens": 0,
+  "limits": [
+    "This is domain workflow integration acceptance, not an engineering review approval or production release acceptance.",
+    "The actual PR author is an external GitHub account; the exact author route in this isolated platform Thread is the authenticated requester/predecessor.",
+    "No remote PR, comment, review, branch or commit was modified. A new live HEAD arriving during a wait was not observed; real dynamic new-event and revision/re-review still require separate acceptance."
+  ]
+}

@@ -22,7 +22,8 @@ const messageBoundary = await import('../apps/server/src/db/threadedMessagingMig
 const schedulingBoundary = await import('../apps/server/src/db/threadedSchedulingMigration.ts');
 const contextBoundary = await import('../apps/server/src/db/threadedContextMigration.ts');
 const collaborationBoundary = await import('../apps/server/src/db/threadedCollaborationMigration.ts');
-const latestVersion = 32;
+const actionBoundary = await import('../apps/server/src/db/threadedActionMigration.ts');
+const latestVersion = 33;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -73,6 +74,7 @@ const frozenMigration = revision => {
     if (name === './threadedSchedulingMigration.ts') return schedulingBoundary; // The v29 descriptor/DDL is unchanged.
     if (name === './threadedContextMigration.ts') return contextBoundary; // The v30 descriptor/DDL is unchanged.
     if (name === './threadedCollaborationMigration.ts') return collaborationBoundary;
+    if (name === './threadedActionMigration.ts') return actionBoundary; // The v32 descriptor/DDL is unchanged.
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
   return module.exports;
@@ -331,6 +333,59 @@ try {
   assert.throws(()=>v31Worker.assertOrchestrationSchemaCompatible(v31),/32.*不受此 worker 支持/);
   checks.push('actual frozen v31 upgrades atomically to v32; injected failure rolls back DDL, repeated upgrade preserves prior descriptors and a v31 worker rejects v32');
 
+  // Run the actual pushed T10/v32 catalog, including its immutable Action fragment.
+  const v32Worker=frozenMigration('c944c9d'),v32=bootstrap('v32.sqlite');
+  v32Worker.applyOrchestrationSchemaMigrations(v32);addAgent(v32,'agent-a');
+  assert.equal(v32.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,32);
+  const v32Thread=createThreadedStore(v32).createThread(input());v32.prepare("UPDATE threaded_threads SET state='open' WHERE id=?").run(v32Thread.id);
+  const v32Messages=frozenThreadedModule('c944c9d','apps/server/src/threaded/messages.ts').createThreadedMessages(v32);
+  const v32Input={ownerId:v32Thread.ownerId,threadId:v32Thread.id,clientRequestId:'v32-stable',body:'Preserve canonical Action and task facts',targets:['agent-a']};
+  const v32Receipt=v32Messages.acceptUserMessage(v32Input);
+  const v32Budget=frozenThreadedModule('c944c9d','apps/server/src/threaded/budget.ts').createThreadedBudget(v32,{});
+  const v32Root=v32Budget.ensureRootForMessage(v32Receipt.message.id);
+  const v32Queue=frozenThreadedModule('c944c9d','apps/server/src/threaded/queue.ts').createThreadedQueue(v32,{budget:v32Budget});
+  const v32Queued=v32Queue.enqueueWake(v32Receipt.wakes[0].id);
+  // Nonempty domain rows ensure v33 does not rewrite an old canonical subject, frozen criteria or holder.
+  const criteria=['Keep frozen acceptance'],criteriaHash=createHash('sha256').update(JSON.stringify(criteria)).digest('hex');
+  v32.prepare(`INSERT INTO tasks(id,title,status,created_by,assignee,acceptance_criteria,created_at,updated_at)
+    VALUES('v32-task','Preserved task','pending','agent-a','agent-a',?,'2026-10-21','2026-10-21')`).run(JSON.stringify(criteria));
+  v32.prepare('INSERT INTO threaded_task_ownership VALUES(?,?,?,\'agent-a\',1,?,?)')
+    .run('v32-task',v32Thread.ownerId,v32Thread.id,criteriaHash,JSON.stringify({sourceRefs:[v32Receipt.message.id]}));
+  v32.prepare("INSERT INTO threaded_actions VALUES('v32-action',?,?,'task:v32-task','work','primary',1,1,'active',?,1,1)")
+    .run(v32Thread.ownerId,v32Thread.id,v32Root.id);
+  v32.prepare("INSERT INTO threaded_action_generations VALUES('v32-action',1,?,1)").run(JSON.stringify({
+    subject:{kind:'task',taskId:'v32-task'},predicate:'task_done',criteriaHash,holders:['agent-a'],scope:{sourceRefs:[v32Receipt.message.id]},
+  }));
+  v32.prepare("INSERT INTO threaded_action_holders VALUES('v32-action',1,'agent-a',NULL,NULL)").run();
+  v32.prepare("INSERT INTO threaded_actions VALUES('v32-pr-action',?,?,'github:zts212653/clowder-ai#1','review','review',1,1,'active',?,1,1)")
+    .run(v32Thread.ownerId,v32Thread.id,v32Root.id);
+  const v32Tables=v32.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").all().map(r=>r.name);
+  const snapshot32=()=>Object.fromEntries(v32Tables.map(t=>[t,v32.prepare(`SELECT * FROM ${t}${t==='orchestration_schema_migrations'?' WHERE version<=32':''}`).all()]));
+  const rowsBefore33=snapshot32();
+  v32.exec("CREATE TRIGGER fixture_v33_failure BEFORE INSERT ON orchestration_schema_migrations WHEN NEW.version=33 BEGIN SELECT RAISE(ABORT,'fixture_v33_failure'); END;");
+  const schemaBefore33=tables(v32);
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v32),/fixture_v33_failure/);
+  assert.deepEqual(tables(v32),schemaBefore33);assert.deepEqual(snapshot32(),rowsBefore33);
+  for(const t of ['threaded_review_legacy_admissions','threaded_review_workflows','threaded_sops','threaded_knowledge'])assert.equal(v32.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE type='table' AND name=?").get(t).n,0);
+  v32.exec('DROP TRIGGER fixture_v33_failure');applyOrchestrationSchemaMigrations(v32);applyOrchestrationSchemaMigrations(v32);
+  assert.deepEqual(snapshot32(),rowsBefore33);assert.deepEqual(v32Messages.acceptUserMessage(v32Input),v32Receipt);
+  assert.deepEqual(v32Queue.enqueueWake(v32Receipt.wakes[0].id),v32Queued);
+  assert.equal(v32.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,latestVersion);
+  for(const t of ['threaded_review_workflows','threaded_sops','threaded_knowledge'])assert.equal(count(v32,t),0);
+  assert.deepEqual(v32.prepare('SELECT * FROM threaded_review_legacy_admissions').all(),[{action_id:'v32-pr-action',generation:1}]);
+  v32.prepare("INSERT INTO threaded_actions VALUES('v33-pr-action',?,?,'github:zts212653/clowder-ai#2','review','review',1,1,'active',?,1,1)")
+    .run(v32Thread.ownerId,v32Thread.id,v32Root.id);
+  applyOrchestrationSchemaMigrations(v32);
+  assert.deepEqual(v32.prepare('SELECT * FROM threaded_review_legacy_admissions').all(),[{action_id:'v32-pr-action',generation:1}]);
+  assert.throws(()=>v32.exec("UPDATE threaded_review_legacy_admissions SET generation=2"),/IMMUTABLE/);
+  assert.throws(()=>v32.exec('DELETE FROM threaded_review_legacy_admissions'),/RETAINED/);
+  assert.deepEqual(v32.pragma('foreign_key_check'),[]);
+  const upgradedV33Schema=tables(v32),upgradedV33Rows=snapshot32();
+  assert.throws(()=>v32Worker.assertOrchestrationSchemaCompatible(v32),/33.*不受此 worker 支持/);
+  assert.throws(()=>v32Worker.applyOrchestrationSchemaMigrations(v32),/33.*不受此 worker 支持/);
+  assert.deepEqual(tables(v32),upgradedV33Schema);assert.deepEqual(snapshot32(),upgradedV33Rows);
+  checks.push('actual frozen pushed v32/c944c9d upgrades to v33; DDL failure rolls back all Review/SOP/Knowledge fragments and registration, repeated upgrade preserves every prior table including task/Action/budget/queue, pre-v33 review compatibility admissions freeze once and never adopt new Actions on reopen, and the v32 worker rejects v33 without mutation');
+
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
   const thread = store.createThread(input());
@@ -460,7 +515,7 @@ try {
   assert.deepEqual(tables(legacy), upgradedBefore);
   checks.push('actual frozen v24/v25/v26/v27/v28/v29/v30 worker compatibility guards refuse v25/v26/v27/v28/v29/v30/v31 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T08/DB03 isolated SQLite migration; no model execution', checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T11/DB03 isolated SQLite migration; no model execution',groups:checks.length,checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

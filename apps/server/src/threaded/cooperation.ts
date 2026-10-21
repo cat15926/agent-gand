@@ -66,6 +66,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     for(const row of db.prepare('SELECT record FROM threaded_tool_receipts WHERE binding_id=?').all(binding.id) as Array<{record:string}>) {
       const value=JSON.parse(row.record) as {readSourceIds?:string[];privacySourceIds?:string[]};for(const id of [...(value.readSourceIds??[]),...(value.privacySourceIds??[])])ids.add(id);
     }
+    for(const row of db.prepare('SELECT message_id FROM threaded_tool_context_exposures WHERE binding_id=?').all(binding.id) as Array<{message_id:string}>)ids.add(row.message_id);
     let audience:string[]|undefined;
     for(const id of ids){const row=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=?').get(id) as {thread_id:string}|undefined;
       const m=row&&options.messages.getMessage({ownerId:binding.ownerId,threadId:row.thread_id,viewer:{kind:'agent',agentId:binding.agentId}},id);

@@ -283,9 +283,9 @@ T01–T08已提交推送，T08为`606a8c0`。T09代码、测试、截图及文�
 
 T08 17 组协作、4 组后端接线、4 组 HTTP 与14组迁移通过，并通过上下文、预算、队列、生命周期、资源、消息和旧路径回归。API/SDK 的真实 read/post 工具通过；首轮征询 SDK cancelled 的失败保留，新隔离征询复验通过唯一 settlement/callback，取消原因未定位，不能声称已修复。T08 新增14实际请求、22,757确认token；T07+T08累计占额75,327（含39,010旧未知预留），低于20万门禁。准确证据及边界见[T08 报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)。
 
-K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件、实际OS执行器和T12完整发布仍待验证。T11知识/SOP未实施。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
+K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件、实际OS执行器和T12完整发布仍待验证。T11 Review/Revision、SOP和基础知识/ACL已实现并通过所列分层验证；语义检索未实现，MEM01整体未全过。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
 
-**下一项具体任务是 T11。**T10已完成独立Action、平台任务、真实GitHub只读review交付、返回/替换与命令代际，见[T10报告](../reports/threaded-collaboration-t10-actions-2026-10-21.md)和[领域合同](../architecture/threaded-actions-v1.md)。继续完整Review/Revision与批准门禁、SOP CAS及基础知识/ACL；真实PR等待中新HEAD和实际OS命令另列T12。UI使用真实领域投影，普通回应不推断业务完成。生产无executor，`closed|observe|execute`继续拒绝新工作；具体输入与退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。
+**下一项具体任务是 T12。**T10已推送 `c944c9d`；T11追加v33并完成Review/Revision/独立门禁、SOP CAS及精确任务核验、基础知识/来源ACL，见[T11报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)和[工作流合同](../architecture/threaded-workflows-v1.md)。9/6/8组隔离、15组实际Chrome、16组迁移及22次真实GitHub GET通过；真实新HEAD修订闭环仍为注入传输证据，语义检索未实现。T11尚未提交；生产无executor，`closed|observe|execute`继续拒绝新工作。T12收口实际平台/后端/领域故障与发布回滚，具体输入和退出门槛见[实施状态](threaded-collaboration-implementation-status.md)。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 
@@ -293,6 +293,6 @@ K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threade
 
 可交给实施会话的启动指令：
 
-> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T10 实现为依据，从当前首个未实施任务 T11 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，隔离 fixture、真实后端和真实业务证据分开记录。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
+> 按本指导与 Issue #16 新增独立“持续协作”模式（内部标识 threaded），保留旧 Collaboration 和自主协作契约。先读 AGENTS 并运行 squad help，检查当前 HEAD、未提交修改、实施状态和参考版本差异；以 T01 决策和 T02–T11 实现为依据，从当前首个未实施任务 T12 推进前置满足的任务包。所有新增执行、消息、授权、资源、终态和恢复路径按原验收 ID 验证；默认关闭新入口，隔离 fixture、真实后端和真实业务证据分开记录。每个阶段更新准确证据和下一步，不把模拟器成功当成真实后端或业务验收。
 >
 > 验收遵守已确认目标：核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。交接时分别附兼容结果、差异表、增强验收证据与能力范围，不用通过用例的数量推导复刻百分比。

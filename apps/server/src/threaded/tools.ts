@@ -5,6 +5,9 @@ import type { createThreadedRouting } from './routing.ts';
 import type { createThreadedCooperation } from './cooperation.ts';
 import type { createThreadedContext } from './context.ts';
 import type {createThreadedActions} from './actions.ts';
+import {THREADED_REVIEW_TOOLS,REVIEW_READ_TOOLS,type createThreadedReviews} from './reviews.ts';
+import {THREADED_SOP_TOOLS,type createThreadedSop} from './sop.ts';
+import {THREADED_KNOWLEDGE_TOOLS,type createThreadedKnowledge} from './knowledge.ts';
 import type {createActionCommands} from './actionCommands.ts';
 import {ThreadedContextError} from './contextTypes.ts';
 import {ThreadedMessageError} from './messageContracts.ts';
@@ -37,7 +40,7 @@ export const THREADED_TOOLS:BackendTool[]=[
     targets:list,parallelIntent:s,operation:{enum:['transfer','replace','return','revision']},expectedGeneration:num},['idempotencyKey','subject','predicate','family','successorSlot','targets']),
   descriptor('complete_task','Commit a legitimate platform task transition for the current Action holder and exact task version; supply one published acceptance message per frozen criterion. Does not complete the Action.',{
     idempotencyKey:s,actionId:s,expectedGeneration:num,expectedTaskVersion:num,result:s,acceptanceMessageIds:list},['idempotencyKey','actionId','expectedGeneration','expectedTaskVersion','result','acceptanceMessageIds']),
-  descriptor('publish_action_review','Publish a local Thread review of the live GitHub HEAD; creates typed evidence. Does not post to GitHub or approve a gate.',{
+  descriptor('publish_action_review','Compatibility delivery only for frozen pre-v33 review Actions. New responsibilities require submit_review with exact accepted source and author route. Does not post to GitHub or approve a gate.',{
     idempotencyKey:s,actionId:s,expectedGeneration:num,reviewedHeadSha:s,verdict:{enum:['approved','changes_requested','commented']},findings:list,body:s},
     ['idempotencyKey','actionId','expectedGeneration','reviewedHeadSha','verdict','findings','body']),
   descriptor('complete_action','Submit a completion candidate using server-issued domain evidence. The resolver rechecks current domain truth.',{
@@ -51,6 +54,9 @@ export const THREADED_TOOLS:BackendTool[]=[
   descriptor('cancel_command','Request cancellation of the exact registered command. Unconfirmed termination remains unknown; replacing a wait does not cancel a command.',{
     idempotencyKey:s,actionId:s,expectedGeneration:num,commandId:s},['idempotencyKey','actionId','expectedGeneration','commandId']),
 ];
+THREADED_TOOLS.push(...THREADED_REVIEW_TOOLS,...THREADED_SOP_TOOLS,...THREADED_KNOWLEDGE_TOOLS);
+const reviewNames=new Set(THREADED_REVIEW_TOOLS.map(t=>t.name)),sopNames=new Set(THREADED_SOP_TOOLS.map(t=>t.name)),knowledgeNames=new Set(THREADED_KNOWLEDGE_TOOLS.map(t=>t.name));
+const refreshedReads=new Set([...REVIEW_READ_TOOLS,'read_sop','knowledge_read','knowledge_search','knowledge_recent','knowledge_anchor','knowledge_sources']);
 export const THREADED_APPLICATION_TOOL_NAMES=THREADED_TOOLS.map(t=>t.name);
 const nonSubstantive=new Set(['post_message','cross_post_message','multi_mention','multi_mention_status','hold_ball','track_event','conversation_decision','settle_decision','withdraw_decision','mark_seen','acknowledge_mentions']);
 export function createThreadedTools(db:Database.Database,options:CollaborationOptions&{
@@ -58,6 +64,7 @@ export function createThreadedTools(db:Database.Database,options:CollaborationOp
   context?:Pick<ReturnType<typeof createThreadedContext>,'markSeen'|'acknowledgeMentions'>;
   actions:ReturnType<typeof createThreadedActions>;
   commands:ReturnType<typeof createActionCommands>;
+  reviews:ReturnType<typeof createThreadedReviews>;sop:ReturnType<typeof createThreadedSop>;knowledge:ReturnType<typeof createThreadedKnowledge>;
   prepareTracking?:(binding:ThreadedBinding,source:string,subject:string)=>Promise<{authorization:string}>;
 }) {
   const {cooperation,routing}=options,now=options.now??Date.now;
@@ -76,20 +83,28 @@ export function createThreadedTools(db:Database.Database,options:CollaborationOp
       const key=text(input.idempotencyKey??requestKey), fingerprint=digest({name,input});
       if(['run_command','wait_command','cancel_command'].includes(name))return JSON.stringify({ok:true,result:await options.commands.execute(binding,name,input)});
       const existingReceipt=db.prepare('SELECT 1 FROM threaded_tool_receipts WHERE binding_id=? AND request_key=?').get(binding.id,key);
-      const actionPrepared=existingReceipt?undefined:await options.actions.prepare(binding,name,input);
+      const refresh=refreshedReads.has(name);
+      const actionPrepared=existingReceipt||reviewNames.has(name)||sopNames.has(name)||knowledgeNames.has(name)?undefined:await options.actions.prepare(binding,name,input);
+      const reviewPrepared=reviewNames.has(name)&&(!existingReceipt||refresh)?await options.reviews.prepare(binding,name,input):undefined;
       const tracking=name==='track_event'?await options.prepareTracking?.(binding,text(input.source),text(input.subject)):undefined;
       if(name==='track_event'&&!tracking)reject('THREADED_TRACKING_SOURCE_NOT_AUTHORIZED',403);
       const scope={ownerId:binding.ownerId,threadId:binding.threadId,viewer:{kind:'agent' as const,agentId:binding.agentId}};
       const cutoff=(db.prepare('SELECT input_max_seq FROM threaded_invocation_wakes WHERE invocation_id=?').get(binding.invocationId) as {input_max_seq:number}).input_max_seq;
       const readIds=new Set<string>();
       const read=(id:string)=>{const m=options.messages.getMessage(scope,id);if(!m||m.seq>cutoff)reject('THREADED_TOOL_SOURCE_FORBIDDEN',403);readIds.add(id);return m;};
+      const expose=(ids:string[])=>{for(const id of ids)readIds.add(id);if(!readIds.size)return;
+        const manifest=db.prepare('SELECT session_id,session_version FROM threaded_context_manifests WHERE binding_id=? ORDER BY rowid DESC LIMIT 1').get(binding.id) as {session_id:string;session_version:number}|undefined;
+        if(!manifest)reject('THREADED_TOOL_CONTEXT_REQUIRED');
+        for(const id of readIds)db.prepare('INSERT OR IGNORE INTO threaded_tool_context_exposures VALUES(?,?,?,?,?,?)').run(binding.id,key,id,manifest.session_id,manifest.session_version,now());};
+      const privacy=(result:unknown)=>reviewNames.has(name)?options.reviews.privacySources(binding,name,input,result):sopNames.has(name)?options.sop.privacySources(binding,name,input,result):knowledgeNames.has(name)?options.knowledge.privacySources(binding,name,input,result):options.actions.privacySources(binding,name,input,result);
       const result=cooperation.transaction(()=>{
         cooperation.running(binding,true);
         const prior=db.prepare('SELECT name,request_hash,record FROM threaded_tool_receipts WHERE binding_id=? AND request_key=?').get(binding.id,key) as {name:string;request_hash:string;record:string}|undefined;
         if(prior){if(prior.request_hash!==fingerprint||prior.name!==name)reject('THREADED_TOOL_IDEMPOTENCY_CONFLICT');
           const result=JSON.parse(prior.record) as {result:unknown;readSourceIds:string[];privacySourceIds?:string[]};for(const id of result.readSourceIds)read(id);
-          for(const id of result.privacySourceIds??[])options.actions.assertReadable(binding,id);return result.result;}
-        if(name!=='read_action')options.actions.assertBinding(binding);
+          for(const id of result.privacySourceIds??[])options.actions.assertReadable(binding,id);
+          if(!refresh){const replay=sopNames.has(name)?options.sop.refreshResult(binding,name,input,result.result):result.result;expose(privacy(replay));return replay;}}
+        if(name!=='read_action'&&!refreshedReads.has(name))options.actions.assertBinding(binding);
         let result:unknown;
         if(name==='read_message')result=read(text(input.messageId));
         else if(name==='search_messages'){
@@ -138,15 +153,14 @@ export function createThreadedTools(db:Database.Database,options:CollaborationOp
         }else if(name==='settle_decision'||name==='withdraw_decision')result=cooperation.decisionOperationWithin(binding,{
           waitId:text(input.waitId),operationId:text(input.operationId),expectedVersion:integer(input.expectedVersion,1,1_000_000),
           operation:name==='settle_decision'?'settle':'withdraw',...(name==='settle_decision'?{responseMessageId:text(input.responseMessageId)}:{})});
+        else if(reviewNames.has(name))result=options.reviews.executeWithin(binding,name,input,reviewPrepared);
+        else if(sopNames.has(name))result=options.sop.executeWithin(binding,name,input);
+        else if(knowledgeNames.has(name))result=options.knowledge.executeWithin(binding,name,input);
         else result=options.actions.executeWithin(binding,name,input,actionPrepared);
-        const privacySourceIds=options.actions.privacySources(binding,name,input,result);
-        db.prepare('INSERT INTO threaded_tool_receipts VALUES(?,?,?,?,?,?,?)').run(binding.id,key,name,fingerprint,
+        const privacySourceIds=privacy(result);
+        if(!prior)db.prepare('INSERT INTO threaded_tool_receipts VALUES(?,?,?,?,?,?,?)').run(binding.id,key,name,fingerprint,
           JSON.stringify({result,readSourceIds:[...readIds],privacySourceIds}),nonSubstantive.has(name)?0:1,now());
-        for(const id of privacySourceIds)readIds.add(id);
-        if(readIds.size){const manifest=db.prepare('SELECT session_id,session_version FROM threaded_context_manifests WHERE binding_id=? ORDER BY rowid DESC LIMIT 1').get(binding.id) as {session_id:string;session_version:number}|undefined;
-          if(!manifest)reject('THREADED_TOOL_CONTEXT_REQUIRED');
-          for(const id of readIds)db.prepare('INSERT INTO threaded_tool_context_exposures VALUES(?,?,?,?,?,?)')
-            .run(binding.id,key,id,manifest.session_id,manifest.session_version,now());}
+        expose(privacySourceIds);
         return result;
       });
       return JSON.stringify({ok:true,result});

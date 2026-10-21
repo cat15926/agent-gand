@@ -7,9 +7,10 @@ import {pathToFileURL} from 'node:url';
 import net from 'node:net';
 import {randomUUID} from 'node:crypto';
 
-const root=await realpath(await mkdtemp(path.join(tmpdir(),'agent-gand-t09-ui-')));
-const output=path.resolve(process.env.THREADED_UI_OUTPUT??'docs/reports/evidence/threaded-t09-ui');await mkdir(output,{recursive:true});
-const checks=[],errors=[];let child,web,browser,page,metadata;
+const workflowMode=process.env.THREADED_UI_WORKFLOWS==='1';
+const root=await realpath(await mkdtemp(path.join(tmpdir(),workflowMode?'agent-gand-t11-ui-':'agent-gand-t09-ui-')));
+const output=path.resolve(process.env.THREADED_UI_OUTPUT??(workflowMode?'docs/reports/evidence/threaded-t11-ui':'docs/reports/evidence/threaded-t09-ui'));await mkdir(output,{recursive:true});
+const checks=[],errors=[],workflowSourceReads=[];let child,web,browser,page,metadata;
 const freePort=async()=>{const s=net.createServer();await new Promise((yes,no)=>s.once('error',no).listen(0,'127.0.0.1',yes));const p=s.address().port;await new Promise(resolve=>s.close(resolve));return p;};
 const apiPort=await freePort(),webPort=await freePort(),origin=`http://127.0.0.1:${webPort}`;
 async function start(restore=false){
@@ -21,6 +22,18 @@ async function start(restore=false){
 async function stop(){if(!child||child.exitCode!==null||child.signalCode)return;const old=child;await new Promise(resolve=>{old.once('exit',resolve);old.kill('SIGKILL');});}
 async function command(value){const id=randomUUID();return new Promise((resolve,reject)=>{const current=child;const receive=m=>{if(m.id===id){current.off('message',receive);m.error?reject(new Error(m.error)):resolve(m);}};current.on('message',receive);current.send({...value,id});});}
 const wait=async(test,message)=>{const end=Date.now()+12000;while(Date.now()<end){if(await test())return;await new Promise(r=>setTimeout(r,50));}throw new Error(message);};
+const workflows=()=>page.getByTestId('threaded-workflows');
+async function openWorkflows(){if(!await workflows().evaluate(el=>el.open))await workflows().locator(':scope > summary').click();}
+async function closeWorkflows(){if(await workflows().evaluate(el=>el.open))await workflows().locator(':scope > summary').click();}
+async function expandWorkflowSource(container,phase){
+  const sources=container.locator('details').filter({has:page.locator('summary').filter({hasText:/^获权来源（/})}).last();
+  if(!await sources.evaluate(el=>el.open))await sources.locator(':scope > summary').click();
+  const target=`/api/threaded/threads/${metadata.threadId}/messages/${metadata.workflowSourceId}`;
+  const pending=page.waitForResponse(r=>new URL(r.url()).pathname===target&&r.request().method()==='GET');
+  await sources.getByRole('button',{name:new RegExp(`^展开 #\\d+ · ${metadata.workflowSourceId}$`)}).click();
+  const result=await pending;assert.equal(result.status(),200);const body=await result.json();assert.equal(body.message.id,metadata.workflowSourceId);assert.equal(body.message.body,'确认来源与三类回执');
+  await sources.getByText('确认来源与三类回执',{exact:true}).waitFor();workflowSourceReads.push({phase,status:result.status(),path:target,messageId:body.message.id});
+}
 try{
   await start();
   const {createServer}=await import('../apps/web/node_modules/vite/dist/node/index.js');
@@ -45,6 +58,29 @@ try{
     assert.equal(business.available,true);assert.equal(business.actions.length,1);assert.equal(business.actions[0].state,'active');
     assert.equal(business.actions[0].approvalGateSatisfied,false);
     checks.push('T10 actual browser renders canonical platform Action, current holder and generation, verified domain freshness independently of Invocation completion; no approval gate is invented');
+  }
+  if(workflowMode){
+    await page.getByText('评审、SOP 与基础知识',{exact:true}).waitFor();await openWorkflows();
+    const board=workflows().locator('section').filter({has:page.getByRole('heading',{name:'SOP · T11 UI 协作告示 · 版本 2',exact:true})});
+    await board.getByText('阶段：评审准备 · 交棒：other-member；告示状态不授予执行权。',{exact:true}).waitFor();
+    await board.getByText('T11 UI 自述检查 · 成员自述',{exact:true}).waitFor();await board.getByText('T11 UI 待核验检查 · 待核验',{exact:true}).waitFor();
+    assert.equal(await board.getByText(/已核验任务事实/).count(),0);await expandWorkflowSource(board,'desktop-sop');
+    const business=await page.evaluate(async id=>(await(await fetch(`/api/threaded/threads/${id}/view`)).json()).snapshot.business,metadata.threadId);
+    assert.equal(business.sops.length,1);assert.equal(business.sops[0].version,2);assert.deepEqual(business.sops[0].checks.map(c=>c.state),['attested','unknown']);assert.equal(business.reviews.length,0);
+    checks.push('T11 actual runtime tool-created SOP version 2 renders attested/unknown checks and descriptive stage/baton without inventing verification, review approval or execution ownership; source expansion performs an authenticated exact message HTTP GET');
+    await workflows().getByRole('heading',{name:'基础知识 · 字面匹配检索',exact:true}).waitFor();
+    const expired=workflows().locator('details').filter({has:page.locator('summary').filter({hasText:'T11 UI 过期知识 · v3 · 已过期'})}).first();
+    await expired.locator(':scope > summary').click();await expired.getByText('T11_UI_KNOWLEDGE_V2：第二版保留原始消息溯源。',{exact:true}).waitFor();
+    await expandWorkflowSource(expired,'desktop-knowledge');
+    const current=business.knowledge.items.find(k=>k.title==='T11 UI 当前知识'),superseded=business.knowledge.items.find(k=>k.title==='T11 UI 替代知识');
+    assert.equal(business.knowledge.retrieval,'literal_substring');assert.equal(business.knowledge.items.find(k=>k.title==='T11 UI 过期知识').status,'expired');
+    assert.equal(superseded.status,'superseded');assert.equal(superseded.replacementId,current.knowledgeId);
+    await workflows().getByText('T11 UI 替代知识 · v2 · 已替代',{exact:true}).click();await workflows().getByText(`替代项：${current.knowledgeId}`,{exact:true}).waitFor();
+    await board.locator('details').locator(':scope > summary').click();await expired.locator(':scope > summary').click();
+    await workflows().getByText('T11 UI 替代知识 · v2 · 已替代',{exact:true}).click();
+    await workflows().locator(':scope > div').evaluate(el=>{el.scrollTop=0;});
+    await page.screenshot({path:path.join(output,'workflows-desktop.png'),fullPage:true});await closeWorkflows();
+    checks.push('T11 versioned home knowledge renders explicit expired v3, superseded v2 and active replacement state; literal retrieval is named accurately and exact anchor expansion reads authoritative published source through real HTTP');
   }
   const snapshot=await page.evaluate(async id=>(await fetch(`/api/threaded/threads/${id}/view`)).json(),metadata.threadId);
   assert.ok(snapshot.snapshot.progress.some(p=>p.delivered&&p.seen&&p.mentionAcknowledged));
@@ -103,6 +139,12 @@ try{
   await page.setViewportSize({width:390,height:844});await page.getByRole('heading',{name:'ui-t09',exact:true}).waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(output,'mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'关闭成员与调用状态',exact:true}).click();
+  if(workflowMode){
+    await openWorkflows();await workflows().getByText('T11 UI 自述检查 · 成员自述',{exact:true}).waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await page.screenshot({path:path.join(output,'workflows-mobile.png'),fullPage:true});await closeWorkflows();
+    checks.push('T11 workflow panel remains usable at 390x844 without horizontal page overflow, preserving SOP descriptive trust labels and knowledge status controls');
+  }
   assert.ok(await page.getByTestId('threaded-timeline').evaluate(el=>el.clientHeight>50));
   await page.screenshot({path:path.join(output,'mobile-timeline.png'),fullPage:true});
   checks.push('Desktop 1440x1000 and mobile 390x844 layouts render without horizontal page overflow');
@@ -110,6 +152,13 @@ try{
   await start(true);await page.getByRole('button',{name:'重新连接持续协作',exact:true}).click();await page.getByRole('heading',{name:'ui-t09',exact:true}).waitFor();
   await page.getByText('T09_OFFLINE_GAP',{exact:true}).waitFor();await page.getByText('PRIVATE_T09_OWNER_ONLY',{exact:true}).waitFor();
   assert.equal((await command({action:'count',body:'@api-member T09_LOST_RECEIPT'})).count,1);
+  if(workflowMode){
+    await openWorkflows();
+    const restored=workflows().locator('section').filter({has:page.getByRole('heading',{name:'SOP · T11 UI 协作告示 · 版本 2',exact:true})});
+    await restored.getByText('T11 UI 自述检查 · 成员自述',{exact:true}).waitFor();await expandWorkflowSource(restored,'restart-sop');
+    await workflows().getByText('T11 UI 过期知识 · v3 · 已过期',{exact:true}).waitFor();await workflows().getByText('T11 UI 替代知识 · v2 · 已替代',{exact:true}).waitFor();
+    await closeWorkflows();checks.push('T11 actual HTTP process SIGKILL and new runtime/SQLite connection restore immutable SOP/knowledge versions and expiry/replacement state; fresh authorized source GET succeeds without producer or model replay');
+  }
   checks.push('Actual isolated HTTP server SIGKILL/restart with the same SQLite: private UI cache clears on disconnect; fresh session restores canonical messages, waits and controls without model replay');
   await command({action:'admission',value:false});await page.getByText('新工作入场已关闭；现有历史与控制可用。',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'发送消息',exact:true}).isDisabled(),true);
   await page.getByRole('button',{name:'断开会话',exact:true}).click();await page.getByRole('button',{name:'连接持续协作',exact:true}).waitFor();assert.equal(await page.getByText('PRIVATE_T09_OWNER_ONLY',{exact:true}).count(),0);
@@ -117,7 +166,8 @@ try{
   checks.push('Closed admission disables new message/Decision input while history/control remains; logout removes private content and no Threaded bodies or tokens enter localStorage');
   assert.deepEqual(errors,[]);
   await writeFile(path.join(output,'report.json'),JSON.stringify({ok:true,date:new Date().toISOString(),groups:checks.length,checks,realModelCalls:0,externalNetworkCalls:0,
-    processRestart:'Actual fixture HTTP process SIGKILL, new process and SQLite connection; no production service or business database',screenshots:['desktop.png','mobile.png','mobile-timeline.png']},null,2)+'\n');
+    ...(workflowMode?{workflowSourceReads,workflowData:'Produced by actual SOP/knowledge tools in an authenticated running Binding; source is the exact original published message anchor; review workflow separately verified'}:{}),
+    processRestart:'Actual fixture HTTP process SIGKILL, new process and SQLite connection; no production service or business database',screenshots:['desktop.png','mobile.png','mobile-timeline.png',...(workflowMode?['workflows-desktop.png','workflows-mobile.png']:[])]},null,2)+'\n');
   console.log(JSON.stringify({ok:true,groups:checks.length,checks,output},null,2));
 }catch(error){if(page){console.log('T09 failure screen:',(await page.locator('body').innerText()).slice(0,3500));await page.screenshot({path:path.join(output,'failure.png'),fullPage:true}).catch(()=>{});}throw error;
 }finally{await browser?.close();await web?.close();await stop();await rm(root,{recursive:true,force:true});}

@@ -1,5 +1,5 @@
 import {THREADED_HTTP_VERSION,THREADED_SCHEMA_VERSION} from '@agent-gand/shared';
-import type {ThreadedThreadRecord,ThreadedViewSnapshot,ThreadedChangePage,ThreadedMessageReceipt} from '@agent-gand/shared';
+import type {ThreadedThreadRecord,ThreadedViewSnapshot,ThreadedChangePage,ThreadedMessageReceipt,ThreadedMessageRecord} from '@agent-gand/shared';
 import {managementRequest} from './accounts';
 import {ApiError} from './apiError';
 
@@ -40,6 +40,7 @@ export class ThreadedApi {
     const suffix=scope.kind==='thread'?'':`/${scope.kind==='member'?'members':'invocations'}/${encodeURIComponent(scope.id!)}`;
     return this.request(`${this.base(id)}${suffix}/controls`,'POST',{action,requestId});}
   approval(id:string,approvalId:string,decision:'approve'|'reject',requestId:string){return this.request(`${this.base(id)}/approvals/${encodeURIComponent(approvalId)}/decision`,'POST',{decision,requestId});}
+  message(id:string,messageId:string){return this.request<{message:ThreadedMessageRecord}>(`${this.base(id)}/messages/${encodeURIComponent(messageId)}`);}
   sources(id:string,messageId:string){return this.request<{messages:ThreadedViewSnapshot['messages']}>(`${this.base(id)}/messages/${encodeURIComponent(messageId)}/sources`);}
   attachmentUrl(id:string,attachmentId:string){return `${this.base(id)}/attachments/${encodeURIComponent(attachmentId)}`;}
   private base(id:string){return `/api/threaded/threads/${encodeURIComponent(id)}`;}

@@ -10,6 +10,9 @@ import {reject,type CollaborationOptions,type CollaborationTerminal,type Routing
 import { createThreadedTracking, threadedMessageTrackingSource, type ThreadedTrackingSource } from './tracking.ts';
 import {createThreadedActions} from './actions.ts';
 import type {ActionOptions} from './actionTypes.ts';
+import {createThreadedReviews} from './reviews.ts';
+import {createThreadedSop} from './sop.ts';
+import {createThreadedKnowledge} from './knowledge.ts';
 import {createActionCommands} from './actionCommands.ts';
 
 /** Persistent cooperation state. Timers are only hints; recover reads original durable deadlines. */
@@ -48,7 +51,10 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
   actions=createThreadedActions(db,{...options,...options.actions,cooperation,routing});
   const commands=createActionCommands(db,{...options,actions,cooperation,ports:options.actions?.commands});
   const tracking=createThreadedTracking(db,cooperation,{thread_messages:threadedMessageTrackingSource(db,options.messages),...options.trackingSources});
-  const tools=createThreadedTools(db,{...options,onCommitted:notifyCommitted,cooperation,routing,actions,commands,prepareTracking:tracking.prepare});
+  const reviews=createThreadedReviews(db,{...options,...options.actions,cooperation,routing,actions});
+  const sop=createThreadedSop(db,{...options,cooperation});
+  const knowledge=createThreadedKnowledge(db,{...options,cooperation});
+  const tools=createThreadedTools(db,{...options,onCommitted:notifyCommitted,cooperation,routing,actions,commands,reviews,sop,knowledge,prepareTracking:tracking.prepare});
   function terminalWithin(input:CollaborationTerminal) {
     const route=routing.sourceRoute(input.binding);
     const source=cooperation.source(input.binding);
@@ -68,7 +74,7 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
     cooperation.onTerminalWithin(input);
     actions.onTerminalWithin(input);
   }
-  return {routing,cooperation,tools,tracking,actions,commands,terminalWithin,notifyCommitted,
+  return {routing,cooperation,tools,tracking,actions,commands,reviews,sop,knowledge,terminalWithin,notifyCommitted,
     responseWithin(binding:ThreadedBinding,key:string,proof:QuiescenceProof,input:ThreadedMessagePayload) {
       const boundary=cooperation.boundary(binding,input.sourceRefs??[]);
       if(input.visibility==='private'){

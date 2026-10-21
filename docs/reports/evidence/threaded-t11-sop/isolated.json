@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-10-21T11:18:27.588Z",
+  "schema": "threaded-sop-t11-v1",
+  "scope": "isolated real SQLite/runtime application tools with injected model protocol; no real model or remote domain requests",
+  "groups": 6,
+  "checks": [
+    "SOP02: real application allowlist and authenticated Binding; stage/baton and self-attested check grant no Action or resource ownership; machine state input/fake evidence denied, history immutable and factory rebuild durable",
+    "SOP01/DB01: two actual IPC workers and separate SQLite connections use two simultaneously running authenticated members at one barrier; expectedVersion CAS has one winner and one explicit conflict",
+    "DB01/SOP01: injected history, receipt and exposure failures roll back board pointer, immutable history, tool idempotency and privacy exposure in the same outer transaction",
+    "MEM02/K09: private SOP provenance and source exposures persist; other member cannot read/change exact current/history or forge a source; cumulative source closure cannot widen, and history rereads recheck revoked ACL",
+    "SOP02/A02: built-in verifier resolves actual platform tasks and immutable task_transition evidence with exact current task version, Action generation, frozen criteria, assignee identity and acceptance source ACL; verification grants no Action completion; changed claims reset attestation and changed actor authority projects unknown while retaining history",
+    "DB01/SOP01: actual producer process SIGKILL immediately after durable tool commit; same-request replay and SQLite/runtime rebuild retain exactly one board version"
+  ],
+  "faults": [
+    {
+      "table": "threaded_sop_versions",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_tool_receipts",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_tool_context_exposures",
+      "rolledBack": true
+    }
+  ],
+  "injectedProtocolRequests": 11,
+  "realModelRequests": 0,
+  "newTokens": 0,
+  "productionEntry": "closed"
+}

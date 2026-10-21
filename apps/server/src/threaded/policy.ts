@@ -48,7 +48,7 @@ export function assertThreadedRequestContract(request: FastifyRequest, allowThre
   }
 }
 
-/** Production admission stays closed through T06, including configured observe/execute. */
+/** Production admission stays closed through T11, including configured observe/execute. */
 export function rejectThreadedAdmission(): never {
   if (threadedAdmissionMode() === 'closed') throw new ThreadedAccessError(403, 'THREADED_MODE_CLOSED', '持续协作新工作入场已关闭');
   throw new ThreadedAccessError(501, 'THREADED_ADMISSION_NOT_IMPLEMENTED', '持续协作真实后端工作入场尚未开放');
