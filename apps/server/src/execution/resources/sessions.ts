@@ -119,6 +119,18 @@ export function prepareThreadedSession(db: Database.Database, input: ThreadedSes
 
 /** Called inside resource acquisition, so a stale preparation never creates a partial claim. */
 export function assertResourceSessionCurrent(db: Database.Database, request: TrustedResourceRequest): void {
+  // Independent commands deliberately have no native model Session. They retain
+  // their own intent, binding and workspace lease; the coordinator additionally
+  // checks the exact declaration, member state and current Action generation.
+  if(request.threadedCommand){
+    if(request.mode!=='threaded'||request.capacity!==false||request.session||request.parentClaim)fail('RESOURCE_COMMAND_REQUEST_INVALID');
+    const found=db.prepare(`SELECT 1 FROM threaded_commands c JOIN threaded_os_commands o ON o.command_id=c.id AND o.binding_id=c.binding_id
+      JOIN threaded_execution_bindings b ON b.id=c.binding_id WHERE c.id=? AND o.registration_id=? AND c.port=o.registration_id
+      AND c.owner_id=? AND c.thread_id=? AND c.agent_id=? AND b.owner_id=c.owner_id AND b.thread_id=c.thread_id AND b.agent_id=c.agent_id
+      AND b.invocation_id=? AND b.run_id=? AND b.attempt_id=?`).get(request.threadedCommand.commandId,request.threadedCommand.registrationId,
+        request.ownerId,request.threadId,request.agentId,request.invocationId,request.runId,request.attemptId);
+    if(!found)fail('RESOURCE_COMMAND_SCOPE_UNAVAILABLE');return;
+  }
   if (!request.session) { if (request.mode === 'threaded') fail('THREADED_SESSION_PREPARATION_REQUIRED'); return; }
   const ref = request.session;
   const row = db.prepare('SELECT * FROM execution_resource_sessions WHERE id=? AND owner_id=?')

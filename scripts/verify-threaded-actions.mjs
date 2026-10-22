@@ -30,6 +30,7 @@ async function runFor(f,agent,handler){
 }
 const tool=async(f,claim,name,input,key=randomUUID())=>JSON.parse(await f.runtime.collaboration.tools.execute(claim.binding,name,input,key,THREADED_APPLICATION_TOOL_NAMES));
 const ok=value=>{assert.equal(value.ok,true,JSON.stringify(value));return value.result;};
+const holdSource=(f,claim)=>({kind:'thread_message',value:f.runtime.collaboration.cooperation.source(claim.binding).id,expectedSignal:'business_check_completed',slaUntilMs:f.clock()+3_600_000});
 /** New Actions exercise the complete T11 request/revision/author-route contract, including negative HEAD checks. */
 async function submitReview(f,claim,input){
   const context=ok(await tool(f,claim,'review_context',{actionId:input.actionId}));
@@ -180,7 +181,7 @@ try{
       assert.equal((await tool(f,claim,'complete_action',{idempotencyKey:'late',actionId:action.actionId,expectedGeneration:1,evidenceId:'late'})).code,'THREADED_ACTION_STALE_GENERATION');
       const returned=ok(await tool(f,claim,'transfer_action',transfer(task.taskId,['api-member'],{operation:'return',expectedGeneration:2,parallelIntent:'retain original return intent'})));
       assert.equal(returned.generation,3);assert.deepEqual(returned.holders,['api-member']);
-      assert.equal((await tool(f,claim,'hold_ball',{idempotencyKey:'late-wait',jobKey:'late',seconds:5,waitSourceRef:'late'})).code,'THREADED_ACTION_STALE_GENERATION');
+      assert.equal((await tool(f,claim,'hold_ball',{idempotencyKey:'late-wait',jobKey:'late',seconds:5,waitSourceRef:holdSource(f,claim)})).code,'THREADED_ACTION_STALE_GENERATION');
       return 'responsibility returned';});
     const back=await run(f,undefined,async claim=>{assert.equal(claim.binding.agentId,'api-member');return 'Returned responsibility remains active';});
     assert.equal(f.runtime.collaboration.actions.capture(back.binding).generation,3);
@@ -258,7 +259,7 @@ try{
       ok(await tool(f,claim,'run_command',{idempotencyKey:'cmd',...args,command:'registered',args:{job:'safe'}}));assert.equal(starts,1);
       ok(await tool(f,claim,'wait_command',{idempotencyKey:'wait',...args,commandId:command.commandId}));
       const cancel=ok(await tool(f,claim,'cancel_command',{idempotencyKey:'cancel',...args,commandId:command.commandId}));assert.equal(cancel.state,'unknown');
-      ok(await tool(f,claim,'hold_ball',{idempotencyKey:'timer',jobKey:'timer',seconds:5,waitSourceRef:'not completion'}));
+      ok(await tool(f,claim,'hold_ball',{idempotencyKey:'timer',jobKey:'timer',seconds:5,waitSourceRef:holdSource(f,claim)}));
       ok(await tool(f,claim,'transfer_action',transfer(task.taskId,['api-member'],{operation:'return',expectedGeneration:1})));
       assert.equal((await tool(f,claim,'cancel_command',{idempotencyKey:'late-cancel',...args,commandId:command.commandId})).code,'THREADED_ACTION_STALE_GENERATION');
       return 'returned, external command unresolved';});

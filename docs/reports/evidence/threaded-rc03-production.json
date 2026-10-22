@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "groups": 2,
+  "checks": [
+    "RC03-P01: actual production factory enforces retained release/account authority with fixture bypass absent; selected project mapping pins native Session, unregistered shell rejects, real bounded command owns complete read/write claims without model capacity, independent manifest/process proofs release resources, one shared-admission wake never completes the business Action",
+    "RC03-P02: production observe with installed command registration performs no command launch, model call or collaboration recovery write"
+  ],
+  "platform": "darwin",
+  "realNativeCommands": 1,
+  "injectedModelRequests": 2,
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "Actual createThreadedProduction with isolated DB, real macOS guardian/native manifest worker and production authority/resources; model transport injected, no daily configuration touched"
+}

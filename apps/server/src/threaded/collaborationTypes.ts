@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { ThreadedBinding, ThreadedMessageReceipt } from '@agent-gand/shared';
 import type { createThreadedMessages } from './messages.ts';
 import type { ThreadedAuthority, QuiescenceProof } from './contracts.ts';
+import type {ThreadedHoldOptions} from './waitContracts.ts';
 export class ThreadedCollaborationError extends Error {
   constructor(readonly code: string, readonly status = 409) { super(code); }
 }
@@ -30,7 +31,7 @@ export function digest(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(ordered(value)) ?? 'undefined').digest('hex');
 }
 export type CollaborationMessages = ReturnType<typeof createThreadedMessages>;
-export interface CollaborationOptions { authority: ThreadedAuthority; messages: CollaborationMessages; now?: () => number; onCommitted?: () => void;
+export interface CollaborationOptions extends ThreadedHoldOptions { authority: ThreadedAuthority; messages: CollaborationMessages; now?: () => number; onCommitted?: () => void;
   ingress?:{assert(input:import('./messageContracts.ts').ThreadedUserMessageInput,targets:string[]):void;record(receipt:ThreadedMessageReceipt):void};
 }
 export interface CollaborationTerminal { binding: ThreadedBinding; status: 'completed'|'failed'|'cancelled';

@@ -18,13 +18,15 @@ export interface ThreadedOsCommandRegistration {
   id:string;
   /** All process inputs are server-owned. There is deliberately no model argument substitution. */
   program:string;argv:readonly string[];cwd:string;environment:Readonly<Record<string,string>>;
+  /** Server-owned, complete resource declarations; older adapters default to the cwd write claim. */
+  workspaces?:readonly {path:string;access:'read'|'write'}[];
   authorization(scope:ActionScope):string|null;
   /** A trusted domain verifier, never a model assertion. No verifier means effects remain unresolved. */
   reconcileSideEffects?(input:{commandId:string;scope:ActionScope;exit:{code:number|null;signal:string|null}|null;cancelled:boolean}):boolean;
 }
 export interface ThreadedOsCommandLease {
   /** Reserve an independent command lease. A completed Invocation must not free a still-running command's workspace. */
-  reserve(input:{commandId:string;binding:ThreadedBinding;cwd:string}):ThreadedClaimIdentity;
+  reserve(input:{commandId:string;binding:ThreadedBinding;cwd:string;workspaces?:readonly {path:string;access:'read'|'write'}[]}):ThreadedClaimIdentity;
   assertExecutable(claim:ThreadedClaimIdentity):void;
   markStarted(claim:ThreadedClaimIdentity):void;
   markUnknown(claim:ThreadedClaimIdentity):void;
@@ -33,6 +35,7 @@ export interface ThreadedOsCommandLease {
 }
 type ProcessFact={pid:number;pgid:number;start:string;status:string;command:string};
 type ProcessRecord={host:string;cwd:string;token:string;stage:'intent'|'registered'|'launch_authorized'|'running';
+  workspaceClaims?:{path:string;access:'read'|'write'}[];
   pid?:number;pgid?:number;startIdentity?:string;ipcClosed?:boolean;cancelRequested?:boolean;
   exit?:{code:number|null;signal:string|null};spawnError?:string;groupStopped?:boolean;effectsReconciled?:boolean;
   proofEventId?:string;resourceReleased?:boolean};
@@ -83,7 +86,11 @@ export function createThreadedOsCommandPort(db:Database.Database,options:{regist
     fail('THREADED_OS_COMMAND_REGISTRATION_INVALID');
   // Copy all static process input. Mutation of the caller's configuration cannot change an accepted command.
   const program=registration.program,argv=[...registration.argv],cwd=registration.cwd,environment={...registration.environment};
-  const fingerprint=hash({id:registration.id,program,argv,cwd,environment}),children=new Map<string,ChildProcess>();
+  const workspaces=registration.workspaces?.map(w=>({...w}));
+  if(workspaces&&(!workspaces.length||workspaces.length>32||workspaces.some(w=>!path.isAbsolute(w.path)
+    ||realpathSync(w.path)!==w.path||!['read','write'].includes(w.access))||new Set(workspaces.map(w=>w.path)).size!==workspaces.length))
+    fail('THREADED_OS_COMMAND_REGISTRATION_INVALID');
+  const fingerprint=hash({id:registration.id,program,argv,cwd,environment,...(workspaces?{workspaces}:{})}),children=new Map<string,ChildProcess>();
   const row=(id:string)=>db.prepare('SELECT * FROM threaded_os_commands WHERE command_id=?').get(id) as Row|undefined;
   const scope=(r:Row):ActionScope=>({ownerId:r.owner_id,threadId:r.thread_id,agentId:r.agent_id});
   const parse=(r:Row)=>JSON.parse(r.record) as ProcessRecord;
@@ -146,10 +153,10 @@ export function createThreadedOsCommandPort(db:Database.Database,options:{regist
       // An intent is irrevocable even if the launcher dies before obtaining a PID. Retry observes unknown; it never spawns again.
       let won=false;db.transaction(()=>{
         existing=row(input.commandId);if(existing)return;
-        const record:ProcessRecord={host:hostname(),cwd,token:randomUUID(),stage:'intent'};
+        const record:ProcessRecord={host:hostname(),cwd,token:randomUUID(),stage:'intent',...(workspaces?{workspaceClaims:workspaces}:{})};
         db.prepare('INSERT INTO threaded_os_commands(command_id,registration_id,authorization,owner_id,thread_id,agent_id,binding_id,claim_record,registration_hash,state,record,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,\'unknown\',?,?,?)')
           .run(input.commandId,registration.id,authorization,input.binding.ownerId,input.binding.threadId,input.binding.agentId,input.binding.id,null,fingerprint,JSON.stringify(record),now(),now());
-        const lease=options.lease?.reserve({commandId:input.commandId,binding:input.binding,cwd});
+        const lease=options.lease?.reserve({commandId:input.commandId,binding:input.binding,cwd,workspaces});
         if(lease)db.prepare('UPDATE threaded_os_commands SET claim_record=? WHERE command_id=? AND claim_record IS NULL').run(JSON.stringify(lease),input.commandId);
         won=true;
       }).immediate();

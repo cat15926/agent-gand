@@ -57,6 +57,8 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
   messaging?:ReturnType<typeof import('./messaging.ts').createThreadedMessaging>;
   executionPolicy?:import('./runtime.ts').ThreadedProductionExecutionPolicy;
   ingress?:import('./collaborationTypes.ts').CollaborationOptions['ingress'];
+  holdPolicy?:import('./collaborationTypes.ts').CollaborationOptions['holdPolicy'];
+  waitSourceAuthorization?:import('./collaborationTypes.ts').CollaborationOptions['waitSourceAuthorization'];
   deferDispatchUntilStart?:boolean;
   notificationsEnabled?:boolean;
   resolveAgent: (scope: { ownerId: string; threadId: string; agentId: string }) => ThreadedBackendAgentConfiguration;

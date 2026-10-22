@@ -65,7 +65,7 @@ try{
       const bad={requestKey:randomUUID(),operationId:randomUUID(),mode:'threaded',ownerId:claim.binding.ownerId,threadId:claim.binding.threadId,
         invocationId:claim.binding.invocationId,runId:claim.binding.runId,attemptId:claim.binding.attemptId,agentId:claim.binding.agentId,capacity:false,
         workspaces:[{path:root,access:'write'}],threadedCommand:{commandId:command.commandId,registrationId:'fixed'}};
-      assert.throws(()=>h.resources.enqueue(bad),/COMMAND_SCOPE_UNAVAILABLE/);
+      assert.throws(()=>h.resources.enqueue(bad),/COMMAND_SCOPE_UNAVAILABLE|COMMAND_WORKSPACES_CHANGED/);
       const runId=randomUUID();h.f.db.prepare("INSERT INTO runs(id,goal,mode,status,agent_ids,created_at) VALUES(?,'fixture','collaboration','running',?,?)").run(runId,JSON.stringify([claim.binding.agentId]),new Date().toISOString());
       blocked=h.resources.enqueue({requestKey:randomUUID(),operationId:randomUUID(),mode:'legacy',ownerId:claim.binding.ownerId,agentId:claim.binding.agentId,runId,attemptId:randomUUID(),capacity:false});
       assert.equal(h.resources.tryAcquire(blocked.id),null);

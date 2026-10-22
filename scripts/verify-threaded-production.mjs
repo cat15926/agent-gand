@@ -117,7 +117,7 @@ try{
   }
   {
     let requests=0;const f=await fixture('observe-events',{mode:'execute',tools:['hold_ball'],fetch:async()=>{
-      requests++;return requests===1?response('',[{name:'hold_ball',input:{idempotencyKey:'hold',jobKey:'overdue-observe-wait',seconds:5,waitSourceRef:'ordinary current Thread request'}}]):response('Durable timer registered');}});
+      requests++;return requests===1?response('',[{name:'hold_ball',input:{idempotencyKey:'hold',jobKey:'overdue-observe-wait',seconds:5,waitSourceRef:{kind:'thread_message',value:f.db.prepare("SELECT id FROM threaded_messages WHERE origin='user' AND owner_id=? ORDER BY rowid DESC LIMIT 1").get(f.ownerId).id,expectedSignal:'business_check_completed',slaUntilMs:Date.now()+3_600_000}}}]):response('Durable timer registered');}});
     await f.control();const t=await f.thread();f.production.startDispatch();const accepted=await f.message(t,'Register a durable timer before observation');assert.equal(accepted.statusCode,200,accepted.body);
     await wait(()=>f.db.prepare("SELECT 1 FROM threaded_invocations WHERE status='completed'").get(),'timer registration Invocation should finish');await f.production.whenIdle();
     const timer=f.db.prepare("SELECT id,deadline,state FROM threaded_waits WHERE kind='timer'").get();assert.equal(timer.state,'awaiting');

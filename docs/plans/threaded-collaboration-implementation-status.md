@@ -1,6 +1,6 @@
 # 持续协作模式实施状态
 
-状态：**实施中**（T01–T11 已交付；T12 发布/恢复/OS 接线及所列隔离验收完成，真实组合和发布条件未全部通过）。更新：2026-10-22。已推送RC01及进度文档 `35804a1`；RC02生产GitHub接线与所列验收已完成，随本次提交交付，日常未配置/启用。
+状态：**实施中**（T01–T11 已交付；T12 发布/恢复/OS 接线及所列隔离验收完成，真实组合和发布条件未全部通过）。更新：2026-10-22。RC02已提交推送 `a871910`；RC03首批选定命令profile及hold合同按所列范围完成，本轮变更随本次提交交付。默认closed，日常未配置/启用、未迁移。
 
 产品名“持续协作”，内部模式 `threaded`。实施遵守已确认目标：**核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。**本表记录任务进度；已批准的设计不等于功能可用。
 
@@ -22,15 +22,16 @@
 | T11 实现 | [工作流合同](../architecture/threaded-workflows-v1.md)及[验收报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)：完整来源/版本/作者评审合同、finding/修订/独立门禁、SOP CAS与可信任务核验、基础知识/ACL，v33；9/6/8组隔离验证、15组Chrome及22次真实GitHub GET |
 | T12 实现 | [发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)：v34、固定发布名单/根授权、独立入场/派发控制、只读演练、启动屏障/有界退出及 macOS 注册命令；7/16/9/4/8/5组分层验收 |
 | RC01 合同核验 | **已完成**：[报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)与[来源清单](../reports/evidence/threaded-rc01-source-manifest.json)，五域实际链对照、113文件固定blob/SHA256、64分域引用、66组隔离回归；hold来源/SLA/命令准入及工程映射交RC03，工程实证交RC06，语义交EXT01；源核验不等于后续实现完成 |
-| RC02 生产GitHub | **实现及所列分层验收完成，随本次提交交付**：[合同](../architecture/threaded-github-production-v1.md)及[报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)；18组新隔离+54组回归、7项/8次真实官方只读GET；无真实模型调用。生产单例可选注册，日常未配置；RC04真实事件、RC03 OS/hold等仍待完成 |
+| RC02 生产GitHub | **实现及所列分层验收完成，已推送a871910**：[合同](../architecture/threaded-github-production-v1.md)及[报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)；18组新隔离+54组回归、7项/8次真实官方只读GET；无真实模型调用。生产单例可选注册，日常未配置；RC04真实事件仍待验，RC03首批OS/hold交付另列 |
+| RC03 生产命令与hold | **首批选定profile实现及所列验收完成，本次随提交交付**：[合同](../architecture/threaded-commands-hold-production-v1.md)及[报告](../reports/threaded-collaboration-rc03-commands-hold-2026-10-22.md)；严格`project_manifest_v1`注册、固定program/argv/env/cwd、工程/成员/输出目录映射、独立多read/write资源及宿主副作用verifier；结构化hold、missed-timer SLA恢复/退休、timer/command共享3次/小时及撤权回调围栏。通用shell/build不在该profile范围，完整真实组合仍待RC04–RC08 |
 | 剩余计划 | [剩余实施与验收计划](threaded-collaboration-remaining-plan.md)：RC01–RC12负责合同核验、生产接线、真实验收、对账及发布；EXT01–EXT05保留后续能力范围，不新增T13或自动开工 |
 | 合同与能力 | [兼容矩阵](threaded-collaboration-compatibility-matrix.md)：K01–K16、59 项原验收、细化行为、平台差异、E01–E06 独立增强和高级能力范围 |
 | 代码接入 | [接入地图](threaded-collaboration-integration-map.md)及[候选检索证据](../reports/evidence/threaded-t01-mode-origin-inventory.json)：全部扫描文件、hash、搜索模式、命中行、职责和局限可复核；不是静态可达性证明 |
 | 固定源码 | [基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)及[来源清单](../reports/evidence/threaded-t01-source-manifest.json)：本地差异、环境、迁移目录、上游定点核验及许可 |
-| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d`、T11 `ba438b1`、T12 `b99997a`、RC01文档 `35804a1` 已推送 origin/main；RC02随本次提交交付，原始阶段证据保留 |
+| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d`、T11 `ba438b1`、T12 `b99997a`、RC01文档 `35804a1`、RC02 `a871910` 已推送 origin/main；RC03随本次提交交付，原始阶段证据保留 |
 | Clowder 参考 | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；固定版本，不跟随远端 HEAD |
-| 迁移 | T12追加 v34，v25–v33 源码与 descriptor 不变；冻结实际 ba438b1 v33 升级 v34、失败全回滚和旧 worker 零修改拒绝通过。未迁移日常业务库，不推断已部署 schema |
-| 交付 | T01–T12 的代码/阶段文档及所列证据已提交推送，T12为 `b99997a`；T12完整验收与生产发布未完成；RC01/进度文档已提交推送35804a1；RC02实现/文档/证据随本次提交交付，未回写 Issue |
+| 迁移 | RC03仅追加v35共享hold准入ledger，v25–v34的17个历史迁移片段与descriptor不变；实际a871910 v34→v35、旧timer额度/时间精确回填，旧awaiting/paused-command wake因无注册时间按升级时刻保守占窗且重启不续期；失败全回滚、重复启动及旧worker零修改拒绝19组通过。T12历史v34/17组证据保留；日常业务库未迁移，不推断已部署schema |
+| 交付 | T01–T12 的代码/阶段文档及所列证据已提交推送，T12为 `b99997a`；T12完整验收与生产发布未完成；RC01/进度文档已提交推送35804a1；RC02实现/文档/证据已提交推送a871910；RC03实现/文档/证据本次随提交交付，未回写Issue |
 | 真实验收边界 | macOS 上选定同一账号的 Anthropic 兼容 API 与 claude-sdk 0.3.288 合成上下文验收通过；不代表全部配置账号/供应商均已验证。只读业务库账号/凭据元数据并在隔离库执行，不读取日常会话。用户授权总 input+output 上限 1000 万 token，本轮累计硬门禁 20 万；T12后累计153,094含89,758未知预留（其中39,010为T07旧未知）；真实API工具与修复后SDK工具/隔离HTTP服务原生续接通过，两次失败保留，准确增量见T12报告 |
 
 ## 2 T01 退出条件
@@ -47,7 +48,7 @@
 | T02–T04 可继续实施 | 已给出接口责任、最小 schema 约束、迁移分配、负向用例和退出条件；真实执行保持关闭 |
 | 文档及证据可复核 | T01 固定证据保留为历史基线；T02 实际变更及验证另记报告 |
 
-交叉复核已修正三项设计风险：Session 身份未解析就领取锁、runner 异常后无条件释放未知执行资源、Decision/hold 创建即终止 Invocation。未知进程与生命周期部分已由 T03 fake 验证，T04 已增加持久资源及 Session 身份准备，T07 已完成所列真实后端验收；非阻塞工具与等待已由 T08 独立验证，T10命令/Action代际已有独立验证，实际macOS注册命令端口已由T12验证8组，生产默认未注册。
+交叉复核已修正三项设计风险：Session 身份未解析就领取锁、runner 异常后无条件释放未知执行资源、Decision/hold 创建即终止 Invocation。未知进程与生命周期部分已由 T03 fake 验证，T04 已增加持久资源及 Session 身份准备，T07 已完成所列真实后端验收；非阻塞工具与等待已由 T08 独立验证，T10命令/Action代际已有独立验证，实际macOS注册命令端口保留T12历史8组；RC03新增首批选定生产profile与hold合同见本轮报告，日常默认未注册。
 
 ## 3 任务进度
 
@@ -65,10 +66,11 @@
 | T10 Action、完成谓词、替换/返回 | **实现及所列分层验收完成，已推送c944c9d** | 12组Action/多进程/故障；真实平台任务和GitHub只读域通过；macOS注册命令已由T12验8组；生产GitHub/OS注册及真实新HEAD见RC02–RC04 |
 | T11 Review/Revision、SOP、共享记忆 | **实现及所列分层验收完成，已推送ba438b1** | 9组Review、6组SOP、8组知识、15组实际Chrome；22次真实GitHub GET，仅本地评审交付，无新增模型token；语义检索仍未实现 |
 | T12 综合验收、兼容、发布与回滚 | **接线及所列隔离/宿主验收完成，真实组合未全部通过** | 17组迁移、7组release、16组production、9组24恢复进程、4组index、8组macOS、5组Chrome；真实SDK补验已通过；远端新HEAD及完整发布条件见T12报告 |
-| RC01 固定参考合同核验 | **已完成，差异已登记并分配** | Session分层/本地policy适配、根预算增强、hold/SLA/命令准入缺口、普通工程/Collective差异、真实语义链及质量边界；RC02现已完成，RC03及其他RC/EXT未自动开工 |
-| RC02 生产PR来源、tracking及Review接线 | **实现及所列分层验收完成，随本次提交交付** | 固定文件/凭据/身份/范围，来源撤权结算/派发围栏；72组隔离及7项真实只读通过，日常未配置，真实新HEAD链仍RC04 |
+| RC01 固定参考合同核验 | **已完成，差异已登记并分配** | Session分层/本地policy适配、根预算增强、hold/SLA/命令准入缺口、普通工程/Collective差异、真实语义链及质量边界；RC02已推送，RC03已按本轮指令完成所列范围，其他RC/EXT未自动开工 |
+| RC02 生产PR来源、tracking及Review接线 | **实现及所列分层验收完成，已推送a871910** | 固定文件/凭据/身份/范围，来源撤权结算/派发围栏；72组隔离及7项真实只读通过，日常未配置，真实新HEAD链仍RC04 |
+| RC03 生产命令、工程映射及hold合同 | **首批选定profile及所列验收完成，本次随提交交付** | `project_manifest_v1`非通用shell/build；固定进程输入、完整独立读写资源与可信副作用核验；结构化来源/SLA仅约束错过timer的恢复窗口，共享timer/command wake额度；实际宿主与回归的准确范围见RC03报告，日常未配置/迁移 |
 
-**功能验证总状态：**T02–T11 已实现并通过所列隔离 fixture；DB03 的 v25–v34 范围通过。T06 的 Wake/Invocation、共享资源/预算领取、响应/Run/Outbox 事务与控制恢复已接 T07 实际上下文投递。macOS 上 API 两次请求的重建与私密排除、SDK 冷开/原生续接/权限变化冷开及取消 unknown 验证通过。SDK 补验在同一验收进程中关闭旧数据库连接，重新创建 runtime、SQLite 连接和资源 owner，再从持久锚点恢复同 nativeId 与记忆；每次 Invocation 启动独立 SDK worker，恢复自身不发送请求，见[补验证据](../reports/evidence/threaded-t07-real-sdk-reopen.json)。这不构成整个主服务进程 kill/restart 的验收。
+**功能验证总状态：**T02–T11 已实现并通过所列隔离 fixture；DB03追加v35验证通过，v25–v34历史源码与事实保留。T06 的 Wake/Invocation、共享资源/预算领取、响应/Run/Outbox 事务与控制恢复已接 T07 实际上下文投递。macOS 上 API 两次请求的重建与私密排除、SDK 冷开/原生续接/权限变化冷开及取消 unknown 验证通过。SDK 补验在同一验收进程中关闭旧数据库连接，重新创建 runtime、SQLite 连接和资源 owner，再从持久锚点恢复同 nativeId 与记忆；每次 Invocation 启动独立 SDK worker，恢复自身不发送请求，见[补验证据](../reports/evidence/threaded-t07-real-sdk-reopen.json)。这不构成整个主服务进程 kill/restart 的验收。
 
 T12已接真实生产factory与受信pack，但默认closed、未配置名单、未打开持久许可；日常生产仍未启用。所列主服务烟测、模块组合故障恢复、macOS命令和真实Chrome通过；它们不等于真实供应商的全部主服务故障窗口通过。真实API五类知识/SOP工具通过；两次SDK失败保留，活动心跳修复后真实SDK五工具和隔离HTTP服务SIGKILL原生续接复验通过。T12报告逐项记录未通过及未验证项，不能计为全部59项通过。
 
@@ -82,11 +84,12 @@ T08首次征询取消根因未定位，旧未知费用与围栏保留。原生�
 | --- | --- |
 | RC01指定隔离回归 | Session13、资源集成8、预算14、协作17、知识8、活动心跳6，共66组通过；无真实模型或外部fixture网络。心跳两次沙箱失败由内存诊断确认listen EPERM，允许loopback后原脚本通过，原失败及历史证据保留；见[RC01结果](../reports/evidence/threaded-rc01-local-checks.json) |
 | RC02新增与相关回归 | 新18组＋生产16/协作17/Action12/Review9共72组隔离通过；真实provider7项/8次官方GET另记，真实模型0，无日常发布或远端写；见[RC02证据](../reports/threaded-collaboration-rc02-github-2026-10-22.md) |
+| RC03新增与相关回归 | 等待合同14组、命令共享准入4组、实际production接线2组、迁移19组、资源19＋集成8＋旧资源11组，以及协作17/Action12组通过；新增macOS原生、既有OS/production/GitHub/Review回归以[RC03报告](../reports/threaded-collaboration-rc03-commands-hold-2026-10-22.md)最终记录为准，不沿用历史组数冒充本轮已验。0真实模型/供应商请求，无日常发布 |
 | `pnpm typecheck` | T12后通过（shared、server、web） |
 | 固定源码 hash、Git 差异、迁移 descriptor 清单 | 已核对；不证明部署数据库状态或上游全产品行为 |
 | K01–K16、原 59 项逐条比对 | 通过；ID 和原文全部保留，不执行行为 |
 | T01 生产检索清单重现及 hash | T01 时通过；296 个源文件 hash、1,225 条分类命中完全重现；22 个本地基线文件及 34 个上游引用条目（33 个唯一文件）已核对。T02 改动后不再把旧 hash 当当前源码保证 |
-| `pnpm verify:threaded-migration` | 通过17组，保留既有16组，追加实际 `ba438b1` v33升v34、历史源码/数据hash保留、DDL/注册失败全回滚及旧worker零修改拒绝 |
+| `pnpm verify:threaded-migration` | RC03通过19组，保留T12历史17组并追加实际`a871910` v34→v35、17个历史片段字节不变、旧timer原时间及活跃旧command保守升级占窗保留、DDL/登记失败回滚及旧worker零修改拒绝；见RC03报告 |
 | `pnpm verify:threaded-isolation` | 通过，6 组新模式/未知/错配 fixture；恢复无写入，零 executor/callback；旧三模式正向终态通过 |
 | `pnpm verify:threaded-access` | 通过，管理桥接、专用会话/CSRF、owner、版本、HTTP/WS、注销/过期和关闭入场 |
 | `pnpm verify:threaded-legacy-boundary` | 通过，旧 HTTP/WS 列表/派生 ID/写入前隔离，既有记录仍可用，零外部调用 |
@@ -144,12 +147,12 @@ T02–T06 只在隔离 SQLite、注入式 Fastify、fake provider/executor 和�
 
 ## 5 T12交接与剩余退出条件
 
-输入为已推送 T12 `b99997a`、[发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[分层报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。日常配置/数据库未改。剩余工作统一列入[剩余计划](threaded-collaboration-remaining-plan.md)，RC01已完成固定来源核验并细化RC03/RC05–RC07/EXT01用例，RC02已接可选生产GitHub来源及权限/恢复围栏，此处仅概括退出条件。
+输入为已推送 T12 `b99997a`、[发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[分层报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。日常配置/数据库未改。剩余工作统一列入[剩余计划](threaded-collaboration-remaining-plan.md)，RC01已完成固定来源核验并细化RC03/RC05–RC07/EXT01用例，RC02已推送可选生产GitHub来源及权限/恢复围栏，RC03已完成首批选定命令profile和hold合同，本轮随本次提交交付；此处仅概括尚余退出条件。
 
 1. 真实SDK知识/SOP及静止执行后的隔离HTTP服务SIGKILL同nativeId续接已补验通过，两个失败/unknown原样保留；mid-flight SDK及真实index供应商完整故障仍需按范围补证。
 2. W05实际新HEAD观察窗口606秒/48 GET未出现变化，状态not_observed；需要受权业务事件或后续自然变化证明真实动态唤醒，不写远端制造事件。
-3. 主服务真实供应商完整故障、自动压缩、未知费用/副作用对账仍按组合验收；RC02已交付可选GitHub注册代码，日常未选择注册；OS生产端口与hold/SLA等仍交RC03。
+3. 主服务真实供应商完整故障、自动压缩、未知费用/副作用对账仍按组合验收；RC02已交付可选GitHub注册代码，日常未选择注册；RC03已交付`project_manifest_v1`生产端口与结构化hold/SLA恢复合同；通用shell/build未开放，完整真实组合仍按RC04–RC08补验。
 4. 实际小流量启用和日常迁移未执行。保留匹配pack与兼容worker；threaded-only drain不允许整库回退，不能删除unknown。
-5. RC01确认hold结构化来源/SLA恢复窗口/命令共享准入仍缺，工程目录映射及真实写作仍需交付/验证；本地Session完整policy与根财务/活动预算按适配/增强登记。MEM01语义、Collective和扩展平台/载体保持原范围，K01–K16及59项场景/预期不改。
+5. RC01确认的hold结构化来源/SLA恢复窗口/命令共享准入和首批工程目录映射已由RC03交付；真实供应商停机组合及工程并发写作仍待RC05/RC06验证；本地Session完整policy与根财务/活动预算按适配/增强登记。MEM01语义、Collective和扩展平台/载体保持原范围，K01–K16及59项场景/预期不改。
 
 T12三轮共9实际请求，新增确认27,019 token、未知预留50,748；账本累计153,094（确认63,336/未知89,758），旧记录逐行原样保留；更严20万累计门禁继续生效。T08取消风险未定位。准确命令和分层限制见T12报告。

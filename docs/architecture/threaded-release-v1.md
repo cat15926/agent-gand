@@ -1,6 +1,6 @@
 # 持续协作 T12：发布控制、排空与宿主命令 v1
 
-T12 在已推送的 T11 `ba438b1` 上追加 v34。v25–v33 源码及 descriptor 保持不变。操作步骤见[发布手册](../operations/threaded-release-runbook.md)，分层证据见[T12 报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。代码接线不表示日常服务已启用。
+T12 在已推送的 T11 `ba438b1` 上追加 v34。v25–v33 源码及 descriptor 保持不变。操作步骤见[发布手册](../operations/threaded-release-runbook.md)，分层证据见[T12 报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。代码接线不表示日常服务已启用。RC03现追加v35共享hold账本及可选[生产命令/等待合同](threaded-commands-hold-production-v1.md)，本页T12的v34记录保留为历史范围；日常部署须使用匹配v35的程序与备份。
 
 ## 发布与身份
 

@@ -37,6 +37,7 @@ async function run(f,receipt,handler){if(receipt)for(const w of receipt.wakes)f.
   const result=await f.runtime.executeClaim(claim);f.handler=undefined;return{claim,result};}
 const tool=async(f,claim,name,input,key=randomUUID())=>JSON.parse(await f.runtime.collaboration.tools.execute(claim.binding,name,input,key,THREADED_APPLICATION_TOOL_NAMES));
 const ok=value=>{assert.equal(value.ok,true,JSON.stringify(value));return value.result;};
+const holdSource=(f,claim)=>({kind:'thread_message',value:f.runtime.collaboration.cooperation.source(claim.binding).id,expectedSignal:'business_check_completed',slaUntilMs:f.clock()+3_600_000});
 function worker(f,clock,mode){
   const child=fork(new URL('./fixtures/threadedCooperationWorker.mjs',import.meta.url),[f.file,String(clock),mode],{
     execArgv:['--import',new URL('../apps/server/node_modules/tsx/dist/loader.mjs',import.meta.url).pathname],stdio:['ignore','pipe','pipe','ipc']});
@@ -212,7 +213,7 @@ try{
   {
     const f=await fixture('hold-wait');let first;
     const result=await run(f,f.user('register holds'),async claim=>{
-      const input={idempotencyKey:'hold-one',jobKey:'job-one',seconds:5,waitSourceRef:'timer:check-later'};
+      const input={idempotencyKey:'hold-one',jobKey:'job-one',seconds:5,waitSourceRef:holdSource(f,claim)};
       first=ok(await tool(f,claim,'hold_ball',input));assert.deepEqual(ok(await tool(f,claim,'hold_ball',input)),first);
       f.db.exec("CREATE TRIGGER fixture_wait_fault BEFORE INSERT ON threaded_waits BEGIN SELECT RAISE(ABORT,'fixture_wait_fault'); END;");
       await assert.rejects(()=>tool(f,claim,'hold_ball',{...input,idempotencyKey:'replace-fault',jobKey:'replace-fault',replaceWaitId:first.waitId,expectedVersion:1}),/fixture_wait_fault/);
@@ -347,7 +348,7 @@ try{
   {
     const f=await fixture('hold-does-not-reset-loop');
     await run(f,f.user('begin'),async()=> '@other-member short');
-    await run(f,undefined,async claim=>{ok(await tool(f,claim,'hold_ball',{idempotencyKey:'hold',jobKey:'hold',seconds:5,waitSourceRef:'timer:wait'}));return 'hold registered';});
+    await run(f,undefined,async claim=>{ok(await tool(f,claim,'hold_ball',{idempotencyKey:'hold',jobKey:'hold',seconds:5,waitSourceRef:holdSource(f,claim)}));return 'hold registered';});
     f.advance(5001);f.runtime.collaboration.cooperation.recover();
     await run(f,undefined,async()=> '@api-member resumed short');
     assert.equal(f.db.prepare('SELECT streak FROM threaded_relay_events ORDER BY rowid DESC LIMIT 1').get().streak,2);

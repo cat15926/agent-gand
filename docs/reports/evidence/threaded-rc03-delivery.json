@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "task": "RC03 production bounded commands and structured hold contracts",
+  "baseline": "a8719103312d468e539c9810506a59674c1ca5c2",
+  "baselineCommittedAndPushed": true,
+  "changesCommittedAtCapture": false,
+  "codeSchemaVersion": 35,
+  "historicalMigrationsUnchanged": "v25-v34",
+  "productionDefault": "closed",
+  "dailyDatabaseAccessed": false,
+  "dailyConfigurationChanged": false,
+  "realModelRequests": 0,
+  "realModelTokens": 0,
+  "externalProviderRequests": 0,
+  "scope": [
+    "project_manifest_v1 only",
+    "local grounded message/task/managed_command",
+    "external source adapters require explicit trusted registration",
+    "missed-timer recovery SLA only"
+  ],
+  "groups": 167,
+  "newGroups": 30,
+  "migrationGroups": 19,
+  "regressionGroups": 118,
+  "suites": [
+    {
+      "name": "structured-waits",
+      "groups": 14,
+      "passed": true,
+      "evidence": "threaded-rc03/waits.json",
+      "sha256": "71d95e2acd109fa1e99261e96e53b4fd286332d05e06bfb110e9b0c2b8789748"
+    },
+    {
+      "name": "command-admission",
+      "groups": 4,
+      "passed": true,
+      "evidence": "threaded-rc03-command-admission.json",
+      "sha256": "4397b36b3712cbad01072aa3aa4d8ba3f2ce095f96a611f36b9aa8f0f8a0b5a8"
+    },
+    {
+      "name": "native-production-commands",
+      "groups": 10,
+      "passed": true,
+      "evidence": "threaded-rc03-production-commands.json",
+      "sha256": "d637eeb2873317e958b5a1c6893d06abff8dc07175ccde7f571271275fac7a9b"
+    },
+    {
+      "name": "production-composition",
+      "groups": 2,
+      "passed": true,
+      "evidence": "threaded-rc03-production.json",
+      "sha256": "1e2a863d54752b92244dfe6448888a045da6bbcf13bb02b91b588938e641115b"
+    },
+    {
+      "name": "migration",
+      "groups": 19,
+      "passed": true,
+      "evidence": "threaded-rc03/migration.json",
+      "sha256": "1bad46ec3f470a163312f0840bc8d9e79e606cc5819dd4a6b9b17d5be57a1680"
+    },
+    {
+      "name": "threaded-resources",
+      "groups": 19,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/resources.json",
+      "sha256": "ccb04c294db5c413f8d60bb8284fe2e98af3b991ea91b905d2022113447acfe4"
+    },
+    {
+      "name": "resource-integration",
+      "groups": 8,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/resources.json",
+      "sha256": "ccb04c294db5c413f8d60bb8284fe2e98af3b991ea91b905d2022113447acfe4"
+    },
+    {
+      "name": "legacy-resources",
+      "groups": 11,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/resources.json",
+      "sha256": "ccb04c294db5c413f8d60bb8284fe2e98af3b991ea91b905d2022113447acfe4"
+    },
+    {
+      "name": "collaboration",
+      "groups": 17,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/collaboration.json",
+      "sha256": "57470212d83d8f0622dcc7e3e2a6104fbdc978211ec942b4076b88e97561d288"
+    },
+    {
+      "name": "actions",
+      "groups": 12,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/actions.json",
+      "sha256": "978e479f8b9d3a118aa2a32886ba7a994c11d851907dccfcaf86798e6a59e68e"
+    },
+    {
+      "name": "production-regression",
+      "groups": 16,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/production.json",
+      "sha256": "a2179ebe5b3e39d8c88e2314bd3a3eacd3d4d3ed0c7db71173642f0024ffc7a5"
+    },
+    {
+      "name": "github-regression",
+      "groups": 18,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/github.json",
+      "sha256": "2a90433c9e2f3bb58d0bfc466fa56596626233496338fd6527384a9d3d54baed"
+    },
+    {
+      "name": "review-regression",
+      "groups": 9,
+      "passed": true,
+      "evidence": "threaded-rc03/regressions/reviews.json",
+      "sha256": "82677803c7d4ebed4c2643f6410dc207e2ec19f3cceed35dcb88f224578246e4"
+    },
+    {
+      "name": "os-regression",
+      "groups": 8,
+      "passed": true,
+      "evidence": "threaded-rc03-os-regression.json",
+      "sha256": "979f04c383878d229c367234907f31c2b0959d956ae0091cac0946ad5b3061b0"
+    }
+  ],
+  "originalContracts": "threaded-rc03/original-contracts.json",
+  "files": [
+    {
+      "path": "apps/server/src/db/orchestrationMigrations.ts",
+      "sha256": "f49a57b8bd40572e62da745a99b42f90188f87ce7e60072ac5c5a3d5130771a1"
+    },
+    {
+      "path": "apps/server/src/db/threadedHoldAdmissionMigration.ts",
+      "sha256": "658eb7262b6d51e06ca65198956b22d636bf4a670b9e5b903374145b377518ea"
+    },
+    {
+      "path": "apps/server/src/execution/resources/coordinator.ts",
+      "sha256": "be1c3e7127ec301b99c9a37d4f6b473fb34dc53c63ae53542e43987142ead09a"
+    },
+    {
+      "path": "apps/server/src/execution/resources/sessions.ts",
+      "sha256": "e774afc25c7da686bd3d5d0efeb9364d3b2da4ff8fccdefb661b72a579abda7d"
+    },
+    {
+      "path": "apps/server/src/threaded/actionCommands.ts",
+      "sha256": "3ffa0fb28cf47075501300cc43772247820863a0df25be0ceb48967ce2c7eeb7"
+    },
+    {
+      "path": "apps/server/src/threaded/backendRuntime.ts",
+      "sha256": "7e560b668b37f7a7f2586bea4aa1dd2aa29ec31cb5aee127887abe87480ca90f"
+    },
+    {
+      "path": "apps/server/src/threaded/collaboration.ts",
+      "sha256": "9d9f4cf2b42ae70629550b00c1fd5aa4efe62609b686e3816672506c213020c0"
+    },
+    {
+      "path": "apps/server/src/threaded/collaborationTypes.ts",
+      "sha256": "2f32e9a8f9d3f716f985866cf6390d97a10ba576fc3f047a7597f9f13e2d2006"
+    },
+    {
+      "path": "apps/server/src/threaded/cooperation.ts",
+      "sha256": "2b18119653c5ba8488c7372ae6da31f0cad70c87dbf9383a17ed1871d1e48281"
+    },
+    {
+      "path": "apps/server/src/threaded/osCommandResources.ts",
+      "sha256": "2d81f050ee73a73c419cb55245b8ce825db7153a5b4217a8c534428cebc6a96a"
+    },
+    {
+      "path": "apps/server/src/threaded/osCommands.ts",
+      "sha256": "0363673f491269aa344ff4ba8a01b5109f5613ed39834926904b959e80d26e23"
+    },
+    {
+      "path": "apps/server/src/threaded/production.ts",
+      "sha256": "eb7c60579cf41341095c94e6e7aad01a1f5d1c661668f96c758d87f7d01cda2b"
+    },
+    {
+      "path": "apps/server/src/threaded/productionCommands.ts",
+      "sha256": "328515c919ae74938fcc3962e8a402293004d0062051ee41f88df825048076a4"
+    },
+    {
+      "path": "apps/server/src/threaded/projectManifestWorker.mjs",
+      "sha256": "581ea4389e2130f3d780c107ca4b1c65c320fafbdb066cba021b0625cd80bdd6"
+    },
+    {
+      "path": "apps/server/src/threaded/runtime.ts",
+      "sha256": "9c5a5f8133e7c4a0c7283cf04a46b2e0604dd002c1f105d2dd45c69145ff1430"
+    },
+    {
+      "path": "apps/server/src/threaded/service.ts",
+      "sha256": "d1883c6168135ed7bbd83c3e51e6c19c13f5785fc7b3fc8fad1bfc2652f7487d"
+    },
+    {
+      "path": "apps/server/src/threaded/tools.ts",
+      "sha256": "54cb6b215ffffedd6dcf9c771d4627a2e6f8e747f6adbd3f438fd8a31272197b"
+    },
+    {
+      "path": "apps/server/src/threaded/waitContracts.ts",
+      "sha256": "9bf363e9c9ac196e390f4457e4fc8fab266b58dfaa3001d883fc2771df9c7120"
+    },
+    {
+      "path": "docs/architecture/threaded-collaboration-v1.md",
+      "sha256": "d7aabb723cfeea1648f970cf760720d57108d6b10f1c6752b809ef80016b550e"
+    },
+    {
+      "path": "docs/architecture/threaded-commands-hold-production-v1.md",
+      "sha256": "9259568c5edaf9b9380c20dac4afd9939df45c89b22cee6589694723e2105d24"
+    },
+    {
+      "path": "docs/architecture/threaded-release-v1.md",
+      "sha256": "dcd8059e06bce8a2e4d01430a762f20d90695368482cd8ca5dd18a71d77822c4"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "sha256": "ba5208ad469f3fe5a64837f1829f4da9e6c3d098ac1ddee28f61ea42d27225e8"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "sha256": "0a04117b9b32af0626369b66a1f3d98230d12590350eede9ddc4064dca262eac"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "sha256": "962ec9234f429223ac83af1f3368c0a834b90e7914e2fb8d530c9fbc7b65760f"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "sha256": "92ffbd1c7f4bd95a158bc3e1adba90691d286aef7ef7be22ad6152af0200890a"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "sha256": "0e0084c9cab0012f74049d03895a2199759368b9d2fe820f1eaf3b130ec109f3"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03-command-admission.json",
+      "sha256": "4397b36b3712cbad01072aa3aa4d8ba3f2ce095f96a611f36b9aa8f0f8a0b5a8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03-os-regression.json",
+      "sha256": "979f04c383878d229c367234907f31c2b0959d956ae0091cac0946ad5b3061b0"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03-production-commands.json",
+      "sha256": "d637eeb2873317e958b5a1c6893d06abff8dc07175ccde7f571271275fac7a9b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03-production.json",
+      "sha256": "1e2a863d54752b92244dfe6448888a045da6bbcf13bb02b91b588938e641115b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/migration.json",
+      "sha256": "1bad46ec3f470a163312f0840bc8d9e79e606cc5819dd4a6b9b17d5be57a1680"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/original-contracts.json",
+      "sha256": "4851fec13a104a6662ad0b36126d3317cce448a64cff7ceb0506eb11b7bc686a"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/actions.json",
+      "sha256": "978e479f8b9d3a118aa2a32886ba7a994c11d851907dccfcaf86798e6a59e68e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/collaboration.json",
+      "sha256": "57470212d83d8f0622dcc7e3e2a6104fbdc978211ec942b4076b88e97561d288"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/github.json",
+      "sha256": "2a90433c9e2f3bb58d0bfc466fa56596626233496338fd6527384a9d3d54baed"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/production.json",
+      "sha256": "a2179ebe5b3e39d8c88e2314bd3a3eacd3d4d3ed0c7db71173642f0024ffc7a5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/resources.json",
+      "sha256": "ccb04c294db5c413f8d60bb8284fe2e98af3b991ea91b905d2022113447acfe4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/regressions/reviews.json",
+      "sha256": "82677803c7d4ebed4c2643f6410dc207e2ec19f3cceed35dcb88f224578246e4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc03/waits.json",
+      "sha256": "71d95e2acd109fa1e99261e96e53b4fd286332d05e06bfb110e9b0c2b8789748"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc03-commands-hold-2026-10-22.md",
+      "sha256": "7a5d0b272a18a112a64b203c2b289cdb3d5c936bdecf6d4e6374f41053d7ab9f"
+    },
+    {
+      "path": "package.json",
+      "sha256": "420091bbe50364b56a1d5d1a2dc0db2df31b4e8c7c679a71b76c453562f5bb19"
+    },
+    {
+      "path": "scripts/fixtures/threadedBackendRuntimeFixture.mjs",
+      "sha256": "eb4211cf87b18fcde83c738f8c7259f80c1b00d2940c3d0aedf85868e1472a03"
+    },
+    {
+      "path": "scripts/fixtures/threadedUiServer.mjs",
+      "sha256": "c550417b3703499c512c9772d22417bd162e63e9f64d702ea6c9a4c802123bd9"
+    },
+    {
+      "path": "scripts/verify-threaded-actions.mjs",
+      "sha256": "fe3851ddb6d0caeb08b475a5ebdaa03c29428e82761b78010aa9ef40743f891b"
+    },
+    {
+      "path": "scripts/verify-threaded-collaboration.mjs",
+      "sha256": "df7994b6912be839f4097370a244151ac1a2d816f70f1ef9299ed580b66ade75"
+    },
+    {
+      "path": "scripts/verify-threaded-migration.mjs",
+      "sha256": "9bddd3cb89e966a446f78f2c9b9eeca21944e5582c9bb9c82b8c51147f031e01"
+    },
+    {
+      "path": "scripts/verify-threaded-os-commands.mjs",
+      "sha256": "f75c1630989ea47d59b7675822f1b8ae641dab75dc6cbf3d37d3817a745690ab"
+    },
+    {
+      "path": "scripts/verify-threaded-production-commands.mjs",
+      "sha256": "528a3e6f3bf9dc5feaead40b0b5ea6d754e0b044362d551e564360fa8d7c6de4"
+    },
+    {
+      "path": "scripts/verify-threaded-production.mjs",
+      "sha256": "79ff6fa73a53e287b058362196cc4b7077fa763c505830651ed3a547fc23d25a"
+    },
+    {
+      "path": "scripts/verify-threaded-rc03-command-admission.mjs",
+      "sha256": "bf635141a596aca6238e5cb1bbf1636f91f8c3a74c861f6a7ff750592df78cf6"
+    },
+    {
+      "path": "scripts/verify-threaded-rc03-production.mjs",
+      "sha256": "aeba21da90f6a630f65b138448bcf3a12cf8b141e65eada5ebbe02944e9e6304"
+    },
+    {
+      "path": "scripts/verify-threaded-rc03-waits.mjs",
+      "sha256": "ca01d1a54823ad44ee77452920c9a0db46c00ffa838306dcb8ae40e6ca350fbd"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "groups": 12,
+  "checks": [
+    "A01/A02: canonical platform tasks, frozen criteria and version, trusted assignee transition, independent typed completion candidate; ordinary final/text/fake evidence cannot complete; idempotency survives SQLite factory rebuild and UI is domain-backed",
+    "A01/DB01: two actual IPC workers with separate SQLite connections race at one barrier; exactly one canonical single successor is admitted with one generation and durable dispatch",
+    "K09: platform task creation provenance is durable; a private task cannot be assigned outside its authorized source audience, and rejected admission rolls back generation/task assignment/message work together",
+    "A07: real producer subprocess SIGKILL after canonical task transition commit and before candidate/ACK; rebuilt runtime and SQLite resolver recover exactly one candidate, Action completion and callback without a model replay",
+    "Parallel review: explicit intent is mandatory, one rejection cannot transfer other holders to a predecessor, and one successful review does not complete a failed parallel responsibility",
+    "A03: actual two-process completion versus exact-predecessor return commits one winner after a full independent review; stale generation cannot complete or return a successor and immutable history remains. Proven returned/failed-holder replacement is separately checked below; the original author cannot self-review a returned responsibility",
+    "A03/B01: replacement CAS requires a proven failed/returned holder, stale effects reject, exact predecessor return creates one holder even with retained parallel intent; generation history and original root survive",
+    "K01/K04: ordinary addressed A2A from an Action holder can wake a peer under the same root, but it grants no Action standing and cannot complete or silently transfer responsibility",
+    "A04/A05/A06: authenticated independent local published review yields typed evidence; changes_requested completes only review responsibility, new HEAD invalidates old approved evidence, revision needs fresh review and unreachable source is explicitly unverifiable (injected transport)",
+    "Return semantics: author/predecessor may receive rejected responsibility without gaining independent-review approval; return preserves the original frozen HEAD, and exact returned-holder proof is required to reassign a fresh HEAD",
+    "W04/W01: registered command starts once, cancellation unknown stays attached to the old generation, factory rebuild observes without replay; old terminal is audited but cannot wake a new holder or satisfy Action, old timer callback also rejects",
+    "K04/W04: two real SQLite worker processes retry one command key at a barrier; both receive the same command ID and the registered external start port executes exactly once"
+  ],
+  "faults": [
+    {
+      "table": "threaded_action_candidates",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_collaboration_callbacks",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_messages",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_outbox",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_tool_receipts",
+      "rolledBack": true
+    }
+  ],
+  "injectedHttpCalls": 31,
+  "prReads": 25,
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "real platform task tables/facade and SQLite/runtime; PR and command transport explicitly injected; not real GitHub acceptance"
+}

@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "scope": "T02-T12/RC03/DB03 isolated SQLite migration; no model execution",
+  "groups": 19,
+  "checks": [
+    "empty bootstrap, repeated migration, stable owner and unchanged legacy messages",
+    "v24 upgrade preserves historical rows and migration checksums byte-for-byte",
+    "actual v25 upgrade preserves identity/history/checksums; v26 failure rolls back added columns and tables, then retries",
+    "actual v26 upgrade preserves Thread/Invocation and historical descriptors; v27 migration rolls back atomically and repeats safely",
+    "actual frozen v27 upgrade preserves Thread/Invocation/resource generations/Session identity; failed v28 rolls back all DDL and retries idempotently",
+    "actual frozen v28 registry/message/outbox create preserved receipt, owned bytes and consumer ACK; failed v29 rolls back all DDL, then repeated upgrade preserves every prior fact",
+    "actual frozen v29 message/budget/queue preserve causal root, FIFO and immutable receipts; v30 failure rolls back both context fragments, then repeated upgrade preserves every prior table",
+    "actual frozen v30 upgrades to v31 without changing any prior fact or message request hash; callback lineage is additive, DDL failure rolls back and repeated upgrade is stable",
+    "actual frozen v31 upgrades atomically to v32; injected failure rolls back DDL, repeated upgrade preserves prior descriptors and a v31 worker rejects v32",
+    "actual frozen pushed v32/c944c9d upgrades to v33; DDL failure rolls back all Review/SOP/Knowledge fragments and registration, repeated upgrade preserves every prior table including task/Action/budget/queue, pre-v33 review compatibility admissions freeze once and never adopt new Actions on reopen, and the v32 worker rejects v33 without mutation",
+    "actual frozen pushed v33/ba438b1 upgrades to v34; historical v25-v33 source hashes and all prior facts/request receipts/queue roots stay identical; failed intermediate DDL and final registration roll back release controls/changes/grants/roots and OS intents/events atomically; repeated upgrade is stable and the actual v33 worker refuses v34 before any schema or row mutation",
+    "actual pushed v34/a871910 upgrades to v35; all 17 historical migration fragments and prior rows/checksums stay byte-identical; timer timestamps survive exactly; legacy awaiting command and paused callback admissions conservatively use one upgrade clock because v34 has no wait timestamp, completed history is excluded and repeat never renews the charge; DDL/registration faults roll back ledger/backfill together and the actual v34 worker refuses v35 before mutation",
+    "shared hold admissions accept timer and command sources, enforce immutable source keys, exact kind/member/owner/Thread scope, once-per-source idempotency, append-only retention and all foreign keys",
+    "atomic closed Thread + Conversation + members, idempotency conflict and owner-filtered reads; no execution side effects",
+    "owner/version and attempt identity constraints, same-invocation current Attempt, unique scoped Run binding",
+    "v26 binding/fence immutability and scope FKs protect approvals, immutable outputs and terminal proof identity",
+    "DDL, stable owner and migration registration roll back together, followed by successful retry",
+    "future version and mutated historical checksum rejected before mutation",
+    "actual frozen v24/v25/v26/v27/v28/v29/v30 worker compatibility guards refuse v25/v26/v27/v28/v29/v30/v31 without mutation"
+  ]
+}

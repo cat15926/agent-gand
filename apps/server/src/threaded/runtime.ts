@@ -30,6 +30,8 @@ export function createThreadedRuntime(db: Database.Database, options: {
   /** Trusted production release policy; HTTP/model input cannot supply this port. */
   executionPolicy?:{admit(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void;assertAuthorized?(scope:{ownerId:string;threadId:string;agentId:string;causalRootId:string}):void};
   ingress?:import('./collaborationTypes.ts').CollaborationOptions['ingress'];
+  holdPolicy?:import('./collaborationTypes.ts').CollaborationOptions['holdPolicy'];
+  waitSourceAuthorization?:import('./collaborationTypes.ts').CollaborationOptions['waitSourceAuthorization'];
   deferDispatchUntilStart?:boolean;
   /** Read-only observation must not let account invalidations arm repairs or acknowledge outbox. */
   notificationsEnabled?:boolean;
@@ -71,6 +73,7 @@ export function createThreadedRuntime(db: Database.Database, options: {
   };
   const collaboration = options.collaborationEnabled ? createThreadedCollaboration(db,{authority,messages:messaging.messages,
     now:options.now,context:options.collaborationContext,trackingSources:options.trackingSources,actions:options.actions,ingress:options.ingress,
+    holdPolicy:options.holdPolicy,waitSourceAuthorization:options.waitSourceAuthorization,
     onCommitted:()=>{if(options.notificationsEnabled===false)return;messaging.notifyCommitted();if(enabled&&dispatchStarted)dispatcher?.wakeup();}}) : undefined;
   const mapped = (invocationId: string) => db.prepare('SELECT 1 FROM threaded_invocation_wakes WHERE invocation_id=?').get(invocationId);
   const lifecycle = createThreadedLifecycle(db, authority, {

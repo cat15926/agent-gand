@@ -14,11 +14,12 @@ export function createActionCommands(db:Database.Database,options:CollaborationO
   ports?:Record<string,ActionCommandPort>;
 }) {
   const {actions,cooperation:c}=options,now=options.now??Date.now;
+  const ports:Record<string,ActionCommandPort>=Object.assign(Object.create(null) as Record<string,ActionCommandPort>,options.ports??{});
   const scope=(r:Command)=>({ownerId:r.owner_id,threadId:r.thread_id,agentId:r.agent_id});
   const fence=(r:Command):ActionFence=>({actionId:r.action_id,generation:r.generation});
   const row=(id:string)=>db.prepare('SELECT * FROM threaded_commands WHERE id=?').get(id) as Command|undefined;
   const terminal=(r:Command)=>['completed','failed','cancelled'].includes(r.state);
-  function port(r:Command){const p=options.ports?.[r.port];if(!p||p.authorization(scope(r))!==r.authorization)reject('THREADED_COMMAND_AUTHORITY_CHANGED',403);return p;}
+  function port(r:Command){const p=ports[r.port];if(!p||p.authorization(scope(r))!==r.authorization)reject('THREADED_COMMAND_AUTHORITY_CHANGED',403);return p;}
   function settleWithin(r:Command,value:CommandObservation){
     if(terminal(r))return;
     if(!['running','unknown','completed','failed','cancelled'].includes(value.state))reject('THREADED_COMMAND_OBSERVATION_INVALID');
@@ -32,7 +33,8 @@ export function createActionCommands(db:Database.Database,options:CollaborationO
   function deliverWithin(r:Command){
     const wait=db.prepare("SELECT * FROM threaded_command_waits WHERE command_id=? AND state='awaiting'").get(r.id) as {record:string;parent_invocation_id:string}|undefined;
     if(!wait)return;
-    const current=actions.valid(fence(r),r.agent_id);
+    let authorized=false;try{port(r);authorized=true;}catch{/* Revoked registrations cannot emit a successor wake. */}
+    const current=authorized&&actions.valid(fence(r),r.agent_id);
     if(!current){db.prepare("UPDATE threaded_command_waits SET state='stale' WHERE command_id=?").run(r.id);return;}
     if(!terminal(r))return;
     const config=JSON.parse(wait.record) as {binding:ThreadedBinding;scope:ReturnType<typeof c.boundary>;frozen:ReturnType<typeof c.frozen>};
@@ -51,7 +53,7 @@ export function createActionCommands(db:Database.Database,options:CollaborationO
       if(committed){if(committed.request_hash!==hash)reject('THREADED_ACTION_IDEMPOTENCY_CONFLICT');reused=true;return JSON.parse(committed.record) as {commandId:string;state:string;actionId:string;generation:number};}
       c.running(binding);actions.assertBinding(binding);
       if(name==='run_command'){
-        const a=actions.held(binding,input),name=text(input.command),p=options.ports?.[name],authorization=p?.authorization(binding);
+        const a=actions.held(binding,input),name=text(input.command),p=ports[name],authorization=p?.authorization(binding);
         if(!p||!authorization)reject('THREADED_COMMAND_NOT_AUTHORIZED',403);
         p.validate(input.args);const id=randomUUID();
         db.prepare("INSERT INTO threaded_commands VALUES(?,?,?,?,?,?,?,?,?,?,?,'unknown',1,NULL,?,?)")
@@ -65,6 +67,7 @@ export function createActionCommands(db:Database.Database,options:CollaborationO
       }
       if(name==='wait_command'){
         const original=JSON.parse(command.source_record) as {sourceRefs:string[]};
+        c.admitHoldWithin(binding,{key:`command:${command.id}`,kind:'command'});
         db.prepare("INSERT OR IGNORE INTO threaded_command_waits VALUES(?,?,?,'awaiting')").run(command.id,binding.invocationId,
           JSON.stringify({binding,scope:c.boundary(binding,original.sourceRefs),frozen:c.frozen(binding)}));deliverWithin(command);
       }
@@ -76,6 +79,7 @@ export function createActionCommands(db:Database.Database,options:CollaborationO
     if(reused||name==='wait_command')return result;
     if(terminal(command!))return result;
     const r=command!,p=port(r);let observation:CommandObservation;
+    c.running(binding);if(!actions.valid(fence(r),r.agent_id))reject('THREADED_ACTION_STALE_GENERATION');
     try{observation=name==='run_command'?await p.start({commandId:r.id,binding,args:JSON.parse(r.args)}):await p.cancel({commandId:r.id,scope:scope(r)});}
     catch{observation={state:'unknown',evidenceRef:'registered-command-transport-unknown'};}
     c.transaction(()=>{const latest=row(r.id)!;

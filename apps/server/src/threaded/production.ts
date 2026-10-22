@@ -12,6 +12,7 @@ import {ThreadedAuthorityError} from './contracts.ts';
 import {digest} from './collaborationTypes.ts';
 import {threadedAdmissionMode,threadedCapabilities,rejectThreadedAdmission} from './policy.ts';
 import {loadThreadedProductionGithub} from './productionGithub.ts';
+import {loadThreadedProductionCommands} from './productionCommands.ts';
 
 /** Production wiring is inert until an operator pins a release pack and opens its durable controls. */
 export function createThreadedProduction(db:Database.Database,options:{
@@ -21,6 +22,9 @@ export function createThreadedProduction(db:Database.Database,options:{
   onRequestReserved?:Parameters<typeof createThreadedBackendRuntime>[1]['onRequestReserved'];
   onRequestSettled?:Parameters<typeof createThreadedBackendRuntime>[1]['onRequestSettled'];
   github?:{file?:string;readToken:(name:string)=>string|undefined;fetch?:typeof fetch};
+  commands?:{file?:string};
+  holdPolicy?:import('./collaborationTypes.ts').CollaborationOptions['holdPolicy'];
+  waitSourceAuthorization?:import('./collaborationTypes.ts').CollaborationOptions['waitSourceAuthorization'];
 }){
   const mode=options.mode??threadedAdmissionMode,store=createThreadedStore(db),ownerId=store.getInstanceOwnerId();
   const settings=options.settings,release=createThreadedRelease(db,{mode,members:()=>settings?.members()??[]});
@@ -38,20 +42,27 @@ export function createThreadedProduction(db:Database.Database,options:{
     const shape=(m:typeof registered)=>Object.fromEntries(keys.map(k=>[k,m[k]??null]));
     if(digest(shape(frozen))!==digest(shape(registered)))throw new ThreadedAuthorityError('THREADED_RELEASE_CONFIGURATION_NOT_RETAINED');
   }
-  function resolveAgent(scope:{ownerId:string;threadId:string;agentId:string}){assertRetainedConfiguration(scope);return settings!.resolveAgent(scope);}
+  function resolveAgent(scope:{ownerId:string;threadId:string;agentId:string}){
+    assertRetainedConfiguration(scope);const value=settings!.resolveAgent(scope),workspace=commands?.resolveWorkspace(scope);
+    return workspace?{...value,workspace,informationBoundary:`${value.informationBoundary}:project:${commands!.workspaceIdentity(scope)}`} :value;
+  }
+  function authorizeMember(scope:{ownerId:string;threadId:string;agentId:string}){
+    if(!settings||mode()==='observe')return null;
+    try{
+      const thread=db.prepare('SELECT state FROM threaded_threads WHERE owner_id=? AND id=?').get(scope.ownerId,scope.threadId) as {state:string}|undefined;
+      if(!thread||thread.state==='closed'||thread.state==='archived')return null;
+      const member=release.assertGrantedMember(scope);assertRetainedConfiguration(scope);settings.validateAgent(scope.agentId);
+      return digest(member);
+    }catch{return null;}
+  }
   const github=loadThreadedProductionGithub({file:options.github?.file,ownerId,mode,
     readToken:name=>options.github?.readToken(name),fetch:options.github?.fetch,
     assertOutsideTransaction(){if(db.inTransaction)throw new ThreadedAuthorityError('THREADED_GITHUB_IO_IN_TRANSACTION');},
-    authorizeMember(scope){
-      if(!settings||mode()==='observe')return null;
-      try{
-        const thread=db.prepare('SELECT state FROM threaded_threads WHERE owner_id=? AND id=?').get(scope.ownerId,scope.threadId) as {state:string}|undefined;
-        if(!thread||thread.state==='closed'||thread.state==='archived')return null;
-        const member=release.assertGrantedMember(scope);assertRetainedConfiguration(scope);settings.validateAgent(scope.agentId);
-        return digest(member);
-      }catch{return null;}
-    }});
-  const domains=github?{trackingSources:{github_pr:github.tracking},actions:{pr:github.pr}}:{};
+    authorizeMember});
+  const commands=loadThreadedProductionCommands(db,{file:options.commands?.file,ownerId,mode,resources:options.resources,authorizeMember});
+  const domains={...(github?{trackingSources:{github_pr:github.tracking}}:{}),
+    actions:{...(github?{pr:github.pr}:{}),...(commands?{commands:commands.commands}:{})},
+    holdPolicy:options.holdPolicy,waitSourceAuthorization:options.waitSourceAuthorization};
   const runtime=settings?createThreadedBackendRuntime(db,{...base,resolveAgent,fetch:options.fetch,
     ...domains,
     onRequestReserved:options.onRequestReserved,onRequestSettled:options.onRequestSettled,
@@ -62,7 +73,8 @@ export function createThreadedProduction(db:Database.Database,options:{
   function admission(){let ready=!!settings,reason:string|null=null;try{settings?.members();}catch(error){ready=false;reason=error instanceof ThreadedAuthorityError?error.code:'THREADED_RELEASE_PIN_CHANGED';}
     const control=release.state(ownerId);return {mode:mode(),configured:!!settings,ready,reason,canCreate:ready&&mode()==='execute'&&control.admissionOpen,
       members:settings?.registered.map(m=>({agentId:m.agentId,backend:m.backend,model:m.model}))??[],control,
-      domains:{github:github?.status()??{configured:false,state:'not_registered'}}};}
+      domains:{github:github?.status()??{configured:false,state:'not_registered'},
+        commands:commands?.status()??{configured:false,state:'not_registered'}}};}
   function capabilities(viewOwnerId?:string,threadId?:string){
     const value=threadedCapabilities(),a=admission();let admissionAllowed=a.canCreate,executionAvailable=!!settings&&mode()!=='observe';
     if(threadId){
@@ -95,6 +107,8 @@ export function createThreadedProduction(db:Database.Database,options:{
     }).immediate();
   }
   return {...runtime,release,admission,capabilities,createThread,
+    close(){runtime.close();commands?.close();},
+    async shutdown(timeoutMs=15_000){commands?.close();return runtime.shutdown(timeoutMs);},
     messageAdmission(){if(!settings)rejectThreadedAdmission();if(mode()==='observe')throw new ThreadedReleaseError('THREADED_RELEASE_OBSERVE_ONLY',403);},
     recover(){if(mode()==='observe')return {observed:true,plan:release.snapshot(ownerId)};
       const result=runtime.recover();return {...result,...recoverThreadedBackendFacts(db,runtime.authority)};},

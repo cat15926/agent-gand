@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "groups": 4,
+  "checks": [
+    "RC03-C01: timer and command wake share one durable 3/hour per owner/Thread/member ledger; same timer job and command ID charge once across different operation keys; rejected admission rolls back its wait; exact one-hour boundary admits new work",
+    "RC03-C02: a currently authorized terminal command emits one typed callback, preserving separate business-condition verification",
+    "RC03-C03: a terminal row restored before wait delivery rechecks current registration; revoked port marks wait stale without emitting a callback",
+    "RC03-C04: a command terminal callback already held by pause is reauthorized before resume; revocation rejects the old callback without a new message or wake"
+  ],
+  "injectedModelRequests": 9,
+  "injectedCommandStarts": 5,
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "Temporary SQLite with application tools, Action fences and injected command transport; actual OS process checks are separate"
+}

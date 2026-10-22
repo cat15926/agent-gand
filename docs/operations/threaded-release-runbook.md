@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-22。适用 schema 34、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-22。适用 schema 35（RC03前向追加，历史v25–v34保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -65,11 +65,15 @@ THREADED_COLLABORATION_MODE=closed
 THREADED_RELEASE_MEMBERS_FILE=/受保护的部署目录/threaded-release-pack.json
 ```
 
-这两个字段不包含秘密。生产服务通过显式执行策略取得执行权，不应设置 `AGENT_GAND_ISOLATED_WORKER=1` 来绕过发布策略。RC02已接可选GitHub PR/tracking/Review来源；未设置注册文件时明确not_registered，release pack不会自动启用。OS生产命令仍未注册，其他tracking来源不能从配置模板推导支持。
+这两个字段不包含秘密。生产服务通过显式执行策略取得执行权，不应设置 `AGENT_GAND_ISOLATED_WORKER=1` 来绕过发布策略。RC02已接可选GitHub PR/tracking/Review来源；未设置注册文件时明确not_registered，release pack不会自动启用。RC03已接可选OS命令注册，首批仅受信 `project_manifest_v1`；缺少注册时命令明确not_registered，其他tracking/命令来源不能从配置模板推导支持。
 
 如选择GitHub只读范围，按[生产GitHub合同](../architecture/threaded-github-production-v1.md)准备非秘密注册JSON，固定当前实例、已grant的Thread/成员、repo及PR number，配置 `THREADED_GITHUB_REGISTRATIONS_FILE` 指向受保护文件。部署进程另注入指定的 `THREADED_GITHUB_TOKEN_*` 用户凭据；不要把值写入JSON、Thread或release pack。首个读取官方/user验证配置principal，只有当前release成员权限和匹配版本才可使用。注册内容或token轮换需递增相应版本并正常重启，不用删除等待/unknown恢复访问。
 
 `domains.github.state` 的registered只表示公开配置已加载，ready只表示本进程principal验证通过，每次PR仍需当前授权/HEAD；配置漂移、缺token、401/403或身份不符按状态拒绝。observe不会读取GitHub凭据/网络；closed拒新根但可按合法既有grant处理事实，关闭入场不等于撤销所有外部读取。详见[RC02分层报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)。本次未在日常环境设置这些配置或开放功能。
+
+如选择首批生产命令，按[命令与等待合同](../architecture/threaded-commands-hold-production-v1.md)准备受保护的公开注册JSON，通过 `THREADED_COMMAND_REGISTRATIONS_FILE` 加载。固定工程根、已grant的Thread/成员、成员workspace、专用输出cwd及完整read/write声明；目录必须已存在且规范、不交叠，模型不能选择路径。当前只读工程清单程序经过执行链和输入pin，并由父进程独立核对产物；任意shell/构建/网络命令不在首批范围。`domains.commands` 不显示私密目录内容。修改已加载注册或工程输入会阻断旧端口，不能用重命名或清理unknown绕过原claim；先保留证据并按匹配版本对账。
+
+v35保留旧timer额度并建立timer/command wake共享账本；旧活跃command wake因缺历史注册时间，以一次迁移时刻保守占一小时且重启不续期；升级后既有字符串timer不补造来源或SLA，无效等待显式退休。实际旧等待处置、额度回填与恢复演练应先在备份副本核验，不能只根据schema升级成功宣称业务恢复完成。本轮没有执行日常迁移或配置。
 
 ## 2. 两个独立门禁与运行模式
 
@@ -110,7 +114,7 @@ Content-Type: application/json
 
 ## 3. 小范围启用与验证
 
-1. 保持新入场关闭，保存匹配版本的备份，在隔离副本完成迁移和恢复演练。正常启动会前向迁移到 schema 34；不能将日常启动当成只读检查。
+1. 保持新入场关闭，保存匹配版本的备份，在隔离副本完成迁移和恢复演练。正常启动会前向迁移到 schema 35；不能将日常启动当成只读检查。
 2. 安装经审阅的 pack，将模式改为 `execute` 并正常重启；先读取 `admission`，确认 `configured=true`、`ready=true` 且成员/后端/模型符合本次范围。此时门禁仍按持久值生效，不会因重启重置。
 3. 用带版本的发布控制打开新入场及派发。仅创建本次 canary 的新 Thread：
 
@@ -178,9 +182,9 @@ pnpm accounts:verify-backup --input /受保护的备份目录/新的备份名
 
 恢复分为两类：
 
-1. **保留 schema 的关闭或恢复。** 使用支持 schema 34 的匹配兼容程序和当前数据，先 `closed` 或 `observe`，保留匹配 pack；核对未知事实及恢复计划后，在 `closed` 下明确打开派发来排空。此路径不会把新协议交给旧程序。
+1. **保留 schema 的关闭或恢复。** 使用支持 schema 35 的匹配兼容程序和当前数据，先 `closed` 或 `observe`，保留匹配 pack；核对未知事实及恢复计划后，在 `closed` 下明确打开派发来排空。此路径不会把新协议交给旧程序。
 2. **整组历史备份回退。** 先额外保全切换后数据库、WAL/SHM、私有目录、工作区和产物，核对升级后新增工作及外部副作用，再恢复经校验的配套备份、源码、配置、密钥和目录。旧 SQLite 不得混用新 WAL/SHM。历史快照不会撤回已经发布的信息、真实执行或供应商费用；未决增量必须单独处理。
 
-启动前的 schema 校验会拒绝不识别新迁移的旧 binary/worker，且在 schema 初始化前执行。不能删迁移行、新表或 unknown 来降低版本。隔离 release 验收已执行实际 T11 `ba438b1` 的 v33 兼容门，确认拒绝 v34；这不等于已经替日常环境完成历史备份恢复。
+启动前的 schema 校验会拒绝不识别新迁移的旧 binary/worker，且在 schema 初始化前执行。不能删迁移行、新表或 unknown 来降低版本。隔离 release 验收已执行实际 T11 `ba438b1` 的 v33 兼容门，确认拒绝 v34；RC03隔离验证另确认实际RC02 `a871910` 的v34 worker拒绝v35且零修改；这些结果不等于已经替日常环境完成历史备份恢复。
 
 先在隔离原路径副本演练，核对 `quick_check`、外键、grant/root、消息/回执/Action 和预算历史；恢复阶段不得自动重放未知外部请求。完整运维操作应记录应用 revision、schema、pack 摘要、配置模式、控制版本、停机前后清单及保留的未知项，再按已验证范围恢复兼容服务。

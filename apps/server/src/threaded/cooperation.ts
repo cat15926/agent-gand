@@ -4,6 +4,7 @@ import type { ThreadedBinding, ThreadedMessageRecord, ThreadedMessageReceipt } f
 import { createThreadedMessages } from './messages.ts';
 import { digest, reject, text, strings, integer, type CollaborationOptions, type CollaborationTerminal } from './collaborationTypes.ts';
 import type {ActionFence} from './actionTypes.ts';
+import {classifyThreadedTimerRecovery,parseThreadedWaitSource,type ThreadedWaitSourceRef,type ThreadedWaitSourceAuthority} from './waitContracts.ts';
 
 type Group = {id:string;owner_id:string;thread_id:string;binding_id:string;caller_id:string;parent_invocation_id:string;
   root_id:string;request_hash:string;callback_to:string;deadline:number;state:string;version:number;record:string;created_at:number};
@@ -14,8 +15,13 @@ type Scope = {ownerId:string;threadId:string;agentId:string};
 export function createThreadedCooperation(db:Database.Database,options:CollaborationOptions&{actionScope?:{
   capture:(binding:ThreadedBinding)=>ActionFence|null;valid:(fence:ActionFence,agent:string)=>boolean;
   bindMessage:(messageId:string,fence:ActionFence|null)=>void;assertBinding:(binding:ThreadedBinding)=>void;
-};trackingAuthorization?:(scope:Scope,source:string,subject:string)=>string|null}) {
+};trackingAuthorization?:(scope:Scope,source:string,subject:string)=>string|null;
+  commandAuthorization?:(scope:Scope,sourceId:string)=>boolean}) {
   const now=options.now??Date.now;
+  // Capture only timers already missed when this factory starts. Ordinary online recovery,
+  // terminal notifications, and timers restored before their deadline retain one-shot semantics.
+  const startupAt=now(),missedTimerIds=new Set((db.prepare("SELECT id FROM threaded_waits WHERE kind='timer' AND state='awaiting' AND deadline<=?")
+    .all(startupAt) as Array<{id:string}>).map(row=>row.id));
   const messages=createThreadedMessages(db,{authority:options.authority,now,authorizeSystem:v=>v.systemKey==='threaded-collaboration-v1'});
   const notify=()=>{try{options.onCommitted?.();}catch{/* durable outbox owns recovery */}};
   function transaction<T>(action:()=>T):T {if(db.inTransaction)reject('THREADED_COLLABORATION_OUTERMOST_REQUIRED');
@@ -74,6 +80,58 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       if(m.visibility==='private')audience=audience?audience.filter(id=>m.audience.includes(id)):[...m.audience];}
     return {visibility:audience?'private':'public',audience:audience??[],sourceRefs:[...ids]};
   }
+  function groundWaitSource(scope:Scope,ref:ThreadedWaitSourceRef,cutoff?:number):ThreadedWaitSourceAuthority|null {
+    const readable=(id:string)=>{const row=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=? AND owner_id=?').get(id,scope.ownerId) as {thread_id:string}|undefined;
+      const m=row?options.messages.getMessage({ownerId:scope.ownerId,threadId:row.thread_id,viewer:{kind:'agent',agentId:scope.agentId}},id):null;
+      return !!m&&(cutoff===undefined||m.seq<=cutoff&&m.threadId===scope.threadId);};
+    let authorization:string,sourceMessageIds:string[];
+    if(ref.kind==='thread_message'){
+      if(!readable(ref.value))return null;
+      const row=db.prepare('SELECT owner_id,thread_id,record FROM threaded_messages WHERE id=?').get(ref.value);
+      authorization=digest({kind:ref.kind,row});sourceMessageIds=[ref.value];
+    }else if(ref.kind==='task'){
+      const task=db.prepare('SELECT task_id,owner_id,thread_id,creator_id,criteria_hash,source_record FROM threaded_task_ownership WHERE task_id=? AND owner_id=? AND thread_id=?')
+        .get(ref.value,scope.ownerId,scope.threadId) as {source_record:string}|undefined;
+      if(!task)return null;
+      const sources=JSON.parse(task.source_record) as {sourceRefs:string[]};sourceMessageIds=sources.sourceRefs;
+      authorization=digest({kind:ref.kind,task});
+    }else if(ref.kind==='managed_command'){
+      const command=db.prepare('SELECT id,owner_id,thread_id,agent_id,action_id,generation,port,authorization,source_record FROM threaded_commands WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')
+        .get(ref.value,scope.ownerId,scope.threadId,scope.agentId) as {action_id:string;generation:number;source_record:string}|undefined;
+      if(!command||!options.commandAuthorization?.(scope,`command:${ref.value}`)||
+        !options.actionScope?.valid({actionId:command.action_id,generation:command.generation},scope.agentId))return null;
+      sourceMessageIds=(JSON.parse(command.source_record) as {sourceRefs:string[]}).sourceRefs;
+      authorization=digest({kind:ref.kind,command});
+    }else{
+      // A URL or reporter handle supplied by a model is not source authority. An installed
+      // server adapter must ground it, pin its identity and return its private message anchors.
+      const trusted=options.waitSourceAuthorization?.(scope,ref);if(!trusted)return null;
+      authorization=text(trusted.authorization,1000);sourceMessageIds=trusted.sourceMessageIds??[];
+      if(ref.kind==='reporter_handle'&&(!ref.anchorRef||!sourceMessageIds.includes(ref.anchorRef)))return null;
+    }
+    if(!Array.isArray(sourceMessageIds)||sourceMessageIds.some(id=>typeof id!=='string'||!readable(id)))return null;
+    return {authorization,sourceMessageIds:[...new Set(sourceMessageIds)].sort()};
+  }
+  function timerSourceAuthorized(wait:Wait) {
+    try{const record=JSON.parse(wait.record) as {waitSourceRef:ThreadedWaitSourceRef;waitSourceAuthority?:ThreadedWaitSourceAuthority};
+      const scope={ownerId:wait.owner_id,threadId:wait.thread_id,agentId:wait.agent_id};
+      const current=groundWaitSource(scope,parseThreadedWaitSource(record.waitSourceRef));
+      return !!record.waitSourceAuthority&&!!current&&digest(current)===digest(record.waitSourceAuthority);
+    }catch{return false;}
+  }
+  function admitHoldWithin(binding:ThreadedBinding,input:{key:string;kind:'timer'|'command'}) {
+    if(!db.inTransaction)reject('THREADED_HOLD_TRANSACTION_REQUIRED');
+    running(binding);const key=text(input.key,500),prefix=input.kind==='timer'?'wait:':'command:';
+    if(!key.startsWith(prefix)||key.length===prefix.length)reject('THREADED_HOLD_ADMISSION_INVALID',400);
+    const prior=db.prepare('SELECT kind,source_id FROM threaded_hold_admissions WHERE owner_id=? AND thread_id=? AND agent_id=? AND admission_key=?')
+      .get(binding.ownerId,binding.threadId,binding.agentId,key) as {kind:string;source_id:string}|undefined;
+    if(prior){if(prior.kind!==input.kind||prior.source_id!==key.slice(prefix.length))reject('THREADED_HOLD_ADMISSION_CONFLICT');return;}
+    const created=now(),quota=(db.prepare('SELECT COUNT(*) n FROM threaded_hold_admissions WHERE owner_id=? AND thread_id=? AND agent_id=? AND created_at>? AND created_at<=?')
+      .get(binding.ownerId,binding.threadId,binding.agentId,created-3_600_000,created) as {n:number}).n;
+    if(quota>=3)reject('THREADED_HOLD_QUOTA_EXCEEDED',429);
+    db.prepare('INSERT INTO threaded_hold_admissions(owner_id,thread_id,agent_id,admission_key,kind,source_id,created_at) VALUES(?,?,?,?,?,?,?)')
+      .run(binding.ownerId,binding.threadId,binding.agentId,key,input.kind,key.slice(prefix.length),created);
+  }
   function callback(kind:string,id:string,binding:ThreadedBinding,target:string,body:string,scope=boundary(binding),
     extra:{frozen?:ReturnType<typeof frozen>;route?:{targets:string[];record:Record<string,unknown>}}={}) {
     db.prepare(`INSERT OR IGNORE INTO threaded_collaboration_callbacks VALUES(?,?,?,?,?,?,?,'pending',NULL,?,NULL,?)`)
@@ -102,7 +160,12 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       let state='pending',reason:string|null=null;
       const wait=row.kind==='wait'?db.prepare('SELECT * FROM threaded_waits WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')
         .get(row.source_id,row.owner_id,row.thread_id,row.agent_id) as Wait|undefined:undefined;
-      if(row.kind==='wait'&&(!wait||wait.kind==='tracking'&&!trackingAuthorized(wait))){state='rejected';reason='THREADED_TRACKING_AUTHORITY_CHANGED';}
+      const timerRecord=wait?.kind==='timer'?JSON.parse(wait.record) as {waitSourceRef?:ThreadedWaitSourceRef}:undefined;
+      const timerOutcome=wait?.kind==='timer'&&wait.outcome?JSON.parse(wait.outcome) as {recoveredMissedTimer?:boolean}:undefined;
+      if(row.kind==='command'&&!options.commandAuthorization?.(scope,row.source_id)){state='rejected';reason='THREADED_COMMAND_AUTHORITY_CHANGED';}
+      else if(row.kind==='wait'&&(!wait||wait.kind==='tracking'&&!trackingAuthorized(wait))){state='rejected';reason='THREADED_TRACKING_AUTHORITY_CHANGED';}
+      else if(wait?.kind==='timer'&&!timerSourceAuthorized(wait)){state='rejected';reason='THREADED_WAIT_SOURCE_AUTHORITY_CHANGED';}
+      else if(timerOutcome?.recoveredMissedTimer&&now()>=(timerRecord?.waitSourceRef?.slaUntilMs??0)){state='rejected';reason='THREADED_TIMER_RECOVERY_EXPIRED';}
       else if(input.frozen.actionFence&&!options.actionScope?.valid(input.frozen.actionFence,row.agent_id)){state='rejected';reason='THREADED_ACTION_STALE_GENERATION';}
       else if(!thread||['closed','archived'].includes(thread.state)||controls.some(c=>c.action==='cancel')){state='cancelled';reason='THREADED_CALLBACK_CLOSED';}
       else if(identity(scope)!==input.frozen.identity||!options.messages.getMessage({ownerId:row.owner_id,threadId:row.thread_id,viewer:{kind:'agent',agentId:row.agent_id}},input.frozen.sourceId)){state='rejected';reason='THREADED_CALLBACK_AUTHORITY_CHANGED';}
@@ -181,7 +244,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     return {groupId:id,deadline};
   }
   function registerWaitWithin(binding:ThreadedBinding,input:{jobKey:string;kind:'timer'|'tracking'|'decision';seconds?:number;question?:string;
-    once?:boolean;block?:string;source?:string;subject?:string;match?:Record<string,unknown>;replaceWaitId?:string;expectedVersion?:number;trackingAuthorization?:string;waitSourceRef?:string}) {
+    once?:boolean;block?:string;source?:string;subject?:string;match?:Record<string,unknown>;replaceWaitId?:string;expectedVersion?:number;trackingAuthorization?:string;waitSourceRef?:ThreadedWaitSourceRef}) {
     running(binding);text(input.jobKey);
     const prior=db.prepare('SELECT * FROM threaded_waits WHERE owner_id=? AND thread_id=? AND agent_id=? AND job_key=?')
       .get(binding.ownerId,binding.threadId,binding.agentId,input.jobKey) as Wait|undefined;
@@ -195,13 +258,23 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
         .get(binding.ownerId,binding.threadId,binding.agentId) as {id:string}|undefined;
       if(existing&&existing.id!==input.replaceWaitId)reject('THREADED_DECISION_ALREADY_PENDING');
     }
-    const id=randomUUID(),created=now();let deadline:number|null=null,baseline:number|null=null;
+    const id=randomUUID(),created=now();let deadline:number|null=null,baseline:number|null=null,waitSourceAuthority:ThreadedWaitSourceAuthority|undefined;
+    let holdDomain:'ordinary'|'gatekeeping'|undefined;
     if(input.kind==='timer'){
-      text(input.waitSourceRef,500);
+      const ref=parseThreadedWaitSource(input.waitSourceRef);
       deadline=created+integer(input.seconds,5,3600)*1000;
-      const quota=(db.prepare('SELECT COUNT(*) n FROM threaded_hold_quota WHERE owner_id=? AND thread_id=? AND agent_id=? AND created_at>? AND created_at<=?')
-        .get(binding.ownerId,binding.threadId,binding.agentId,created-3_600_000,created) as {n:number}).n;
-      if(quota>=3)reject('THREADED_HOLD_QUOTA_EXCEEDED',429);
+      if(ref.slaUntilMs<=created)reject('THREADED_HOLD_SLA_INVALID',400);
+      const cutoff=(db.prepare('SELECT input_max_seq FROM threaded_invocation_wakes WHERE invocation_id=?').get(binding.invocationId) as {input_max_seq:number}).input_max_seq;
+      waitSourceAuthority=groundWaitSource(binding,ref,cutoff)??reject('THREADED_WAIT_SOURCE_NOT_AUTHORIZED',403);
+      holdDomain=options.holdPolicy?.(binding)??'ordinary';
+      if(!['ordinary','gatekeeping'].includes(holdDomain))reject('THREADED_HOLD_DOMAIN_INVALID',403);
+      if(holdDomain==='gatekeeping'){
+        if(input.seconds!>600)reject('THREADED_HOLD_GATEKEEPING_TOO_LONG',403);
+        const eventCallback=db.prepare(`SELECT 1 FROM threaded_waits WHERE owner_id=? AND thread_id=? AND agent_id=? AND kind='tracking' AND state='awaiting'
+          UNION ALL SELECT 1 FROM threaded_command_waits w JOIN threaded_commands c ON c.id=w.command_id WHERE c.owner_id=? AND c.thread_id=? AND c.agent_id=? AND w.state='awaiting' LIMIT 1`)
+          .get(binding.ownerId,binding.threadId,binding.agentId,binding.ownerId,binding.threadId,binding.agentId);
+        if(eventCallback)reject('THREADED_HOLD_GATEKEEPING_EVENT_CALLBACK_EXISTS',403);
+      }
     }
     if(input.kind==='tracking'){
       text(input.source);text(input.subject);
@@ -215,10 +288,11 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       .get(input.replaceWaitId,binding.ownerId,binding.threadId,binding.agentId) as Wait|undefined;
       if(!old||old.state!=='awaiting'||old.version!==input.expectedVersion||old.root_id!==source(binding).causalRootId)reject('THREADED_WAIT_VERSION_CONFLICT');
       db.prepare("UPDATE threaded_waits SET state='superseded',version=version+1,updated_at=? WHERE id=?").run(created,old.id);}
-    const record={...input,baseline,scope:boundary(binding),frozen:frozen(binding)};
+    const record={...input,baseline,...(waitSourceAuthority?{waitSourceAuthority,holdDomain}:{}),scope:boundary(binding,waitSourceAuthority?.sourceMessageIds??[]),frozen:frozen(binding)};
     db.prepare("INSERT INTO threaded_waits VALUES(?,?,?,?,?,?,?,?,?,?,'awaiting',1,?,?,NULL,?,?)")
       .run(id,binding.ownerId,binding.threadId,binding.agentId,binding.id,binding.invocationId,source(binding).causalRootId,input.jobKey,input.kind,fingerprint,deadline,JSON.stringify(record),created,created);
-    if(input.kind==='timer')db.prepare('INSERT INTO threaded_hold_quota VALUES(?,?,?,?,?)').run(id,binding.ownerId,binding.threadId,binding.agentId,created);
+    if(input.kind==='timer'){admitHoldWithin(binding,{key:`wait:${id}`,kind:'timer'});
+      db.prepare('INSERT INTO threaded_hold_quota VALUES(?,?,?,?,?)').run(id,binding.ownerId,binding.threadId,binding.agentId,created);}
     return {waitId:id,version:1,deadline};
   }
   function settleWait(wait:Wait,outcome:Record<string,unknown>) {
@@ -234,7 +308,32 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
   function recoverWithin() {
     for(const group of db.prepare("SELECT * FROM threaded_consultations WHERE state='collecting' AND deadline<=?").all(now()) as Group[])settleGroup(group,true);
     for(const wait of db.prepare("SELECT * FROM threaded_waits WHERE state='awaiting' AND kind<>'decision'").all() as Wait[]){
-      if(wait.kind==='timer'&&wait.deadline!==null&&wait.deadline<=now())settleWait(wait,{type:'timer_elapsed',businessConditionVerified:false});
+      if(wait.kind==='timer'&&wait.deadline!==null&&wait.deadline<=now()){
+        if(missedTimerIds.has(wait.id)){
+          const record=JSON.parse(wait.record) as {waitSourceRef:unknown;frozen:ReturnType<typeof frozen>;scope:ReturnType<typeof boundary>};
+          const scope={ownerId:wait.owner_id,threadId:wait.thread_id,agentId:wait.agent_id};
+          const currentIdentity=identity(scope),fence=record.frozen?.actionFence;
+          const thread=db.prepare('SELECT state FROM threaded_threads WHERE id=? AND owner_id=?').get(wait.thread_id,wait.owner_id) as {state:string}|undefined;
+          const cancelled=db.prepare(`SELECT 1 FROM threaded_control_requests WHERE owner_id=? AND thread_id=? AND rowid>?
+            AND (scope='thread' OR (scope='member' AND agent_id=?)) AND action='cancel' AND status<>'rejected' LIMIT 1`)
+            .get(wait.owner_id,wait.thread_id,record.frozen?.controlSeq??0,wait.agent_id);
+          const sourcesValid=Array.isArray(record.scope?.sourceRefs)&&record.scope.sourceRefs.every(id=>{
+            const row=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=? AND owner_id=?').get(id,wait.owner_id) as {thread_id:string}|undefined;
+            return !!row&&!!options.messages.getMessage({ownerId:wait.owner_id,threadId:row.thread_id,viewer:{kind:'agent',agentId:wait.agent_id}},id);});
+          const classification=classifyThreadedTimerRecovery({deadline:wait.deadline,createdAt:wait.created_at,now:now(),source:record.waitSourceRef,
+            identityValid:!!thread&&!['closed','archived'].includes(thread.state)&&!cancelled&&!!currentIdentity&&currentIdentity===record.frozen?.identity&&
+              (!fence||!!options.actionScope?.valid(fence,wait.agent_id)),sourceValid:sourcesValid&&timerSourceAuthorized(wait)});
+          // The source classifier permits the SLA boundary, while dispatch requires a nonempty retry window.
+          if(classification.kind==='invalid'||classification.kind==='expired'||now()>=classification.slaUntilMs){
+            const disposition=classification.kind==='invalid'?'retired_invalid':'retired_expired';
+            db.prepare("UPDATE threaded_waits SET state='withdrawn',version=version+1,outcome=?,updated_at=? WHERE id=? AND state='awaiting'")
+              .run(JSON.stringify({type:'timer_recovery_retired',disposition,classification:classification.kind,businessConditionVerified:false}),now(),wait.id);
+          }else settleWait(wait,{type:'timer_elapsed',recoveredMissedTimer:true,retryUntil:classification.slaUntilMs,businessConditionVerified:false});
+        }else if(!timerSourceAuthorized(wait)){
+          db.prepare("UPDATE threaded_waits SET state='withdrawn',version=version+1,outcome=?,updated_at=? WHERE id=? AND state='awaiting'")
+            .run(JSON.stringify({type:'timer_source_retired',disposition:'retired_invalid',businessConditionVerified:false}),now(),wait.id);
+        }else settleWait(wait,{type:'timer_elapsed',businessConditionVerified:false});
+      }
       if(wait.kind==='tracking'){
         if(!trackingAuthorized(wait)){
           db.prepare("UPDATE threaded_waits SET state='withdrawn',version=version+1,outcome=?,updated_at=? WHERE id=? AND state='awaiting'")
@@ -281,7 +380,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     }else db.prepare("UPDATE threaded_waits SET state='withdrawn',version=version+1,updated_at=? WHERE id=?").run(now(),wait.id);
     const result={waitId:wait.id,version:wait.version+1};db.prepare('INSERT INTO threaded_wait_operations VALUES(?,?,?,?)').run(wait.id,input.operationId,fingerprint,JSON.stringify(result));return result;
   }
-  return {running,source,boundary,frozen,identity,transaction,notify,consultWithin,registerWaitWithin,decisionOperationWithin,onTerminalWithin,
+  return {running,source,boundary,frozen,identity,transaction,notify,consultWithin,registerWaitWithin,admitHoldWithin,decisionOperationWithin,onTerminalWithin,
     recoverWithin,recover:()=>transaction(recoverWithin),callback,
     answerDecision(input:{ownerId:string;threadId:string;waitId:string;expectedVersion:number;clientRequestId:string;body:string}) {
       return transaction(()=>{

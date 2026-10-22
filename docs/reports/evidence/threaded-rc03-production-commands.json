@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "platform": "darwin",
+  "checks": 10,
+  "passed": [
+    "strict JSON duplicate/unknown keys, unregistered profile/program, foreign scope, path escape/overlap and every model argument substitution are rejected; exact canonical mapping and fingerprint are available",
+    "actual fixed Node/worker/cwd/empty-env process reads selected pinned inputs and writes exact receipt; separate complete read/write resource claim outlives Invocation; independent host verifier plus native group stop releases; restart retry never launches twice",
+    "actual bounded command cancellation verifies exact guardian group stopped and independently empty effect domain before releasing only the command lease",
+    "any unrecognized output keeps the stopped native command and independent lease unknown; only later exact independent output reconciliation releases, without a rerun or trusting model claims",
+    "partial output is not a trusted receipt: failed native command stays unknown and fenced until independent removal leaves an empty fully reconciled effect domain; normal success requires the exact manifest",
+    "source content/inode/ctime pin drift revokes commands and mapped workspace fails closed rather than falling back to a private directory",
+    "actual guardian is spawned after durable intent, then a legitimate Action return advances generation before ready: resource revalidation refuses native execution, produces unknown, never writes an artifact or replays the old operation",
+    "replaced/symlinked canonical output directory revokes registration before any spawn and rejects frozen workspace identity",
+    "registry version/file change permanently fences the process registration; current member permission identity changes its authority fingerprint",
+    "isolated copies of both the native worker and guardian are pinned across registration: executable-chain content changes revoke authority even when the previous mtime is restored; no live repository source is modified"
+  ],
+  "realNativeProcesses": 4,
+  "realModelRequests": 0,
+  "realModelTokens": 0,
+  "profiles": [
+    "project_manifest_v1"
+  ],
+  "arbitraryShell": false,
+  "buildCommands": false,
+  "networkCommands": false,
+  "dailyDatabaseOpened": false
+}

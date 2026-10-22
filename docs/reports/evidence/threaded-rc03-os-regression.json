@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "platform": "darwin",
+  "checks": 8,
+  "passed": [
+    "OS01: actual allowlisted program/argv/cwd/env only, no inherited environment or model shell/path/URL; native exit plus absent process group and trusted effects proof release exact independent command lease; durable restart replay starts once",
+    "W01/W04/OS01: real command outlives completed Invocation with its own fenced workspace claim; verified group cancellation releases only command lease; duplicate recovery produces one wait callback and never completes the business Action",
+    "Q03/Q06: independent command lease preserves workspace write and old-mode exclusive barriers after Invocation completion; a second same-workspace command cannot spawn; forged command cwd is rejected and blocked intent/ticket roll back together",
+    "W04: actual OS command belongs to its original Action generation; late model cancellation is denied after responsibility returns, and trusted stop/recovery of the old process never wakes or completes the new holder",
+    "Q06/REC03: process exit without trusted side-effect reconciliation stays unknown and fenced; fabricated stop reference cannot release; later independent reconciliation settles once",
+    "OS01: wrong process start identity, foreign Thread scope and revoked registration do not signal an unrelated/stale process; signal syscall return alone never supplies stop proof",
+    "OS01/REC03: actual guardian IPC disconnect terminates registered guardian/native/grandchild group; rebuilt SQLite/coordinator observes stop with unknown result, reconciles exact lease and never restarts native work",
+    "OS01/REC03: actual owner process SIGKILL terminates registered guardian/native/grandchild group; rebuilt SQLite/coordinator observes stop with unknown result, reconciles exact lease and never restarts native work"
+  ],
+  "realModelRequests": 0,
+  "realModelTokens": 0,
+  "productionRegistrations": 0,
+  "linuxVerified": false
+}

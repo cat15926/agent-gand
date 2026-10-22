@@ -1,0 +1,80 @@
+{
+  "ok": true,
+  "groups": 9,
+  "checks": [
+    "A05/F10: exact accepted-source revision and HEAD, authenticated independent reviewer and one different author A2A route are mandatory; a new Action cannot call the legacy report tool even before a workflow exists, service writes require a transaction, and changes_requested remains separate from typed responsibility completion and approval",
+    "A06/A07/B01: rebuilt SQLite/runtime preserves immutable old findings; direct Action revision cannot bypass the workflow, fresh revision requires every open finding exactly once, rejects self-review/stale CAS, attests without verifying, and retains the original root; five injected transaction failures roll back generation/report/dispatch/receipt together",
+    "A04/A06/F10: independent current-HEAD re-review verifies exact original finding IDs, typed completion is required before the local gate can approve, and repeated identical read keys re-read live HEAD/reviewer authority/unavailability rather than replaying a prior approved gate",
+    "UI01/K09: read-only Owner snapshots show exact review versions/findings/reports/source IDs, mark old-generation gates stale and every historical gate currentApproval=false, perform no remote IO or writes, omit execution/authority fingerprints, and filter derived review/gate when a historical source is revoked",
+    "K09/MEM02 boundary: review workflow history, exact context and live gate all enforce private accepted/report source ACL; authorized reads register Session exposure, another member cannot expand copied findings or a historical version",
+    "DB01/SOP-style CAS: two real IPC workers and separate SQLite connections race the same review version; exactly one immutable report/version/message and author wake commit",
+    "v32 compatibility: actual legacy tools publish multiple immutable reports and complete their old Action without implicitly approving; all legacy finding IDs and private sources survive virtual reads and atomic history/fresh-round adoption, direct revision/missing replies reject, either version-1 or version-2 write failure rolls back all adoption, and only fresh independent resolved-ID review plus typed completion can approve",
+    "Return/replace regression: after one parallel reviewer delivers findings and the other fails, ordinary replace cannot change HEAD without author responses; the same-root trusted revision handles replaceable state, requires every finding response, retains IDs/author route, and fresh independent review plus typed completion is still required for approval",
+    "Legacy return regression: returning a pre-workflow Action preserves findings from earlier generations with original IDs/HEAD/source ACL and fixed author route; fresh reassignment rejects the generic replace shortcut and requires returned-holder proof plus all responses before a new independent review can approve"
+  ],
+  "faults": [
+    {
+      "operation": "revision",
+      "table": "threaded_messages",
+      "rolledBack": true
+    },
+    {
+      "operation": "revision",
+      "table": "threaded_action_generations",
+      "rolledBack": true
+    },
+    {
+      "operation": "revision",
+      "table": "threaded_review_versions",
+      "rolledBack": true
+    },
+    {
+      "operation": "revision",
+      "table": "threaded_review_revision_claims",
+      "rolledBack": true
+    },
+    {
+      "operation": "revision",
+      "table": "threaded_tool_receipts",
+      "rolledBack": true
+    },
+    {
+      "operation": "review",
+      "table": "threaded_review_reports",
+      "rolledBack": true
+    },
+    {
+      "operation": "review",
+      "table": "threaded_review_versions",
+      "rolledBack": true
+    },
+    {
+      "operation": "review",
+      "table": "threaded_outbox",
+      "rolledBack": true
+    },
+    {
+      "operation": "review",
+      "table": "threaded_tool_receipts",
+      "rolledBack": true
+    },
+    {
+      "operation": "legacy_adoption",
+      "table": "threaded_review_versions",
+      "version": 1,
+      "rolledBack": true
+    },
+    {
+      "operation": "legacy_adoption",
+      "table": "threaded_review_versions",
+      "version": 2,
+      "rolledBack": true
+    }
+  ],
+  "injectedHttpCalls": 28,
+  "prReads": 94,
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "legacyAdmissionScope": "explicit frozen-generation admission markers in isolated fixtures; actual v32-to-v33 migration capture is verified by verify-threaded-migration.mjs",
+  "scope": "real isolated SQLite/runtime/Bindings and process concurrency; GitHub HEAD/authority transport and model responses explicitly injected; local gate only, no GitHub approval or merge"
+}

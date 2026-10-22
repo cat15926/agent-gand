@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "groups": 38,
+  "suites": [
+    {
+      "suite": "threaded-resources",
+      "passed": true,
+      "groups": 19,
+      "networkCalls": 0,
+      "realModelCalls": 0,
+      "log": "threaded-rc03/regressions/verify-threaded-resources.log",
+      "sha256": "dfba4df665e7ab4766e5721b88f28d53aaebd5d0803811de25e7780b5e5d79eb"
+    },
+    {
+      "suite": "threaded-resource-integration",
+      "passed": true,
+      "groups": 8,
+      "networkCalls": 0,
+      "realModelCalls": 0,
+      "log": "threaded-rc03/regressions/verify-threaded-resource-integration.log",
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "suite": "legacy-resources",
+      "passed": true,
+      "groups": 11,
+      "networkCalls": 0,
+      "realModelCalls": 0,
+      "log": "threaded-rc03/regressions/verify-legacy-resources-escalated.log",
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    }
+  ],
+  "environmentRetry": {
+    "suite": "legacy-resources",
+    "firstRunPassed": false,
+    "reason": "Sandbox ps unavailable; current fixture process identity assertion at line 254",
+    "originalLog": "threaded-rc03/regressions/legacy-resources-sandbox-first.log",
+    "escalatedRetryPassed": true
+  },
+  "dailyDatabaseAccessed": false,
+  "productionChanged": false,
+  "externalProviderRequests": 0,
+  "realModelCalls": 0
+}

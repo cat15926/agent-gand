@@ -24,7 +24,8 @@ const contextBoundary = await import('../apps/server/src/db/threadedContextMigra
 const collaborationBoundary = await import('../apps/server/src/db/threadedCollaborationMigration.ts');
 const actionBoundary = await import('../apps/server/src/db/threadedActionMigration.ts');
 const workflowBoundary = await import('../apps/server/src/db/threadedWorkflowMigration.ts');
-const latestVersion = 34;
+const operationsBoundary = await import('../apps/server/src/db/threadedOperationsMigration.ts');
+const latestVersion = 35;
 const schema = await readFile(new URL('../apps/server/src/db/schema.sql', import.meta.url), 'utf8');
 const databases = [];
 const checks = [];
@@ -77,6 +78,7 @@ const frozenMigration = revision => {
     if (name === './threadedCollaborationMigration.ts') return collaborationBoundary;
     if (name === './threadedActionMigration.ts') return actionBoundary; // The v32 descriptor/DDL is unchanged.
     if (name === './threadedWorkflowMigration.ts') return workflowBoundary; // The v33 descriptor and all workflow fragments are unchanged.
+    if (name === './threadedOperationsMigration.ts') return operationsBoundary; // The v34 descriptor/DDL is unchanged.
 
     throw new Error(`Unexpected frozen module import: ${name}`);
   }, module, module.exports);
@@ -450,6 +452,110 @@ try {
   assert.deepEqual(Object.fromEntries(Object.keys(upgradedV34Rows).map(t=>[t,v33.prepare(`SELECT * FROM ${t}`).all()])),upgradedV34Rows);
   checks.push('actual frozen pushed v33/ba438b1 upgrades to v34; historical v25-v33 source hashes and all prior facts/request receipts/queue roots stay identical; failed intermediate DDL and final registration roll back release controls/changes/grants/roots and OS intents/events atomically; repeated upgrade is stable and the actual v33 worker refuses v34 before any schema or row mutation');
 
+  // RC03 only appends v35. Verify every historical threaded migration source against the pushed v34 worker.
+  const frozenV34Revision='a871910';
+  for(const fragment of ['threadedMigration.ts','threadedExecutionMigration.ts','executionResourcesMigration.ts','threadedMessagingMigration.ts',
+    'threadedSchedulingMigration.ts','threadedBudgetSchema.ts','threadedContextMigration.ts','threadedSessionContextSchema.ts','threadedBackendSchema.ts',
+    'threadedCollaborationMigration.ts','threadedActionMigration.ts','threadedWorkflowMigration.ts','threadedReviewSchema.ts','threadedSopSchema.ts',
+    'threadedKnowledgeSchema.ts','threadedOperationsMigration.ts','threadedReleaseSchema.ts']) {
+    const file=`apps/server/src/db/${fragment}`;
+    assert.deepEqual(await readFile(new URL(`../${file}`,import.meta.url)),
+      execFileSync('git',['show',`${frozenV34Revision}:${file}`],{cwd:new URL('..',import.meta.url)}),`Historical migration source changed: ${fragment}`);
+  }
+  const v34Worker=frozenMigration(frozenV34Revision),v34=bootstrap('v34.sqlite');
+  v34Worker.applyOrchestrationSchemaMigrations(v34);addAgent(v34,'agent-a');addAgent(v34,'agent-b');
+  assert.equal(v34.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,34);
+  const v34Store=createThreadedStore(v34),v34Thread=v34Store.createThread(input());
+  const v34OtherThread=v34Store.createThread(input('Other scope','v34-other'));
+  sqlInvocation(v34,'v34-invocation',v34Thread);sqlRun(v34,'v34-run',v34Thread);
+  v34.prepare(`INSERT INTO threaded_attempts
+    (id,invocation_id,thread_id,owner_id,agent_id,attempt_no,generation,authority_epoch,claim_id,claim_owner,fencing_token,created_at,updated_at)
+    VALUES('v34-attempt','v34-invocation',?,?,'agent-a',1,1,1,'v34-claim','v34-worker','v34-fence','2026-10-22','2026-10-22')`)
+    .run(v34Thread.id,v34Thread.ownerId);
+  v34.prepare(`INSERT INTO threaded_run_bindings(invocation_id,run_id,thread_id,owner_id,created_at)
+    VALUES('v34-invocation','v34-run',?,?,'2026-10-22')`).run(v34Thread.id,v34Thread.ownerId);
+  v34.prepare(`INSERT INTO threaded_execution_bindings
+    (id,attempt_id,invocation_id,thread_id,owner_id,agent_id,run_id,authority_epoch,thread_authority_epoch,claim_id,claim_owner,
+     generation,fencing_token,member_version,role_version,permission_version,agent_version,agent_definition_hash,created_at)
+    VALUES('v34-binding','v34-attempt','v34-invocation',?,?,'agent-a','v34-run',1,1,'v34-claim','v34-worker',1,'v34-fence',1,1,1,1,'frozen-hash','2026-10-22')`)
+    .run(v34Thread.id,v34Thread.ownerId);
+  const v34InsertWait=v34.prepare(`INSERT INTO threaded_waits
+    (id,owner_id,thread_id,agent_id,binding_id,parent_invocation_id,root_id,job_key,kind,request_hash,state,version,deadline,record,created_at,updated_at)
+    VALUES(?,?,?,'agent-a','v34-binding','v34-invocation','root-v34-invocation',?,'timer','frozen-request','awaiting',1,?,'{"waitSourceRef":"legacy retained source"}',?,?)`);
+  for(const [id,time] of [['v34-timer-old',1],['v34-timer-recent',Date.now()-1000]]) {
+    v34InsertWait.run(id,v34Thread.ownerId,v34Thread.id,id,time+5000,time,time);
+    v34.prepare('INSERT INTO threaded_hold_quota VALUES(?,?,?,\'agent-a\',?)').run(id,v34Thread.ownerId,v34Thread.id,time);
+  }
+  v34.prepare("INSERT INTO threaded_actions VALUES('v34-command-action',?,?,'task:v34-command','work','primary',1,1,'active','root-v34-invocation',1,1)")
+    .run(v34Thread.ownerId,v34Thread.id);
+  v34.prepare("INSERT INTO threaded_action_generations VALUES('v34-command-action',1,'{}',1)").run();
+  for(const [id,waitState] of [['v34-command-awaiting','awaiting'],['v34-command-paused','delivered'],['v34-command-finished','delivered']]) {
+    v34.prepare(`INSERT INTO threaded_commands VALUES(?,?,?,'agent-a','v34-command-action',1,
+      'v34-binding','fixed-command','registered-authorization','{}','{}','unknown',1,NULL,1,1)`)
+      .run(id,v34Thread.ownerId,v34Thread.id);
+    v34.prepare('INSERT INTO threaded_command_waits VALUES(?,\'v34-invocation\',\'{}\',?)').run(id,waitState);
+  }
+  v34.prepare(`INSERT INTO threaded_collaboration_callbacks
+    (id,kind,source_id,owner_id,thread_id,agent_id,parent_invocation_id,state,reason,record,created_at)
+    VALUES('v34-paused-command-callback','command','command:v34-command-paused',?,?,'agent-a','v34-invocation','waiting','paused','{}',1)`)
+    .run(v34Thread.ownerId,v34Thread.id);
+  const v34Tables=v34.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").all().map(r=>r.name);
+  const snapshot34=()=>Object.fromEntries(v34Tables.map(t=>[t,v34.prepare(`SELECT * FROM ${t}${t==='orchestration_schema_migrations'?' WHERE version<=34':''}`).all()]));
+  const before35=snapshot34();
+  v34.exec('CREATE VIEW threaded_hold_admissions AS SELECT 1 AS fixture_collision');
+  const collisionSchema35=tables(v34);
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v34),/view|already exists|cannot create/i);
+  assert.deepEqual(tables(v34),collisionSchema35);assert.deepEqual(snapshot34(),before35);
+  v34.exec('DROP VIEW threaded_hold_admissions');
+  v34.exec("CREATE TRIGGER fixture_v35_failure BEFORE INSERT ON orchestration_schema_migrations WHEN NEW.version=35 BEGIN SELECT RAISE(ABORT,'fixture_v35_failure'); END;");
+  const failedSchema35=tables(v34);
+  assert.throws(()=>applyOrchestrationSchemaMigrations(v34),/fixture_v35_failure/);
+  assert.deepEqual(tables(v34),failedSchema35);assert.deepEqual(snapshot34(),before35);
+  assert.equal(v34.prepare("SELECT COUNT(*) n FROM sqlite_master WHERE name='threaded_hold_admissions'").get().n,0);
+  v34.exec('DROP TRIGGER fixture_v35_failure');
+  const upgradeStartedAt=Date.now();
+  applyOrchestrationSchemaMigrations(v34);
+  const firstUpgradeAdmissions=v34.prepare('SELECT * FROM threaded_hold_admissions ORDER BY source_id').all();
+  await new Promise(resolve=>setTimeout(resolve,10));
+  applyOrchestrationSchemaMigrations(v34);
+  assert.deepEqual(v34.prepare('SELECT * FROM threaded_hold_admissions ORDER BY source_id').all(),firstUpgradeAdmissions,
+    'a later worker reopen preserves conservative command admission timestamps instead of extending the window');
+  const upgradeFinishedAt=Date.now();
+  assert.deepEqual(snapshot34(),before35);
+  const admissionRows=v34.prepare('SELECT * FROM threaded_hold_admissions ORDER BY source_id').all();
+  assert.deepEqual(admissionRows.filter(r=>r.kind==='timer'),v34.prepare(`SELECT owner_id,thread_id,agent_id,'wait:'||wait_id admission_key,
+    'timer' kind,wait_id source_id,created_at FROM threaded_hold_quota ORDER BY wait_id`).all());
+  const migratedCommandAdmissions=admissionRows.filter(r=>r.kind==='command');
+  assert.deepEqual(migratedCommandAdmissions.map(r=>r.source_id),['v34-command-awaiting','v34-command-paused']);
+  assert.ok(migratedCommandAdmissions.every(r=>r.created_at>=upgradeStartedAt&&r.created_at<=upgradeFinishedAt));
+  assert.equal(new Set(migratedCommandAdmissions.map(r=>r.created_at)).size,1,'one conservative upgrade clock applies to legacy command waits without registration timestamps');
+  assert.equal(v34.prepare('SELECT MAX(version) version FROM orchestration_schema_migrations').get().version,35);
+  assert.throws(()=>v34Worker.assertOrchestrationSchemaCompatible(v34),/35.*不受此 worker 支持/);
+  assert.throws(()=>v34Worker.applyOrchestrationSchemaMigrations(v34),/35.*不受此 worker 支持/);
+  assert.deepEqual(snapshot34(),before35);assert.deepEqual(v34.prepare('SELECT * FROM threaded_hold_admissions ORDER BY source_id').all(),admissionRows);
+  checks.push('actual pushed v34/a871910 upgrades to v35; all 17 historical migration fragments and prior rows/checksums stay byte-identical; timer timestamps survive exactly; legacy awaiting command and paused callback admissions conservatively use one upgrade clock because v34 has no wait timestamp, completed history is excluded and repeat never renews the charge; DDL/registration faults roll back ledger/backfill together and the actual v34 worker refuses v35 before mutation');
+
+  const insertAdmission=v34.prepare('INSERT INTO threaded_hold_admissions(owner_id,thread_id,agent_id,admission_key,kind,source_id,created_at) VALUES(?,?,?,?,?,?,?)');
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34OtherThread.id,'agent-a','wait:v34-timer-old','timer','v34-timer-old',Date.now()),/SCOPE_MISMATCH/);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','wait:missing','timer','missing',Date.now()),/SCOPE_MISMATCH/);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','renamed-key','timer','v34-timer-old',Date.now()),/CHECK/);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','wait:v34-timer-old','timer','v34-timer-old',Date.now()),/UNIQUE/);
+  v34.prepare("INSERT INTO threaded_actions VALUES('v35-command-action',?,?,'task:v35-command','work','primary',1,1,'active','root-v34-invocation',1,1)")
+    .run(v34Thread.ownerId,v34Thread.id);
+  v34.prepare("INSERT INTO threaded_action_generations VALUES('v35-command-action',1,'{}',1)").run();
+  v34.prepare(`INSERT INTO threaded_commands VALUES('v35-command',?,?,'agent-a','v35-command-action',1,
+    'v34-binding','fixed-command','registered-authorization','{}','{}','unknown',1,NULL,1,1)`)
+    .run(v34Thread.ownerId,v34Thread.id);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34OtherThread.id,'agent-a','command:v35-command','command','v35-command',Date.now()),/SCOPE_MISMATCH/);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','command:v34-timer-old','command','v34-timer-old',Date.now()),/SCOPE_MISMATCH/);
+  insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','command:v35-command','command','v35-command',Date.now());
+  assert.equal(count(v34,'threaded_hold_admissions'),5);
+  assert.throws(()=>insertAdmission.run(v34Thread.ownerId,v34Thread.id,'agent-a','command:v35-command','command','v35-command',Date.now()),/UNIQUE/);
+  assert.throws(()=>v34.exec('UPDATE threaded_hold_admissions SET created_at=0'),/IMMUTABLE/);
+  assert.throws(()=>v34.exec('DELETE FROM threaded_hold_admissions'),/RETAINED/);
+  assert.deepEqual(v34.pragma('foreign_key_check'),[]);
+  checks.push('shared hold admissions accept timer and command sources, enforce immutable source keys, exact kind/member/owner/Thread scope, once-per-source idempotency, append-only retention and all foreign keys');
+
   const store = createThreadedStore(legacy);
   const initialCounts = ['runs','messages','tasks','orchestration_model_calls','execution_cost_reservations'].map(table => [table, count(legacy, table)]);
   const thread = store.createThread(input());
@@ -579,7 +685,7 @@ try {
   assert.deepEqual(tables(legacy), upgradedBefore);
   checks.push('actual frozen v24/v25/v26/v27/v28/v29/v30 worker compatibility guards refuse v25/v26/v27/v28/v29/v30/v31 without mutation');
 
-  console.log(JSON.stringify({ status:'passed', scope:'T02-T12/DB03 isolated SQLite migration; no model execution',groups:checks.length,checks },null,2));
+  console.log(JSON.stringify({ status:'passed', scope:'T02-T12/RC03/DB03 isolated SQLite migration; no model execution',groups:checks.length,checks },null,2));
 } finally {
   for (const db of databases) if (db.open) db.close();
   await rm(root, { recursive:true,force:true });

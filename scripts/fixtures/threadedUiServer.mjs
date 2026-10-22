@@ -22,7 +22,7 @@ if(restore!=='restore'){
     await tool('mark_seen',{idempotencyKey:'seen',messageIds:[receipt.message.id]});
     await tool('acknowledge_mentions',{idempotencyKey:'ack',messageIds:[receipt.message.id]});
     await tool('post_message',{idempotencyKey:'separate-post',body:'独立发送的消息',targets:['other-member']});
-    await tool('hold_ball',{idempotencyKey:'timer',jobKey:'timer',seconds:3600,waitSourceRef:'timer:followup'});
+    await tool('hold_ball',{idempotencyKey:'timer',jobKey:'timer',seconds:3600,waitSourceRef:{kind:'thread_message',value:receipt.message.id,expectedSignal:'business_check_completed',slaUntilMs:Date.now()+7_200_000}});
     await tool('conversation_decision',{idempotencyKey:'decision',jobKey:'decision',question:'下一步优先检查哪一项？',block:'interactive',once:true});
     await tool('multi_mention',{idempotencyKey:'consult',targets:['other-member','sdk-member'],question:'给出各自不同意见',callbackTo:'api-member',overrideReason:'T09 synthetic UI acceptance'});
     if(process.env.THREADED_UI_ACTIONS==='1'){

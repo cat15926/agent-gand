@@ -12,6 +12,7 @@ import type {createActionCommands} from './actionCommands.ts';
 import {ThreadedContextError} from './contextTypes.ts';
 import {ThreadedMessageError} from './messageContracts.ts';
 import {ThreadedMessageAclError} from './acl.ts';
+import {parseThreadedWaitSource,THREADED_WAIT_SOURCE_SCHEMA} from './waitContracts.ts';
 import { digest, object, text, strings, integer, reject, ThreadedCollaborationError, type CollaborationOptions } from './collaborationTypes.ts';
 
 const s={type:'string'}, list={type:'array',items:s,maxItems:100}, num={type:'integer'};
@@ -28,7 +29,7 @@ export const THREADED_TOOLS:BackendTool[]=[
   descriptor('acknowledge_mentions','Acknowledge mention messages without completing a business Action.',{idempotencyKey:s,messageIds:list},['idempotencyKey','messageIds']),
   descriptor('multi_mention','Collect independent responses from 1–3 members. Returns immediately; no cascade, no winner cancellation.',{idempotencyKey:s,targets:{...list,maxItems:3,minItems:1},question:s,context:s,callbackTo:s,timeoutMinutes:num,searchEvidenceRefs:list,overrideReason:s},['idempotencyKey','targets','question','callbackTo']),
   descriptor('multi_mention_status','Read your durable consultation target states.',{groupId:s},['groupId']),
-  descriptor('hold_ball','Register a 5–3600 second timer and return immediately. Timer expiry is not proof of a business condition.',{idempotencyKey:s,jobKey:s,seconds:num,waitSourceRef:s,replaceWaitId:s,expectedVersion:num},['idempotencyKey','jobKey','seconds','waitSourceRef']),
+  descriptor('hold_ball','Register a grounded 5–3600 second timer. A structured source and recovery SLA are required; human input belongs to conversation_decision. Timer expiry does not prove the expected business signal.',{idempotencyKey:s,jobKey:s,seconds:num,waitSourceRef:THREADED_WAIT_SOURCE_SCHEMA,replaceWaitId:s,expectedVersion:num},['idempotencyKey','jobKey','seconds','waitSourceRef']),
   descriptor('track_event','Wait for a new event after an authenticated live baseline; historical events do not trigger.',{idempotencyKey:s,jobKey:s,source:s,subject:s,match:{type:'object',additionalProperties:true},replaceWaitId:s,expectedVersion:num},['idempotencyKey','jobKey','source','subject','match']),
   descriptor('conversation_decision','Create an ordinary interactive once decision without blocking this Invocation.',{idempotencyKey:s,jobKey:s,question:s,once:{type:'boolean'},block:{enum:['interactive']},replaceWaitId:s,expectedVersion:num},['idempotencyKey','jobKey','question','once','block']),
   descriptor('settle_decision','Settle only the exact current user origin trigger answering this decision revision; no business approval is granted.',{idempotencyKey:s,waitId:s,operationId:s,expectedVersion:num,responseMessageId:s},['idempotencyKey','waitId','operationId','expectedVersion','responseMessageId']),
@@ -144,9 +145,8 @@ export function createThreadedTools(db:Database.Database,options:CollaborationOp
           if(name==='mark_seen')options.context!.markSeen(binding,ids,key);else options.context!.acknowledgeMentions(binding,ids,key);
           result={recorded:true};
         }else if(name==='hold_ball'||name==='track_event'||name==='conversation_decision'){
-          if(name==='hold_ball')text(input.waitSourceRef,500);
           result=cooperation.registerWaitWithin(binding,{jobKey:text(input.jobKey),kind:name==='hold_ball'?'timer':name==='track_event'?'tracking':'decision',
-            ...(name==='hold_ball'?{seconds:integer(input.seconds,5,3600),waitSourceRef:text(input.waitSourceRef,500)}:{}),
+            ...(name==='hold_ball'?{seconds:integer(input.seconds,5,3600),waitSourceRef:parseThreadedWaitSource(input.waitSourceRef)}:{}),
             ...(name==='track_event'?{source:text(input.source),subject:text(input.subject),match:object(input.match),trackingAuthorization:tracking!.authorization}:{}),
             ...(name==='conversation_decision'?{question:text(input.question,5000),once:input.once===true,block:text(input.block)}:{}),
             ...(input.replaceWaitId===undefined?{}:{replaceWaitId:text(input.replaceWaitId),expectedVersion:integer(input.expectedVersion,1,1_000_000)})});

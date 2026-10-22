@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "task": "RC03 structured waits and shared hold admission",
+  "at": "2026-10-22T14:36:56.066Z",
+  "checks": [
+    "WC01: strict six-kind structured contract, mandatory reporter anchor, human-input rejection and separate classifier equality/expired/invalid boundaries",
+    "WC02: fabricated, private-forbidden, future-cutoff and unregistered external sources fail before admission; actual scoped task grounds successfully; past SLA cannot consume quota",
+    "WC03: same job is idempotent before admission; rejected source or an admission-write crash rolls back replacement, original wait state and quota together",
+    "WC04: online one-shot delivers after its recovery SLA without treating elapsed time as a verified business condition",
+    "WC05: rebuilding the runtime before the timer fires preserves ordinary online semantics even when later recovery runs past SLA",
+    "WC06: a missed timer with current frozen identity and grounded source recovers once within SLA, retaining its immutable record/root without another model request or admission charge",
+    "WC07: exact SLA is classifier-eligible but has no dispatch retry window; equality and later recovery retire durably without callbacks or repeated transitions",
+    "WC08: missed timer identity drift retires invalid instead of borrowing the member’s newer permission generation",
+    "WC09: an explicit private wait anchor narrows the callback and downstream provenance even when its initiating message was public",
+    "WC10: a server-installed reporter adapter must return its real authorized anchor; paused timer callbacks recheck that external source authority rather than trusting the stored handle",
+    "WC11: a paused recovered callback cannot outlive the original recovery SLA; its exact-boundary rejection is retained without model replay",
+    "WC12: ordinary timers retain the full 3600-second range; only explicitly selected gatekeeping scope limits to 600 seconds and rejects redundant live event callbacks",
+    "WC14: closed or stopped original scope and stored legacy free-form sources retire invalid; legacy restored before its deadline also retires invalid on expiry, without inventing source authority or applying an online SLA cutoff",
+    "WC13: command wake and timers share three admissions per member/Thread/hour; starting alone is a separate resource operation, repeated wait/same timer job charges once, and real scoped managed command is a valid source"
+  ],
+  "passed": 14,
+  "injectedRequests": 19,
+  "realModelRequests": 0,
+  "externalNetworkRequests": 0,
+  "scope": {
+    "productionDefault": "ordinary",
+    "externalIssueCommentReporter": "requires explicitly installed trusted source adapter",
+    "sla": "missed timers only; dispatch strictly before recovery SLA"
+  }
+}

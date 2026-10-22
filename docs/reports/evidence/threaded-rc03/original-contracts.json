@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "baseline": "a871910",
+  "contracts": 16,
+  "cases": 59,
+  "payloadShape": "{contracts: {ID: core}, cases: {ID: [scenario,expected]}}; JSON ensure_ascii=false,sort_keys=true,separators=(comma,colon)",
+  "sha256": "600951b2c4b8e3125d2768ba2537b739ec42a4427de6fd2b58209618e597b5d0",
+  "originalTextsUnchanged": true
+}

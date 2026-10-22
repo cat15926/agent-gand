@@ -48,7 +48,14 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
   const cooperation=createThreadedCooperation(db,{...options,onCommitted:notifyCommitted,actionScope:{
     capture:b=>actions?.capture(b)??null,valid:(f,a)=>actions.valid(f,a),
     assertBinding:b=>actions?.assertBinding(b),bindMessage:(id,f)=>actions.bindMessage(id,f)},
-    trackingAuthorization:(scope,source,subject)=>tracking?.sources[source]?.authorization(scope,subject)??null});
+    trackingAuthorization:(scope,source,subject)=>tracking?.sources[source]?.authorization(scope,subject)??null,
+    commandAuthorization(scope,sourceId){
+      if(!sourceId.startsWith('command:'))return false;
+      const r=db.prepare('SELECT port,authorization FROM threaded_commands WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')
+        .get(sourceId.slice(8),scope.ownerId,scope.threadId,scope.agentId) as {port:string;authorization:string}|undefined;
+      try{const ports=options.actions?.commands;
+        return !!r&&!!ports&&Object.hasOwn(ports,r.port)&&ports[r.port]?.authorization(scope)===r.authorization;}catch{return false;}
+    }});
   const routing=createThreadedRouting(db,{...options,onCommitted:notifyCommitted,identity:cooperation.identity});
   actions=createThreadedActions(db,{...options,...options.actions,cooperation,routing});
   const commands=createActionCommands(db,{...options,actions,cooperation,ports:options.actions?.commands});

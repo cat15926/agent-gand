@@ -10,5 +10,6 @@ import {createThreadedProduction} from './production.ts';
 const settings=loadThreadedProductionSettings(db,{file:process.env.THREADED_RELEASE_MEMBERS_FILE,
   workspaceRoot:path.join(config.sandboxDir,'threaded'),privateRoot:path.join(config.accounts.privateDir,'threaded'),readCredential});
 export const threadedRuntime=createThreadedProduction(db,{resources:executionResources,messaging:threadedMessaging(),settings,
+  commands:{file:process.env.THREADED_COMMAND_REGISTRATIONS_FILE},
   github:{file:process.env.THREADED_GITHUB_REGISTRATIONS_FILE,readToken:name=>process.env[name]}});
 export const threadedLifecycle=threadedRuntime.lifecycle;
