@@ -191,6 +191,8 @@
     "verify:threaded-reviews-github": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-reviews-github.mjs",
     "verify:threaded-release": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-release.mjs",
     "verify:threaded-production": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-production.mjs",
+    "verify:threaded-production-github": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-production-github.mjs",
+    "verify:threaded-production-github-live": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-production-github-live.mjs",
     "verify:threaded-os-commands": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-os-commands.mjs",
     "verify:threaded-service-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-service-recovery.mjs",
     "verify:threaded-main-process": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-main-process.mjs",

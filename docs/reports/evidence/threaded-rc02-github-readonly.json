@@ -1,0 +1,105 @@
+{
+  "ok": true,
+  "startedAt": "2026-10-22T05:03:01.440Z",
+  "repository": "zts212653/clowder-ai",
+  "number": 1618,
+  "scope": "RC02 registered provider and actual official GitHub REST GET only; no production runtime, business DB, models or manufactured event",
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "realExternalWrites": 0,
+  "productionOpened": false,
+  "status": "passed",
+  "completedAt": "2026-10-22T05:03:14.288Z",
+  "principalLogin": "cat15926",
+  "prUrl": "https://github.com/zts212653/clowder-ai/pull/1618",
+  "fact": {
+    "repository": "zts212653/clowder-ai",
+    "number": 1618,
+    "headSha": "37ea19158f7d69198763f698c7f9d0a8b284d291",
+    "authorLogin": "liu-zhengdong",
+    "updatedAt": "2026-10-19T05:05:42Z"
+  },
+  "checks": [
+    "Registered provider accepted exact allowlisted official PR facts after official /user principal verification.",
+    "A live baseline is distinct from a new HEAD event; unchanged live facts produce no event.",
+    "Rebuilding the provider with the previous baseline does not manufacture an event from unchanged facts.",
+    "Current scope revocation prevents facts/tracking authorization and sends zero new requests.",
+    "Authorization revoked after an actual PR GET returns prevents accepting its bytes.",
+    "A new provider with no credential rejects facts before network.",
+    "Observe mode rejects provider facts and tracking without network."
+  ],
+  "observations": [
+    {
+      "label": "baseline",
+      "status": "baseline_only",
+      "event": {
+        "type": "github_pr",
+        "headSha": "37ea19158f7d69198763f698c7f9d0a8b284d291",
+        "state": "closed",
+        "merged": true,
+        "mergeCommitSha": "8b373123323aacd7e2047dab94fdc15b8f7567ae",
+        "headChanged": false
+      }
+    },
+    {
+      "label": "same-provider-repeat",
+      "status": "unchanged",
+      "headSha": "37ea19158f7d69198763f698c7f9d0a8b284d291"
+    },
+    {
+      "label": "rebuilt-provider-repeat",
+      "status": "unchanged",
+      "headSha": "37ea19158f7d69198763f698c7f9d0a8b284d291"
+    }
+  ],
+  "naturalHeadChanges": 0,
+  "rc04LiveHeadAcceptance": "not_performed",
+  "requests": [
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1618",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1618",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1618",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/user",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1618",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/repos/zts212653/clowder-ai/pulls/1618",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "limits": [
+    "This verifies the registered provider transport, not a full production factory/runtime or real-model collaboration.",
+    "No PR, comment, review, branch or commit was modified. No business DB or token ledger was opened.",
+    "The previous baseline is passed in memory across provider reconstruction; this is not SQLite or service recovery evidence.",
+    "Natural changes, if any, are recorded as observations and do not establish the RC04 wake/revision/re-review acceptance chain."
+  ]
+}

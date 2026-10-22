@@ -1,6 +1,6 @@
 # 持续协作模式实施状态
 
-状态：**实施中**（T01–T11 已交付；T12 发布/恢复/OS 接线及所列隔离验收完成，真实组合和发布条件未全部通过）。更新：2026-10-22。代码基线：已推送 `b99997a`；RC01 合同核验见下文，后续实现与生产发布仍未执行。
+状态：**实施中**（T01–T11 已交付；T12 发布/恢复/OS 接线及所列隔离验收完成，真实组合和发布条件未全部通过）。更新：2026-10-22。已推送RC01及进度文档 `35804a1`；RC02生产GitHub接线与所列验收已完成，随本次提交交付，日常未配置/启用。
 
 产品名“持续协作”，内部模式 `threaded`。实施遵守已确认目标：**核心协作规则不做简化，平台差异显式登记，新增可靠性能力单独验收，高级能力逐项说明范围。**本表记录任务进度；已批准的设计不等于功能可用。
 
@@ -22,14 +22,15 @@
 | T11 实现 | [工作流合同](../architecture/threaded-workflows-v1.md)及[验收报告](../reports/threaded-collaboration-t11-workflows-2026-10-21.md)：完整来源/版本/作者评审合同、finding/修订/独立门禁、SOP CAS与可信任务核验、基础知识/ACL，v33；9/6/8组隔离验证、15组Chrome及22次真实GitHub GET |
 | T12 实现 | [发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)：v34、固定发布名单/根授权、独立入场/派发控制、只读演练、启动屏障/有界退出及 macOS 注册命令；7/16/9/4/8/5组分层验收 |
 | RC01 合同核验 | **已完成**：[报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)与[来源清单](../reports/evidence/threaded-rc01-source-manifest.json)，五域实际链对照、113文件固定blob/SHA256、64分域引用、66组隔离回归；hold来源/SLA/命令准入及工程映射交RC03，工程实证交RC06，语义交EXT01；源核验不等于后续实现完成 |
+| RC02 生产GitHub | **实现及所列分层验收完成，随本次提交交付**：[合同](../architecture/threaded-github-production-v1.md)及[报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)；18组新隔离+54组回归、7项/8次真实官方只读GET；无真实模型调用。生产单例可选注册，日常未配置；RC04真实事件、RC03 OS/hold等仍待完成 |
 | 剩余计划 | [剩余实施与验收计划](threaded-collaboration-remaining-plan.md)：RC01–RC12负责合同核验、生产接线、真实验收、对账及发布；EXT01–EXT05保留后续能力范围，不新增T13或自动开工 |
 | 合同与能力 | [兼容矩阵](threaded-collaboration-compatibility-matrix.md)：K01–K16、59 项原验收、细化行为、平台差异、E01–E06 独立增强和高级能力范围 |
 | 代码接入 | [接入地图](threaded-collaboration-integration-map.md)及[候选检索证据](../reports/evidence/threaded-t01-mode-origin-inventory.json)：全部扫描文件、hash、搜索模式、命中行、职责和局限可复核；不是静态可达性证明 |
 | 固定源码 | [基线报告](../reports/threaded-collaboration-t01-baseline-2026-10-19.md)及[来源清单](../reports/evidence/threaded-t01-source-manifest.json)：本地差异、环境、迁移目录、上游定点核验及许可 |
-| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d`、T11 `ba438b1`、T12 `b99997a` 已推送 origin/main；原始阶段证据保留 |
+| 本地底座 | T01 固定代码 `b95dc2553405268a9b807b3983fee8f9facc55fa`；T01 文档 `0a2f1b4`、T02 基础 `5298a9d`、T03 `c3b36db`、T04 `12d99e6`、T05 `98b331f`、T06 `79bad41`、T07 `a773698`、T08 `606a8c0`、T09 `72efefd`、T10 `c944c9d`、T11 `ba438b1`、T12 `b99997a`、RC01文档 `35804a1` 已推送 origin/main；RC02随本次提交交付，原始阶段证据保留 |
 | Clowder 参考 | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；固定版本，不跟随远端 HEAD |
 | 迁移 | T12追加 v34，v25–v33 源码与 descriptor 不变；冻结实际 ba438b1 v33 升级 v34、失败全回滚和旧 worker 零修改拒绝通过。未迁移日常业务库，不推断已部署 schema |
-| 交付 | T01–T12 的代码/阶段文档及所列证据已提交推送，T12为 `b99997a`；T12完整验收与生产发布未完成；进度/RC01文档及证据随本次文档提交交付，具体提交状态以Git为准；未回写 Issue |
+| 交付 | T01–T12 的代码/阶段文档及所列证据已提交推送，T12为 `b99997a`；T12完整验收与生产发布未完成；RC01/进度文档已提交推送35804a1；RC02实现/文档/证据随本次提交交付，未回写 Issue |
 | 真实验收边界 | macOS 上选定同一账号的 Anthropic 兼容 API 与 claude-sdk 0.3.288 合成上下文验收通过；不代表全部配置账号/供应商均已验证。只读业务库账号/凭据元数据并在隔离库执行，不读取日常会话。用户授权总 input+output 上限 1000 万 token，本轮累计硬门禁 20 万；T12后累计153,094含89,758未知预留（其中39,010为T07旧未知）；真实API工具与修复后SDK工具/隔离HTTP服务原生续接通过，两次失败保留，准确增量见T12报告 |
 
 ## 2 T01 退出条件
@@ -64,7 +65,8 @@
 | T10 Action、完成谓词、替换/返回 | **实现及所列分层验收完成，已推送c944c9d** | 12组Action/多进程/故障；真实平台任务和GitHub只读域通过；macOS注册命令已由T12验8组；生产GitHub/OS注册及真实新HEAD见RC02–RC04 |
 | T11 Review/Revision、SOP、共享记忆 | **实现及所列分层验收完成，已推送ba438b1** | 9组Review、6组SOP、8组知识、15组实际Chrome；22次真实GitHub GET，仅本地评审交付，无新增模型token；语义检索仍未实现 |
 | T12 综合验收、兼容、发布与回滚 | **接线及所列隔离/宿主验收完成，真实组合未全部通过** | 17组迁移、7组release、16组production、9组24恢复进程、4组index、8组macOS、5组Chrome；真实SDK补验已通过；远端新HEAD及完整发布条件见T12报告 |
-| RC01 固定参考合同核验 | **已完成，差异已登记并分配** | Session分层/本地policy适配、根预算增强、hold/SLA/命令准入缺口、普通工程/Collective差异、真实语义链及质量边界；后续RC/EXT未自动开工 |
+| RC01 固定参考合同核验 | **已完成，差异已登记并分配** | Session分层/本地policy适配、根预算增强、hold/SLA/命令准入缺口、普通工程/Collective差异、真实语义链及质量边界；RC02现已完成，RC03及其他RC/EXT未自动开工 |
+| RC02 生产PR来源、tracking及Review接线 | **实现及所列分层验收完成，随本次提交交付** | 固定文件/凭据/身份/范围，来源撤权结算/派发围栏；72组隔离及7项真实只读通过，日常未配置，真实新HEAD链仍RC04 |
 
 **功能验证总状态：**T02–T11 已实现并通过所列隔离 fixture；DB03 的 v25–v34 范围通过。T06 的 Wake/Invocation、共享资源/预算领取、响应/Run/Outbox 事务与控制恢复已接 T07 实际上下文投递。macOS 上 API 两次请求的重建与私密排除、SDK 冷开/原生续接/权限变化冷开及取消 unknown 验证通过。SDK 补验在同一验收进程中关闭旧数据库连接，重新创建 runtime、SQLite 连接和资源 owner，再从持久锚点恢复同 nativeId 与记忆；每次 Invocation 启动独立 SDK worker，恢复自身不发送请求，见[补验证据](../reports/evidence/threaded-t07-real-sdk-reopen.json)。这不构成整个主服务进程 kill/restart 的验收。
 
@@ -79,6 +81,7 @@ T08首次征询取消根因未定位，旧未知费用与围栏保留。原生�
 | 检查 | 结果与能证明的范围 |
 | --- | --- |
 | RC01指定隔离回归 | Session13、资源集成8、预算14、协作17、知识8、活动心跳6，共66组通过；无真实模型或外部fixture网络。心跳两次沙箱失败由内存诊断确认listen EPERM，允许loopback后原脚本通过，原失败及历史证据保留；见[RC01结果](../reports/evidence/threaded-rc01-local-checks.json) |
+| RC02新增与相关回归 | 新18组＋生产16/协作17/Action12/Review9共72组隔离通过；真实provider7项/8次官方GET另记，真实模型0，无日常发布或远端写；见[RC02证据](../reports/threaded-collaboration-rc02-github-2026-10-22.md) |
 | `pnpm typecheck` | T12后通过（shared、server、web） |
 | 固定源码 hash、Git 差异、迁移 descriptor 清单 | 已核对；不证明部署数据库状态或上游全产品行为 |
 | K01–K16、原 59 项逐条比对 | 通过；ID 和原文全部保留，不执行行为 |
@@ -141,11 +144,11 @@ T02–T06 只在隔离 SQLite、注入式 Fastify、fake provider/executor 和�
 
 ## 5 T12交接与剩余退出条件
 
-输入为已推送 T12 `b99997a`、[发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[分层报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。日常配置/数据库未改。剩余工作统一列入[剩余计划](threaded-collaboration-remaining-plan.md)，RC01已完成固定来源核验并细化RC03/RC05–RC07/EXT01用例，此处仅概括退出条件。
+输入为已推送 T12 `b99997a`、[发布合同](../architecture/threaded-release-v1.md)、[运维手册](../operations/threaded-release-runbook.md)及[分层报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。日常配置/数据库未改。剩余工作统一列入[剩余计划](threaded-collaboration-remaining-plan.md)，RC01已完成固定来源核验并细化RC03/RC05–RC07/EXT01用例，RC02已接可选生产GitHub来源及权限/恢复围栏，此处仅概括退出条件。
 
 1. 真实SDK知识/SOP及静止执行后的隔离HTTP服务SIGKILL同nativeId续接已补验通过，两个失败/unknown原样保留；mid-flight SDK及真实index供应商完整故障仍需按范围补证。
 2. W05实际新HEAD观察窗口606秒/48 GET未出现变化，状态not_observed；需要受权业务事件或后续自然变化证明真实动态唤醒，不写远端制造事件。
-3. 主服务真实供应商完整故障、自动压缩、未知费用/副作用对账及选定provider注册仍按组合验收；生产没有默认GitHub或OS注册。
+3. 主服务真实供应商完整故障、自动压缩、未知费用/副作用对账仍按组合验收；RC02已交付可选GitHub注册代码，日常未选择注册；OS生产端口与hold/SLA等仍交RC03。
 4. 实际小流量启用和日常迁移未执行。保留匹配pack与兼容worker；threaded-only drain不允许整库回退，不能删除unknown。
 5. RC01确认hold结构化来源/SLA恢复窗口/命令共享准入仍缺，工程目录映射及真实写作仍需交付/验证；本地Session完整policy与根财务/活动预算按适配/增强登记。MEM01语义、Collective和扩展平台/载体保持原范围，K01–K16及59项场景/预期不改。
 

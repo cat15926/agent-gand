@@ -44,13 +44,15 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
     if(!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;if(!closed&&db.open&&!db.inTransaction)arm();});}
   }
   let actions:ReturnType<typeof createThreadedActions>;
+  let tracking:ReturnType<typeof createThreadedTracking>;
   const cooperation=createThreadedCooperation(db,{...options,onCommitted:notifyCommitted,actionScope:{
     capture:b=>actions?.capture(b)??null,valid:(f,a)=>actions.valid(f,a),
-    assertBinding:b=>actions?.assertBinding(b),bindMessage:(id,f)=>actions.bindMessage(id,f)}});
+    assertBinding:b=>actions?.assertBinding(b),bindMessage:(id,f)=>actions.bindMessage(id,f)},
+    trackingAuthorization:(scope,source,subject)=>tracking?.sources[source]?.authorization(scope,subject)??null});
   const routing=createThreadedRouting(db,{...options,onCommitted:notifyCommitted,identity:cooperation.identity});
   actions=createThreadedActions(db,{...options,...options.actions,cooperation,routing});
   const commands=createActionCommands(db,{...options,actions,cooperation,ports:options.actions?.commands});
-  const tracking=createThreadedTracking(db,cooperation,{thread_messages:threadedMessageTrackingSource(db,options.messages),...options.trackingSources});
+  tracking=createThreadedTracking(db,cooperation,{thread_messages:threadedMessageTrackingSource(db,options.messages),...options.trackingSources});
   const reviews=createThreadedReviews(db,{...options,...options.actions,cooperation,routing,actions});
   const sop=createThreadedSop(db,{...options,cooperation});
   const knowledge=createThreadedKnowledge(db,{...options,cooperation});

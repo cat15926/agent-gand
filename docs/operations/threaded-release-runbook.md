@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-21。适用 schema 34、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-22。适用 schema 34、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -65,7 +65,11 @@ THREADED_COLLABORATION_MODE=closed
 THREADED_RELEASE_MEMBERS_FILE=/受保护的部署目录/threaded-release-pack.json
 ```
 
-这两个字段不包含秘密。生产服务通过显式执行策略取得执行权，不应设置 `AGENT_GAND_ISOLATED_WORKER=1` 来绕过发布策略。当前默认生产 factory 没有登记 GitHub PR 来源、外部 tracking 来源或 OS 命令端口；配置文件不能注册这些能力。相应隔离验收或适配器实现不等于默认服务已经开放这些能力。
+这两个字段不包含秘密。生产服务通过显式执行策略取得执行权，不应设置 `AGENT_GAND_ISOLATED_WORKER=1` 来绕过发布策略。RC02已接可选GitHub PR/tracking/Review来源；未设置注册文件时明确not_registered，release pack不会自动启用。OS生产命令仍未注册，其他tracking来源不能从配置模板推导支持。
+
+如选择GitHub只读范围，按[生产GitHub合同](../architecture/threaded-github-production-v1.md)准备非秘密注册JSON，固定当前实例、已grant的Thread/成员、repo及PR number，配置 `THREADED_GITHUB_REGISTRATIONS_FILE` 指向受保护文件。部署进程另注入指定的 `THREADED_GITHUB_TOKEN_*` 用户凭据；不要把值写入JSON、Thread或release pack。首个读取官方/user验证配置principal，只有当前release成员权限和匹配版本才可使用。注册内容或token轮换需递增相应版本并正常重启，不用删除等待/unknown恢复访问。
+
+`domains.github.state` 的registered只表示公开配置已加载，ready只表示本进程principal验证通过，每次PR仍需当前授权/HEAD；配置漂移、缺token、401/403或身份不符按状态拒绝。observe不会读取GitHub凭据/网络；closed拒新根但可按合法既有grant处理事实，关闭入场不等于撤销所有外部读取。详见[RC02分层报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)。本次未在日常环境设置这些配置或开放功能。
 
 ## 2. 两个独立门禁与运行模式
 

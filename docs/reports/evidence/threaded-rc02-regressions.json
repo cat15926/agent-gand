@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "task": "RC02",
+  "date": "2026-10-22",
+  "baselineCommit": "35804a1d12e51cda12105f635116ba1e48c27f40",
+  "scope": "Fresh relevant regression on RC02 worktree; all external model and PR transport injected; historical evidence retained unchanged",
+  "typecheck": {
+    "command": "pnpm typecheck",
+    "exitCode": 0,
+    "packages": [
+      "shared",
+      "server",
+      "web"
+    ]
+  },
+  "uniqueGroups": 54,
+  "realModelRequests": 0,
+  "realExternalWrites": 0,
+  "checks": [
+    {
+      "command": "pnpm verify:threaded-collaboration",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 17,
+        "checks": [
+          "R01/R02: longest handles, code/quote/URL exclusion, user inline vs Agent line-start, groups/intents, preview/admission identity and durable user-request conflict",
+          "R02/R03/CTX05: serial targets become durable ordered continuations under one root; ideate freezes independent inputs and suppresses text A2A",
+          "M01/M03/B01: explicit post and identical final create distinct wake/message identities; exact tool retries return durable receipts, conflicts and late effects reject, root budget is shared",
+          "CTX02/M02: exact reads, search and seen/mention tools enforce ACL and frozen cutoff; private model/read history narrows final and tool messages instead of widening audience",
+          "M02/CTX02: authorized cross_post crosses a real Thread boundary under the same causal root; attachment range returns exact bytes/full hash and cross-Thread provenance stays reference-only",
+          "R04: same-pair short replies warn at 2/3 and block at 4; new user input and substantive tool work reset the durable streak without resetting the root budget",
+          "MM01/MM03/MM04/E01/E02: persisted 3-target consultation survives factory/SQLite rebuild with original deadline and first response; offline deadline settles partial once with exact dissent and no synthesis call; cascade and late resurrection reject",
+          "E05: caller pause preserves settlement with an explicit waiting callback; later permission drift rejects callback without widening authority or discarding original responses",
+          "E05 controls: unchanged pause/resume delivers the one frozen callback; any intervening stop permanently cancels it even after resume, preserving settlement history",
+          "W01/W03/B01: holds return before the normal final, release the execution claim, use sliding quota and same-job idempotency; replacement retires only the wake; restored timer outcomes inherit root and do not charge idle time or prove business completion",
+          "W05: a registered live source freezes its durable baseline, excludes existing matching history, and emits one private source-referenced callback only for a new matching event",
+          "W02/W06: retired request_user_input returns 410; ordinary once Decision registration is nonblocking, exact revision and authenticated origin-trigger settlement are required, retries are stable and no business approval is inferred",
+          "E06/DB01/DB02: group/target/message/Delivery/Wake/Outbox/tool-receipt insertion faults roll back together; settlement failure rolls back last response and terminal, then exact proven outcome retries with no second model request",
+          "E01/E02/E04: real recovery worker SIGKILL on a partial group, fresh worker crosses original deadline and exits32 after settlement before dispatch; receiver send-before-ACK retry repeats a hint but preserves one settlement/callback/queue identity and performs no model replay",
+          "MM02/E03: two real SQLite IPC writers released at one barrier race last verified response against deadline; one immutable settlement/callback wins, repeated recovery and late terminal cannot revive it or replay the model",
+          "K15/R04/W01: a timer callback carries the original same-pair streak, so holding/restarting does not reset language-inertia protection or count as a fresh A2A hop",
+          "W05 producer protocol: server-allowlisted GitHub path uses a live baseline; unchanged state with cosmetic updated_at does not trigger, a new head triggers exactly once; transport remains injected, no real GitHub business claim"
+        ],
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "injectedHttpCalls": 41,
+        "scope": "T08 isolated SQLite, canonical runtime/context/backend/tool ports and injected transport; no daily DB or real models"
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-production",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "stage": "T12",
+        "groups": 16,
+        "checks": [
+          "OPS01: actual production factory without a registered release pack stays closed/no executor in every configured mode; authenticated routes refuse room creation and never resolve credentials or start a model",
+          "OPS01: a valid pinned release pack plus open durable flags still cannot create new work while configured mode stays closed; recovery/dispatch scans alone never decrypt an account or invent a Thread",
+          "OPS01: observe uses the production read-only recovery plan, routing preview and authenticated admission/release snapshots; actual HTTP thread/member/invocation stop or pause, approval/Decision, release controls, routing-policy and new Thread writes all return OBSERVE_ONLY before any DB write or account decryption",
+          "OPS01: observe with an actually overdue durable timer ignores trusted collaboration notifications, wake/recovery hints and account-revocation follow-up microtasks; necessary revocation fences existing work, then no callback/message/outbox/ACK or other follow-up DB mutation occurs",
+          "OPS01/DB01: authenticated release never adopts an ungranted historical room or fabricated old wake; new Thread, server roster, grant and routing creation roll back atomically when grant persistence fails",
+          "OPS01/ISO03/M03/UI01: authenticated execute creates a fresh server-roster/grant/routing Thread atomically; actual ingress, tool, response and shared resource release run via automatic dispatcher only after startup barrier; closed lost-ACK replay returns exact receipt with no new root/request",
+          "OPS01: closing new ingress and pausing new dispatch preserve an already running request, its exact authority and normal settlement; emergency cancellation remains a separate Owner control",
+          "OPS01: previously accepted queued work stays pending behind dispatch pause; reopening dispatch while mode/new ingress remain closed drains its frozen root once",
+          "OPS01/W06/B01: closed new ingress still permits an authenticated response to a previously created interactive decision; actual platform settle tool resumes the same causal root/budget, exact answer replay is idempotent, and observe rejects business writes",
+          "OPS01/CTX06: rebuilding the same SQLite service with a different allowed backend pack explicitly pauses the accepted API root as CONFIGURATION_NOT_RETAINED; it preserves the original grant/root and never resolves credentials, starts SDK/model transport or silently changes carrier",
+          "OPS01/ISO03: Thread capabilities deny new ingress for a partly changed pack while retaining execution/tools for a compatible peer; that unchanged peer actually drains its previously accepted root once without switching the changed member driver",
+          "OPS01/ISO03: a missing encrypted credential version row makes admission not ready and rejects new ingress before creating root/message or attempting decryption/transport",
+          "OPS01: losing a credential version after ingress preserves the frozen grant/root and explicitly blocks its queue under closed mode without decrypting, sending or pretending to drain",
+          "OPS01/REC03: secure credential read errors become a stable CREDENTIAL_UNAVAILABLE queue/admission fault with one attempted injected decryption, no retry livelock or network, and accepted work retained until operator repair/restart",
+          "OPS01/ISO03: current account metadata pin change fails before ingress, context or network; no credential version silently replaces an existing grant",
+          "OPS01/REC03/B02: bounded production shutdown persists unknown invocation/resource fences in a new SQLite connection while transport ignores abort; late response bytes fail the activity/abort checkpoint before trusted parsing, publish nothing and retain request, claim, usage and unknown audit for Owner reconciliation"
+        ],
+        "injectedModelHttpRequests": 12,
+        "realModelRequests": 0,
+        "externalNetworkRequests": 0,
+        "credentialResolutions": "injected metadata-only resolver",
+        "injectedCredentialReads": 213,
+        "isolatedExecutionBypass": false,
+        "productionDatabaseAccess": false,
+        "productionRelease": false
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-actions",
+      "workingDirectory": "/private/tmp/rc02-regressions",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 12,
+        "checks": [
+          "A01/A02: canonical platform tasks, frozen criteria and version, trusted assignee transition, independent typed completion candidate; ordinary final/text/fake evidence cannot complete; idempotency survives SQLite factory rebuild and UI is domain-backed",
+          "A01/DB01: two actual IPC workers with separate SQLite connections race at one barrier; exactly one canonical single successor is admitted with one generation and durable dispatch",
+          "K09: platform task creation provenance is durable; a private task cannot be assigned outside its authorized source audience, and rejected admission rolls back generation/task assignment/message work together",
+          "A07: real producer subprocess SIGKILL after canonical task transition commit and before candidate/ACK; rebuilt runtime and SQLite resolver recover exactly one candidate, Action completion and callback without a model replay",
+          "Parallel review: explicit intent is mandatory, one rejection cannot transfer other holders to a predecessor, and one successful review does not complete a failed parallel responsibility",
+          "A03: actual two-process completion versus exact-predecessor return commits one winner after a full independent review; stale generation cannot complete or return a successor and immutable history remains. Proven returned/failed-holder replacement is separately checked below; the original author cannot self-review a returned responsibility",
+          "A03/B01: replacement CAS requires a proven failed/returned holder, stale effects reject, exact predecessor return creates one holder even with retained parallel intent; generation history and original root survive",
+          "K01/K04: ordinary addressed A2A from an Action holder can wake a peer under the same root, but it grants no Action standing and cannot complete or silently transfer responsibility",
+          "A04/A05/A06: authenticated independent local published review yields typed evidence; changes_requested completes only review responsibility, new HEAD invalidates old approved evidence, revision needs fresh review and unreachable source is explicitly unverifiable (injected transport)",
+          "Return semantics: author/predecessor may receive rejected responsibility without gaining independent-review approval; return preserves the original frozen HEAD, and exact returned-holder proof is required to reassign a fresh HEAD",
+          "W04/W01: registered command starts once, cancellation unknown stays attached to the old generation, factory rebuild observes without replay; old terminal is audited but cannot wake a new holder or satisfy Action, old timer callback also rejects",
+          "K04/W04: two real SQLite worker processes retry one command key at a barrier; both receive the same command ID and the registered external start port executes exactly once"
+        ],
+        "faults": [
+          {
+            "table": "threaded_action_candidates",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_collaboration_callbacks",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_messages",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_outbox",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_tool_receipts",
+            "rolledBack": true
+          }
+        ],
+        "injectedHttpCalls": 31,
+        "prReads": 25,
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "scope": "real platform task tables/facade and SQLite/runtime; PR and command transport explicitly injected; not real GitHub acceptance"
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-reviews",
+      "workingDirectory": "/private/tmp/rc02-regressions",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 9,
+        "checks": [
+          "A05/F10: exact accepted-source revision and HEAD, authenticated independent reviewer and one different author A2A route are mandatory; a new Action cannot call the legacy report tool even before a workflow exists, service writes require a transaction, and changes_requested remains separate from typed responsibility completion and approval",
+          "A06/A07/B01: rebuilt SQLite/runtime preserves immutable old findings; direct Action revision cannot bypass the workflow, fresh revision requires every open finding exactly once, rejects self-review/stale CAS, attests without verifying, and retains the original root; five injected transaction failures roll back generation/report/dispatch/receipt together",
+          "A04/A06/F10: independent current-HEAD re-review verifies exact original finding IDs, typed completion is required before the local gate can approve, and repeated identical read keys re-read live HEAD/reviewer authority/unavailability rather than replaying a prior approved gate",
+          "UI01/K09: read-only Owner snapshots show exact review versions/findings/reports/source IDs, mark old-generation gates stale and every historical gate currentApproval=false, perform no remote IO or writes, omit execution/authority fingerprints, and filter derived review/gate when a historical source is revoked",
+          "K09/MEM02 boundary: review workflow history, exact context and live gate all enforce private accepted/report source ACL; authorized reads register Session exposure, another member cannot expand copied findings or a historical version",
+          "DB01/SOP-style CAS: two real IPC workers and separate SQLite connections race the same review version; exactly one immutable report/version/message and author wake commit",
+          "v32 compatibility: actual legacy tools publish multiple immutable reports and complete their old Action without implicitly approving; all legacy finding IDs and private sources survive virtual reads and atomic history/fresh-round adoption, direct revision/missing replies reject, either version-1 or version-2 write failure rolls back all adoption, and only fresh independent resolved-ID review plus typed completion can approve",
+          "Return/replace regression: after one parallel reviewer delivers findings and the other fails, ordinary replace cannot change HEAD without author responses; the same-root trusted revision handles replaceable state, requires every finding response, retains IDs/author route, and fresh independent review plus typed completion is still required for approval",
+          "Legacy return regression: returning a pre-workflow Action preserves findings from earlier generations with original IDs/HEAD/source ACL and fixed author route; fresh reassignment rejects the generic replace shortcut and requires returned-holder proof plus all responses before a new independent review can approve"
+        ],
+        "faults": [
+          {
+            "operation": "revision",
+            "table": "threaded_messages",
+            "rolledBack": true
+          },
+          {
+            "operation": "revision",
+            "table": "threaded_action_generations",
+            "rolledBack": true
+          },
+          {
+            "operation": "revision",
+            "table": "threaded_review_versions",
+            "rolledBack": true
+          },
+          {
+            "operation": "revision",
+            "table": "threaded_review_revision_claims",
+            "rolledBack": true
+          },
+          {
+            "operation": "revision",
+            "table": "threaded_tool_receipts",
+            "rolledBack": true
+          },
+          {
+            "operation": "review",
+            "table": "threaded_review_reports",
+            "rolledBack": true
+          },
+          {
+            "operation": "review",
+            "table": "threaded_review_versions",
+            "rolledBack": true
+          },
+          {
+            "operation": "review",
+            "table": "threaded_outbox",
+            "rolledBack": true
+          },
+          {
+            "operation": "review",
+            "table": "threaded_tool_receipts",
+            "rolledBack": true
+          },
+          {
+            "operation": "legacy_adoption",
+            "table": "threaded_review_versions",
+            "version": 1,
+            "rolledBack": true
+          },
+          {
+            "operation": "legacy_adoption",
+            "table": "threaded_review_versions",
+            "version": 2,
+            "rolledBack": true
+          }
+        ],
+        "injectedHttpCalls": 28,
+        "prReads": 94,
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "legacyAdmissionScope": "explicit frozen-generation admission markers in isolated fixtures; actual v32-to-v33 migration capture is verified by verify-threaded-migration.mjs",
+        "scope": "real isolated SQLite/runtime/Bindings and process concurrency; GitHub HEAD/authority transport and model responses explicitly injected; local gate only, no GitHub approval or merge"
+      }
+    }
+  ]
+}

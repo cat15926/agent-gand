@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "task": "RC02",
+  "capturedAt": "2026-10-22T13:56:48.965457+00:00",
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "baselineCommit": "35804a1d12e51cda12105f635116ba1e48c27f40",
+  "baselinePushedTo": "origin/main",
+  "schemaVersionUnchanged": 34,
+  "migrationSourceChanged": false,
+  "historicalStageEvidenceUnchanged": true,
+  "immutableOriginalText": {
+    "coreContracts": 16,
+    "acceptanceScenarios": 59,
+    "unchanged": true,
+    "canonicalJsonEncoding": "UTF-8 JSON ensure_ascii=false,sort_keys=true,separators=(comma,colon)",
+    "canonicalSha256": "6c55222c58960fa18ac5e527a84e50ab348a03989ea370159f5faf20ee36cb19"
+  },
+  "checks": {
+    "newIsolatedGroups": 18,
+    "relevantRegressionGroups": 54,
+    "totalIsolatedGroups": 72,
+    "liveProviderChecks": 7,
+    "officialGetRequests": 8,
+    "liveModelRequests": 0,
+    "realExternalWrites": 0,
+    "productionActivated": false,
+    "dailyDatabaseAccess": false,
+    "tokenLedgerAccess": false,
+    "rc04NaturalHeadAcceptance": "not_performed"
+  },
+  "developmentFindings": [
+    {
+      "finding": "Full Binding versus 3-field recovery scope caused authorization fingerprints to differ",
+      "resolution": "Canonical owner/thread/agent passed to authority and fingerprint; actual factory tracking/rebuild passed"
+    },
+    {
+      "finding": "Stored event and paused callback could consume old provider authorization before tracking refresh",
+      "resolution": "Synchronous current source guard at registration, settlement and callback delivery; revoked waits withdrawn/callbacks rejected"
+    },
+    {
+      "finding": "Concurrent first identity verification could overwrite a stable 401 fault",
+      "resolution": "Reassert authorization after awaiting identity and before transitioning ready; deterministic microtask concurrency fixture passed"
+    }
+  ],
+  "files": [
+    {
+      "path": "apps/server/src/threaded/productionGithub.ts",
+      "sha256": "335cd17676ad7a2cb7d669c0d1f3c039dd97f95fe6a80244d778ded3d204c8c7",
+      "bytes": 16278
+    },
+    {
+      "path": "apps/server/src/threaded/production.ts",
+      "sha256": "68e31628fdbd664bb13c96ce3c1481d8e0b36df107b9f24effdc545b4e9e190e",
+      "bytes": 8984
+    },
+    {
+      "path": "apps/server/src/threaded/service.ts",
+      "sha256": "3467cc01717f2c3f30d1a24bae999d482033bda2a1e494b20bc7e4ef22802a00",
+      "bytes": 940
+    },
+    {
+      "path": "apps/server/src/threaded/cooperation.ts",
+      "sha256": "c4573daae19ecebd81cfccdca7c62bb8cb250e1e04ce3f9aaac05713e5b9f858",
+      "bytes": 33767
+    },
+    {
+      "path": "apps/server/src/threaded/collaboration.ts",
+      "sha256": "8f3aae40a4ec870c56e697bb2979185d85a22c840829bcc9c6cb05f9c472689f",
+      "bytes": 7160
+    },
+    {
+      "path": "scripts/verify-threaded-production-github.mjs",
+      "sha256": "8f0b9d28a52e3d8b2cc3b37a3f396fc97c142699d89e3879e63344bcba7a79b3",
+      "bytes": 36950
+    },
+    {
+      "path": "scripts/verify-threaded-production-github-live.mjs",
+      "sha256": "902a3cee3ee7b4721ab09a57d5dc16ef1cffb0a50a72888dfdf13119aa8d30b2",
+      "bytes": 10204
+    },
+    {
+      "path": "package.json",
+      "sha256": "b14221f9b3808075f3295914ba1352fea92450536dc4378492d4198045fefb29",
+      "bytes": 25152
+    },
+    {
+      "path": "docs/architecture/threaded-github-production-v1.md",
+      "sha256": "bfe106c3dd316ed86cd7a5af5b6286bfcbbe0df514c3576e9afea6624419626b",
+      "bytes": 6432
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc02-github-2026-10-22.md",
+      "sha256": "ff96cc33571350590e4028b981ad3d323ea739041e19cf90095ce1dfbcdfec1a",
+      "bytes": 8924
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc02-production-github/isolated.json",
+      "sha256": "aa9d02494df95beff676c98508826c09ba168f65ef0b89048765831cebfeb7aa",
+      "bytes": 4312
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc02-regressions.json",
+      "sha256": "bc936a5ec7f2b40e4142b55af124aedc5a70534736c1a15c86433515fb8cac39",
+      "bytes": 18160
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc02-github-readonly.json",
+      "sha256": "90ea84abec55fd15b8bcfcaceb30a24dad1fc2c833ad6a4586d937daeb05b872",
+      "bytes": 3466
+    }
+  ],
+  "limits": [
+    "Production wiring and 18 isolated integration groups plus real registered provider transport do not establish a full real-model production chain.",
+    "Read-only acceptance uses 8 official GitHub GETs with explicitly authorized in-memory Git credentials; no remote review/comment/PR writes.",
+    "Single user principal via /user, GitHub.com, exact registered scope/repo/PR only.",
+    "Daily config/activation, RC03, RC04, real model faults, unknown reconciliation and advanced scopes are not completed by this delivery."
+  ],
+  "validation": {
+    "typecheck": {
+      "command": "pnpm typecheck",
+      "packages": [
+        "shared",
+        "server",
+        "web"
+      ],
+      "exitCode": 0
+    },
+    "docs": {
+      "command": "pnpm verify:docs",
+      "exitCode": 0
+    },
+    "whitespace": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "deliveryHashesVerified": 13,
+    "immutableOriginalTextVerified": true,
+    "migrationAndHistoricalStageEvidenceUnchanged": true,
+    "independentReview": "Scope/baseline and recovery guards reviewed; concurrent principal-fault issue fixed and deterministically verified; no remaining substantive finding"
+  },
+  "newChangesCommittedAtCapture": false
+}

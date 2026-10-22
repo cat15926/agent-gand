@@ -14,7 +14,7 @@ type Scope = {ownerId:string;threadId:string;agentId:string};
 export function createThreadedCooperation(db:Database.Database,options:CollaborationOptions&{actionScope?:{
   capture:(binding:ThreadedBinding)=>ActionFence|null;valid:(fence:ActionFence,agent:string)=>boolean;
   bindMessage:(messageId:string,fence:ActionFence|null)=>void;assertBinding:(binding:ThreadedBinding)=>void;
-}}) {
+};trackingAuthorization?:(scope:Scope,source:string,subject:string)=>string|null}) {
   const now=options.now??Date.now;
   const messages=createThreadedMessages(db,{authority:options.authority,now,authorizeSystem:v=>v.systemKey==='threaded-collaboration-v1'});
   const notify=()=>{try{options.onCommitted?.();}catch{/* durable outbox owns recovery */}};
@@ -91,7 +91,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
   }
   function dispatchCallbacks() {
     for(const row of db.prepare("SELECT * FROM threaded_collaboration_callbacks WHERE state IN ('pending','waiting') ORDER BY created_at,id").all() as Array<{
-      id:string;owner_id:string;thread_id:string;agent_id:string;parent_invocation_id:string;record:string}>) {
+      id:string;kind:string;source_id:string;owner_id:string;thread_id:string;agent_id:string;parent_invocation_id:string;record:string}>) {
       const scope={ownerId:row.owner_id,threadId:row.thread_id,agentId:row.agent_id};
       const input=JSON.parse(row.record) as ReturnType<typeof boundary>&{body:string;frozen:ReturnType<typeof frozen>;route?:{targets:string[];record:Record<string,unknown>}};
       const thread=db.prepare('SELECT state FROM threaded_threads WHERE owner_id=? AND id=?').get(row.owner_id,row.thread_id) as {state:string}|undefined;
@@ -100,7 +100,10 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
         .all(row.owner_id,row.thread_id,row.agent_id,input.frozen.controlSeq) as Array<{action:string}>;
       const control=controls[0];
       let state='pending',reason:string|null=null;
-      if(input.frozen.actionFence&&!options.actionScope?.valid(input.frozen.actionFence,row.agent_id)){state='rejected';reason='THREADED_ACTION_STALE_GENERATION';}
+      const wait=row.kind==='wait'?db.prepare('SELECT * FROM threaded_waits WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')
+        .get(row.source_id,row.owner_id,row.thread_id,row.agent_id) as Wait|undefined:undefined;
+      if(row.kind==='wait'&&(!wait||wait.kind==='tracking'&&!trackingAuthorized(wait))){state='rejected';reason='THREADED_TRACKING_AUTHORITY_CHANGED';}
+      else if(input.frozen.actionFence&&!options.actionScope?.valid(input.frozen.actionFence,row.agent_id)){state='rejected';reason='THREADED_ACTION_STALE_GENERATION';}
       else if(!thread||['closed','archived'].includes(thread.state)||controls.some(c=>c.action==='cancel')){state='cancelled';reason='THREADED_CALLBACK_CLOSED';}
       else if(identity(scope)!==input.frozen.identity||!options.messages.getMessage({ownerId:row.owner_id,threadId:row.thread_id,viewer:{kind:'agent',agentId:row.agent_id}},input.frozen.sourceId)){state='rejected';reason='THREADED_CALLBACK_AUTHORITY_CHANGED';}
       else if(thread.state==='paused'||control?.action==='pause'){state='waiting';reason='THREADED_CALLBACK_PAUSED';}
@@ -202,9 +205,11 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     }
     if(input.kind==='tracking'){
       text(input.source);text(input.subject);
-      if(!db.prepare('SELECT 1 FROM threaded_tracking_events WHERE owner_id=? AND source=? AND subject=?').get(binding.ownerId,input.source,input.subject))reject('THREADED_TRACKING_LIVE_BASELINE_REQUIRED');
-      baseline=(db.prepare('SELECT MAX(seq) seq FROM threaded_tracking_events WHERE owner_id=? AND source=? AND subject=?').get(binding.ownerId,input.source,input.subject) as {seq:number}).seq;
       if(!input.trackingAuthorization||!input.match||!Object.keys(input.match).length||Object.keys(input.match).length>10||Object.keys(input.match).some(k=>k.startsWith('__')))reject('THREADED_TRACKING_MATCH_REQUIRED');
+      if(options.trackingAuthorization?.(binding,input.source!,input.subject!)!==input.trackingAuthorization)reject('THREADED_TRACKING_AUTHORITY_CHANGED',403);
+      baseline=(db.prepare(`SELECT MAX(seq) seq FROM threaded_tracking_events WHERE owner_id=? AND source=? AND subject=?
+        AND json_extract(record,'$.__authorization')=?`).get(binding.ownerId,input.source,input.subject,input.trackingAuthorization) as {seq:number|null}).seq;
+      if(baseline===null)reject('THREADED_TRACKING_LIVE_BASELINE_REQUIRED');
     }
     if(input.replaceWaitId){const old=db.prepare('SELECT * FROM threaded_waits WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')
       .get(input.replaceWaitId,binding.ownerId,binding.threadId,binding.agentId) as Wait|undefined;
@@ -221,11 +226,20 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     db.prepare("UPDATE threaded_waits SET state='settled',version=version+1,outcome=?,updated_at=? WHERE id=? AND state='awaiting'").run(JSON.stringify(outcome),now(),wait.id);
     callbackFromWait(wait,outcome);
   }
+  function trackingAuthorized(wait:Wait){
+    const config=JSON.parse(wait.record) as {source:string;subject:string;trackingAuthorization:string};
+    try{return !!config.trackingAuthorization&&options.trackingAuthorization?.({ownerId:wait.owner_id,threadId:wait.thread_id,agentId:wait.agent_id},config.source,config.subject)===config.trackingAuthorization;}
+    catch{return false;}
+  }
   function recoverWithin() {
     for(const group of db.prepare("SELECT * FROM threaded_consultations WHERE state='collecting' AND deadline<=?").all(now()) as Group[])settleGroup(group,true);
     for(const wait of db.prepare("SELECT * FROM threaded_waits WHERE state='awaiting' AND kind<>'decision'").all() as Wait[]){
       if(wait.kind==='timer'&&wait.deadline!==null&&wait.deadline<=now())settleWait(wait,{type:'timer_elapsed',businessConditionVerified:false});
       if(wait.kind==='tracking'){
+        if(!trackingAuthorized(wait)){
+          db.prepare("UPDATE threaded_waits SET state='withdrawn',version=version+1,outcome=?,updated_at=? WHERE id=? AND state='awaiting'")
+            .run(JSON.stringify({type:'tracking_authority_changed',businessConditionVerified:false}),now(),wait.id);continue;
+        }
         const config=JSON.parse(wait.record) as {source:string;subject:string;baseline:number;match:Record<string,unknown>;trackingAuthorization:string};
         const events=db.prepare('SELECT seq,record FROM threaded_tracking_events WHERE owner_id=? AND source=? AND subject=? AND seq>? ORDER BY seq')
           .all(wait.owner_id,config.source,config.subject,config.baseline) as Array<{seq:number;record:string}>;

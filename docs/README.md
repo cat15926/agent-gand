@@ -182,6 +182,8 @@
 - [依赖与构建分析](./reports/dependency-build-analysis.md)
 - [工程分析报告](./reports/engineering-analysis-report.md)
 
+- [持续协作 GitHub 生产来源：注册、权限与只读传输](./architecture/threaded-github-production-v1.md)
+- [持续协作 RC02：生产 GitHub 接线与分层验收（2026-10-22）](./reports/threaded-collaboration-rc02-github-2026-10-22.md)
 - [持续协作 RC01：固定契约核验、差异与后续用例（2026-10-22）](./reports/threaded-collaboration-rc01-contracts-2026-10-22.md)
 - [持续协作 T12：综合恢复与发布验收](./reports/threaded-collaboration-t12-release-2026-10-21.md)
 - [持续协作发布、排空与恢复手册](./operations/threaded-release-runbook.md)

@@ -1,6 +1,6 @@
 # 持续协作剩余实施与验收计划
 
-状态：**RC01合同核验已完成，其余RC/EXT待实施或验收**。更新：2026-10-22（Asia/Shanghai）。代码基线：已推送 `b99997a`。本次仅按用户指令完成RC01源码对照、隔离回归及进度回写，不启动其他RC/EXT、日常迁移或发布，不新增T13。
+状态：**RC01、RC02已按所列范围完成，其余RC/EXT待实施或验收**。更新：2026-10-22（Asia/Shanghai）。RC01及进度文档已推送 `35804a1`，RC02随本次提交交付，schema仍v34。本次依用户指令推送后完成下一阶段RC02，不自动开始RC03或日常发布，不新增T13。
 
 本表承接[实施指导](threaded-collaboration-implementation-guide.md)、[当前状态](threaded-collaboration-implementation-status.md)和[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。RC/EXT 是剩余工作索引，原 T01–T12、K01–K16、59 项场景及预期继续有效；不能通过改编号、缩小核心合同或删除未通过项宣布完成。
 
@@ -11,11 +11,11 @@
 | T01–T11 | 设计及所列实现、隔离/浏览器/限定真实后端与领域证据已交付；T11只包含基础知识，不含语义检索 | 全部上游能力或全部平台已兼容 |
 | T12 | 代码及证据已推送；v34迁移17组、release 7组、production 16组、恢复9组/24子进程、实际index 4组、macOS命令8组、Chrome 5组通过 | 整体发布通过或59项全部通过 |
 | 真实API/SDK | 同一已授权账号的五类知识/SOP工具通过；SDK在执行完成且进程已静止后，隔离HTTP factory服务SIGKILL，新进程用原nativeId/anchor续接，恢复零请求 | 实际index带供应商的完整故障、mid-flight SDK自动恢复或原生自动压缩已验 |
-| 领域接线 | 平台任务及PR适配器、注册OS端口已有分层证据；生产单例默认未注册GitHub/OS provider | 配置release pack即可启用PR跟踪、评审或任意OS命令 |
+| 领域接线 | 平台任务及PR适配器、注册OS端口已有分层证据；[RC02](../reports/threaded-collaboration-rc02-github-2026-10-22.md)已接可选生产GitHub注册、身份/范围/撤权检查；日常未配置GitHub，OS生产注册仍交RC03 | 配置release pack即可启用所有领域，或日常已开放 |
 | 风险与费用 | PR新HEAD为not_observed；T08首次征询取消根因未定位；两次T12真实失败保留 | 失败已全部修复、unknown可自动释放或请求免费 |
 | 部署 | 交付默认closed；既有记录未包含日常库迁移、灰度或生产回退 | 已在日常业务环境开放 |
 
-T01–T12证据来自[T12报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)及阶段报告；本次新增[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)、固定来源哈希和66组隔离回归，没有重跑真实供应商或改写历史证据。
+T01–T12证据来自[T12报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)及阶段报告；本次新增[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)、固定来源哈希和66组隔离回归，没有重跑真实供应商或改写历史证据。RC02另交付18组新隔离、54组相关回归及7项/8次真实官方GitHub只读GET，真实新HEAD完整链未验。
 
 ## 2 首版收口计划
 
@@ -24,7 +24,7 @@ P0 为生产放行前必须解决或明确处置的工作；P1 为声明组合�
 | 编号 | 优先级 / 类型 | 剩余工作与当前状态 | 前置依赖 | 必须交付的退出证据 | 原任务 / 验收 |
 | --- | --- | --- | --- | --- | --- |
 | RC01 | P0 / 合同核验已完成 | 已核验五域实际调用链：Session分层兼容、预算/循环、hold/SLA、普通/Collective工作区及独立语义召回；见[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md) | 固定Clowder提交及T01决策（已满足） | 已交付逐条源/本地对照、113文件固定blob及SHA256、64分域引用、66组隔离回归与后续用例；K01–K16共16条/原59项文字不变。hold核心缺口进RC03/RC05，工程映射/写入进RC03/RC06，语义进EXT01；源核验完成不等于这些实现已通过 | T01、T07、T08、T11；K07、K15、F06、P08、MEM01 |
-| RC02 | P0 / 实现与接线 | 给生产单例安装受信GitHub PR事实来源、tracking及review producer/resolver；默认接线尚缺 | RC01的相关合同 | 固定仓库/权限/凭据来源；官方GET、live baseline、HEAD freshness和撤权复验；缺配置明确不可用；模型不能提交URL或凭据，默认不产生远端写 | T08、T10–T12；W05、A04–A07、MEM02 |
+| RC02 | P0 / 实现与接线已完成 | [生产GitHub注册及报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)：实际单例可安装PR/tracking/Review来源，固定scope/repo/PR及单principal凭据，补恢复撤权与并发身份故障围栏；日常未配置 | RC01相关合同已满足 | 已交付18组专用+54组回归及7项/8次真实provider GET；无注册明确not_registered，基线不误触发、HEAD/撤权复验、secret不落库/worker、observe零IO；真实新事件仍RC04，日常选定配置/放行仍RC11–RC12 | T08、T10–T12；W05、A04–A07、MEM02 |
 | RC03 | P0 / 实现与接线 | 注册选定生产OS命令及独立资源/副作用核对端口；补RC01确认的结构化hold来源、SLA恢复窗口/过期处置、命令wake共享hold准入；登记工程根/成员目录/cwd映射与读写声明。既有macOS8组不覆盖这些缺口 | RC01已完成；现有端口/资源合同 | 固定program/argv/env/cwd、权限/代际复验、取消/IPC/owner退出及unknown对账；结构化kind/value/expectedSignal/SLA及reporter anchor、拒绝伪等待；同job幂等且命令/定时共享对应额度；守门专域范围明确，不把在线one-shot均改硬SLA。未注册不可执行，工程路径漂移/越界写拒绝 | T08、T10、T12；W01、W03–W04、OS01、REC03 |
 | RC04 | P1 / 真实领域验收 | 观察真实新HEAD并走跟踪唤醒、旧approved失效、逐项修订及独立复审；当前606秒/48 GET为not_observed，新HEAD完整链主要为注入证据 | RC02；合法发生的新事件 | baseline不触发，新HEAD形成唯一wake；旧版本不通过新门禁；changes_requested与交付完成分离；服务重启/重复回调不重复。未出现事件则继续记not_observed | T10–T12；W05、A04–A07、REC05 |
 | RC05 | P0 / 真实故障验收 | 实际index隔离配置/数据库连接真实供应商，补发送前/可能已发/终态提交后、mid-flight SDK、审批/撤权、存储I/O组合；按RC01补停机跨fireAt及SLA恢复/过期边界；既有index4组不含真实执行 | RC01已完成；RC03对应等待语义；有效release pack、组级预算 | 实际PID/宿主及停止证明；未发有据retry、可能已发unknown且不重放；响应/后继/Run/费用原子一致；恢复零盲重发，I/O故障不假成功；恢复窗口之前/等于/之后及ownerAuth/baseline/generation漂移逐项验，不能用静止后续接冒充mid-flight | T03、T06–T07、T12；ISO04–ISO05、REC01–REC06、OS01 |
@@ -36,7 +36,7 @@ P0 为生产放行前必须解决或明确处置的工作；P1 为声明组合�
 | RC11 | P0 / 发布准备 | 对目标部署完成匹配版本备份/恢复、v34前向迁移、旧worker拒绝、closed旧模式回归和observe演练；目前只有隔离证据，日常未执行 | RC10；确定的目标环境与一致备份 | 数据/账号密钥/原生会话/工作区恢复方案匹配；恢复演练有校验记录；observe不触发协作后台写；不降低schema或丢失新数据/unknown | T12；DB03、ISO01–ISO02、OPS01 |
 | RC12 | P0 / 灰度与交接 | 选定新Thread小流量放行，核对工具/真实用量/Action，演练停止新入场、暂停派发、排空、兼容应用回退，再按证据扩大范围；未执行 | RC11；经选择的发布范围及新Thread配置 | 新根关闭后旧根有据处理或明确暂停；unknown/Action/outbox可见；保留匹配pack与兼容worker。threaded_only排空不能充当整库回退许可；整库备份恢复须另对账全部模式和备份后的副作用 | T12；OPS01、OS01、UI01、B01–B02 |
 
-建议后续顺序：RC01已完成；RC09可并行，RC02/RC03接线后开展相关真实组合，RC04可与RC05–RC08并行；统一由RC10汇总，再进入RC11/RC12。外部事件、供应商回执和原生压缩的出现时间不可保证，不据此承诺固定完成日期。
+建议后续顺序：RC01/RC02已完成；下一阶段RC03，RC09可并行，相关生产组合具备接线后按证据补验，RC04可与RC05–RC08并行；统一由RC10汇总，再进入RC11/RC12。外部事件、供应商回执和原生压缩的出现时间不可保证，不据此承诺固定完成日期。
 
 ## 3 后续能力范围
 
