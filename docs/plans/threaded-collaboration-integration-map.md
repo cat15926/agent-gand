@@ -1,8 +1,10 @@
 # 持续协作 T01：模式接入盘点与 T02–T04 接口地图
 
-状态：设计盘点完成；生产代码、迁移、运行验收均未实施。日期：2026-10-19（Asia/Shanghai）。本文是 [实施指导](threaded-collaboration-implementation-guide.md) 的接入附件；验收 ID 继承 [Issue #16](https://github.com/cat15926/agent-gand/issues/16)，下文标记的是**后续验证责任**，不是通过记录。
+状态：**T01历史盘点快照**；“生产代码、迁移、运行验收均未实施”仅指2026-10-19当时基线。日期：2026-10-19（Asia/Shanghai）。本文是 [实施指导](threaded-collaboration-implementation-guide.md) 的接入附件；验收 ID 继承 [Issue #16](https://github.com/cat15926/agent-gand/issues/16)，下文标记的是**后续验证责任**，不是通过记录。
 
-基线：`996513c673498811bed894b3eecf64382e71af3f`；盘点 HEAD：`b95dc2553405268a9b807b3983fee8f9facc55fa`。当前仅增加一个 `fix(chat): separate execution drafts and improve result presentation` 提交。生产代码没有 `threaded` 实现；RunMode、旧全局锁、Session、终态与恢复核心仍与指南基线相同。新增的 `control_draft` 展示规则必须保留。
+当前进度已到T12 `b99997a`，见[实施状态](threaded-collaboration-implementation-status.md)和[剩余计划](threaded-collaboration-remaining-plan.md)。本文件的hash与接入责任保留作历史证据，不据此判断当前功能可用性。
+
+基线：`996513c673498811bed894b3eecf64382e71af3f`；盘点 HEAD：`b95dc2553405268a9b807b3983fee8f9facc55fa`。当时仅增加一个 `fix(chat): separate execution drafts and improve result presentation` 提交。当时生产代码没有 `threaded` 实现；RunMode、旧全局锁、Session、终态与恢复核心仍与指南基线相同。新增的 `control_draft` 展示规则必须保留。
 
 ## 1. 冻结前提与盘点方法
 

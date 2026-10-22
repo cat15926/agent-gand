@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "task": "RC01",
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "localCommit": "b99997a76d119ab3962b7b493851726b070d2a7d",
+  "scope": "Fresh isolated local regression for RC01 contract comparison, not upstream runtime parity or production acceptance",
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "upstreamPublicSourceReadsExcludedFromFixtureNetworkCounts": true,
+  "checks": [
+    {
+      "command": "pnpm verify:threaded-session-context",
+      "exitCode": 0,
+      "result": {
+        "status": "passed",
+        "scope": "T07 Session/context boundaries; real SQLite/coordinator/runtime, fake backend evidence only, no models",
+        "groups": 13,
+        "checks": [
+          "Cold native input requires trusted quiescent terminal evidence; anchor replay and a fresh SQLite connection restore the same native identity across Invocations.",
+          "API Sessions remain reconstructable metadata with no native ID, resume token or SDK anchor capability.",
+          "Two SQLite connections enforce Session CAS: a stale writer cannot replace the winning native identity or append an orphan context version.",
+          "Backend version, model, workspace, information boundary, account config/credential/native identity generation, permission and role/tool changes each create a fresh retained native identity.",
+          "Only included, authorized published sources become possible exposure; private/draft text and another member or owner anchor never cross the Session boundary.",
+          "Recursive source authorization is rechecked across Threads even when local permissions stay unchanged; revoked history forces a new Session and hides the old anchor.",
+          "Unknown execution retains its real claim; neither unconfirmed input nor an explicit cold boundary may silently rotate the active native identity.",
+          "A successful transport delivery without a trusted terminal anchor remains possible exposure and cold-starts after resource release.",
+          "An unexpected backend UUID durably marks reconciliation while preserving the original native ID and lock; no automatic replacement or false anchor is recorded.",
+          "Compaction requires verified native evidence and authorized source provenance; only a terminal anchor covering the exact boundary may resume.",
+          "Seal is an immutable idempotent boundary; it blocks further input and rotates identity only after the old claim is safely released.",
+          "Restoring an older Wake cutoff cannot reuse native memory containing later messages; the new cutoff produces a cold identity after safe release.",
+          "Possible exposure and context sending share one transaction; write failures roll back both, and failed anchors never become recoverable facts."
+        ]
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-budget",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 14,
+        "checks": [
+          "Root is derived from the durable authored user message; defaults freeze once and a restart/config change cannot reset or replace them",
+          "Admission reserves once before I/O with exact claim identity; Run/Attempt are not additional charges and stale or changed replays cannot mint a second request",
+          "A fault after reservation and Attempt preparation rolls back request, attempt/invocation charges and Run in the same transaction",
+          "Root output/cost caps, per-request output cap and unknown-price policy reject before any second Attempt or actual request is admitted",
+          "Explicit unknown-price reserve is charged; a quiescent completed Invocation can release execution resources while unknown token/cost dimensions remain reserved",
+          "Known output does not free unknown cost; verified exact-request reconciliation is idempotent and rejects changed values, untrusted receipts and free-by-assertion claims",
+          "Execution unknown retains an open activity interval through time/restart boundaries; trusted quiescent final reconciliation preserves its unknown audit and cannot overwrite an existing known final",
+          "Two real request identities in one Attempt reserve/settle separately without double-counting Invocation, Run or overlapping tool activity; the second unknown cost stays charged",
+          "Attempt settlement aggregates every actual request: one unknown sibling forbids automatic retry, and verified quiescence refunds all unused reservations while retaining started unknown usage",
+          "Confirmed not-started refunds only unused request quota; safe retry keeps its root and Run, counts Attempts once, and requires a versioned Owner decision to exceed the frozen two-Attempt default",
+          "Nested model/tool spans use the per-Attempt union; concurrent Attempts add their durations, while a later idle/hold interval adds no activity",
+          "Absolute deadlines bound activity allowances; expired work cannot silently renew, and recovery retains both monetary/token reservations and ongoing unknown execution time",
+          "Default owner 24-hour usage is durable; explicit versioned window caps apply across roots, and unresolved dimensions do not become free when their request ages out",
+          "Agent relay and cross-post inherit the original root across Threads; depth derives from the persistent parent Invocation and the frozen A2A limit cannot be reset by another message"
+        ],
+        "networkCalls": 0,
+        "realModelCalls": 0,
+        "scope": "T06 pure durable budget accounting, trusted fake resource/usage receipts; no supplier billing guarantee"
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-collaboration",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 17,
+        "checks": [
+          "R01/R02: longest handles, code/quote/URL exclusion, user inline vs Agent line-start, groups/intents, preview/admission identity and durable user-request conflict",
+          "R02/R03/CTX05: serial targets become durable ordered continuations under one root; ideate freezes independent inputs and suppresses text A2A",
+          "M01/M03/B01: explicit post and identical final create distinct wake/message identities; exact tool retries return durable receipts, conflicts and late effects reject, root budget is shared",
+          "CTX02/M02: exact reads, search and seen/mention tools enforce ACL and frozen cutoff; private model/read history narrows final and tool messages instead of widening audience",
+          "M02/CTX02: authorized cross_post crosses a real Thread boundary under the same causal root; attachment range returns exact bytes/full hash and cross-Thread provenance stays reference-only",
+          "R04: same-pair short replies warn at 2/3 and block at 4; new user input and substantive tool work reset the durable streak without resetting the root budget",
+          "MM01/MM03/MM04/E01/E02: persisted 3-target consultation survives factory/SQLite rebuild with original deadline and first response; offline deadline settles partial once with exact dissent and no synthesis call; cascade and late resurrection reject",
+          "E05: caller pause preserves settlement with an explicit waiting callback; later permission drift rejects callback without widening authority or discarding original responses",
+          "E05 controls: unchanged pause/resume delivers the one frozen callback; any intervening stop permanently cancels it even after resume, preserving settlement history",
+          "W01/W03/B01: holds return before the normal final, release the execution claim, use sliding quota and same-job idempotency; replacement retires only the wake; restored timer outcomes inherit root and do not charge idle time or prove business completion",
+          "W05: a registered live source freezes its durable baseline, excludes existing matching history, and emits one private source-referenced callback only for a new matching event",
+          "W02/W06: retired request_user_input returns 410; ordinary once Decision registration is nonblocking, exact revision and authenticated origin-trigger settlement are required, retries are stable and no business approval is inferred",
+          "E06/DB01/DB02: group/target/message/Delivery/Wake/Outbox/tool-receipt insertion faults roll back together; settlement failure rolls back last response and terminal, then exact proven outcome retries with no second model request",
+          "E01/E02/E04: real recovery worker SIGKILL on a partial group, fresh worker crosses original deadline and exits32 after settlement before dispatch; receiver send-before-ACK retry repeats a hint but preserves one settlement/callback/queue identity and performs no model replay",
+          "MM02/E03: two real SQLite IPC writers released at one barrier race last verified response against deadline; one immutable settlement/callback wins, repeated recovery and late terminal cannot revive it or replay the model",
+          "K15/R04/W01: a timer callback carries the original same-pair streak, so holding/restarting does not reset language-inertia protection or count as a fresh A2A hop",
+          "W05 producer protocol: server-allowlisted GitHub path uses a live baseline; unchanged state with cosmetic updated_at does not trigger, a new head triggers exactly once; transport remains injected, no real GitHub business claim"
+        ],
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "injectedHttpCalls": 41,
+        "scope": "T08 isolated SQLite, canonical runtime/context/backend/tool ports and injected transport; no daily DB or real models"
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-knowledge",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 8,
+        "checks": [
+          "MEM01 basics: exact message/Invocation anchors expand only authorized published platform messages, immutable versions and provenance survive SQLite/runtime rebuild; retrieval explicitly reports literal_substring, not semantics",
+          "MEM02/K09: fixed server-owned home collection, arbitrary collection/owner/thread/actor fields and future messages rejected; private knowledge, source bodies and another actor cursor cannot self-authorize",
+          "MEM02/CTX02: recursive cross-Thread source membership revocation hides derived read/search/expansion with the current home Binding still authorized, and privacySources rejects cached result reuse",
+          "MEM01 basics: natural expiry, explicit supersession, current replacement metadata and immutable historical content remain distinct; mutation idempotency, expectedVersion CAS and replacement validity enforced",
+          "MEM02: server-issued cursor pages are frozen, disjoint and bound to owner, home Thread, actor, authority fingerprint and expiry; a fresh legitimate Binding cannot reuse a cursor from before permission drift",
+          "DB01/REC01: two real IPC worker processes with independent SQLite connections compete at one barrier, exactly one expectedVersion update wins; producer SIGKILL after commit and a retry preserve one immutable version; runtime/SQLite rebuild reads durable result",
+          "DB01: injected faults at version/event/idempotency writes roll back the whole item/version/event receipt transaction; a successful retry commits one complete version",
+          "K09/CTX02 tool composition: all seven tools use the actual application allowlist and authenticated runtime; publish/read/literal search/source expansion/recent/anchor results persist complete privacySourceIds and session-version input exposures; downstream post/final cannot widen private source audience"
+        ],
+        "faults": [
+          {
+            "table": "threaded_knowledge_versions",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_knowledge_events",
+            "rolledBack": true
+          },
+          {
+            "table": "threaded_knowledge_operations",
+            "rolledBack": true
+          }
+        ],
+        "injectedModelCalls": 14,
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "scope": "isolated actual SQLite, runtime, authority, messages and knowledge domain; model transport injected; MEM01 semantic retrieval remains unimplemented; production entry closed"
+      }
+    },
+    {
+      "command": "pnpm verify:threaded-resource-integration",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 8,
+        "checks": [
+          "Session short CAS/preallocated UUID/reuse/cold-on-permission/API reconstruction/version history; preparation charges zero",
+          "Canonical workspace alias change between prepare and claim rejects with no capacity/resource partial hold",
+          "Complete claim + Run/Attempt atomic rollback; start transition shared; proof permits terminal output but denies late effects",
+          "Throwing runner retains unknown claim; stop cannot steal; verified quiet release, old finally cannot release successor",
+          "Proof-before-outcome race: stop commits while preserving quiescence, then the original proof settles cancellation and releases",
+          "Account revocation after a durable quiescence proof fences the Invocation atomically and permits verified cancellation without output",
+          "Late unknown callbacks cannot erase verified process quiescence or prevent subsequent controlled settlement",
+          "Unexpected native ID retains original identity and fences; further effects and silent cold replacement denied"
+        ],
+        "networkCalls": 0,
+        "realModelCalls": 0
+      }
+    },
+    {
+      "command": "node --import /Users/ruhonglin/lhz/agent-gand/apps/server/node_modules/tsx/dist/loader.mjs /Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-activity-heartbeat.mjs",
+      "workingDirectory": "/private/tmp/rc01-heartbeat-debug",
+      "permission": "Local loopback listener permitted after restricted sandbox EPERM; original uninstrumented script",
+      "exitCode": 0,
+      "result": {
+        "ok": true,
+        "groups": 6,
+        "checks": [
+          "API: buffered SSE microtasks span multiple unchanged 1000ms allowances; trusted progress renews the same Attempt/request and charges all elapsed activity.",
+          "SDK relay: buffered SSE microtasks span multiple unchanged 1000ms allowances; trusted progress renews the same Attempt/request and charges all elapsed activity.",
+          "A trusted full configuration/context validation taking 600ms does not consume the preceding allowance before atomic renewal; full effect authorization still runs.",
+          "expired-gap: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay.",
+          "hard-cap: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay.",
+          "revoked-permission: transport progress cannot revive expired activity, exceed the hard root budget, or retain revoked authority; unknown stays fenced without replay."
+        ],
+        "realModelCalls": 0,
+        "externalNetworkCalls": 0,
+        "localSdkRelayOnly": true,
+        "defaultAllowanceUnchanged": 1000,
+        "sharedTokenLedgerAccess": false
+      }
+    }
+  ],
+  "uniqueGroupsPassed": 66,
+  "environmentDiagnosisEvidence": "threaded-rc01-heartbeat-environment.json"
+}

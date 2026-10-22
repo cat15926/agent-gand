@@ -1,0 +1,1835 @@
+{
+  "schemaVersion": 1,
+  "task": "RC01",
+  "capturedAt": "2026-10-21T17:04:55.582908+00:00",
+  "date": "2026-10-22",
+  "timezone": "Asia/Shanghai",
+  "scope": "Targeted static implementation/caller audit of five contract areas, not execution of the upstream application or a claim every cached source line was reviewed",
+  "local": {
+    "commit": "b99997a76d119ab3962b7b493851726b070d2a7d",
+    "schemaSourceVersion": 34,
+    "productionSourceEdited": false,
+    "files": [
+      {
+        "path": "apps/server/src/execution/resources/sessions.ts",
+        "sha256": "8b02c18283f2d591f63afc03b0812ee1d888cde3b60712ed76401516328f7490",
+        "bytes": 11463,
+        "lineCount": 153,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/execution/resources/coordinator.ts",
+        "sha256": "4312b4eb905fc94c29eba18c5f03ef00638f5eb3b87aaa10c28e0df3d1504fa2",
+        "bytes": 39917,
+        "lineCount": 479,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/execution/sdkOptions.ts",
+        "sha256": "64b464b77fd843ab1f1a3d5df569464a189c8c71c99062c3b4b04f9cf416cbb1",
+        "bytes": 5793,
+        "lineCount": 61,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/backendRuntime.ts",
+        "sha256": "4f12d506a87336e9a8f15fa4cea8076c2667a619d9ea08fedcb26561eaaeaa30",
+        "bytes": 17715,
+        "lineCount": 248,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/sessionContext.ts",
+        "sha256": "34683a7d4e7fb5bc84f873089c9fa8610bc979b61e1e59194f87466ddb40678b",
+        "bytes": 26109,
+        "lineCount": 347,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/productionSettings.ts",
+        "sha256": "c3e8bc8f2c0b1af8acd30647cf67fe8dcda381f9e4ccf485e736892ae0688e40",
+        "bytes": 8415,
+        "lineCount": 79,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/budget.ts",
+        "sha256": "b04b54bc436c5bc64f8d978aa635453762a916f6857494b96ca06c66aa6c59f8",
+        "bytes": 46493,
+        "lineCount": 648,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/routing.ts",
+        "sha256": "c6247cad17389d6b808bfeac07ed1e9a52187c5be01759eac3c30b117c6c5ec2",
+        "bytes": 17530,
+        "lineCount": 197,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/tools.ts",
+        "sha256": "8e8fd8b56f811583ede2653494b0df6770bfc50f575cc69b187b1141ce582453",
+        "bytes": 20384,
+        "lineCount": 171,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/cooperation.ts",
+        "sha256": "985e9bec380864d9bbb592a5a79ac88f7dca83f4c3263ced878dd1ddb3828bd9",
+        "bytes": 32448,
+        "lineCount": 311,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/actionCommands.ts",
+        "sha256": "f618a0b5bee728a8557eda569f2cbb7f3917c3c35feec3f778593bb68b1e89d4",
+        "bytes": 8025,
+        "lineCount": 98,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/knowledge.ts",
+        "sha256": "46832fb3f05ddec9f4f38c53a931723441fb92cbeb20b081c2370138dde289bd",
+        "bytes": 19069,
+        "lineCount": 213,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/backends/sdkWorker.ts",
+        "sha256": "9580b30eae7a2ff9a6d2e59d6eddc8d1d4d4974f8a09c3f6aab7dbb31441b726",
+        "bytes": 4716,
+        "lineCount": 73,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/backends/sdkProcess.ts",
+        "sha256": "7629ded8e0e9ade4c08c1543d0602dcfd4f72d5c7b7fb2a9f60dfc1122519a88",
+        "bytes": 3888,
+        "lineCount": 56,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "apps/server/src/threaded/runner.ts",
+        "sha256": "d42d93b1435c5dc8623ff9e51fd9f3c24ba194ab98dca407a2ea59c2aa4f167f",
+        "bytes": 6095,
+        "lineCount": 117,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-session-context.mjs",
+        "sha256": "e8b0e38202b536a2b88cd8f02fd0ed40d99ad2573286100a6725a4573d3536b8",
+        "bytes": 25158,
+        "lineCount": 334,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-budget.mjs",
+        "sha256": "8c34843bf56c9619be1383ca7af99e62637f010ed3f3162d322a673675eba97e",
+        "bytes": 24300,
+        "lineCount": 325,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-collaboration.mjs",
+        "sha256": "62781da6b82252fe6bdee4f4637538158e121694dedb9307f35c723ffd2a62d1",
+        "bytes": 39802,
+        "lineCount": 375,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-knowledge.mjs",
+        "sha256": "e06cb056cc866b5799e17762aecf2c9ccb8e1734d98274ae209abe89b882293a",
+        "bytes": 22746,
+        "lineCount": 204,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-resource-integration.mjs",
+        "sha256": "e4df5e3bc1c6ea587917f07180e67b03650c219ba8d9f6f0f645cd1562907789",
+        "bytes": 15500,
+        "lineCount": 194,
+        "matchesBaselineCommit": true
+      },
+      {
+        "path": "scripts/verify-threaded-activity-heartbeat.mjs",
+        "sha256": "338f1ae6e08a542f02b1bcecad082cc77ce10bd036f54da4d91e17fc2bc6c3b0",
+        "bytes": 7576,
+        "lineCount": 96,
+        "matchesBaselineCommit": true
+      }
+    ]
+  },
+  "upstream": {
+    "repository": "zts212653/clowder-ai",
+    "commit": "8b373123323aacd7e2047dab94fdc15b8f7567ae",
+    "latestHeadQueried": false,
+    "treeSha": "2438b2fa77c59780fba846a62b8e531c2f758cea",
+    "treeTruncated": false,
+    "treeEntries": 15458,
+    "treeUrl": "https://api.github.com/repos/zts212653/clowder-ai/git/trees/2438b2fa77c59780fba846a62b8e531c2f758cea?recursive=1",
+    "treeCachePath": "/tmp/clowder-rc01-tree-compressed.json",
+    "treeSha256": "e6cb99f3c1374f09ebdb6f488987a8d21aee659adacf56227e21bec8f4c376e6",
+    "commitMetadata": {
+      "sourceManifest": "threaded-t01-source-manifest.json",
+      "cachePath": "/tmp/clowder-contract-check/pinned-commit.json",
+      "sha256": "b857eaedc27e8c5348903ff51a4feaf3c1cae9e3ce0513971a45feb6d1bfd011",
+      "commitTreeMatches": true
+    },
+    "retrieval": "T01 cached source SHA256 rechecked; complete compressed Git tree; new public Contents API then fixed raw fallback on rate limit. Every cached file Git blob verified. Timed-out archive and partial tree were not used as source evidence.",
+    "files": [
+      {
+        "path": "LICENSE",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/LICENSE",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/LICENSE?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/LICENSE"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/LICENSE",
+        "gitBlobSha1": "dc5495d923c0a6b262831f9e02769f61e9795478",
+        "sha256": "fa76dc1037b8e912f93cec127939c2eba96d68db7f6fa88ad827cdc2fd78200e",
+        "bytes": 1080,
+        "lineCount": 21,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/scripts/f163-eval.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/scripts/f163-eval.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/scripts/f163-eval.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/scripts/f163-eval.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/scripts/f163-eval.ts",
+        "gitBlobSha1": "5b06853f6a3fcf74a3fb22773b94ba6dea0c1588",
+        "sha256": "1db3d76fe737e0daad2fdee92e880dbbae1af6e65d00413ff7dcf0cfa7345e0e",
+        "bytes": 4287,
+        "lineCount": 131,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/config/cat-budgets.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/config/cat-budgets.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/config/cat-budgets.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/config/cat-budgets.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/config/cat-budgets.ts",
+        "gitBlobSha1": "41d1884da93f1e9dd58bf01d639b86a0d9cde3b7",
+        "sha256": "be3cc3a8162424196c8719173466e0cdfc4af362f7fe43a604c8c40536d32ff4",
+        "bytes": 1371,
+        "lineCount": 35,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/config/codex-managed-support.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/config/codex-managed-support.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/config/codex-managed-support.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/config/codex-managed-support.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/config/codex-managed-support.ts",
+        "gitBlobSha1": "de298332f515954fc799d250b566cf89e97d5e81",
+        "sha256": "ca648661de24d54afac44b96dbbd3b407307cf1b9133f2c4b3730e4883be22f9",
+        "bytes": 2852,
+        "lineCount": 54,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/ActionSuccessorAdmissionService.ts",
+        "gitBlobSha1": "21d016a76c0e65a48f810ca5f89f24d4d165715b",
+        "sha256": "a4946c518ebcdcea6a108431f07883024ece0ab0421ec9b9a76e32ce367db6d8",
+        "bytes": 15127,
+        "lineCount": 354,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/ActionSuccessorCompletionService.ts",
+        "gitBlobSha1": "a59f0eaf14b7584fc3dac9eb3952a24af2c2fbc1",
+        "sha256": "8957fd9656f6c5a30399db7d0bfd9d7c67071b5c36bf17cd163e73804cb9fab3",
+        "bytes": 4503,
+        "lineCount": 94,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/ActionSuccessorReplacementAdmission.ts",
+        "gitBlobSha1": "7c552004977485e9016805c923cc0bf77d0da60f",
+        "sha256": "d6cecfc4d72233838b6e1d118b7f1d4c0c483f4bbef7854c1bd2b2dbd41a794e",
+        "bytes": 8440,
+        "lineCount": 216,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/ActionTerminalPredicateCatalog.ts",
+        "gitBlobSha1": "544af266779f99b70d9f62e88d581a7885a3a50c",
+        "sha256": "3bc33095b8b2ca7444dc1168a176fe9c12565955e8331d5f1ebc51790203c7b1",
+        "bytes": 11383,
+        "lineCount": 294,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/TypedWaitRegistration.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/TypedWaitRegistration.ts",
+        "gitBlobSha1": "ea0a19650a9cf17f5a6618dba0893abbfb6cded3",
+        "sha256": "85914cf5ba185375ef061ea14e9e7b122995ce8d0980b549a5416b109ddb2569",
+        "bytes": 9297,
+        "lineCount": 242,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/action-terminal-predicate-truth.ts",
+        "gitBlobSha1": "c2e03ef57281ea9730b11e8d3fb8836587a7015a",
+        "sha256": "8a44a97d8dcbe2f5101e572c11863b80bcda77fa68b898157a329be635cf5f30",
+        "bytes": 3441,
+        "lineCount": 79,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/ball-custody/hold-quota-store.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/hold-quota-store.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/ball-custody/hold-quota-store.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/ball-custody/hold-quota-store.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/ball-custody/hold-quota-store.ts",
+        "gitBlobSha1": "dedd2d10054e01fe919354c8b0ac47fbca40f33a",
+        "sha256": "f1df091fed35c8d9844daf785e4adf818ac6123af25b0fced019fffb72aba827",
+        "bytes": 8051,
+        "lineCount": 196,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/AgentSessionMutex.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/AgentSessionMutex.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/AgentSessionMutex.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/AgentSessionMutex.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/AgentSessionMutex.ts",
+        "gitBlobSha1": "0c3ca6cd35e1650600b7a88801e1dda0107d8620",
+        "sha256": "30b76115cda16702e4bc1cd0ac9465d82b0b5313348ce6e192e987b367e5e0bf",
+        "bytes": 694,
+        "lineCount": 20,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts",
+        "gitBlobSha1": "6fe019b366a8eca120d8131429f1ded627bfd683",
+        "sha256": "00cbdec0750d60b968676693ea353d70dff5953fb5f95aef22c1977e9e74893f",
+        "bytes": 101399,
+        "lineCount": 2456,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/QueueProcessor.ts",
+        "gitBlobSha1": "754cf6b357fc90071726bd04b591907b6659e04b",
+        "sha256": "e8f449ab27dfc4e0353150ee910067d018ba15070d7dbbfc5b2efe2025bd0964",
+        "bytes": 282967,
+        "lineCount": 6516,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/SessionContinuationCoordinator.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/SessionContinuationCoordinator.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/SessionContinuationCoordinator.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/SessionContinuationCoordinator.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/SessionContinuationCoordinator.ts",
+        "gitBlobSha1": "2e1055bf9eb1b3349451ff756050dcc07bc44d35",
+        "sha256": "6e7555cfce00f69a117d8fc1ba6aa1aaef727b6767c9bf5be939e14a49993aa9",
+        "bytes": 9342,
+        "lineCount": 207,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/SessionMutex.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/SessionMutex.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/SessionMutex.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/SessionMutex.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/SessionMutex.ts",
+        "gitBlobSha1": "42a5553b4526c8c276e64a01f18d448767f1f0d4",
+        "sha256": "339164c0c5f0b517ca879b8ae6b6256106fccd3e4318ca3a7b97f4939ea68b58",
+        "bytes": 7266,
+        "lineCount": 212,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/collective-private-invocation.ts",
+        "gitBlobSha1": "8c0b6016246a77a09fbcc3f565a0d5dac2ec1742",
+        "sha256": "d6d45d0c6f42fe5f1b7d401846e63b7b65f6345fc5f88277aee1533fb14c232e",
+        "bytes": 7814,
+        "lineCount": 156,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/context-continuity.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/context-continuity.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/context-continuity.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/context-continuity.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/context-continuity.ts",
+        "gitBlobSha1": "d1cfcc7a9e7642e408fc1fe66f4609f8069105fd",
+        "sha256": "d9e46de07f7ac92566a42ac146af112e5edd6b1cccfcbc5b43a85035d2aad509",
+        "bytes": 10421,
+        "lineCount": 259,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts",
+        "gitBlobSha1": "ed0c633f681312b922948f3fec435608c8656fd5",
+        "sha256": "c0eadbe757eac072f1221b4c68c0683bb6a1a251bd2709ff6fb03dfec66ad63a",
+        "bytes": 304005,
+        "lineCount": 6517,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/invocation/session-policy-snapshot.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/session-policy-snapshot.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/invocation/session-policy-snapshot.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/invocation/session-policy-snapshot.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/invocation/session-policy-snapshot.ts",
+        "gitBlobSha1": "13f0ac117dafaea42414123ec2914e3fb80e1a1a",
+        "sha256": "be5a07a88cdb7ec892e9070a21237edf0247980341f224c317d612fce5866c17",
+        "bytes": 2185,
+        "lineCount": 58,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/ClaudeAgentService.ts",
+        "gitBlobSha1": "3f98b4ed95b5d2a82cf649f5197cba6de0a4ffd4",
+        "sha256": "4a2da0a4ad37ec070e132247de6dce2676d3536ff3e17c3228da4e378e862fcb",
+        "bytes": 47244,
+        "lineCount": 1048,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/ClaudeSdkAgentService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/ClaudeSdkAgentService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/ClaudeSdkAgentService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/ClaudeSdkAgentService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/ClaudeSdkAgentService.ts",
+        "gitBlobSha1": "5ad49574fc482ddb8d39a623df8e11754fa664b7",
+        "sha256": "8cb44e373b079ad6a698f8e96b6356d7bda2cc8980b2db4472194bd0224c1319",
+        "bytes": 16481,
+        "lineCount": 374,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/KimiAgentService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/KimiAgentService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/KimiAgentService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/KimiAgentService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/KimiAgentService.ts",
+        "gitBlobSha1": "557075da3a1ea5ce20f848f87e1cb4a101395dc4",
+        "sha256": "b951498cd63c728de1999fd5879b679f2c2bc068895cfc2ddeef650d95e3526f",
+        "bytes": 32172,
+        "lineCount": 761,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/agy-native/agy-native-continuity.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/agy-native/agy-native-continuity.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/agy-native/agy-native-continuity.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/agy-native/agy-native-continuity.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/agy-native/agy-native-continuity.ts",
+        "gitBlobSha1": "4989c8478be9705947c0ee3bec31f974a5e640e2",
+        "sha256": "d215d39cf04be02ec6a08ed96df09345f7faf3101a0cc1edb293388dfbe951b5",
+        "bytes": 1811,
+        "lineCount": 44,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/claude-sdk-launch.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/claude-sdk-launch.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/claude-sdk-launch.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/claude-sdk-launch.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/claude-sdk-launch.ts",
+        "gitBlobSha1": "eaec687acf7dc3bd6c08f43d60b039ee0400c4d6",
+        "sha256": "84360a11c8fb538994d31c082c9389787520add8d01905ad6fb02149d4b057d0",
+        "bytes": 8212,
+        "lineCount": 185,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/codex-session-context-snapshot.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/codex-session-context-snapshot.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/codex-session-context-snapshot.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/codex-session-context-snapshot.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/codex-session-context-snapshot.ts",
+        "gitBlobSha1": "681c05663b0f1037c85608b6eba90e792fb3a5e6",
+        "sha256": "ef4cab0b02fc80e4d9bbf15f24dc7350643091e4c734e9e8d7eac4a78a49961d",
+        "bytes": 7600,
+        "lineCount": 230,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/collective-work-cli-policy.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/collective-work-cli-policy.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/collective-work-cli-policy.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/collective-work-cli-policy.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/collective-work-cli-policy.ts",
+        "gitBlobSha1": "9fa162118514b69fcc672cb79a96dab0a3fe1b66",
+        "sha256": "3986e933fdb3d061a5bce585450bbcaf498f1fe6dc1006209d615179c37280a8",
+        "bytes": 5839,
+        "lineCount": 147,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/providers/kimi-l0-session-fingerprint.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/kimi-l0-session-fingerprint.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/providers/kimi-l0-session-fingerprint.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/providers/kimi-l0-session-fingerprint.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/providers/kimi-l0-session-fingerprint.ts",
+        "gitBlobSha1": "8ff0323dfd96d77f5d19ec52d32eb3aa8711c1eb",
+        "sha256": "b93cdfefc21cf19ece5fd2c7a7d6182de87b8bae1951e01afe53875fa81bf410",
+        "bytes": 3549,
+        "lineCount": 79,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/AgentRouter.ts",
+        "gitBlobSha1": "17788d9955eb2fdd2b9245a2c8037592d1a1dd7d",
+        "sha256": "2b7e1b814f8d4a41ab27fafe71b263534933501d11e084001f6c0946674c431d",
+        "bytes": 75954,
+        "lineCount": 1632,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/MultiMentionOrchestrator.ts",
+        "gitBlobSha1": "c756c2aa8c5ec9ee42263056a83b3bae67dd5326",
+        "sha256": "fef3379b4c600a5f8abba6888ce35e248be868a80c22e51e494eb3845063f139",
+        "bytes": 10078,
+        "lineCount": 287,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts",
+        "gitBlobSha1": "0c6b7532a07a1cd31897693e0c47d73cf7d58ba9",
+        "sha256": "f125ec8640a0b6cd595d360baa43db26dbda51b3f0ab730bcc0f73444f247ad6",
+        "bytes": 9655,
+        "lineCount": 257,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts",
+        "gitBlobSha1": "b769b7cfefe1164f59145df7019d3b573cca93e4",
+        "sha256": "4d95b3709bff2125007ec9f1027ffcc09881caad3a0c830ef3b11d5b32dd644a",
+        "bytes": 10922,
+        "lineCount": 259,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/commit-completed-response.ts",
+        "gitBlobSha1": "249ed59c125d5de1f65e99a1f0012de8b26fb3e5",
+        "sha256": "b3b859bce76361264478658391b22d0fffc11a13a6bc16cd3de0ba78f76d07ff",
+        "bytes": 2461,
+        "lineCount": 62,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/durable-a2a-lineage.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/durable-a2a-lineage.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/durable-a2a-lineage.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/durable-a2a-lineage.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/durable-a2a-lineage.ts",
+        "gitBlobSha1": "a686e3b6a8b1440aba84ad5d07d9cd30ae38bd1c",
+        "sha256": "24e5ce8b081bf6a8c5968fe4a7e3c8364d8c1cde4519671ba31a313a9f3a5c96",
+        "bytes": 3073,
+        "lineCount": 84,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/route-parallel.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/route-parallel.ts",
+        "gitBlobSha1": "d205242663814ee4971b6924e5e3acc116e50fc2",
+        "sha256": "225db278f3f38737e98aea37c3164569e7de0caec158ad0956d039843da5502e",
+        "bytes": 125738,
+        "lineCount": 2571,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/agents/routing/route-serial.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-serial.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/agents/routing/route-serial.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/agents/routing/route-serial.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/agents/routing/route-serial.ts",
+        "gitBlobSha1": "d66bc2788111bcf3eeb5c1eb1ff879ef504bc701",
+        "sha256": "efc56b7c1d0ccfdf4b98baf66174ba895fb00033a7758226500fd2e71f05d896",
+        "bytes": 211410,
+        "lineCount": 4334,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/context/ContextAssembler.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/context/ContextAssembler.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/context/ContextAssembler.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/context/ContextAssembler.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/context/ContextAssembler.ts",
+        "gitBlobSha1": "c3131add507ce48941561b41673d9cb532756452",
+        "sha256": "af6f4993ed90c593a3ea3be33dcba1a8d274ce472de5ef6040190e451c1706c4",
+        "bytes": 13908,
+        "lineCount": 332,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/session/SessionManager.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/session/SessionManager.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/session/SessionManager.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/session/SessionManager.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/session/SessionManager.ts",
+        "gitBlobSha1": "6c201a697e35222aee826a6805fa8e797d4cad3f",
+        "sha256": "b8093c8482c4f9c186af153b73e42549e9a73e006b403e21017a985d28caf319",
+        "bytes": 2596,
+        "lineCount": 79,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/session/context/ContextEpochOwner.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/session/context/ContextEpochOwner.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/session/context/ContextEpochOwner.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/session/context/ContextEpochOwner.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/session/context/ContextEpochOwner.ts",
+        "gitBlobSha1": "fbc77082e768c71a79cabfafd4f68b2b2850fd6b",
+        "sha256": "aa8f0f17127fa1368014a4aee8b2a08afa48d6efc76708275883bbc43959dbef",
+        "bytes": 21976,
+        "lineCount": 515,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/stores/ports/DeliveryCursorStore.ts",
+        "gitBlobSha1": "ac188cce93194cd1c6da4ef53a174d047224b3a8",
+        "sha256": "41961d8760ecea1ad42fc02842a842e67da4712c74945213379cc3196b1513cf",
+        "bytes": 27151,
+        "lineCount": 669,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/stores/ports/WorkflowSopStore.ts",
+        "gitBlobSha1": "06ca7a549461c5a3b37e634ffebcbbdb21abd43e",
+        "sha256": "8b9bb988c3a3ccd6043b7da645c923370b85c47d6c4f4c014c1af8eb8e6214e5",
+        "bytes": 1289,
+        "lineCount": 36,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/stores/visibility.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/visibility.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/stores/visibility.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/stores/visibility.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/stores/visibility.ts",
+        "gitBlobSha1": "cbc1d51a6da38f2d3d9682bc991b7a9d951d6be7",
+        "sha256": "b86863cf85f864dde5e007f5c16c8050db66aa736e2e93bffb01649a456c245f",
+        "bytes": 11628,
+        "lineCount": 286,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/cats/services/types.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/types.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/cats/services/types.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/cats/services/types.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/cats/services/types.ts",
+        "gitBlobSha1": "9112ce5474d13943aed22dd859f656592c8dc990",
+        "sha256": "25896edfcf9ec79c46be9bdcf856c4b382e28546e320fd5321348a4534bf6de1",
+        "bytes": 61118,
+        "lineCount": 1380,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/collaborative-content/artifact-review/reducer.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/collaborative-content/artifact-review/reducer.ts",
+        "gitBlobSha1": "7c6ea72dc65aeda8357634fbc5e6b1970fec325f",
+        "sha256": "c4ed308cb1ab0cd7531d15f3e988b43a131c36f4554e432a8669e5e74de0343b",
+        "bytes": 7162,
+        "lineCount": 193,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/managed-job/ManagedJobService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/ManagedJobService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/managed-job/ManagedJobService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/ManagedJobService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/managed-job/ManagedJobService.ts",
+        "gitBlobSha1": "4d52c867bd0ce11dd2b480001efd0d76854f5e14",
+        "sha256": "d5a386a5c3ba3da077076b3ebf9073cb2be6024afa596519f2e6f90b55fb8f48",
+        "bytes": 14929,
+        "lineCount": 340,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/managed-job/durable-managed-gate-job.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/durable-managed-gate-job.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/managed-job/durable-managed-gate-job.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/durable-managed-gate-job.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/managed-job/durable-managed-gate-job.ts",
+        "gitBlobSha1": "b956de216b71241187d06752e5af9c5e0298cce5",
+        "sha256": "136a97f693cf61c907fdfae8b6bd3e522cacdc440836ceb3813994a01702553b",
+        "bytes": 13182,
+        "lineCount": 356,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/managed-job/managed-job-admission.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-admission.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/managed-job/managed-job-admission.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-admission.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/managed-job/managed-job-admission.ts",
+        "gitBlobSha1": "63d73ca75a4810d258139606ceb8d5f58a7c6739",
+        "sha256": "4160bf176a0ab9d086013275dceb5819a3f1968f186646b32a572355aaa65efd",
+        "bytes": 2438,
+        "lineCount": 64,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/managed-job/managed-job-ledger.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-ledger.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/managed-job/managed-job-ledger.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-ledger.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/managed-job/managed-job-ledger.ts",
+        "gitBlobSha1": "eb87ab1d20dc029a976691ac574f8ae15dd84070",
+        "sha256": "26cb3e4ab7fc8fa59d3b4b5c9318a41e547afa5e13de44d8c8426061f61d9ead",
+        "bytes": 4680,
+        "lineCount": 103,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/managed-job/managed-job-types.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-types.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/managed-job/managed-job-types.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/managed-job/managed-job-types.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/managed-job/managed-job-types.ts",
+        "gitBlobSha1": "5513e29c10541b230ac099bd77ce18170e14e3c5",
+        "sha256": "00129e4b8de40af7030fc35de708d2297f546fa6e76ca2a7ff3a9510b47f60d7",
+        "bytes": 2756,
+        "lineCount": 69,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/CatCafeScanner.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/CatCafeScanner.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/CatCafeScanner.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/CatCafeScanner.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/CatCafeScanner.ts",
+        "gitBlobSha1": "8480358ec222a0317e71779f526fa1477c1a4c2d",
+        "sha256": "1e7db61cd111304a576dd8c190f56e7e411a8d92d091faa2daa04b0c6f9b0a67",
+        "bytes": 7687,
+        "lineCount": 234,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/EmbeddingService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/EmbeddingService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/EmbeddingService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/EmbeddingService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/EmbeddingService.ts",
+        "gitBlobSha1": "d6b959534e125d9c48dc4810b8fb125b6bab2aa2",
+        "sha256": "56831b99703906475f97b41b57802c001c55cbf5d89c0a3e2cdd1ded16e5725d",
+        "bytes": 6506,
+        "lineCount": 185,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/F209FixtureParser.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/F209FixtureParser.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/F209FixtureParser.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/F209FixtureParser.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/F209FixtureParser.ts",
+        "gitBlobSha1": "3563e88a87e0db66f45725bbdc7c2628b429298d",
+        "sha256": "7d952c7703f70f6542fe18ae2639d38382d17bcb3a7b1fbdfd23c777b4f7d56c",
+        "bytes": 6629,
+        "lineCount": 181,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/IndexBuilder.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/IndexBuilder.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/IndexBuilder.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/IndexBuilder.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/IndexBuilder.ts",
+        "gitBlobSha1": "fdfc641940139f67b62860b5bc6e28b23e450594",
+        "sha256": "131ce1d895f2305afc4636efa967ba9b95ac76ac91fbf4f3cc57d0b1291e1441",
+        "bytes": 75635,
+        "lineCount": 1899,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/KnowledgeResolver.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/KnowledgeResolver.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/KnowledgeResolver.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/KnowledgeResolver.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/KnowledgeResolver.ts",
+        "gitBlobSha1": "685b6ed64acda5ef93047389089094ee00479720",
+        "sha256": "beaefa222a1a3543709304ca5fc5f31ebcf27724f4686dfee5a91dc53d4950d3",
+        "bytes": 11192,
+        "lineCount": 318,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/LibraryCatalog.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/LibraryCatalog.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/LibraryCatalog.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/LibraryCatalog.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/LibraryCatalog.ts",
+        "gitBlobSha1": "eb51fe07356d5d5d7d9dca64b914d8fc0f11ac70",
+        "sha256": "9f56f7c44b63b850358e31e5cf7845d95c9ce12ebc0255d3ca3ec2e313415fa9",
+        "bytes": 5023,
+        "lineCount": 141,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/MemoryEmbeddingLifecycle.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/MemoryEmbeddingLifecycle.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/MemoryEmbeddingLifecycle.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/MemoryEmbeddingLifecycle.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/MemoryEmbeddingLifecycle.ts",
+        "gitBlobSha1": "aa134d933a2bdd8d81fc0f8ea8cd8273c848be73",
+        "sha256": "930c0f0c44c2f78ebac30ed7fee6bdeb2af30f81e12f956ee009c4925143615c",
+        "bytes": 8108,
+        "lineCount": 230,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/MessageSearchService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/MessageSearchService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/MessageSearchService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/MessageSearchService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/MessageSearchService.ts",
+        "gitBlobSha1": "1a78668e8cb14675af57a9c5c7cd7638c4e67490",
+        "sha256": "aa419d8e68c1fe11de6464567bae699aec71b106dc52b8327d656bf1e7d8422e",
+        "bytes": 14930,
+        "lineCount": 344,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/PassageVectorStore.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/PassageVectorStore.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/PassageVectorStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/PassageVectorStore.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/PassageVectorStore.ts",
+        "gitBlobSha1": "6fbe5ccb5baa694b92686c834b24079785bd1bf7",
+        "sha256": "f785e22aa019c9038f03daafcadf19865d225bb07928bec25134e6a261b6eb1e",
+        "bytes": 1935,
+        "lineCount": 56,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/RecallFixtureRunner.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallFixtureRunner.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/RecallFixtureRunner.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallFixtureRunner.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/RecallFixtureRunner.ts",
+        "gitBlobSha1": "ad5b6c3df6ad2d343631934556692bb174200c9d",
+        "sha256": "96e25836054f5a795b90c039067a326bf4f8d9939320c87ecdcdd2b289379cf1",
+        "bytes": 4790,
+        "lineCount": 166,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/RecallMetricsComputer.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallMetricsComputer.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/RecallMetricsComputer.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallMetricsComputer.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/RecallMetricsComputer.ts",
+        "gitBlobSha1": "1e2797191ad173993b96aaa7ef4514dde7160c95",
+        "sha256": "eab167a31f3eee454eab4dd20038e50f5007a64cd7287ebb24f841208244bff6",
+        "bytes": 16905,
+        "lineCount": 439,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/RecallPersistenceRedactor.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallPersistenceRedactor.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/RecallPersistenceRedactor.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/RecallPersistenceRedactor.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/RecallPersistenceRedactor.ts",
+        "gitBlobSha1": "a7905b6994710d356254ea26e5900bfedeefeb69",
+        "sha256": "880fb01628b3b1a27c6423433a83553a74ef3814d3f1550c2b7b5bc3043c517f",
+        "bytes": 523,
+        "lineCount": 17,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/SemanticReranker.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/SemanticReranker.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/SemanticReranker.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/SemanticReranker.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/SemanticReranker.ts",
+        "gitBlobSha1": "50a37761dcb77b95f6b8522c86cb0852706097f0",
+        "sha256": "aa3a32a1aa7c9381e194982422961c893e85d1dd4df4c4e332a57d99a1064810",
+        "bytes": 1183,
+        "lineCount": 34,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/SqliteEvidenceStore.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/SqliteEvidenceStore.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/SqliteEvidenceStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/SqliteEvidenceStore.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/SqliteEvidenceStore.ts",
+        "gitBlobSha1": "5cc3d5d59dc1f4cd7b2b28376e4b8b5918337514",
+        "sha256": "5ceb889dd8cfa4fee6371554e0552fc3e86ac9491f21b24731e1327b4ab86af2",
+        "bytes": 98178,
+        "lineCount": 2547,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/VectorStore.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/VectorStore.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/VectorStore.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/VectorStore.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/VectorStore.ts",
+        "gitBlobSha1": "8ae1788bbcd0449b948cb44cb6c7fe37c444fa59",
+        "sha256": "241ea105aa499778c93784d4decad655708484b6a4d37eb60a968c68cb005086",
+        "bytes": 2705,
+        "lineCount": 73,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/f163-eval-utils.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/f163-eval-utils.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/f163-eval-utils.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/f163-eval-utils.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/f163-eval-utils.ts",
+        "gitBlobSha1": "03506c1f00b16aa974c578eed0a99c14348931ab",
+        "sha256": "4b4cdf3cfa4ff9bb911c1bea1abaee57086643d28f4d53b30bddf1c5ecf67e4a",
+        "bytes": 3031,
+        "lineCount": 103,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/factory.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/factory.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/factory.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/factory.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/factory.ts",
+        "gitBlobSha1": "71448da91e07360a27c7e3188d9d5beb313d5430",
+        "sha256": "d09da4d5acb56d20866714a3594fd733b3244076e0a3022d3fae821367f8bf9d",
+        "bytes": 11752,
+        "lineCount": 300,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/fts-query-builder.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/fts-query-builder.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/fts-query-builder.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/fts-query-builder.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/fts-query-builder.ts",
+        "gitBlobSha1": "09c185a149d803905e10d09a1fb31e451c7bd52e",
+        "sha256": "3eea45ca8f9f0220686c6d8c7a80c591c936894fed7fc4d89a03aa2f934bfd5b",
+        "bytes": 2931,
+        "lineCount": 87,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/interfaces.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/interfaces.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/interfaces.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/interfaces.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/interfaces.ts",
+        "gitBlobSha1": "8db2d44e86f4593bc2b6df933303b1bc0f28612a",
+        "sha256": "09a6a1945a333886315bc4de5e8be2cf554d56aa79b7c268721bbde7e392dd2e",
+        "bytes": 17662,
+        "lineCount": 521,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/message-passage-search.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/message-passage-search.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/message-passage-search.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/message-passage-search.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/message-passage-search.ts",
+        "gitBlobSha1": "6816a270bdb5ad6b1baa0067b66c5a814296933d",
+        "sha256": "6ecb1e20f6c044ac878b5e7756a9bfb8007c24e9174f119d5d02608c629d0900",
+        "bytes": 4714,
+        "lineCount": 129,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/privacy-redactor.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/privacy-redactor.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/privacy-redactor.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/privacy-redactor.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/privacy-redactor.ts",
+        "gitBlobSha1": "3ceb8b234aa086a849c223e465c9c991cd43e0c9",
+        "sha256": "4e6f322a05481aeee2ba7ed91438bc266e7c32930acf424e86d6869387d74ac1",
+        "bytes": 566,
+        "lineCount": 18,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/domains/memory/private-collection-bindings.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/private-collection-bindings.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/private-collection-bindings.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/private-collection-bindings.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/private-collection-bindings.ts",
+        "gitBlobSha1": "74d60b8da7f17a3f992169034cf20b3b527dfb3e",
+        "sha256": "a38fcccbb621388897f5bacf0623734a95a2ea32de63f10987dce5fab4960a27",
+        "bytes": 10424,
+        "lineCount": 265,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/recall-delivery-eligibility.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/recall-delivery-eligibility.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/recall-delivery-eligibility.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/recall-delivery-eligibility.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/recall-delivery-eligibility.ts",
+        "gitBlobSha1": "ed9cfb595049088101341df0c124e685bc2de11b",
+        "sha256": "7f532e039c4b485eca09bcbb4f838ceef56ec4cbfe9d626b3bcbfc8d861db5a1",
+        "bytes": 1539,
+        "lineCount": 40,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/scanner-resolver.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/scanner-resolver.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/scanner-resolver.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/scanner-resolver.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/scanner-resolver.ts",
+        "gitBlobSha1": "9b936a5bbcd10765f6fd32f1f452ed01b06f5c69",
+        "sha256": "e6c1c2598d0424a0565f2f0385fcb4b2a6cc0a54b29f4ac08eaee383150525e8",
+        "bytes": 1585,
+        "lineCount": 49,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/memory/thread-privacy-resolver.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/thread-privacy-resolver.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/memory/thread-privacy-resolver.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/memory/thread-privacy-resolver.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/memory/thread-privacy-resolver.ts",
+        "gitBlobSha1": "4bda9001a05a64febbfc2a3b0d2b484e6710f9d9",
+        "sha256": "34c6d9dab570b17c3b622c12f83885796ceef729b498610950afd54131cdd0e3",
+        "bytes": 2117,
+        "lineCount": 59,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/runtime-interaction/RuntimeConversationDecisionService.ts",
+        "gitBlobSha1": "a92e2ff62cab19f99faac394998ee85b0c421172",
+        "sha256": "409a003dfcfe530478d8043ff26dda99b3ed2c8d18e4b6a3893394a3df6dc996",
+        "bytes": 14356,
+        "lineCount": 343,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/domains/runtime-interaction/RuntimeInteractionService.ts",
+        "gitBlobSha1": "b02e3eb5c2cc86d985a313ce278363d606305a18",
+        "sha256": "c7a3255c5499cd6f80418c654427236a7a6022d3531d37b80607fa356828f58b",
+        "bytes": 14818,
+        "lineCount": 357,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/index.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/index.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/index.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/index.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/index.ts",
+        "gitBlobSha1": "6f6275062b3990f9167868854f7ac92c8a62a3dd",
+        "sha256": "32d81c33e020853c62f3d02c996e493021a74eda85686a4763eaa4482cd1be8c",
+        "bytes": 446715,
+        "lineCount": 9592,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/infrastructure/scheduler/TaskRunnerV2.ts",
+        "gitBlobSha1": "7647e46686a2551d2bacb685333aee87ea0a0760",
+        "sha256": "b0dcd777ec6e4c8d15381d403f7dc5186ec6d85f2c791a71db0eaa68b3d68371",
+        "bytes": 40517,
+        "lineCount": 927,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/infrastructure/scheduler/timer-hold-recovery.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/infrastructure/scheduler/timer-hold-recovery.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/infrastructure/scheduler/timer-hold-recovery.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/infrastructure/scheduler/timer-hold-recovery.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/infrastructure/scheduler/timer-hold-recovery.ts",
+        "gitBlobSha1": "3586b6da7563f0f4a6f3c8cedf2d2a1bf0d3e8e4",
+        "sha256": "0699ba1418268d974449f579cbf078c26cf7b18f3bd5505552259c7db3ad4baf",
+        "bytes": 3549,
+        "lineCount": 89,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/callback-hold-ball-routes.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-hold-ball-routes.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-hold-ball-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-hold-ball-routes.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/callback-hold-ball-routes.ts",
+        "gitBlobSha1": "b7fc2b06263ebaa79bad558a1c829062469be957",
+        "sha256": "8857007de7e55bc0acef3324a1e182a8551c83728e280f68970c1a562f6652a3",
+        "bytes": 72062,
+        "lineCount": 1647,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/callback-memory-routes.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-memory-routes.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-memory-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-memory-routes.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/callback-memory-routes.ts",
+        "gitBlobSha1": "bbf032fbf54e4e9c50132a0f753c571771fc36c5",
+        "sha256": "446f02534b2c51ee59f099daf56347569f8027d338f4c621c58f801788d358cf",
+        "bytes": 5574,
+        "lineCount": 147,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/callback-multi-mention-routes.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-multi-mention-routes.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-multi-mention-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-multi-mention-routes.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/callback-multi-mention-routes.ts",
+        "gitBlobSha1": "373ae5dfed58a9e57a1444f2b5bac048d50a04a9",
+        "sha256": "7915a50898211eadca0f21d8b98563d4df6c3a72b6477041ee1ccae29a3a4e16",
+        "bytes": 34943,
+        "lineCount": 922,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/routes/callback-runtime-interaction-routes.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-runtime-interaction-routes.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callback-runtime-interaction-routes.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callback-runtime-interaction-routes.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/callback-runtime-interaction-routes.ts",
+        "gitBlobSha1": "37c4967e9c1dfc1208c2c97987d4b3f1d6cf302d",
+        "sha256": "3e06f357c08035bd5ccc188c0f4d661f69f2f9556ea54ba7bf2b21386be7495f",
+        "bytes": 4515,
+        "lineCount": 113,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/routes/callbacks.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callbacks.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/callbacks.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/callbacks.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/callbacks.ts",
+        "gitBlobSha1": "9bde9145b43c94178d3fa518d9eef5add31c46ef",
+        "sha256": "398199a49918aba4a7e02de1e0083b4c7533cb540ed2930ee389bdb4a576cad6",
+        "bytes": 296146,
+        "lineCount": 6908,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/routes/evidence.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/evidence.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/evidence.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/evidence.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/evidence.ts",
+        "gitBlobSha1": "e9b62e137ce4b2bf2ed7173e80d1e42f0bcfb514",
+        "sha256": "337c5cbc922c1f610562da892b2a359c5ac5c98cd9e35ff0d3cb1ca5e0ed8c18",
+        "bytes": 36488,
+        "lineCount": 896,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/gate-keeping-guard.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/gate-keeping-guard.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/gate-keeping-guard.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/gate-keeping-guard.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/gate-keeping-guard.ts",
+        "gitBlobSha1": "97ac05a0db9ccdd224a19798eede9f591c4512f6",
+        "sha256": "115726b1ae670876d700f8ac456e368f22e1c25c595cb74b29c04166a956342c",
+        "bytes": 12563,
+        "lineCount": 286,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/memory-invocation-access.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-invocation-access.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/memory-invocation-access.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-invocation-access.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/memory-invocation-access.ts",
+        "gitBlobSha1": "8b4cabdba6ae57b2fd6c4860cad57e8f0974ba92",
+        "sha256": "3fcb65347aa425a09de55afd5cc3c9136ed2db41226e5c807dd49c7810fd5785",
+        "bytes": 1669,
+        "lineCount": 30,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/routes/memory-search-document-source.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search-document-source.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/memory-search-document-source.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search-document-source.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/memory-search-document-source.ts",
+        "gitBlobSha1": "5d533291ba95d41dcd90920fac1d38bd58494b2a",
+        "sha256": "cd6e7705c39b20841c748b09b1d58594f5496c43097fab3e65e348ecf29f7c78",
+        "bytes": 2728,
+        "lineCount": 57,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/routes/memory-search-documents.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search-documents.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/memory-search-documents.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search-documents.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/memory-search-documents.ts",
+        "gitBlobSha1": "28b98b5d52b578d284c2e5864f05e7e183d46049",
+        "sha256": "35cc6f8fccdcc5888e18d27a1d485a82a6e2f3d695544fd85aaeda160918ef17",
+        "bytes": 5508,
+        "lineCount": 152,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/memory-search.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/memory-search.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory-search.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/memory-search.ts",
+        "gitBlobSha1": "d1e9ce930c516885ede94cc529cf747862e29613",
+        "sha256": "c3ae6a3682b243e0dbc88116d5e71c117276ebf235d685142b6110427719ee6f",
+        "bytes": 7066,
+        "lineCount": 179,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/routes/memory.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/routes/memory.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/routes/memory.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/routes/memory.ts",
+        "gitBlobSha1": "f95c4298b53d62bf01f453217c65f6626d98f7bb",
+        "sha256": "d63ade52510305c9fc45883fb1f86b39d81a29560af1bcd597a955be0c7229cb",
+        "bytes": 4780,
+        "lineCount": 148,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/src/utils/persistent-project-path.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/utils/persistent-project-path.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/utils/persistent-project-path.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/utils/persistent-project-path.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/utils/persistent-project-path.ts",
+        "gitBlobSha1": "6739e6142080f70de90e197caabe93c79de8b8e3",
+        "sha256": "4042cdd7123b32a8c7ce6299a992c7b96a18cd8cdb8a0c9921895cb86cedba4d",
+        "bytes": 8332,
+        "lineCount": 218,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/src/utils/project-path.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/utils/project-path.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/src/utils/project-path.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/src/utils/project-path.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/src/utils/project-path.ts",
+        "gitBlobSha1": "67cbc717213a6fa6dcd93dba7a67d019e26ee35b",
+        "sha256": "369bff2b8848b68fe77b0fa037c546bc22f771029cdd0017e9818bc85864618a",
+        "bytes": 7674,
+        "lineCount": 214,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/callback-hold-ball-route.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/callback-hold-ball-route.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/callback-hold-ball-route.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/callback-hold-ball-route.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/callback-hold-ball-route.test.js",
+        "gitBlobSha1": "65dd8ac9d1d380c290553296e2fb44815b644fe4",
+        "sha256": "4d1e69781c4c50f18d65515aebc1da54bfe2fcfaf2488cddadf69fb672cbbd37",
+        "bytes": 13210,
+        "lineCount": 352,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/test/gate-keeping-guard-hold-ball.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/gate-keeping-guard-hold-ball.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/gate-keeping-guard-hold-ball.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/gate-keeping-guard-hold-ball.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/gate-keeping-guard-hold-ball.test.js",
+        "gitBlobSha1": "f99deaab105cadc8d925cf51aac1996166a981ab",
+        "sha256": "38136da617f36ba22c7a9ef166b0a1b8ca977a4e4f8b9c6f93f9f597866ae861",
+        "bytes": 17866,
+        "lineCount": 467,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/test/memory/embed-eval.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/embed-eval.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/embed-eval.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/embed-eval.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/embed-eval.test.js",
+        "gitBlobSha1": "9e97505e5f2373936335fc196133bccf87eef279",
+        "sha256": "bc694894b53189039c065517de2b50f96e56992374b90a464c9f4500f8336f2f",
+        "bytes": 3567,
+        "lineCount": 82,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/eval-runner.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/eval-runner.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/eval-runner.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/eval-runner.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/eval-runner.test.js",
+        "gitBlobSha1": "61dfbf9bca51b851cae1254104fc3b7638b34e66",
+        "sha256": "4c390b8370223902312991eb7224d84faa550ec9fea99e643817d10650c6c485",
+        "bytes": 4299,
+        "lineCount": 121,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/f163-eval.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/f163-eval.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/f163-eval.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/f163-eval.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/f163-eval.test.js",
+        "gitBlobSha1": "8f490457eec20ce05aae2767bab9c6f19316439f",
+        "sha256": "8bc386dc0982d81e2d96c148f553d6fc5635f6189ffc47c988835b7c539cda94",
+        "bytes": 3331,
+        "lineCount": 89,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/test/memory/f209-recall-fixtures.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/f209-recall-fixtures.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/f209-recall-fixtures.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/f209-recall-fixtures.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/f209-recall-fixtures.test.js",
+        "gitBlobSha1": "c19d634e99ad4b23d1e5d982feb930ba521d1f45",
+        "sha256": "b0fab081733f6d1c484f6f651060bba89c62ea2f1780e023aee07b382f687abf",
+        "bytes": 10716,
+        "lineCount": 274,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/federated-search-integration.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/federated-search-integration.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/federated-search-integration.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/federated-search-integration.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/federated-search-integration.test.js",
+        "gitBlobSha1": "dbbfed797bef0fab2fb23b6ed968e278707a9c65",
+        "sha256": "7d71c5e8769243facefe829adf86bca9e733d3b800e1a4add09c4be59dd26f15",
+        "bytes": 8568,
+        "lineCount": 202,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/memory_eval_corpus.yaml",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/memory_eval_corpus.yaml",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/memory_eval_corpus.yaml?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/memory_eval_corpus.yaml"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/memory_eval_corpus.yaml",
+        "gitBlobSha1": "dc43a8f301a3b8a60684d0d2624519ba0a9cea90",
+        "sha256": "f5d851ef5b80e1ac51aa7ba999966854694803f243169eed514b2e55b3f840c3",
+        "bytes": 3718,
+        "lineCount": 108,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/raw-passage-semantic.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/raw-passage-semantic.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/raw-passage-semantic.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/raw-passage-semantic.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/raw-passage-semantic.test.js",
+        "gitBlobSha1": "721710cd4b2009500242dd14a11e609116967fa3",
+        "sha256": "0bc814079178b917695fdfe3ce8799f7d579050db953b221ee7bbbd4f25318c8",
+        "bytes": 8654,
+        "lineCount": 264,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/memory/recall-metrics-computer.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/recall-metrics-computer.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/recall-metrics-computer.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/recall-metrics-computer.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/recall-metrics-computer.test.js",
+        "gitBlobSha1": "6e38e7345488e44381bd0f116ebcc59d988f11a7",
+        "sha256": "b840956fdf4a135915e0ee75d92a3bae08f1a7089a9ed3518eca3e03701fa77f",
+        "bytes": 33384,
+        "lineCount": 839,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/test/memory/recall-stats.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/recall-stats.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/recall-stats.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/recall-stats.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/recall-stats.test.js",
+        "gitBlobSha1": "1f28e9ef106d443d63f1b60e76e48a424aabc7f2",
+        "sha256": "6dd0ebab1d8a990750a4d4ea374fc33ac9f9f50ae8d7cbbf46ef871ca559a908",
+        "bytes": 2438,
+        "lineCount": 55,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/api/test/memory/search-mode-split.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/search-mode-split.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/memory/search-mode-split.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/memory/search-mode-split.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/memory/search-mode-split.test.js",
+        "gitBlobSha1": "613508e36bb2e4a0e91ecb679291ac4e8f18838e",
+        "sha256": "af1b74caefaf4571ee23dd05a24a032d7a1cdcb8579a2211f65ad80e2363c0c1",
+        "bytes": 24881,
+        "lineCount": 649,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/scheduler/timer-hold-recovery.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/scheduler/timer-hold-recovery.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/scheduler/timer-hold-recovery.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/scheduler/timer-hold-recovery.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/scheduler/timer-hold-recovery.test.js",
+        "gitBlobSha1": "b34b90895e4edff5654e152e5449580fb8329cd0",
+        "sha256": "b5756ef10887ff17dd575d9bb7ae8e802f4e1b0897ace778ec5cef919e501820",
+        "bytes": 14816,
+        "lineCount": 371,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/api/test/session-policy-snapshot.test.js",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/session-policy-snapshot.test.js",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/api/test/session-policy-snapshot.test.js?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/api/test/session-policy-snapshot.test.js"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/api/test/session-policy-snapshot.test.js",
+        "gitBlobSha1": "f8825f7e5c4ec91570aeaabe6fff6a820534aba0",
+        "sha256": "283da947598c8aeffc16f1636aa75c3971121bba46af4419ea34c447312fafaa",
+        "bytes": 2959,
+        "lineCount": 96,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/mcp-server/src/tools/callback-tools.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/callback-tools.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/mcp-server/src/tools/callback-tools.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/callback-tools.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/mcp-server/src/tools/callback-tools.ts",
+        "gitBlobSha1": "a085649f318e29fe5c5c760ea560de5a753558a0",
+        "sha256": "af6258513638ed5e94a3659634d1f136b3fbf1f54f0c50bd3558fc86d7fe0f02",
+        "bytes": 247840,
+        "lineCount": 5173,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/mcp-server/src/tools/evidence-tools.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/evidence-tools.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/mcp-server/src/tools/evidence-tools.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/evidence-tools.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/mcp-server/src/tools/evidence-tools.ts",
+        "gitBlobSha1": "950ffadfd4b3a5eaab260c93bdf32152431f3e9b",
+        "sha256": "fa505a78e8f2c594b6f4436434f9d066e6d2a23523d4c952048382dee49ed092",
+        "bytes": 38366,
+        "lineCount": 860,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/mcp-server/src/tools/session-chain-tools.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/session-chain-tools.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/mcp-server/src/tools/session-chain-tools.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/mcp-server/src/tools/session-chain-tools.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/mcp-server/src/tools/session-chain-tools.ts",
+        "gitBlobSha1": "f18660a23e441f67dec8ae2f4bba572ebd5ea52a",
+        "sha256": "40fca93029c67f50eab90d0ddb1be6c9948bb2316e844a591e5d9a431237659f",
+        "bytes": 18358,
+        "lineCount": 475,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/shared/src/types/scheduler-wait.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/scheduler-wait.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/shared/src/types/scheduler-wait.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/scheduler-wait.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/shared/src/types/scheduler-wait.ts",
+        "gitBlobSha1": "b1275728e1af8842252432a1eb9cdb766482374d",
+        "sha256": "75d60adfe68b17002da26d52ff7b36e4f0c36c3dd981073cad4b1c7a88598ff4",
+        "bytes": 1165,
+        "lineCount": 36,
+        "citedInDomainAudit": false
+      },
+      {
+        "path": "packages/shared/src/types/session.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/session.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/shared/src/types/session.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/session.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/shared/src/types/session.ts",
+        "gitBlobSha1": "c4266a733a73e69b898f113dc6a3e7302c80235c",
+        "sha256": "668b44b160e71bcf2e4aae77cad89c56edb729601dd6345fabdd1555f9a73a94",
+        "bytes": 12059,
+        "lineCount": 314,
+        "citedInDomainAudit": true
+      },
+      {
+        "path": "packages/shared/src/types/wait-contract.ts",
+        "fixedSourceUrl": "https://github.com/zts212653/clowder-ai/blob/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/wait-contract.ts",
+        "refetchUrls": [
+          "https://api.github.com/repos/zts212653/clowder-ai/contents/packages/shared/src/types/wait-contract.ts?ref=8b373123323aacd7e2047dab94fdc15b8f7567ae",
+          "https://raw.githubusercontent.com/zts212653/clowder-ai/8b373123323aacd7e2047dab94fdc15b8f7567ae/packages/shared/src/types/wait-contract.ts"
+        ],
+        "cachePath": "/tmp/clowder-rc01-source/packages/shared/src/types/wait-contract.ts",
+        "gitBlobSha1": "71e61612554221ac0f85a456731bd2bc6860d356",
+        "sha256": "4f54351841a2f45c5a6b3c135726ca6f0d3df6906c68d6e6c2e4c73ec013dd43",
+        "bytes": 4932,
+        "lineCount": 143,
+        "citedInDomainAudit": false
+      }
+    ],
+    "citedDomainFiles": 64,
+    "fileCount": 113
+  },
+  "immutableOriginalText": {
+    "baselineCommit": "b99997a76d119ab3962b7b493851726b070d2a7d",
+    "coreContracts": 16,
+    "acceptanceScenarios": 59,
+    "unchanged": true,
+    "canonicalJsonEncoding": "UTF-8 JSON ensure_ascii=false,sort_keys=true,separators=(comma,colon)",
+    "canonicalSha256": "6c55222c58960fa18ac5e527a84e50ab348a03989ea370159f5faf20ee36cb19"
+  },
+  "followupOwnership": {
+    "sessionCompatibility": [
+      "RC05",
+      "RC06",
+      "RC07",
+      "EXT04"
+    ],
+    "rootBudgetAndLoop": [
+      "RC05",
+      "RC09",
+      "RC10"
+    ],
+    "holdSourceSlaCommandQuota": [
+      "RC03",
+      "RC05"
+    ],
+    "engineeringWorkspace": [
+      "RC03",
+      "RC06"
+    ],
+    "semanticRetrieval": [
+      "EXT01",
+      "RC07",
+      "RC10"
+    ],
+    "collective": [
+      "EXT02"
+    ]
+  },
+  "license": {
+    "spdx": "MIT",
+    "copyright": "Copyright (c) 2026 Clowder AI Contributors",
+    "noticeRequirement": "Retain copyright and permission notice in copies or substantial portions.",
+    "sourceVendoredInProject": false,
+    "note": "Only source URLs, cryptographic hashes and analysis are stored in project; public upstream source cache is temporary /tmp evidence."
+  },
+  "limitations": [
+    "No upstream application/tests/model/embedding server executed; source tests are read-only evidence of intent and logic.",
+    "No universal all-driver fingerprint, complete financial-budget absence, all-online-timer SLA deadline or full-corpus semantic recall inferred from bounded inspection.",
+    "Source cached outside repository; only metadata/hashes/analysis retained in repository. Refetch at fixed commit and validate both Git blob SHA1 and SHA256 if cache is gone.",
+    "No production activation, daily database/credential/token-ledger access, remote writes or billing reconciliation."
+  ],
+  "validation": {
+    "sourceFilesVerified": 113,
+    "localBaselineFilesVerified": 21,
+    "reportSourceLineAnchorsVerified": 30,
+    "immutableCoreAndAcceptance": true,
+    "docs": {
+      "command": "pnpm verify:docs",
+      "exitCode": 0
+    },
+    "whitespace": {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    "runtimeSourceUnchanged": true,
+    "localUniqueGroupsPassed": 66,
+    "liveModelCalls": 0,
+    "fixtureExternalNetworkCalls": 0,
+    "review": "Three independent domain audits and read-only report reviews; no unresolved substantive finding"
+  }
+}

@@ -71,7 +71,8 @@
 ### 实施计划
 
 - [持续协作模式实施指导（Issue #16，T12 分层验收与发布条件收口）](./plans/threaded-collaboration-implementation-guide.md)
-- [持续协作实施状态与下一项任务](./plans/threaded-collaboration-implementation-status.md)
+- [持续协作实施状态与剩余退出条件](./plans/threaded-collaboration-implementation-status.md)
+- [持续协作剩余实施与验收计划（优先级、依赖与退出条件）](./plans/threaded-collaboration-remaining-plan.md)
 - [持续协作 T01 设计决策与实施接口](./plans/threaded-collaboration-t01-decisions.md)
 - [持续协作核心合同、兼容矩阵与能力范围](./plans/threaded-collaboration-compatibility-matrix.md)
 - [持续协作模式接入盘点与 T02–T04 接口地图](./plans/threaded-collaboration-integration-map.md)
@@ -181,6 +182,7 @@
 - [依赖与构建分析](./reports/dependency-build-analysis.md)
 - [工程分析报告](./reports/engineering-analysis-report.md)
 
+- [持续协作 RC01：固定契约核验、差异与后续用例（2026-10-22）](./reports/threaded-collaboration-rc01-contracts-2026-10-22.md)
 - [持续协作 T12：综合恢复与发布验收](./reports/threaded-collaboration-t12-release-2026-10-21.md)
 - [持续协作发布、排空与恢复手册](./operations/threaded-release-runbook.md)
 

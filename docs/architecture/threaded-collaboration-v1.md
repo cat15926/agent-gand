@@ -48,6 +48,8 @@ group、targets、原 deadline 和提问消息同事务写入；每目标仅首�
 
 注册工具立即返回，当前 Invocation 可继续并正常 final；不在工具内伪造终态或释放未知执行。后继事件早到只持久排队，同槽仍受资源互斥。hold 支持 5–3600 秒及 waitSourceRef，同 Thread/Agent 滑动一小时最多三次；同 job 精确重试不再扣额。新 wait 与旧 wait 的退休同事务，失败保留旧等待；退休等待不表示外部命令已停止。timer_elapsed 明确 `businessConditionVerified=false`。
 
+2026-10-22 [RC01源码核验](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)确认：当前waitSourceRef为字符串，尚不等价参考的结构化kind/value/expectedSignal/SLA来源。错过timer的SLA恢复窗口/过期处置，以及专用命令wake对应的共享hold准入仍待RC03补齐；在线one-shot语义不一律改为SLA硬截止。本段记录当前实现，不表示上述缺口已通过。
+
 tracking 由服务端安装来源及获权传输，模型不能提供 URL 或凭据。注册前读取 live facts，冻结授权指纹、baseline、subject 和 match，历史事件不触发。内置当前 Thread 消息 producer；可选 GitHub PR adapter 仅访问获权仓库固定 pull path，HEAD/state/merge 的实质变化生效，单独 updated_at 不生效。网络读取在事务外，返回后重验；来源权限改变退休等待。GitHub 目前仅注入传输验收，真实仓库业务闭环待 T10/T12。
 
 Decision 只允许 ordinary interactive once；退役 request_user_input 返回 410。Owner 通过专用认证/CSRF/version API 向准确问题修订提交回应，产生规范 user 消息并继承原因果根及隐私。Agent settle 必须证明 responseMessageId 是自己当前 Invocation 的实际 user origin trigger，且对应当前 wait/revision、Thread、用户、创建时序和可见状态；任意另找的消息不能结算。重复操作和丢回执后的重试稳定；replace/withdraw/stop 不允许旧问题复活。该决定与原生执行审批、业务批准分开。

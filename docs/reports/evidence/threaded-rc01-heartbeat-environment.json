@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-22",
+  "command": "pnpm verify:threaded-activity-heartbeat",
+  "scope": "isolated SQLite and synthetic buffered SSE; no real model, no shared token ledger",
+  "runs": [
+    {
+      "id": "first_parallel",
+      "exitCode": 1,
+      "scriptLine": 63,
+      "member": "api-member (first iteration sdk=false)",
+      "status": "unknown",
+      "expectedStatus": "completed",
+      "elapsedSyntheticMs": 0,
+      "executionReason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+      "stack": [
+        "AssertionError [ERR_ASSERTION]",
+        "at scripts/verify-threaded-activity-heartbeat.mjs:63:12",
+        "at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+      ],
+      "nodeVersion": "v22.23.1"
+    },
+    {
+      "id": "one_sequential_recheck",
+      "exitCode": 1,
+      "scriptLine": 63,
+      "member": "api-member (first iteration sdk=false)",
+      "status": "unknown",
+      "expectedStatus": "completed",
+      "elapsedSyntheticMs": 0,
+      "executionReason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+      "stack": [
+        "AssertionError [ERR_ASSERTION]",
+        "at scripts/verify-threaded-activity-heartbeat.mjs:63:12",
+        "at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+      ],
+      "nodeVersion": "v22.23.1"
+    }
+  ],
+  "diagnosis": {
+    "fixtureClock": "Date.now()+60000; progresses only in injected transport/authorization",
+    "fetchProgressObserved": false,
+    "failureLocation": "first API scenario; synthetic clock never advanced, before injected transport progress; original caught error hidden by runner.ts:102-104",
+    "sdkListenerReached": "Original API scenario invokes local listener before transport; no supplier request sent",
+    "rootCause": "Restricted execution sandbox denied listen on 127.0.0.1 (EPERM); confirmed by temporary in-memory loader exposing original caught Error",
+    "followup": "Environment requirement confirmed; original uninstrumented script passed all 6 groups when local loopback listener permitted, no production source change required",
+    "instrumentedDiagnosticRun": {
+      "exitCode": 1,
+      "temporaryLoader": "/tmp/rc01-heartbeat-debug-loader.mjs",
+      "repositorySourceEdited": false,
+      "error": {
+        "code": "EPERM",
+        "errno": -1,
+        "syscall": "listen",
+        "address": "127.0.0.1"
+      },
+      "capturedAt": "runner unknown-outcome catch; original error hidden from public outcome"
+    }
+  },
+  "mutations": {
+    "productionSource": false,
+    "historicalT12Evidence": false,
+    "dailyDatabase": false,
+    "realModels": false,
+    "credentials": false
+  },
+  "resolution": {
+    "originalScript": true,
+    "temporaryCwd": true,
+    "historicalT12EvidenceModified": false,
+    "allowedLoopbackOnly": true,
+    "passedGroups": 6,
+    "realModelCalls": 0,
+    "externalNetworkCalls": 0,
+    "sharedTokenLedgerAccess": false
+  }
+}
