@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-22T16:15:42.036820+00:00",
+  "evidenceLayer": "Development diagnosis and subsequent scoped correction; not an additional passed test group",
+  "findings": [
+    {
+      "code": "THREADED_ACTION_TARGET_SOURCE_FORBIDDEN",
+      "trigger": "Author consumed caller-only private GitHub tracking callback and attempted a same-root revision to a different reviewer",
+      "disposition": "Production fix adds server-authorized private delivery audience, intersected with original ACL and frozen per-recipient authorization and identity; generic and old waits stay caller-only"
+    },
+    {
+      "code": "THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED",
+      "trigger": "Synchronous preparation in the continuous scripted review fixture exceeded the default 1000ms renewable activity allowance before requests.begin",
+      "diagnosis": {
+        "scriptedFetchReached": false,
+        "requestReserved": false,
+        "manifestPayloadBytesObserved": 11905,
+        "inputLimitNotCause": true
+      },
+      "disposition": "Only the isolated acceptance root uses normal Owner budget CAS to set activityAllowanceMs=10000; cumulative activity/token/cost/invocation limits and production default guards remain unchanged"
+    }
+  ],
+  "temporaryApiDiagnostic": "Removed before delivery; output was limited to a fixed uppercase domain code, no request/error/body/credential data",
+  "realModelCalls": 0,
+  "dailyConfigurationChanged": false
+}

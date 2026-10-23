@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "status": "not_observed",
+  "rawEvidence": "live-2026-10-23.json",
+  "rawSha256": "a892cfb9e94b72c5117726b0a3f7ede97c3674d0ca49913428121be3936d4c3c",
+  "startedAt": "2026-10-22T16:16:35.715Z",
+  "observationStartedAt": "2026-10-22T16:17:41.815Z",
+  "completedAt": "2026-10-22T16:27:50.459Z",
+  "elapsedSeconds": 609,
+  "officialGets": 71,
+  "polls": 17,
+  "officialPrObservations": 66,
+  "targets": [
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "authorLogin": "mindfn",
+      "initialHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+      "baselineEventSeq": 1,
+      "baselineOfficialObservation": {
+        "sequence": 8,
+        "repository": "zts212653/clowder-ai",
+        "number": 1698,
+        "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+        "updatedAt": "2026-10-22T16:17:07Z",
+        "state": "open",
+        "merged": false,
+        "authorLogin": "mindfn",
+        "observedAt": "2026-10-22T16:17:12.879Z",
+        "responseSha256": "8fbf4c7b5803c8fb7cf92ace34702410a55cce79ed64d2b34d21795e57760115"
+      },
+      "stage": "await_first_head",
+      "checks": {
+        "baselineNoWake": "passed",
+        "liveNewHead": "not_observed",
+        "oldApprovalInvalidated": "not_performed",
+        "perFindingRevision": "not_performed",
+        "independentReReview": "not_performed",
+        "actualPidRestartNoReplay": "passed"
+      },
+      "observedNewHeads": 0,
+      "trackingCallbacks": 0,
+      "scriptedModelReplies": 3,
+      "processEvidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9143,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9659,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9143,
+            "afterPid": 9659,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "4a4f7560e047c7443a080f6674f6f1fd6646e929c61cdd866f382ac321b15763",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    },
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "authorLogin": "whutzefengxie-ops",
+      "initialHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+      "baselineEventSeq": 1,
+      "baselineOfficialObservation": {
+        "sequence": 14,
+        "repository": "zts212653/clowder-ai",
+        "number": 1701,
+        "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+        "updatedAt": "2026-10-22T16:14:32Z",
+        "state": "open",
+        "merged": false,
+        "authorLogin": "whutzefengxie-ops",
+        "observedAt": "2026-10-22T16:17:30.582Z",
+        "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+      },
+      "stage": "await_first_head",
+      "checks": {
+        "baselineNoWake": "passed",
+        "liveNewHead": "not_observed",
+        "oldApprovalInvalidated": "not_performed",
+        "perFindingRevision": "not_performed",
+        "independentReReview": "not_performed",
+        "actualPidRestartNoReplay": "passed"
+      },
+      "observedNewHeads": 0,
+      "trackingCallbacks": 0,
+      "scriptedModelReplies": 3,
+      "processEvidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9144,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9661,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9144,
+            "afterPid": 9661,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "748204c9c22c6af93d777d0e75080ccc280ca06277ce30fb472fb92944c3b921",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    },
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "authorLogin": "amazing-fish",
+      "initialHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+      "baselineEventSeq": 1,
+      "baselineOfficialObservation": {
+        "sequence": 20,
+        "repository": "zts212653/clowder-ai",
+        "number": 1505,
+        "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+        "updatedAt": "2026-10-22T16:15:34Z",
+        "state": "open",
+        "merged": false,
+        "authorLogin": "amazing-fish",
+        "observedAt": "2026-10-22T16:17:41.720Z",
+        "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+      },
+      "stage": "await_first_head",
+      "checks": {
+        "baselineNoWake": "passed",
+        "liveNewHead": "not_observed",
+        "oldApprovalInvalidated": "not_performed",
+        "perFindingRevision": "not_performed",
+        "independentReReview": "not_performed",
+        "actualPidRestartNoReplay": "passed"
+      },
+      "observedNewHeads": 0,
+      "trackingCallbacks": 0,
+      "scriptedModelReplies": 3,
+      "processEvidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9161,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9662,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9161,
+            "afterPid": 9662,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "63d93f0693761936cc9b02ec9793010737e378e22f824bb1c810f42ed2160d59",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    }
+  ],
+  "realModelCalls": 0,
+  "realExternalWrites": 0,
+  "liveAcceptancePassed": false,
+  "scope": "Real official facts and stage-boundary PID recovery; no naturally changed HEAD occurred, so live continuous review chain remains unverified"
+}

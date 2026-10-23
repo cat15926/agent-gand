@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "scope": "Production GitHub delivery audience authorization with local temporary config and injected in-memory credential; no GitHub or model traffic",
+  "completedAt": "2026-10-22T16:10:16.089Z",
+  "groups": 6,
+  "checks": [
+    "RC04-DA01: only registered currently authorized actors receive distinct exact-scope fingerprints; null-prototype output is safe for prototype-like IDs and exposes no credential or network",
+    "RC04-DA02: wrong owner Thread caller registration PR repository or model-supplied URL cannot expand delivery authority",
+    "RC04-DA03: recipient revocation removes sharing changed membership yields a new fingerprint and caller revocation denies the entire audience without network",
+    "RC04-DA04: observe and unknown production modes cannot authorize source sharing",
+    "RC04-DA05: changed pinned credentials fence source audience authorization without exposing tokens or contacting GitHub",
+    "RC04-DA06: registration drift cannot preserve a previously granted delivery audience"
+  ],
+  "realCredentialReads": 0,
+  "realNetworkRequests": 0,
+  "realModelCalls": 0,
+  "realExternalWrites": 0
+}

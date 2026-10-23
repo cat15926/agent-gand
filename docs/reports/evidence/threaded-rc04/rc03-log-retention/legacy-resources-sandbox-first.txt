@@ -1,0 +1,15 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: current fixture process identity must be observable; never substitute a fake live result
+    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-legacy-resources.mjs:254:12) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '',
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1

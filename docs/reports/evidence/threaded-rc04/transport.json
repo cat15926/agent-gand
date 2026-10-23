@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "scope": "Injected credential reader and fetch only; no real helper, GitHub requests, model calls or external writes",
+  "completedAt": "2026-10-22T15:14:46.592Z",
+  "groups": 12,
+  "checks": [
+    "RC04-T01: explicit authorization and fixed repository are checked before credential or network access",
+    "RC04-T02: helper and invalid-token failures expose fixed codes and perform no network access",
+    "RC04-T03: discover verifies the user and selects at most three open unmerged independently authored PRs",
+    "RC04-T04: exact selected detail scope is frozen and list arbitrary queries aliases URLs and writes are rejected before I/O",
+    "RC04-T05: safe observations retain actual response hashes and sequence without manufacturing HEAD changes",
+    "RC04-T06: redirect and foreign response URL are rejected without exposing response bodies",
+    "RC04-T07: one MiB header and streamed-body bounds reject oversized responses",
+    "RC04-T08: official authentication failures clear credentials and fence later network requests",
+    "RC04-T09: malformed identity discovery and detail facts fail with fixed safe errors",
+    "RC04-T10: empty independent open selection and out-of-range discovery limits are explicit",
+    "RC04-T11: transport errors and secret-bearing response fields never enter public evidence or environment",
+    "RC04-T12: close aborts an active request clears credential and rejects future I/O"
+  ],
+  "realCredentialReads": 0,
+  "realNetworkRequests": 0,
+  "realModelCalls": 0,
+  "realExternalWrites": 0
+}

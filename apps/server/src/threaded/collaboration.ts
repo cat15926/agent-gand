@@ -49,6 +49,7 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
     capture:b=>actions?.capture(b)??null,valid:(f,a)=>actions.valid(f,a),
     assertBinding:b=>actions?.assertBinding(b),bindMessage:(id,f)=>actions.bindMessage(id,f)},
     trackingAuthorization:(scope,source,subject)=>tracking?.sources[source]?.authorization(scope,subject)??null,
+    trackingDeliveryAuthorization:(scope,source,subject)=>tracking?.sources[source]?.deliveryAuthorization?.(scope,subject)??null,
     commandAuthorization(scope,sourceId){
       if(!sourceId.startsWith('command:'))return false;
       const r=db.prepare('SELECT port,authorization FROM threaded_commands WHERE id=? AND owner_id=? AND thread_id=? AND agent_id=?')

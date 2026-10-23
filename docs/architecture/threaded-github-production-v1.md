@@ -57,6 +57,8 @@ RC02在注册、恢复结算与待发回调三个位置重核当前来源授权�
 
 这些检查覆盖直接调用cooperation恢复及终态事务中的恢复，不只依赖五秒轮询顺序。已在合法授权下发布的历史消息不被删除，也不授新责任；后续Action/Review门禁继续重新读取可信来源及当前HEAD。
 
+RC04追加了受信私密事实共享策略：新登记的GitHub wait可冻结各注册成员当前来源授权与身份，再与原来源ACL交集；回调仍只唤醒原发起者，只有交集内成员能读取。派发前包括暂停恢复逐成员复验，撤权拒绝，新增成员不进入旧audience；普通消息tracking及旧wait仍caller-only，详见[真实事件/评审合同](threaded-live-review-acceptance-v1.md)。这补齐原先独享tracking来源导致合法修订无法交给独立reviewer的链路，不改变独立评审和当前HEAD门禁。
+
 ## 业务与模式边界
 
 PR事实接入原 `transfer_action`、Review交付producer、完成resolver及 `check_review_gate`。被审HEAD/accepted source/作者/独立reviewer仍按原合同核验；`changes_requested`交付可完成评审责任，门禁仍blocked。历史approved不批准新HEAD。本模块不发布GitHub review/comment，不合并或写远端。

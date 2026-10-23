@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "groups": 8,
+  "checks": [
+    "Session short CAS/preallocated UUID/reuse/cold-on-permission/API reconstruction/version history; preparation charges zero",
+    "Canonical workspace alias change between prepare and claim rejects with no capacity/resource partial hold",
+    "Complete claim + Run/Attempt atomic rollback; start transition shared; proof permits terminal output but denies late effects",
+    "Throwing runner retains unknown claim; stop cannot steal; verified quiet release, old finally cannot release successor",
+    "Proof-before-outcome race: stop commits while preserving quiescence, then the original proof settles cancellation and releases",
+    "Account revocation after a durable quiescence proof fences the Invocation atomically and permits verified cancellation without output",
+    "Late unknown callbacks cannot erase verified process quiescence or prevent subsequent controlled settlement",
+    "Unexpected native ID retains original identity and fences; further effects and silent cold replacement denied"
+  ],
+  "networkCalls": 0,
+  "realModelCalls": 0
+}

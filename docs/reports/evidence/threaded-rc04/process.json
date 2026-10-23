@@ -1,0 +1,697 @@
+{
+  "ok": true,
+  "status": "passed_isolated_process_restart",
+  "checkedAt": "2026-10-22T16:15:35.472Z",
+  "checks": 4,
+  "coverage": [
+    "RCP01: a real child PID is SIGKILLed after baseline persistence; close is observed before a different PID restores the same Thread, causal root, canonical Action and awaiting Wait with zero GET/model replay",
+    "RCP02: SIGKILL after the first delivered tracking callback preserves its event/callback/message IDs; restored repeated polling cannot create another callback or a new causal root",
+    "RCP03: the complete injected three-HEAD review/revision chain survives three actual process replacements and remains one Action, two wakes, three reports and two revision claims; approved final state restores without blind replay",
+    "RCP04: an intentionally present parent token environment variable never enters any child boot environment or argv, IPC result, SQLite/WAL, metadata or evidence; every authorized GET is parent-owned, no child direct network, real model or external write occurs"
+  ],
+  "scope": "Injected provider HEADs and local scripted model protocol with actual separate production-composition PIDs and SQLite; not apps/server index.ts, arbitrary mid-commit crash or naturally occurring GitHub event acceptance",
+  "injectedProviderReads": 25,
+  "parentMemoryCredentialChecks": 25,
+  "realProviderReads": 0,
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "realExternalWrites": 0,
+  "forbiddenNetworkRequests": 0,
+  "dailyProductionOpened": false,
+  "fullChain": {
+    "name": "process-chain",
+    "repository": "fixture/rc04",
+    "number": 4,
+    "stage": "passed",
+    "ownerId": "512805cb-fd8e-4486-be87-2f7c59ae8613",
+    "threadId": "a51e4035-ee53-4d46-965d-c8f62b372ad1",
+    "rootId": "a72b610a-d215-4759-a10b-bcfcdb2b61fb",
+    "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+    "canonicalActionCount": 1,
+    "protocolLayer": "Actual production composition/authority and SQLite; local scripted model replies and local independent-review protocol assertions only",
+    "fixtureConfiguration": {
+      "modelReplyTimeoutMs": 120000,
+      "maxInputTokens": 65536,
+      "applicationTools": [
+        "transfer_action",
+        "review_context",
+        "submit_review",
+        "complete_action",
+        "check_review_gate",
+        "start_review_revision",
+        "track_event"
+      ],
+      "activityAllowanceMs": 10000,
+      "activityPolicy": "Explicit disposable Owner revision through budget.reviseRoot; total activity/token/cost/invocation caps retain defaults"
+    },
+    "realModelCalls": 0,
+    "realModelTokens": 0,
+    "realExternalWrites": 0,
+    "scriptedCalls": 10,
+    "providerReads": 25,
+    "credentialReads": 290,
+    "productionOpened": false,
+    "chain": {
+      "heads": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "cccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "waits": [
+        {
+          "index": 1,
+          "waitId": "1d32aaeb-abda-4515-b87b-69408a5f4ad9",
+          "baselineHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "baselineEventSeq": 1,
+          "rootId": "a72b610a-d215-4759-a10b-bcfcdb2b61fb",
+          "registeredFromMessageId": "a45090f6-286e-4539-97bf-a1e7c537a0b6",
+          "observed": {
+            "newHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "eventSeq": 3,
+            "callbackId": "89238fff-b5ef-4a64-9eec-6aa6f987291e",
+            "messageId": "9349686a-b0fd-48fe-93ba-52cd44bfd55f"
+          }
+        },
+        {
+          "index": 2,
+          "waitId": "06b1668e-801b-42ac-9d7c-999ffacd92f6",
+          "baselineHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "baselineEventSeq": 3,
+          "rootId": "a72b610a-d215-4759-a10b-bcfcdb2b61fb",
+          "registeredFromMessageId": "43013a1f-0650-4904-b51a-827c3dabd10f",
+          "observed": {
+            "newHead": "cccccccccccccccccccccccccccccccccccccccc",
+            "eventSeq": 4,
+            "callbackId": "5ac4bb92-ca92-4a3f-bf90-503c7c854281",
+            "messageId": "b684fc47-2454-4b03-a3a6-281bca9f917e"
+          }
+        }
+      ],
+      "gates": [
+        {
+          "label": "old-head-approved",
+          "checkId": "29fd6c2d-893c-4c2b-89b3-d89c851cce91",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 1,
+          "workflowVersion": 1,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "approved",
+          "approvalGateSatisfied": true,
+          "reasons": [],
+          "checkedAt": 1792685727220,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "old-approved-invalidated",
+          "checkId": "8e5e076c-95ad-434a-8481-10fde70ff6d5",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 1,
+          "workflowVersion": 1,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "stale",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "HEAD_OR_GENERATION_CHANGED"
+          ],
+          "checkedAt": 1792685728404,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "delivery-complete-is-not-approval",
+          "checkId": "26a1397d-1b6b-43c2-9fcd-91566d59c793",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 2,
+          "workflowVersion": 3,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "blocked",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "REQUIRED_REVIEW_NOT_APPROVED",
+            "FINDINGS_NOT_INDEPENDENTLY_VERIFIED"
+          ],
+          "checkedAt": 1792685728993,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "changes-requested-head-stale",
+          "checkId": "064f2267-fea7-4c3d-993e-453e76f68a9d",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 2,
+          "workflowVersion": 3,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "stale",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "HEAD_OR_GENERATION_CHANGED"
+          ],
+          "checkedAt": 1792685731756,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "author-attestation-is-not-verification",
+          "checkId": "c34fbd0b-70e7-4fb6-a5b5-30b1d4138dbc",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 3,
+          "workflowVersion": 4,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "status": "blocked",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "REVIEW_RESPONSIBILITY_NOT_COMPLETED",
+            "REQUIRED_REVIEW_NOT_APPROVED",
+            "FINDINGS_NOT_INDEPENDENTLY_VERIFIED"
+          ],
+          "checkedAt": 1792685734383,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "fresh-head-findings-verified",
+          "checkId": "c9073f43-5777-46ba-af45-67632a01ad60",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 3,
+          "workflowVersion": 5,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "status": "approved",
+          "approvalGateSatisfied": true,
+          "reasons": [],
+          "checkedAt": 1792685734711,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        }
+      ],
+      "reports": [
+        {
+          "label": "initial-approved",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 1,
+          "version": 1,
+          "evidenceId": "30d54859-736b-486e-97b0-6d9e647034e8",
+          "messageId": "a45090f6-286e-4539-97bf-a1e7c537a0b6",
+          "findingIds": [],
+          "verdict": "approved",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "authorAgentId": "process-chain-author",
+          "reviewerAgentId": "process-chain-reviewer",
+          "acceptedSourceMessageId": "2d5b51d2-319a-4ef8-a944-d46f9ba4c14c",
+          "acceptedRevision": 2,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        },
+        {
+          "label": "changes-requested",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 2,
+          "version": 3,
+          "evidenceId": "5c67e060-7090-4f0a-acf5-b6b03f4f2426",
+          "messageId": "43013a1f-0650-4904-b51a-827c3dabd10f",
+          "findingIds": [
+            "5c67e060-7090-4f0a-acf5-b6b03f4f2426:0",
+            "5c67e060-7090-4f0a-acf5-b6b03f4f2426:1"
+          ],
+          "verdict": "changes_requested",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "authorAgentId": "process-chain-author",
+          "reviewerAgentId": "process-chain-reviewer",
+          "acceptedSourceMessageId": "1e9f31ef-d6f6-4680-8d70-39afd9ff2a02",
+          "acceptedRevision": 11,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        },
+        {
+          "label": "independent-re-review",
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 3,
+          "version": 5,
+          "evidenceId": "4cbc1cdd-ea7e-4500-8b62-6d121a5024fe",
+          "messageId": "cf92f45b-1e41-45c3-b8c7-4dbac701b685",
+          "findingIds": [
+            "5c67e060-7090-4f0a-acf5-b6b03f4f2426:0",
+            "5c67e060-7090-4f0a-acf5-b6b03f4f2426:1"
+          ],
+          "verdict": "approved",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "authorAgentId": "process-chain-author",
+          "reviewerAgentId": "process-chain-reviewer",
+          "acceptedSourceMessageId": "1fd01f64-797d-4260-a9ce-37a9851391e9",
+          "acceptedRevision": 20,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        }
+      ],
+      "revisions": [
+        {
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 2,
+          "version": 2,
+          "claimId": "f0234846-a52e-4b85-9478-0f02046dc95d",
+          "messageId": "03e04f83-f4aa-4246-b34e-1c1e721b287c",
+          "verification": "attested",
+          "approvalGateSatisfied": false,
+          "oldHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "newHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "responses": []
+        },
+        {
+          "actionId": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 3,
+          "version": 4,
+          "claimId": "34c13ccd-3c4c-428f-89a1-b282e067ffa8",
+          "messageId": "9ce01f07-c7f6-40c9-8559-fe9eaa1a6b95",
+          "verification": "attested",
+          "approvalGateSatisfied": false,
+          "oldHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "newHead": "cccccccccccccccccccccccccccccccccccccccc",
+          "responses": [
+            {
+              "findingId": "5c67e060-7090-4f0a-acf5-b6b03f4f2426:0",
+              "body": "Scripted local author attestation only; fresh independent verification is still required.",
+              "disposition": "addressed"
+            },
+            {
+              "findingId": "5c67e060-7090-4f0a-acf5-b6b03f4f2426:1",
+              "body": "Scripted local author attestation only; fresh independent verification is still required.",
+              "disposition": "addressed"
+            }
+          ]
+        }
+      ],
+      "rebuilds": [
+        {
+          "stage": "await_first_head",
+          "restoredFromSavedStage": true,
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 3,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        },
+        {
+          "stage": "await_first_head",
+          "restoredFromSavedStage": true,
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 0,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        },
+        {
+          "stage": "passed",
+          "restoredFromSavedStage": true,
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 0,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        }
+      ],
+      "acceptedSources": [
+        {
+          "generation": 1,
+          "messageId": "2d5b51d2-319a-4ef8-a944-d46f9ba4c14c",
+          "revision": 2
+        },
+        {
+          "generation": 2,
+          "messageId": "1e9f31ef-d6f6-4680-8d70-39afd9ff2a02",
+          "revision": 11
+        },
+        {
+          "generation": 3,
+          "messageId": "1fd01f64-797d-4260-a9ce-37a9851391e9",
+          "revision": 20
+        }
+      ],
+      "retries": [
+        {
+          "kind": "review",
+          "label": "initial-approved",
+          "evidenceId": "30d54859-736b-486e-97b0-6d9e647034e8",
+          "duplicateEvidence": false
+        },
+        {
+          "kind": "revision",
+          "claimId": "f0234846-a52e-4b85-9478-0f02046dc95d",
+          "duplicateClaim": false
+        },
+        {
+          "kind": "review",
+          "label": "changes-requested",
+          "evidenceId": "5c67e060-7090-4f0a-acf5-b6b03f4f2426",
+          "duplicateEvidence": false
+        },
+        {
+          "kind": "revision",
+          "claimId": "34c13ccd-3c4c-428f-89a1-b282e067ffa8",
+          "duplicateClaim": false
+        },
+        {
+          "kind": "review",
+          "label": "independent-re-review",
+          "evidenceId": "4cbc1cdd-ea7e-4500-8b62-6d121a5024fe",
+          "duplicateEvidence": false
+        }
+      ]
+    },
+    "durableIdentity": {
+      "callbacks": [
+        {
+          "id": "10811800-39a2-4277-976c-23cf36b94dca",
+          "source_id": "action-completed:8dc71cbe-730f-4a9d-a149-b9647cc087ee:1",
+          "state": "delivered",
+          "message_id": "25b62365-cd73-4501-9821-6013c215a1e3"
+        },
+        {
+          "id": "89238fff-b5ef-4a64-9eec-6aa6f987291e",
+          "source_id": "1d32aaeb-abda-4515-b87b-69408a5f4ad9",
+          "state": "delivered",
+          "message_id": "9349686a-b0fd-48fe-93ba-52cd44bfd55f"
+        },
+        {
+          "id": "96624b2f-24bc-4886-9030-b8db67ef8e98",
+          "source_id": "action-completed:8dc71cbe-730f-4a9d-a149-b9647cc087ee:2",
+          "state": "delivered",
+          "message_id": "854baaa1-b733-4407-8bb4-d7d5e5dc7e7a"
+        },
+        {
+          "id": "5ac4bb92-ca92-4a3f-bf90-503c7c854281",
+          "source_id": "06b1668e-801b-42ac-9d7c-999ffacd92f6",
+          "state": "delivered",
+          "message_id": "b684fc47-2454-4b03-a3a6-281bca9f917e"
+        },
+        {
+          "id": "58f01b23-9a4e-40b1-9d59-7771f7a1beed",
+          "source_id": "action-completed:8dc71cbe-730f-4a9d-a149-b9647cc087ee:3",
+          "state": "delivered",
+          "message_id": "37e38e9c-9d4a-4284-ae26-2cc7394f3a7d"
+        }
+      ],
+      "events": [
+        {
+          "seq": 1
+        },
+        {
+          "seq": 2
+        },
+        {
+          "seq": 3
+        },
+        {
+          "seq": 4
+        }
+      ],
+      "messages": [
+        {
+          "id": "a72b610a-d215-4759-a10b-bcfcdb2b61fb"
+        },
+        {
+          "id": "2d5b51d2-319a-4ef8-a944-d46f9ba4c14c"
+        },
+        {
+          "id": "c95a05f6-a9aa-4367-acdf-7ab67693770b"
+        },
+        {
+          "id": "a45090f6-286e-4539-97bf-a1e7c537a0b6"
+        },
+        {
+          "id": "25b62365-cd73-4501-9821-6013c215a1e3"
+        },
+        {
+          "id": "245b2be3-ec2f-4a4f-b90f-ef2454dc3166"
+        },
+        {
+          "id": "95584732-e54f-451b-8ab8-94b59c554af6"
+        },
+        {
+          "id": "9349686a-b0fd-48fe-93ba-52cd44bfd55f"
+        },
+        {
+          "id": "d76dd727-c4bf-424a-8fda-baa68a1c8fef"
+        },
+        {
+          "id": "03e04f83-f4aa-4246-b34e-1c1e721b287c"
+        },
+        {
+          "id": "1e9f31ef-d6f6-4680-8d70-39afd9ff2a02"
+        },
+        {
+          "id": "6c03dfd7-314d-49b9-9ae1-d8cfcb3b55da"
+        },
+        {
+          "id": "43013a1f-0650-4904-b51a-827c3dabd10f"
+        },
+        {
+          "id": "854baaa1-b733-4407-8bb4-d7d5e5dc7e7a"
+        },
+        {
+          "id": "9150502c-6fd8-4d96-a6de-ffefdc7a7ece"
+        },
+        {
+          "id": "39af23c1-760f-4c9a-9bfc-ca3f3facd66e"
+        },
+        {
+          "id": "b684fc47-2454-4b03-a3a6-281bca9f917e"
+        },
+        {
+          "id": "5c2e43cd-d4a2-4bbd-b1c1-cf9803dc4b1b"
+        },
+        {
+          "id": "9ce01f07-c7f6-40c9-8559-fe9eaa1a6b95"
+        },
+        {
+          "id": "1fd01f64-797d-4260-a9ce-37a9851391e9"
+        },
+        {
+          "id": "d9324e65-aae2-4deb-9614-dd2e1fad51ab"
+        },
+        {
+          "id": "cf92f45b-1e41-45c3-b8c7-4dbac701b685"
+        },
+        {
+          "id": "37e38e9c-9d4a-4284-ae26-2cc7394f3a7d"
+        },
+        {
+          "id": "c3acffba-307a-40d7-a142-cea047f4bf0a"
+        }
+      ],
+      "reports": [
+        {
+          "evidence_id": "30d54859-736b-486e-97b0-6d9e647034e8"
+        },
+        {
+          "evidence_id": "5c67e060-7090-4f0a-acf5-b6b03f4f2426"
+        },
+        {
+          "evidence_id": "4cbc1cdd-ea7e-4500-8b62-6d121a5024fe"
+        }
+      ],
+      "versions": [
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "version": 1
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "version": 2
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "version": 3
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "version": 4
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "version": 5
+        }
+      ],
+      "claims": [
+        {
+          "id": "f0234846-a52e-4b85-9478-0f02046dc95d"
+        },
+        {
+          "id": "34c13ccd-3c4c-428f-89a1-b282e067ffa8"
+        }
+      ],
+      "generations": [
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 1
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 2
+        },
+        {
+          "action_id": "8dc71cbe-730f-4a9d-a149-b9647cc087ee",
+          "generation": 3
+        }
+      ],
+      "terminals": [
+        {
+          "invocation_id": "553431d5-f12e-40e3-96ea-8686792e464d"
+        },
+        {
+          "invocation_id": "eef576ab-b480-403e-bf18-7cc9a7563fe9"
+        },
+        {
+          "invocation_id": "1ce65290-b1c8-484e-93af-0a31b726a05e"
+        },
+        {
+          "invocation_id": "103489b8-5b1f-484a-999d-a690383ccb3e"
+        },
+        {
+          "invocation_id": "756bb55b-6981-4119-b5b7-e6a1d6ffb566"
+        },
+        {
+          "invocation_id": "f5b34c19-b47f-4a5b-9d0f-92901e8bf700"
+        },
+        {
+          "invocation_id": "c5ac5c7e-0ab2-4732-a15e-21722cd27f3d"
+        },
+        {
+          "invocation_id": "d3f2221e-4c0d-4892-b774-cd6266b1e9b2"
+        },
+        {
+          "invocation_id": "c2a38670-7434-47ed-951e-b6ce03512e58"
+        },
+        {
+          "invocation_id": "7b612833-6521-4210-bbc8-e9d7a59a6837"
+        }
+      ]
+    },
+    "foreignKeyViolations": 0,
+    "counts": {
+      "trackingCallbacks": 2,
+      "reviewReports": 3,
+      "revisionClaims": 2
+    },
+    "processEvidence": {
+      "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+      "mainIndexProcess": false,
+      "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+      "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+      "directWorkerNetworkForbidden": true,
+      "pids": [
+        {
+          "pid": 9086,
+          "restore": false,
+          "environmentKeys": [
+            "LOG_LEVEL",
+            "NODE_ENV",
+            "PATH",
+            "__CF_USER_TEXT_ENCODING"
+          ],
+          "argvCount": 2
+        },
+        {
+          "pid": 9090,
+          "restore": true,
+          "environmentKeys": [
+            "LOG_LEVEL",
+            "NODE_ENV",
+            "PATH",
+            "__CF_USER_TEXT_ENCODING"
+          ],
+          "argvCount": 2
+        },
+        {
+          "pid": 9096,
+          "restore": true,
+          "environmentKeys": [
+            "LOG_LEVEL",
+            "NODE_ENV",
+            "PATH",
+            "__CF_USER_TEXT_ENCODING"
+          ],
+          "argvCount": 2
+        },
+        {
+          "pid": 9097,
+          "restore": true,
+          "environmentKeys": [
+            "LOG_LEVEL",
+            "NODE_ENV",
+            "PATH",
+            "__CF_USER_TEXT_ENCODING"
+          ],
+          "argvCount": 2
+        }
+      ],
+      "restarts": [
+        {
+          "beforePid": 9086,
+          "afterPid": 9090,
+          "code": null,
+          "signal": "SIGKILL",
+          "closeObserved": true,
+          "stage": "await_first_head",
+          "preservedIdentitySha256": "5733b6ab68693657cbcb7c2e56726078159f3633b2c4a3ca1e5e9dda7112fad5",
+          "sameThread": true,
+          "sameRoot": true,
+          "sameAction": true,
+          "sameWaits": true,
+          "duplicateCallbacks": 0,
+          "duplicateReports": 0,
+          "providerGetsDuringRestore": 0,
+          "scriptedCallsDuringRestore": 0
+        },
+        {
+          "beforePid": 9090,
+          "afterPid": 9096,
+          "code": null,
+          "signal": "SIGKILL",
+          "closeObserved": true,
+          "stage": "await_first_head",
+          "preservedIdentitySha256": "9ced968f2ff1d83eb194ca9f1d8f2c1c6f59e51fd6d39eeb0db5fbd47ec2cff0",
+          "sameThread": true,
+          "sameRoot": true,
+          "sameAction": true,
+          "sameWaits": true,
+          "duplicateCallbacks": 0,
+          "duplicateReports": 0,
+          "providerGetsDuringRestore": 0,
+          "scriptedCallsDuringRestore": 0
+        },
+        {
+          "beforePid": 9096,
+          "afterPid": 9097,
+          "code": null,
+          "signal": "SIGKILL",
+          "closeObserved": true,
+          "stage": "passed",
+          "preservedIdentitySha256": "52bb2849c4960cf487f2ef26f1e88a1714a8836ec6754802fabad142f4a4d374",
+          "sameThread": true,
+          "sameRoot": true,
+          "sameAction": true,
+          "sameWaits": true,
+          "duplicateCallbacks": 0,
+          "duplicateReports": 0,
+          "providerGetsDuringRestore": 0,
+          "scriptedCallsDuringRestore": 0
+        }
+      ],
+      "parentProviderGets": 25,
+      "rejectedProviderRequests": 0,
+      "workerForbiddenNetworkCalls": 0
+    }
+  }
+}

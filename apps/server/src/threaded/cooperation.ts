@@ -16,6 +16,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
   capture:(binding:ThreadedBinding)=>ActionFence|null;valid:(fence:ActionFence,agent:string)=>boolean;
   bindMessage:(messageId:string,fence:ActionFence|null)=>void;assertBinding:(binding:ThreadedBinding)=>void;
 };trackingAuthorization?:(scope:Scope,source:string,subject:string)=>string|null;
+  trackingDeliveryAuthorization?:(scope:Scope,source:string,subject:string)=>Record<string,string>|null;
   commandAuthorization?:(scope:Scope,sourceId:string)=>boolean}) {
   const now=options.now??Date.now;
   // Capture only timers already missed when this factory starts. Ordinary online recovery,
@@ -139,9 +140,9 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
         JSON.stringify({body,...scope,frozen:extra.frozen??frozen(binding),...(extra.route?{route:extra.route}:{})}),now());
   }
   function callbackFromWait(wait:Wait,outcome:Record<string,unknown>) {
-    const record=JSON.parse(wait.record) as {scope:ReturnType<typeof boundary>;frozen:ReturnType<typeof frozen>};
+    const record=JSON.parse(wait.record) as {scope:ReturnType<typeof boundary>;frozen:ReturnType<typeof frozen>;trackingDeliveryAuthorities?:Record<string,string>};
     const event=outcome.event as {messageId?:string}|undefined;
-    const scope=wait.kind==='tracking'?{...record.scope,visibility:'private' as const,audience:[wait.agent_id],
+    const scope=wait.kind==='tracking'?{...record.scope,visibility:'private' as const,audience:record.trackingDeliveryAuthorities?Object.keys(record.trackingDeliveryAuthorities):[wait.agent_id],
       sourceRefs:[...new Set([...record.scope.sourceRefs,...(event?.messageId?[event.messageId]:[])])]}:record.scope;
     db.prepare(`INSERT OR IGNORE INTO threaded_collaboration_callbacks VALUES(?,?,?,?,?,?,?,'pending',NULL,?,NULL,?)`)
       .run(randomUUID(),'wait',wait.id,wait.owner_id,wait.thread_id,wait.agent_id,wait.parent_invocation_id,
@@ -164,6 +165,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       const timerOutcome=wait?.kind==='timer'&&wait.outcome?JSON.parse(wait.outcome) as {recoveredMissedTimer?:boolean}:undefined;
       if(row.kind==='command'&&!options.commandAuthorization?.(scope,row.source_id)){state='rejected';reason='THREADED_COMMAND_AUTHORITY_CHANGED';}
       else if(row.kind==='wait'&&(!wait||wait.kind==='tracking'&&!trackingAuthorized(wait))){state='rejected';reason='THREADED_TRACKING_AUTHORITY_CHANGED';}
+      else if(wait?.kind==='tracking'&&!trackingDeliveryAuthorized(wait,input)){state='rejected';reason='THREADED_TRACKING_DELIVERY_AUTHORITY_CHANGED';}
       else if(wait?.kind==='timer'&&!timerSourceAuthorized(wait)){state='rejected';reason='THREADED_WAIT_SOURCE_AUTHORITY_CHANGED';}
       else if(timerOutcome?.recoveredMissedTimer&&now()>=(timerRecord?.waitSourceRef?.slaUntilMs??0)){state='rejected';reason='THREADED_TIMER_RECOVERY_EXPIRED';}
       else if(input.frozen.actionFence&&!options.actionScope?.valid(input.frozen.actionFence,row.agent_id)){state='rejected';reason='THREADED_ACTION_STALE_GENERATION';}
@@ -288,7 +290,21 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       .get(input.replaceWaitId,binding.ownerId,binding.threadId,binding.agentId) as Wait|undefined;
       if(!old||old.state!=='awaiting'||old.version!==input.expectedVersion||old.root_id!==source(binding).causalRootId)reject('THREADED_WAIT_VERSION_CONFLICT');
       db.prepare("UPDATE threaded_waits SET state='superseded',version=version+1,updated_at=? WHERE id=?").run(created,old.id);}
-    const record={...input,baseline,...(waitSourceAuthority?{waitSourceAuthority,holdDomain}:{}),scope:boundary(binding,waitSourceAuthority?.sourceMessageIds??[]),frozen:frozen(binding)};
+    const waitBoundary=boundary(binding,waitSourceAuthority?.sourceMessageIds??[]);
+    let trackingDeliveryAuthorities:Record<string,string>|undefined,trackingDeliveryIdentities:Record<string,string>|undefined;
+    if(input.kind==='tracking'){
+      const grants=options.trackingDeliveryAuthorization?.({ownerId:binding.ownerId,threadId:binding.threadId,agentId:binding.agentId},input.source!,input.subject!);
+      if(grants){
+        const entries=Object.entries(grants);if(!entries.length||entries.length>8||entries.some(([agent,auth])=>!/^[A-Za-z0-9_-]{1,100}$/.test(agent)||typeof auth!=='string'||!auth||auth.length>1000)
+          ||grants[binding.agentId]!==input.trackingAuthorization)reject('THREADED_TRACKING_DELIVERY_POLICY_INVALID',403);
+        trackingDeliveryAuthorities=Object.fromEntries(entries.filter(([agent])=>(waitBoundary.visibility!=='private'||waitBoundary.audience.includes(agent))
+          &&!!identity({...binding,agentId:agent})&&waitBoundary.sourceRefs.every(id=>readableFor(binding.ownerId,agent,id))));
+        trackingDeliveryIdentities=Object.fromEntries(Object.keys(trackingDeliveryAuthorities).map(agent=>[agent,identity({...binding,agentId:agent})!]));
+        if(trackingDeliveryAuthorities[binding.agentId]!==input.trackingAuthorization)reject('THREADED_TRACKING_DELIVERY_POLICY_INVALID',403);
+      }
+    }
+    const record={...input,baseline,...(waitSourceAuthority?{waitSourceAuthority,holdDomain}:{}),
+      ...(trackingDeliveryAuthorities?{trackingDeliveryAuthorities,trackingDeliveryIdentities}:{}),scope:waitBoundary,frozen:frozen(binding)};
     db.prepare("INSERT INTO threaded_waits VALUES(?,?,?,?,?,?,?,?,?,?,'awaiting',1,?,?,NULL,?,?)")
       .run(id,binding.ownerId,binding.threadId,binding.agentId,binding.id,binding.invocationId,source(binding).causalRootId,input.jobKey,input.kind,fingerprint,deadline,JSON.stringify(record),created,created);
     if(input.kind==='timer'){admitHoldWithin(binding,{key:`wait:${id}`,kind:'timer'});
@@ -304,6 +320,23 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
     const config=JSON.parse(wait.record) as {source:string;subject:string;trackingAuthorization:string};
     try{return !!config.trackingAuthorization&&options.trackingAuthorization?.({ownerId:wait.owner_id,threadId:wait.thread_id,agentId:wait.agent_id},config.source,config.subject)===config.trackingAuthorization;}
     catch{return false;}
+  }
+  function readableFor(ownerId:string,agentId:string,id:string){
+    const message=db.prepare('SELECT thread_id FROM threaded_messages WHERE id=? AND owner_id=?').get(id,ownerId) as {thread_id:string}|undefined;
+    return !!message&&!!options.messages.getMessage({ownerId,threadId:message.thread_id,viewer:{kind:'agent',agentId}},id);
+  }
+  function trackingDeliveryAuthorized(wait:Wait,delivery:ReturnType<typeof boundary>){
+    try{
+      const record=JSON.parse(wait.record) as {source:string;subject:string;trackingDeliveryAuthorities?:Record<string,string>;trackingDeliveryIdentities?:Record<string,string>};
+      if(!record.trackingDeliveryAuthorities)return delivery.visibility==='private'&&delivery.audience.length===1&&delivery.audience[0]===wait.agent_id;
+      if(delivery.visibility!=='private'||!delivery.audience.includes(wait.agent_id)||delivery.audience.length!==Object.keys(record.trackingDeliveryAuthorities).length)return false;
+      const current=options.trackingDeliveryAuthorization?.({ownerId:wait.owner_id,threadId:wait.thread_id,agentId:wait.agent_id},record.source,record.subject);
+      return !!current&&delivery.audience.every(agent=>Object.hasOwn(record.trackingDeliveryAuthorities!,agent)
+        &&Object.hasOwn(current,agent)&&current[agent]===record.trackingDeliveryAuthorities![agent]
+        &&identity({ownerId:wait.owner_id,threadId:wait.thread_id,agentId:agent})===record.trackingDeliveryIdentities?.[agent]
+        &&options.trackingAuthorization?.({ownerId:wait.owner_id,threadId:wait.thread_id,agentId:agent},record.source,record.subject)===current[agent]
+        &&delivery.sourceRefs.every(id=>readableFor(wait.owner_id,agent,id)));
+    }catch{return false;}
   }
   function recoverWithin() {
     for(const group of db.prepare("SELECT * FROM threaded_consultations WHERE state='collecting' AND deadline<=?").all(now()) as Group[])settleGroup(group,true);

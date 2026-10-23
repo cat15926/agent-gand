@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-22。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同及所列隔离验收已完成，本次变更随提交交付；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
+状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-23。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同已推送 `ee751a3`；RC04实现和所列隔离验收完成，真实观察609秒/71 GET后为not_observed，当前变更未提交；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -285,11 +285,13 @@ T08 17 组协作、4 组后端接线、4 组 HTTP 与14组迁移通过，并通�
 
 K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件未观察；T12实际macOS命令端口已验，完整发布条件未全部通过。T11 Review/Revision、SOP和基础知识/ACL已实现并通过所列分层验证；语义检索未实现，MEM01整体未全过。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
 
-**RC01、RC02已按记录范围完成；RC03本轮完成首批选定生产命令、等待合同与所列隔离验收，随本次提交交付。**[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)已对照Session/预算/hold/工作区/语义实际链，66组隔离回归通过，K01–K16共16条核心合同及59项原文不变；确认的hold来源/SLA恢复/命令准入和工程映射已由RC03按首批范围交付，实际工程竞争交RC06，独立语义检索交EXT01。本地完整Session指纹与根预算作为适配/增强登记，不称上游同形同参。固定pack与根授权、独立入场/派发、只读observe、启动屏障/有界退出、macOS注册命令及分层恢复已实现，见[发布合同](../architecture/threaded-release-v1.md)、[手册](../operations/threaded-release-runbook.md)和[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。7组release、16组production、9组24个恢复进程、4组实际index、8组macOS、5组实际Chrome通过；日常服务没有启用。真实API五工具与修复后SDK五工具/隔离HTTP服务原生续接通过，前两次失败保留，实际远端等待未观察到新HEAD；完整真实组合和发布条件未全部通过。当前事实见[实施状态](threaded-collaboration-implementation-status.md)，具体优先级、依赖及退出条件见[剩余实施与验收计划](threaded-collaboration-remaining-plan.md)。
+**RC01、RC02已按记录范围完成；RC03首批选定生产命令、等待合同与所列隔离验收已推送 `ee751a3`。RC04实现和所列隔离验收已交付，真实自然事件链尚未通过，当前609秒/71 GET未观察到新HEAD。**[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)已对照Session/预算/hold/工作区/语义实际链，66组隔离回归通过，K01–K16共16条核心合同及59项原文不变；确认的hold来源/SLA恢复/命令准入和工程映射已由RC03按首批范围交付，实际工程竞争交RC06，独立语义检索交EXT01。本地完整Session指纹与根预算作为适配/增强登记，不称上游同形同参。固定pack与根授权、独立入场/派发、只读observe、启动屏障/有界退出、macOS注册命令及分层恢复已实现，见[发布合同](../architecture/threaded-release-v1.md)、[手册](../operations/threaded-release-runbook.md)和[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。7组release、16组production、9组24个恢复进程、4组实际index、8组macOS、5组实际Chrome通过；日常服务没有启用。真实API五工具与修复后SDK五工具/隔离HTTP服务原生续接通过，前两次失败保留，实际远端等待未观察到新HEAD；完整真实组合和发布条件未全部通过。当前事实见[实施状态](threaded-collaboration-implementation-status.md)，具体优先级、依赖及退出条件见[剩余实施与验收计划](threaded-collaboration-remaining-plan.md)。
 
 RC02已将受信GitHub PR/tracking来源接入实际生产factory，使用固定owner/Thread/Agent/repo/PR、版本化环境凭据与官方/user身份核验，并修复持久tracking事件及暂停回调的撤权窗口；18组专用与54组相关隔离回归通过，真实provider7项/8次官方GET通过，无真实模型调用。详见[合同](../architecture/threaded-github-production-v1.md)及[报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)；日常未配置/启用，真实新HEAD完整链仍交RC04。
 
 RC03新增严格生产命令注册及工程/成员/cwd映射，首批仅服务器内置 `project_manifest_v1`，固定程序/参数/环境、完整独立读写资源及可信产物核对；任意shell、构建和网络命令未注册。hold来源改为结构对象，SLA只约束停机错过timer的恢复窗口，timer与command wake共用3次/小时额度，暂停回调复验当前端口权限；默认普通域，守门专域由服务器显式选择。v35前向保留原额度，v25–v34源码不变；详见[合同](../architecture/threaded-commands-hold-production-v1.md)及[报告](../reports/threaded-collaboration-rc03-commands-hold-2026-10-22.md)。本次没有迁移日常库或设置日常注册。
+
+RC04已补实际生产工厂、父进程独占凭据的官方只读GET、真实PID阶段恢复和单Action/同root的连续评审验收；38组专验与相关回归通过。完整链发现并修复GitHub跟踪回调独享来源导致合法修订无法交给独立reviewer的问题：新策略只对受信领域按当前注册成员授权与原ACL交集共享，仍private且只唤醒原发起者，撤权/身份漂移复验，generic及旧wait保持caller-only。连续链需要H0→H1→H2两次自然新HEAD；真实观察609秒/71 GET未见新HEAD，not_observed，真实连续链未通过，不能用脚本协议成功或旧HEAD差异替代。验收文本仅本地协议fixture，不授GitHub批准。默认1秒活动片未变，临时验收根显式用正规Owner CAS配置10秒片，其他总限额保留。详见[合同](../architecture/threaded-live-review-acceptance-v1.md)和[RC04报告](../reports/threaded-collaboration-rc04-live-review-2026-10-23.md)；日常未启用，RC05等未自动开始。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 

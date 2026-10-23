@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "ee751a3",
+  "reason": "Original local .log files are git-ignored; retain identical tracked text copies without rewriting committed RC03 evidence",
+  "files": [
+    {
+      "originalLog": "threaded-rc03/regressions/verify-threaded-resources.log",
+      "retainedCopy": "threaded-rc04/rc03-log-retention/verify-threaded-resources.txt",
+      "sha256": "dfba4df665e7ab4766e5721b88f28d53aaebd5d0803811de25e7780b5e5d79eb"
+    },
+    {
+      "originalLog": "threaded-rc03/regressions/verify-threaded-resource-integration.log",
+      "retainedCopy": "threaded-rc04/rc03-log-retention/verify-threaded-resource-integration.txt",
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "originalLog": "threaded-rc03/regressions/verify-legacy-resources-escalated.log",
+      "retainedCopy": "threaded-rc04/rc03-log-retention/verify-legacy-resources-escalated.txt",
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    },
+    {
+      "originalLog": "threaded-rc03/regressions/legacy-resources-sandbox-first.log",
+      "retainedCopy": "threaded-rc04/rc03-log-retention/legacy-resources-sandbox-first.txt",
+      "sha256": "8dfbc7e319d4f69629c6f8e0a690abbb6098b222a0f949a8f29c5dc4c908c482"
+    }
+  ]
+}

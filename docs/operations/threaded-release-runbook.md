@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-22。适用 schema 35（RC03前向追加，历史v25–v34保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-23。适用 schema 35（RC03前向追加，历史v25–v34保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -74,6 +74,8 @@ THREADED_RELEASE_MEMBERS_FILE=/受保护的部署目录/threaded-release-pack.js
 如选择首批生产命令，按[命令与等待合同](../architecture/threaded-commands-hold-production-v1.md)准备受保护的公开注册JSON，通过 `THREADED_COMMAND_REGISTRATIONS_FILE` 加载。固定工程根、已grant的Thread/成员、成员workspace、专用输出cwd及完整read/write声明；目录必须已存在且规范、不交叠，模型不能选择路径。当前只读工程清单程序经过执行链和输入pin，并由父进程独立核对产物；任意shell/构建/网络命令不在首批范围。`domains.commands` 不显示私密目录内容。修改已加载注册或工程输入会阻断旧端口，不能用重命名或清理unknown绕过原claim；先保留证据并按匹配版本对账。
 
 v35保留旧timer额度并建立timer/command wake共享账本；旧活跃command wake因缺历史注册时间，以一次迁移时刻保守占一小时且重启不续期；升级后既有字符串timer不补造来源或SLA，无效等待显式退休。实际旧等待处置、额度回填与恢复演练应先在备份副本核验，不能只根据schema升级成功宣称业务恢复完成。本轮没有执行日常迁移或配置。
+
+RC04的[真实事件/评审验收](../architecture/threaded-live-review-acceptance-v1.md)使用临时生产工厂和只读官方事实，与日常放行分开。GitHub新wait的受信共享audience按原来源ACL及各成员授权/身份冻结、派发复验；仍只唤醒原发起者，旧wait和普通消息tracking不自动扩大可见范围。脚本评审报告不是工程审查或远端批准，真实新事件不足时保持未验，不能作为扩大canary的依据。
 
 ## 2. 两个独立门禁与运行模式
 

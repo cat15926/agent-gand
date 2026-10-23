@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "checks": [
+    "Real enterMember + budgetedChat share the singleton coordinator; preparation/Run/Attempt do not double-charge actual model concurrency",
+    "Legacy built-in calls use the actual provider key; providerLimit=1 remains stricter than global/account limits of 3",
+    "Caller abort leaves an abort-ignoring provider unknown with its parent/capacity held; only actual promise settlement releases it and late output is discarded",
+    "Legacy workspace group is acquired atomically, including Agent; a reversed conflicting group holds no partial resource and queued cancellation leaves no claim",
+    "Actual legacy member admission and metadata-prepared Threaded tickets share one FIFO exclusive barrier; release wakes the old waiter before a newer Thread",
+    "Native release uses persisted process ownership: an active process remains unknown; a stopped guardian record allows verified cleanup of child and parent without launching a process",
+    "Turn-scoped transient native preparation indexes and locks its preallocated native ID without transcript storage or invocation; conflicting use is blocked and unexpected IDs require reconciliation",
+    "Scoped ephemeral native preparation keeps its isolated home and preallocated native-ID lock without transcript storage or invocation; mismatched IDs reconcile and unstarted cleanup is verified",
+    "A new child-directory write claim excludes legacy raw parent-directory reads/writes; ancestor read/read sharing remains allowed",
+    "Raw live leases survive expiry and reject duplicate read holders; an old release callback cannot erase a later lease with the same holder and a new owner nonce",
+    "Raw leases with expired/stale service ownership retain an active native-process fence; cleanup succeeds only after the process ledger is stopped"
+  ],
+  "groups": 11,
+  "networkCalls": 0,
+  "scope": "T04 legacy bridge with isolated SQLite and controlled fake provider/process records only; no real model or native process execution"
+}

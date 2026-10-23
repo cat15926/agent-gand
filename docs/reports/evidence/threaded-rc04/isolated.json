@@ -1,0 +1,629 @@
+{
+  "ok": true,
+  "status": "passed_isolated_protocol_only",
+  "checkedAt": "2026-10-22T16:23:34.470Z",
+  "checks": 9,
+  "coverage": [
+    "RC04-01: actual production composition without isolated-worker authority bypass establishes one canonical Action, an old-HEAD local approved gate and an exact no-wake tracking baseline; unchanged injected HEAD cannot satisfy live-event acceptance",
+    "RC04-02: actual SQLite close/reopen and production factory rebuild preserve the original root, canonical Action, review evidence, baseline and callback IDs with zero provider GET or scripted model replay",
+    "RC04-03: one injected new HEAD produces exactly one ordinary tracking wake; repeated refresh and a restored saved stage reuse the same event, callback and message without duplicate delivery",
+    "RC04-04: the original author consumes the first ordinary wake under the original causal root, invalidates old approved HEAD, starts generation 2, receives a different reviewer changes request with two findings, completes delivery without approval and registers a second exact-HEAD baseline",
+    "RC04-05: only the first natural-event stage would be partially_observed; an unchanged second baseline, repeated recover and rebuild cannot approve author attestations or manufacture a second wake",
+    "RC04-06: the second new HEAD yields one second wake; exact responses attest every stable finding ID under the same root, independent current-HEAD review verifies all findings, typed responsibility completion and a live local gate establish approval only for generation 3 and the new accepted source",
+    "RC04-07: the passed saved stage restores the original SQLite workflow without model/provider replay or duplicate review/revision, and persisted/public evidence excludes the injected credential bytes",
+    "RC04-08: a newer provider HEAD arriving after a tracking wake but before revision is explicitly head_moved/failed; a fresh fact cannot be substituted to claim the observed-event chain passed",
+    "RC04-09: provider unavailability after the first observed event prevents revision/gate success; real GET failures cannot be treated as independent review approval"
+  ],
+  "evidenceLayer": "All provider HEAD facts and model responses are injected; actual production composition/authority, temporary SQLite and independent local-review protocol are exercised. This is not real engineering review, real GitHub new-event acceptance or production activation.",
+  "injectedProviderReads": 47,
+  "inMemoryFixtureCredentialChecks": 543,
+  "realProviderReads": 0,
+  "forbiddenNetworkRequests": 0,
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "realExternalWrites": 0,
+  "productionOpened": false,
+  "fullChain": {
+    "name": "full-chain",
+    "repository": "fixture/rc04",
+    "number": 4,
+    "stage": "passed",
+    "ownerId": "00810112-ea4d-482b-b2c9-8539375997c9",
+    "threadId": "179fb699-6718-4bed-a53d-f2c01cccd882",
+    "rootId": "81ad53b0-a28c-4268-8df6-0f22b1e15acd",
+    "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+    "canonicalActionCount": 1,
+    "protocolLayer": "Actual production composition/authority and SQLite; local scripted model replies and local independent-review protocol assertions only",
+    "fixtureConfiguration": {
+      "modelReplyTimeoutMs": 120000,
+      "maxInputTokens": 65536,
+      "applicationTools": [
+        "transfer_action",
+        "review_context",
+        "submit_review",
+        "complete_action",
+        "check_review_gate",
+        "start_review_revision",
+        "track_event"
+      ],
+      "activityAllowanceMs": 10000,
+      "defaultActivityBoundary": {
+        "activityAllowanceMs": 1000,
+        "previousIsolatedFailure": "THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED",
+        "scope": "Synchronous full-contract preparation exceeded the initial activity slice before scripted transport; default production guard remains unchanged"
+      },
+      "activityPolicy": "Explicit disposable Owner revision through budget.reviseRoot; total activity/token/cost/invocation caps retain defaults"
+    },
+    "realModelCalls": 0,
+    "realModelTokens": 0,
+    "realExternalWrites": 0,
+    "scriptedCalls": 10,
+    "providerReads": 29,
+    "credentialReads": 335,
+    "productionOpened": false,
+    "chain": {
+      "heads": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "cccccccccccccccccccccccccccccccccccccccc"
+      ],
+      "waits": [
+        {
+          "index": 1,
+          "waitId": "25b5e790-bbeb-44ec-b6d9-98ce19ebbf6d",
+          "baselineHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "baselineEventSeq": 1,
+          "rootId": "81ad53b0-a28c-4268-8df6-0f22b1e15acd",
+          "registeredFromMessageId": "0ee6426e-f79c-4bc6-833f-cbbe0d42b263",
+          "observed": {
+            "newHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "eventSeq": 3,
+            "callbackId": "16468ee8-b0dc-4afa-b8ce-1f878cca9fee",
+            "messageId": "c4f53032-ba3f-4e4c-8b19-7b538fb827d9"
+          }
+        },
+        {
+          "index": 2,
+          "waitId": "ffadd865-06c2-42b8-ac2b-9ba0b5fec526",
+          "baselineHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "baselineEventSeq": 3,
+          "rootId": "81ad53b0-a28c-4268-8df6-0f22b1e15acd",
+          "registeredFromMessageId": "027a70c2-0d68-4c5e-9ffa-c05344912cb6",
+          "observed": {
+            "newHead": "cccccccccccccccccccccccccccccccccccccccc",
+            "eventSeq": 4,
+            "callbackId": "072e4314-56eb-4a2c-b108-96abf3e68fcd",
+            "messageId": "5436bd89-0bc0-4bf0-90ac-a73ddb280c66"
+          }
+        }
+      ],
+      "gates": [
+        {
+          "label": "old-head-approved",
+          "checkId": "36272101-955d-4dd7-8ea5-289d037f8178",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 1,
+          "workflowVersion": 1,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "approved",
+          "approvalGateSatisfied": true,
+          "reasons": [],
+          "checkedAt": 1792686201028,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "old-approved-invalidated",
+          "checkId": "0527c412-1034-44f7-9f78-017eeb185802",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 1,
+          "workflowVersion": 1,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "status": "stale",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "HEAD_OR_GENERATION_CHANGED"
+          ],
+          "checkedAt": 1792686202043,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "delivery-complete-is-not-approval",
+          "checkId": "2f546bab-3c0c-45aa-9c72-414dccdaffd5",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 2,
+          "workflowVersion": 3,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "blocked",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "REQUIRED_REVIEW_NOT_APPROVED",
+            "FINDINGS_NOT_INDEPENDENTLY_VERIFIED"
+          ],
+          "checkedAt": 1792686202811,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "changes-requested-head-stale",
+          "checkId": "30c053a2-d554-4f47-8e60-a676178f01d7",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 2,
+          "workflowVersion": 3,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "status": "stale",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "HEAD_OR_GENERATION_CHANGED"
+          ],
+          "checkedAt": 1792686206515,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "author-attestation-is-not-verification",
+          "checkId": "06cff3d9-05f1-40ee-8d6f-86e986cf2bf0",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 3,
+          "workflowVersion": 4,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "status": "blocked",
+          "approvalGateSatisfied": false,
+          "reasons": [
+            "REVIEW_RESPONSIBILITY_NOT_COMPLETED",
+            "REQUIRED_REVIEW_NOT_APPROVED",
+            "FINDINGS_NOT_INDEPENDENTLY_VERIFIED"
+          ],
+          "checkedAt": 1792686210043,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        },
+        {
+          "label": "fresh-head-findings-verified",
+          "checkId": "6cc3f91b-632a-4e85-9bc1-73c5b243c2f0",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 3,
+          "workflowVersion": 5,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "status": "approved",
+          "approvalGateSatisfied": true,
+          "reasons": [],
+          "checkedAt": 1792686210479,
+          "scope": "local_independent_review",
+          "externalApprovalGranted": false
+        }
+      ],
+      "reports": [
+        {
+          "label": "initial-approved",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 1,
+          "version": 1,
+          "evidenceId": "2aeef829-d27a-42e8-a95d-d7076a935320",
+          "messageId": "0ee6426e-f79c-4bc6-833f-cbbe0d42b263",
+          "findingIds": [],
+          "verdict": "approved",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "authorAgentId": "full-chain-author",
+          "reviewerAgentId": "full-chain-reviewer",
+          "acceptedSourceMessageId": "f68e8166-5d6b-444d-9e76-5f82a1448d04",
+          "acceptedRevision": 2,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        },
+        {
+          "label": "changes-requested",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 2,
+          "version": 3,
+          "evidenceId": "6b6e6cab-8088-447a-b9bd-b1ed738c0353",
+          "messageId": "027a70c2-0d68-4c5e-9ffa-c05344912cb6",
+          "findingIds": [
+            "6b6e6cab-8088-447a-b9bd-b1ed738c0353:0",
+            "6b6e6cab-8088-447a-b9bd-b1ed738c0353:1"
+          ],
+          "verdict": "changes_requested",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "authorAgentId": "full-chain-author",
+          "reviewerAgentId": "full-chain-reviewer",
+          "acceptedSourceMessageId": "f721bd83-261f-495e-bda1-fbdba61e9fac",
+          "acceptedRevision": 11,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        },
+        {
+          "label": "independent-re-review",
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 3,
+          "version": 5,
+          "evidenceId": "dc062628-4062-4c04-9275-ea8c231eb116",
+          "messageId": "6eae863d-2607-4dc0-93e7-1a35b8f36378",
+          "findingIds": [
+            "6b6e6cab-8088-447a-b9bd-b1ed738c0353:0",
+            "6b6e6cab-8088-447a-b9bd-b1ed738c0353:1"
+          ],
+          "verdict": "approved",
+          "actionCompleted": false,
+          "approvalGateSatisfied": false,
+          "headSha": "cccccccccccccccccccccccccccccccccccccccc",
+          "authorAgentId": "full-chain-author",
+          "reviewerAgentId": "full-chain-reviewer",
+          "acceptedSourceMessageId": "d9e8d0f2-b9fc-4288-868e-117840ccfc8a",
+          "acceptedRevision": 20,
+          "responsibilityCompleted": true,
+          "substantiveCodeReview": false
+        }
+      ],
+      "revisions": [
+        {
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 2,
+          "version": 2,
+          "claimId": "2c421061-51d5-47e3-a120-e8283c6ad161",
+          "messageId": "c75ca647-12ef-450e-b566-8bdf9afd0ead",
+          "verification": "attested",
+          "approvalGateSatisfied": false,
+          "oldHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "newHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "responses": []
+        },
+        {
+          "actionId": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 3,
+          "version": 4,
+          "claimId": "be8d0240-d68f-460a-885c-96a23d075913",
+          "messageId": "d90632ef-20ea-4127-be2c-c80827eac9eb",
+          "verification": "attested",
+          "approvalGateSatisfied": false,
+          "oldHead": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "newHead": "cccccccccccccccccccccccccccccccccccccccc",
+          "responses": [
+            {
+              "findingId": "6b6e6cab-8088-447a-b9bd-b1ed738c0353:0",
+              "body": "Scripted local author attestation only; fresh independent verification is still required.",
+              "disposition": "addressed"
+            },
+            {
+              "findingId": "6b6e6cab-8088-447a-b9bd-b1ed738c0353:1",
+              "body": "Scripted local author attestation only; fresh independent verification is still required.",
+              "disposition": "addressed"
+            }
+          ]
+        }
+      ],
+      "rebuilds": [
+        {
+          "stage": "await_first_head",
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 4,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        },
+        {
+          "stage": "await_first_head",
+          "restoredFromSavedStage": true,
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 0,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        },
+        {
+          "stage": "await_second_head",
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 4,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        },
+        {
+          "stage": "passed",
+          "restoredFromSavedStage": true,
+          "actualDatabaseReopened": true,
+          "productionFactoryRebuilt": true,
+          "providerReads": 0,
+          "memoryCredentialChecks": 0,
+          "scriptedCalls": 0,
+          "duplicateCallbacks": 0,
+          "duplicateReviews": 0
+        }
+      ],
+      "acceptedSources": [
+        {
+          "generation": 1,
+          "messageId": "f68e8166-5d6b-444d-9e76-5f82a1448d04",
+          "revision": 2
+        },
+        {
+          "generation": 2,
+          "messageId": "f721bd83-261f-495e-bda1-fbdba61e9fac",
+          "revision": 11
+        },
+        {
+          "generation": 3,
+          "messageId": "d9e8d0f2-b9fc-4288-868e-117840ccfc8a",
+          "revision": 20
+        }
+      ],
+      "retries": [
+        {
+          "kind": "review",
+          "label": "initial-approved",
+          "evidenceId": "2aeef829-d27a-42e8-a95d-d7076a935320",
+          "duplicateEvidence": false
+        },
+        {
+          "kind": "revision",
+          "claimId": "2c421061-51d5-47e3-a120-e8283c6ad161",
+          "duplicateClaim": false
+        },
+        {
+          "kind": "review",
+          "label": "changes-requested",
+          "evidenceId": "6b6e6cab-8088-447a-b9bd-b1ed738c0353",
+          "duplicateEvidence": false
+        },
+        {
+          "kind": "revision",
+          "claimId": "be8d0240-d68f-460a-885c-96a23d075913",
+          "duplicateClaim": false
+        },
+        {
+          "kind": "review",
+          "label": "independent-re-review",
+          "evidenceId": "dc062628-4062-4c04-9275-ea8c231eb116",
+          "duplicateEvidence": false
+        }
+      ]
+    },
+    "durableIdentity": {
+      "callbacks": [
+        {
+          "id": "62c10af0-f887-418a-8c7a-f61a7cd5f830",
+          "source_id": "action-completed:4ee41def-5bde-49f9-948a-6faa0a22468e:1",
+          "state": "delivered",
+          "message_id": "bca0f36a-6fa7-4b72-86dd-ac5961d7f3eb"
+        },
+        {
+          "id": "16468ee8-b0dc-4afa-b8ce-1f878cca9fee",
+          "source_id": "25b5e790-bbeb-44ec-b6d9-98ce19ebbf6d",
+          "state": "delivered",
+          "message_id": "c4f53032-ba3f-4e4c-8b19-7b538fb827d9"
+        },
+        {
+          "id": "25915fe5-c126-4cb4-b30f-6fe15a4b95b1",
+          "source_id": "action-completed:4ee41def-5bde-49f9-948a-6faa0a22468e:2",
+          "state": "delivered",
+          "message_id": "687ab2f4-d836-428f-b8f3-74bbd76a1231"
+        },
+        {
+          "id": "072e4314-56eb-4a2c-b108-96abf3e68fcd",
+          "source_id": "ffadd865-06c2-42b8-ac2b-9ba0b5fec526",
+          "state": "delivered",
+          "message_id": "5436bd89-0bc0-4bf0-90ac-a73ddb280c66"
+        },
+        {
+          "id": "9cd9f5f6-c6b9-4553-9d33-ecda542851aa",
+          "source_id": "action-completed:4ee41def-5bde-49f9-948a-6faa0a22468e:3",
+          "state": "delivered",
+          "message_id": "7a2776fb-6441-4758-92eb-e60a1b904c63"
+        }
+      ],
+      "events": [
+        {
+          "seq": 1
+        },
+        {
+          "seq": 2
+        },
+        {
+          "seq": 3
+        },
+        {
+          "seq": 4
+        }
+      ],
+      "messages": [
+        {
+          "id": "81ad53b0-a28c-4268-8df6-0f22b1e15acd"
+        },
+        {
+          "id": "f68e8166-5d6b-444d-9e76-5f82a1448d04"
+        },
+        {
+          "id": "5e2a2422-d456-41dc-9ab8-a0cfdc335f39"
+        },
+        {
+          "id": "0ee6426e-f79c-4bc6-833f-cbbe0d42b263"
+        },
+        {
+          "id": "bca0f36a-6fa7-4b72-86dd-ac5961d7f3eb"
+        },
+        {
+          "id": "4c21627d-290e-4d33-9f54-5f92cf9ffbf7"
+        },
+        {
+          "id": "bec515c3-cae9-458b-9a63-e4bdc2e52530"
+        },
+        {
+          "id": "c4f53032-ba3f-4e4c-8b19-7b538fb827d9"
+        },
+        {
+          "id": "23887436-bc15-4eb5-b830-1a1df425b434"
+        },
+        {
+          "id": "c75ca647-12ef-450e-b566-8bdf9afd0ead"
+        },
+        {
+          "id": "f721bd83-261f-495e-bda1-fbdba61e9fac"
+        },
+        {
+          "id": "ce23d8a9-8520-4a0e-b2c6-e9a3ac4b9f83"
+        },
+        {
+          "id": "027a70c2-0d68-4c5e-9ffa-c05344912cb6"
+        },
+        {
+          "id": "687ab2f4-d836-428f-b8f3-74bbd76a1231"
+        },
+        {
+          "id": "75716fdd-235d-4b77-a022-86e59d31afb7"
+        },
+        {
+          "id": "e7fbef8b-92a7-4fb9-ba66-fca65507d3b7"
+        },
+        {
+          "id": "5436bd89-0bc0-4bf0-90ac-a73ddb280c66"
+        },
+        {
+          "id": "23911fb6-c083-4f82-9ace-a6b07b2f53aa"
+        },
+        {
+          "id": "d90632ef-20ea-4127-be2c-c80827eac9eb"
+        },
+        {
+          "id": "d9e8d0f2-b9fc-4288-868e-117840ccfc8a"
+        },
+        {
+          "id": "e4b73767-4460-439a-a25d-ee3b5e802ce2"
+        },
+        {
+          "id": "6eae863d-2607-4dc0-93e7-1a35b8f36378"
+        },
+        {
+          "id": "7a2776fb-6441-4758-92eb-e60a1b904c63"
+        },
+        {
+          "id": "6c4819b7-6ee6-452b-9812-61b73c0bcd78"
+        }
+      ],
+      "reports": [
+        {
+          "evidence_id": "2aeef829-d27a-42e8-a95d-d7076a935320"
+        },
+        {
+          "evidence_id": "6b6e6cab-8088-447a-b9bd-b1ed738c0353"
+        },
+        {
+          "evidence_id": "dc062628-4062-4c04-9275-ea8c231eb116"
+        }
+      ],
+      "versions": [
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "version": 1
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "version": 2
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "version": 3
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "version": 4
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "version": 5
+        }
+      ],
+      "claims": [
+        {
+          "id": "2c421061-51d5-47e3-a120-e8283c6ad161"
+        },
+        {
+          "id": "be8d0240-d68f-460a-885c-96a23d075913"
+        }
+      ],
+      "generations": [
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 1
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 2
+        },
+        {
+          "action_id": "4ee41def-5bde-49f9-948a-6faa0a22468e",
+          "generation": 3
+        }
+      ],
+      "terminals": [
+        {
+          "invocation_id": "fc066d99-2ef5-4f2e-90b2-d7cf2c5ccf8c"
+        },
+        {
+          "invocation_id": "baecc221-d6e3-443a-bc49-8e6bf9f3b94e"
+        },
+        {
+          "invocation_id": "02ca312d-2623-443e-b0df-60a7fc7b571f"
+        },
+        {
+          "invocation_id": "7c781139-5638-4189-9935-5e8ccb1c6299"
+        },
+        {
+          "invocation_id": "1a2d35af-ed4b-4a68-b032-3e5247aeeef2"
+        },
+        {
+          "invocation_id": "e6543b99-bd2f-42b4-85d9-19c5957ed7c5"
+        },
+        {
+          "invocation_id": "a51bc351-94d7-4839-bcdb-336f5704b8b2"
+        },
+        {
+          "invocation_id": "7b80a037-abf9-499d-a91e-950bf2a8e0ee"
+        },
+        {
+          "invocation_id": "aaa39e67-d191-4de2-ad0a-c99dc8b76ebd"
+        },
+        {
+          "invocation_id": "15a0941d-63db-4714-8db0-b6847df2657a"
+        }
+      ]
+    },
+    "foreignKeyViolations": 0,
+    "counts": {
+      "trackingCallbacks": 2,
+      "reviewReports": 3,
+      "revisionClaims": 2
+    }
+  },
+  "headMoved": {
+    "code": "RC04_HEAD_MOVED_DURING_REVISION",
+    "atStage": "await_first_head",
+    "locations": [
+      "213:55",
+      "72:24",
+      "104:20",
+      "207:7",
+      "160:54"
+    ]
+  },
+  "unavailable": {
+    "code": "RC04_LIVE_GATE_UNVERIFIABLE",
+    "atStage": "await_first_head",
+    "locations": [
+      "118:85",
+      "208:9",
+      "72:24",
+      "104:20",
+      "207:7"
+    ]
+  }
+}

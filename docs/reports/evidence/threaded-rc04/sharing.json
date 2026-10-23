@@ -1,0 +1,91 @@
+{
+  "ok": true,
+  "scope": "Actual runtime cooperation SQLite callbacks messages and source ACL using a server custom GitHub sharing policy with scripted model replies; production registration deliveryAuthorization is separately covered by six dedicated groups",
+  "completedAt": "2026-10-22T16:09:20.790Z",
+  "groups": 7,
+  "checks": [
+    "RC04-S01: generic tracking source without a server sharing policy stays caller-only private in actual cooperation SQLite callback and message ACL",
+    "RC04-S02: built-in thread_messages tracking remains caller-only private and does not inherit GitHub domain sharing",
+    "RC04-S03: trusted GitHub sharing intersects the private original source audience and excludes another currently authorized registered member",
+    "RC04-S04: a settled paused callback rejects changed captured recipient authority on resume and creates zero messages or wakes",
+    "RC04-S05: a settled paused callback separately rejects changed recipient member identity even when the custom source authority string is unchanged",
+    "RC04-S06: a new recipient grant after wait registration cannot join its frozen audience or read the delivered callback",
+    "RC04-S07: installing a sharing policy after a wait was registered cannot broaden an old record that captured no sharing authority"
+  ],
+  "proofs": [
+    {
+      "case": "generic-default",
+      "waitId": "272b4845-d476-4645-9614-ed5cfed9db08",
+      "callbackId": "1d0357c5-647b-4c63-8803-c4a1590434af",
+      "messageId": "382faa59-c7c4-4727-84c1-aadbd98f4ce3",
+      "audience": [
+        "api-member"
+      ]
+    },
+    {
+      "case": "thread-message-default",
+      "waitId": "c17fc940-af90-4e85-aa73-7c62f0cc972a",
+      "callbackId": "28531faa-9cfa-47ff-9c5c-36fd10cb9e9c",
+      "messageId": "31caf87d-1223-425d-9506-6a86be82fe83",
+      "audience": [
+        "api-member"
+      ]
+    },
+    {
+      "case": "private-original-intersection",
+      "waitId": "889b68bd-1e9f-49cf-af89-f06d8fd0c4ef",
+      "originalSourceId": "350c9a4d-5d0f-464d-b7bc-a80af7a0bd64",
+      "callbackId": "4580a5e5-470e-49bd-9420-669fdf2ae3a0",
+      "messageId": "4b03c0e6-08f1-4cc5-9e95-ad92630d9b1b",
+      "audience": [
+        "api-member",
+        "reviewer"
+      ]
+    },
+    {
+      "case": "recipient-authority",
+      "waitId": "197098bc-f891-437a-90d2-1bafa43eac75",
+      "callbackId": "a0e72483-8f6e-4adf-bc56-b954648acb8c",
+      "state": "rejected",
+      "reason": "THREADED_TRACKING_DELIVERY_AUTHORITY_CHANGED",
+      "newMessages": 0,
+      "newWakes": 0
+    },
+    {
+      "case": "recipient-identity",
+      "waitId": "a7bb5408-2bd5-46b4-9a45-3500f3a29d98",
+      "callbackId": "b3eab25f-8868-4cd6-ac34-005624e1cde2",
+      "state": "rejected",
+      "reason": "THREADED_TRACKING_DELIVERY_AUTHORITY_CHANGED",
+      "newMessages": 0,
+      "newWakes": 0
+    },
+    {
+      "case": "new-recipient-not-retroactive",
+      "waitId": "97751f72-c000-425b-b07d-9fb679b45e71",
+      "callbackId": "b2e64f13-4b5a-47a1-9151-bf484fad01ee",
+      "messageId": "478f29d4-4913-4dea-b0dd-5c5119672aaa",
+      "audience": [
+        "api-member",
+        "reviewer"
+      ]
+    },
+    {
+      "case": "no-policy-record-not-upgraded",
+      "waitId": "07ee2875-d4fc-4a00-a32f-d4442d892fb2",
+      "callbackId": "71ec907f-6dea-47fd-a018-54a865b764b0",
+      "messageId": "02ca9528-b5c2-4dc9-b422-c8cd495984dd",
+      "audience": [
+        "api-member"
+      ]
+    }
+  ],
+  "scriptedModelCalls": 7,
+  "realCredentialReads": 0,
+  "realNetworkRequests": 0,
+  "realModelCalls": 0,
+  "realExternalWrites": 0,
+  "limits": [
+    "Source PR facts and sharing grants in this test are injected server fixtures; this does not establish real GitHub new HEAD observation or production engineering review acceptance."
+  ]
+}

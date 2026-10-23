@@ -205,6 +205,23 @@ export function loadThreadedProductionGithub(options:{file?:string;ownerId:strin
     catch(error){if(error instanceof ThreadedAuthorityError)throw error;fail('THREADED_GITHUB_UNVERIFIABLE');}
   }};
   const tracking:ThreadedTrackingSource={authorization(scope,value){const p=parsed(scope,value);return p?authorize(scope,p.repository)?.fingerprint??null:null;},
+    deliveryAuthorization(scope,value){
+      const p=parsed(scope,value);if(!p)return null;
+      const caller={ownerId:scope.ownerId,threadId:scope.threadId,agentId:scope.agentId};
+      const callerAuthorization=authorize(caller,p.repository);if(!callerAuthorization)return null;
+      const entry=registered(caller,p.repository);if(!entry)return null;
+      const recipients=Object.create(null) as Record<string,string>;
+      for(const actor of entry.repo.actors){
+        const recipient={ownerId:caller.ownerId,threadId:caller.threadId,agentId:actor.agentId};
+        const authorization=authorize(recipient,p.repository);
+        if(authorization)recipients[actor.agentId]=authorization.fingerprint;
+      }
+      // A registration/credential/member callback may fence the provider during
+      // these synchronous checks. Never publish an audience without its caller.
+      if(recipients[caller.agentId]!==callerAuthorization.fingerprint
+        ||authorize(caller,p.repository)?.fingerprint!==callerAuthorization.fingerprint)return null;
+      return recipients;
+    },
     async observe(scope,value,previous){
       const p=parsed(scope,value);if(!p)fail('THREADED_GITHUB_SUBJECT_NOT_AUTHORIZED');
       assertOutsideTransaction();

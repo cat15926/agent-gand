@@ -204,7 +204,13 @@
     "verify:threaded-production-commands": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-production-commands.mjs",
     "verify:threaded-rc03-waits": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc03-waits.mjs",
     "verify:threaded-rc03-command-admission": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc03-command-admission.mjs",
-    "verify:threaded-rc03-production": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc03-production.mjs"
+    "verify:threaded-rc03-production": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc03-production.mjs",
+    "verify:threaded-rc04-transport": "node scripts/verify-threaded-rc04-transport.mjs",
+    "verify:threaded-rc04": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04.mjs",
+    "verify:threaded-rc04-live": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-live.mjs",
+    "verify:threaded-rc04-delivery-authorization": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-delivery-authorization.mjs",
+    "verify:threaded-rc04-sharing": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-sharing.mjs",
+    "verify:threaded-rc04-process": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-process.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

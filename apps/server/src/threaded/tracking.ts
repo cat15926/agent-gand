@@ -7,6 +7,9 @@ export type TrackingScope={ownerId:string;threadId:string;agentId:string};
 export interface ThreadedTrackingSource {
   /** Current immutable authority/configuration fingerprint, or null when access is denied. */
   authorization(scope:TrackingScope,subject:string):string|null;
+  /** Optional trusted domain sharing policy. Missing means caller-only private delivery.
+   * Each recipient needs its own current scoped authority; no model selects this audience. */
+  deliveryAuthorization?(scope:TrackingScope,subject:string):Record<string,string>|null;
   /** Read live facts outside any SQLite transaction; no caller-provided URL or credentials. */
   observe(scope:TrackingScope,subject:string,previous?:Record<string,unknown>):Promise<Array<{key:string;event:Record<string,unknown>}>>;
 }

@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "task": "RC04",
+  "baseline": "ee751a38d2596bf86066eafccc4615a74290cb94",
+  "baselineCommittedAndPushed": true,
+  "changesCommittedAtCapture": false,
+  "implementation": "delivered within documented scope",
+  "liveAcceptance": "not_observed; incomplete; two natural HEAD transitions still required",
+  "codeSchemaVersion": 35,
+  "schemaMigrationsChanged": false,
+  "groups": 108,
+  "newGroups": 38,
+  "regressionGroups": 70,
+  "live": {
+    "evidence": "live-2026-10-23.json",
+    "summary": "live-summary.json",
+    "elapsedSeconds": 609,
+    "officialGets": 71,
+    "polls": 17,
+    "prFacts": 66,
+    "observedHeadChanges": 0,
+    "targetCount": 3,
+    "actualPids": 6,
+    "actualSigkills": 3,
+    "extraGetsDuringRestore": 0,
+    "scriptedModelReplaysDuringRestore": 0
+  },
+  "realModelRequests": 0,
+  "realModelTokens": 0,
+  "rc04RemoteWrites": 0,
+  "dailyProductionOpened": false,
+  "dailyConfigurationChanged": false,
+  "dailyDatabaseAccessed": false,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "isolatedFixtureActivityAllowanceMs": 10000,
+  "coreRules": 16,
+  "originalScenariosAndExpected": 59,
+  "originalTextsUnchanged": true,
+  "originalTextArtifact": "original-text-invariance.json",
+  "suites": [
+    {
+      "name": "transport",
+      "groups": 12,
+      "passed": true,
+      "evidence": "transport.json",
+      "sha256": "4c30f298145aadb15a939309e15771f1887951714b221eb6cfab221fb3f73624"
+    },
+    {
+      "name": "delivery-authorization",
+      "groups": 6,
+      "passed": true,
+      "evidence": "delivery-authorization.json",
+      "sha256": "a3ccddebcfa5c7334a73a8c03f8626d389e76c144048fc885c88de60b8b1e091"
+    },
+    {
+      "name": "sharing",
+      "groups": 7,
+      "passed": true,
+      "evidence": "sharing.json",
+      "sha256": "06ded3ccb90917b602beb67ab2b5d15387093b03103c7c980543e815f5f22429"
+    },
+    {
+      "name": "continuous-isolated-chain",
+      "groups": 9,
+      "passed": true,
+      "evidence": "isolated.json",
+      "sha256": "b77d9bf53ae2b711d57a6ada0c1fa9f337fcdaa6f9f262ce9311276f947ca255"
+    },
+    {
+      "name": "actual-pid-process",
+      "groups": 4,
+      "passed": true,
+      "evidence": "process.json",
+      "sha256": "48c9d1a779ff047a8b48a2eddee1bf143ee669da886b8ffb76efb2fccaadb395"
+    },
+    {
+      "name": "collaboration-regression",
+      "groups": 17,
+      "passed": true,
+      "evidence": "regressions/collaboration.json",
+      "sha256": "3104f0a868a1acc6e55ab1a753217314fee3307f2d68bb16c4491dbcfb98fa49"
+    },
+    {
+      "name": "github-regression",
+      "groups": 18,
+      "passed": true,
+      "evidence": "regressions/github.json",
+      "sha256": "028312e3e32f092c2230420886930cd2c3c99aa513fc9a27cf0307bfa469772d"
+    },
+    {
+      "name": "actions-regression",
+      "groups": 12,
+      "passed": true,
+      "evidence": "regressions/actions.json",
+      "sha256": "978e479f8b9d3a118aa2a32886ba7a994c11d851907dccfcaf86798e6a59e68e"
+    },
+    {
+      "name": "reviews-regression",
+      "groups": 9,
+      "passed": true,
+      "evidence": "regressions/reviews.json",
+      "sha256": "82677803c7d4ebed4c2643f6410dc207e2ec19f3cceed35dcb88f224578246e4"
+    },
+    {
+      "name": "rc03-waits-regression",
+      "groups": 14,
+      "passed": true,
+      "evidence": "regressions/rc03-waits.json",
+      "sha256": "707476a70b4c22a494f6b415e41c725d19efc9425ffba2738957aa60fa5326cc"
+    }
+  ],
+  "files": [
+    {
+      "path": "apps/server/src/threaded/collaboration.ts",
+      "sha256": "fd5c481dd76ca2cd663d61c13f56d90518aeda2a3c73992bc3d589c9b3c69ede"
+    },
+    {
+      "path": "apps/server/src/threaded/cooperation.ts",
+      "sha256": "2206fface2cb02d0f683c745985a47d74ed5a8ded63ce0e2f917f0b99ccb7116"
+    },
+    {
+      "path": "apps/server/src/threaded/productionGithub.ts",
+      "sha256": "ac7d4e570284248044b6da43dea08e42845dda65cd6f9be8dddf726d567164da"
+    },
+    {
+      "path": "apps/server/src/threaded/tracking.ts",
+      "sha256": "ab95dd291a1675f3d31f8f803e7bedf93b7cef9f5a55cc92b33ca2569e222706"
+    },
+    {
+      "path": "docs/architecture/threaded-github-production-v1.md",
+      "sha256": "c0868ea50baeb979a32caa9233188dadc441ef83bfa41e4897b0cc6523e67da8"
+    },
+    {
+      "path": "docs/architecture/threaded-live-review-acceptance-v1.md",
+      "sha256": "6425e5ddd9ed15367b39ae067a24693b51a954c344fb42083e605a8ce6c81b5e"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "sha256": "dcbf22eec27d5b95e2bd1618c9731d2ce91a0cc1d765ec3c44e3dda2fc9d27b1"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "sha256": "f9f3296c8391b22a55a394e489978f05a91dcbce63e39b3578db920c977fb636"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "sha256": "990df2254615892f4f80316ec2ec091d3f13adc9a0b8283601f4d44c5a4c4054"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "sha256": "84ab52b5a7628723a805a1dbf4de2bc9b87edb0399d4a4ad038529eb19edb9fb"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "sha256": "e1daca7a13ad48b49fc1bb776ffa5deec565e95c914d134b72b4243b01cf042d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/delivery-authorization.json",
+      "sha256": "a3ccddebcfa5c7334a73a8c03f8626d389e76c144048fc885c88de60b8b1e091"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/development-findings.json",
+      "sha256": "618a107c68cada1d58a3a1e7c5ec39b33be9b7a2d31d54d359b73c11a0800068"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/isolated.json",
+      "sha256": "b77d9bf53ae2b711d57a6ada0c1fa9f337fcdaa6f9f262ce9311276f947ca255"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/live-2026-10-23.json",
+      "sha256": "a892cfb9e94b72c5117726b0a3f7ede97c3674d0ca49913428121be3936d4c3c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/live-summary.json",
+      "sha256": "4e15fba538282c995a9f5f7f7d06d4ac70464200d3c96b4db67c6ee863421b17"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/original-text-invariance.json",
+      "sha256": "b9cc766fd1943239f831dec012e0c0646be60ab2c6f91d686aadadc64310e66b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/process.json",
+      "sha256": "48c9d1a779ff047a8b48a2eddee1bf143ee669da886b8ffb76efb2fccaadb395"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/rc03-log-retention/legacy-resources-sandbox-first.txt",
+      "sha256": "8dfbc7e319d4f69629c6f8e0a690abbb6098b222a0f949a8f29c5dc4c908c482"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/rc03-log-retention/manifest.json",
+      "sha256": "0c41944c8e832fed67927cc5fff03772dd093ed938818766646e8a27da4fafc8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/rc03-log-retention/verify-legacy-resources-escalated.txt",
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/rc03-log-retention/verify-threaded-resource-integration.txt",
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/rc03-log-retention/verify-threaded-resources.txt",
+      "sha256": "dfba4df665e7ab4766e5721b88f28d53aaebd5d0803811de25e7780b5e5d79eb"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/regressions/actions.json",
+      "sha256": "978e479f8b9d3a118aa2a32886ba7a994c11d851907dccfcaf86798e6a59e68e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/regressions/collaboration.json",
+      "sha256": "3104f0a868a1acc6e55ab1a753217314fee3307f2d68bb16c4491dbcfb98fa49"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/regressions/github.json",
+      "sha256": "028312e3e32f092c2230420886930cd2c3c99aa513fc9a27cf0307bfa469772d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/regressions/rc03-waits.json",
+      "sha256": "707476a70b4c22a494f6b415e41c725d19efc9425ffba2738957aa60fa5326cc"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/regressions/reviews.json",
+      "sha256": "82677803c7d4ebed4c2643f6410dc207e2ec19f3cceed35dcb88f224578246e4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/sharing.json",
+      "sha256": "06ded3ccb90917b602beb67ab2b5d15387093b03103c7c980543e815f5f22429"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc04/transport.json",
+      "sha256": "4c30f298145aadb15a939309e15771f1887951714b221eb6cfab221fb3f73624"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc04-live-review-2026-10-23.md",
+      "sha256": "7bb11ecaa92ae08fa354a0b25dbd5c5ea3891c47da1e8afb780751e6bb0c00a0"
+    },
+    {
+      "path": "package.json",
+      "sha256": "14e49e25d0db41e50d3140710d78fb8a951f0f8b84b63c495fb955221e1db414"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc04Harness.mjs",
+      "sha256": "200fd4fc22cda3165bbf9df6db5707fe93787bb4d211fa47957d3637c78c918c"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc04Process.mjs",
+      "sha256": "31c4fa42fb80fb1b138c1d75ccdcb5ae9a93d2181a3a1e3cbd0d38ec6d2dec57"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc04ProcessWorker.mjs",
+      "sha256": "3f4a4408c3d8b31430b42db512da3e74fadd8c06f32b44a1dd3d5c068d04f2d0"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc04ReadonlyGithub.mjs",
+      "sha256": "e3bf72545ee63c5215d3dc298d826d9fde08ac6c0f094bc6dbc976bee1b559bf"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04-delivery-authorization.mjs",
+      "sha256": "213138aab5ff112d5324e89839ef5c74cbd87943b06e8ecc6a41ee675bd1112b"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04-live.mjs",
+      "sha256": "342a5731f9b29f5ee2d8b0bdbef6a7693a7c05f12089522af54db661945e5a64"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04-process.mjs",
+      "sha256": "eb5b1e073845e42872bacb9fdbe08250343a39079dca62a2a3932601c0d90fa5"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04-sharing.mjs",
+      "sha256": "edaed69cb1dfc687c0aaac5bef3821cd4d523508508b9e203b84cfa02778fb58"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04-transport.mjs",
+      "sha256": "d50c098fd4c799116f01317ddd0a7548155b4650fd4549f5abd79b0b945443ba"
+    },
+    {
+      "path": "scripts/verify-threaded-rc04.mjs",
+      "sha256": "2a6de7cd0bd26650db8b0461dc75394cd5f93b420788b6ebe6f6f2a5c44cb7b5"
+    }
+  ]
+}

@@ -1,0 +1,3187 @@
+{
+  "schemaVersion": 1,
+  "task": "RC04",
+  "ok": true,
+  "status": "not_observed",
+  "startedAt": "2026-10-22T16:16:35.715Z",
+  "repository": "zts212653/clowder-ai",
+  "windowSeconds": 600,
+  "pollSeconds": 30,
+  "scope": "Official current GitHub facts and actual isolated production runtime with scripted local review producers; no substantive code-review claim or remote approval",
+  "requiredSequence": [
+    "H0 approved and baseline",
+    "natural H1 tracking wake and old approval invalidation",
+    "H1 local changes request",
+    "natural H2 per-finding revision and independent local re-review"
+  ],
+  "selected": [
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "url": "https://github.com/zts212653/clowder-ai/pull/1698",
+      "authorLogin": "mindfn",
+      "listedUpdatedAt": "2026-10-22T16:15:58Z",
+      "status": "await_first_head",
+      "snapshot": {
+        "name": "pr-1698",
+        "repository": "zts212653/clowder-ai",
+        "number": 1698,
+        "stage": "await_first_head",
+        "ownerId": "705ce3b1-219a-4748-a559-92e651e783d6",
+        "threadId": "44d7835d-67f4-4619-9c5d-f48dbcdf9825",
+        "rootId": "40a7542f-0411-4a15-8551-3b9d5e5fe4e3",
+        "actionId": "5e746a7f-1b5d-4267-9c8d-56ba50cef6da",
+        "canonicalActionCount": 1,
+        "protocolLayer": "Actual production composition/authority and SQLite; local scripted model replies and local independent-review protocol assertions only",
+        "fixtureConfiguration": {
+          "modelReplyTimeoutMs": 120000,
+          "maxInputTokens": 65536,
+          "applicationTools": [
+            "transfer_action",
+            "review_context",
+            "submit_review",
+            "complete_action",
+            "check_review_gate",
+            "start_review_revision",
+            "track_event"
+          ],
+          "activityAllowanceMs": 10000,
+          "defaultActivityBoundary": {
+            "activityAllowanceMs": 1000,
+            "previousIsolatedFailure": "THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED",
+            "scope": "Synchronous full-contract preparation exceeded the initial activity slice before scripted transport; default production guard remains unchanged"
+          },
+          "activityPolicy": "Explicit disposable Owner revision through budget.reviseRoot; total activity/token/cost/invocation caps retain defaults"
+        },
+        "realModelCalls": 0,
+        "realModelTokens": 0,
+        "realExternalWrites": 0,
+        "scriptedCalls": 3,
+        "providerReads": 23,
+        "credentialReads": 273,
+        "productionOpened": false,
+        "chain": {
+          "heads": [
+            "865ea7dd3dedb86998115f536a67a920524b2a3d"
+          ],
+          "waits": [
+            {
+              "index": 1,
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+              "baselineEventSeq": 1,
+              "rootId": "40a7542f-0411-4a15-8551-3b9d5e5fe4e3",
+              "registeredFromMessageId": "6c180d34-13b2-43ad-a08c-afedd5beebd3",
+              "observed": null
+            }
+          ],
+          "gates": [
+            {
+              "label": "old-head-approved",
+              "checkId": "109d9157-6d0c-4414-aa84-c0dfb7f0e06a",
+              "actionId": "5e746a7f-1b5d-4267-9c8d-56ba50cef6da",
+              "generation": 1,
+              "workflowVersion": 1,
+              "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+              "status": "approved",
+              "approvalGateSatisfied": true,
+              "reasons": [],
+              "checkedAt": 1792685829523,
+              "scope": "local_independent_review",
+              "externalApprovalGranted": false
+            }
+          ],
+          "reports": [
+            {
+              "label": "initial-approved",
+              "actionId": "5e746a7f-1b5d-4267-9c8d-56ba50cef6da",
+              "generation": 1,
+              "version": 1,
+              "evidenceId": "578c001d-36dc-4804-a6d4-97c71003cbbb",
+              "messageId": "6c180d34-13b2-43ad-a08c-afedd5beebd3",
+              "findingIds": [],
+              "verdict": "approved",
+              "actionCompleted": false,
+              "approvalGateSatisfied": false,
+              "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+              "authorAgentId": "pr-1698-author",
+              "reviewerAgentId": "pr-1698-reviewer",
+              "acceptedSourceMessageId": "aba9a9b0-8d0e-4dd3-befd-3fb2b0ce13ea",
+              "acceptedRevision": 2,
+              "responsibilityCompleted": true,
+              "substantiveCodeReview": false
+            }
+          ],
+          "revisions": [],
+          "rebuilds": [
+            {
+              "stage": "await_first_head",
+              "restoredFromSavedStage": true,
+              "actualDatabaseReopened": true,
+              "productionFactoryRebuilt": true,
+              "providerReads": 0,
+              "memoryCredentialChecks": 3,
+              "scriptedCalls": 0,
+              "duplicateCallbacks": 0,
+              "duplicateReviews": 0
+            }
+          ],
+          "acceptedSources": [
+            {
+              "generation": 1,
+              "messageId": "aba9a9b0-8d0e-4dd3-befd-3fb2b0ce13ea",
+              "revision": 2
+            }
+          ],
+          "retries": [
+            {
+              "kind": "review",
+              "label": "initial-approved",
+              "evidenceId": "578c001d-36dc-4804-a6d4-97c71003cbbb",
+              "duplicateEvidence": false
+            }
+          ]
+        },
+        "durableIdentity": {
+          "callbacks": [
+            {
+              "id": "16b3c89d-16b5-44d1-8146-54b251200ac8",
+              "source_id": "action-completed:5e746a7f-1b5d-4267-9c8d-56ba50cef6da:1",
+              "state": "delivered",
+              "message_id": "b8b872ac-25a2-4d83-af06-07a6bd26bdd5"
+            }
+          ],
+          "events": [
+            {
+              "seq": 1
+            },
+            {
+              "seq": 2
+            }
+          ],
+          "messages": [
+            {
+              "id": "40a7542f-0411-4a15-8551-3b9d5e5fe4e3"
+            },
+            {
+              "id": "aba9a9b0-8d0e-4dd3-befd-3fb2b0ce13ea"
+            },
+            {
+              "id": "331b224e-5208-4a3a-a3af-c5ebbb361c37"
+            },
+            {
+              "id": "6c180d34-13b2-43ad-a08c-afedd5beebd3"
+            },
+            {
+              "id": "b8b872ac-25a2-4d83-af06-07a6bd26bdd5"
+            },
+            {
+              "id": "13117ad9-5fee-48ff-8b6b-61e564606821"
+            },
+            {
+              "id": "e068cc3e-d9c2-4b11-8c70-1735ef47deed"
+            }
+          ],
+          "reports": [
+            {
+              "evidence_id": "578c001d-36dc-4804-a6d4-97c71003cbbb"
+            }
+          ],
+          "versions": [
+            {
+              "action_id": "5e746a7f-1b5d-4267-9c8d-56ba50cef6da",
+              "version": 1
+            }
+          ],
+          "claims": [],
+          "generations": [
+            {
+              "action_id": "5e746a7f-1b5d-4267-9c8d-56ba50cef6da",
+              "generation": 1
+            }
+          ],
+          "terminals": [
+            {
+              "invocation_id": "0afcdfca-8130-4441-a0c1-c4baac220006"
+            },
+            {
+              "invocation_id": "1b2b572a-0729-4b76-a026-29697be7b1f4"
+            },
+            {
+              "invocation_id": "f837f571-1f3e-4277-b757-8356a62e9d09"
+            }
+          ]
+        },
+        "foreignKeyViolations": 0,
+        "counts": {
+          "trackingCallbacks": 0,
+          "reviewReports": 1,
+          "revisionClaims": 0
+        },
+        "processEvidence": {
+          "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+          "mainIndexProcess": false,
+          "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+          "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+          "directWorkerNetworkForbidden": true,
+          "pids": [
+            {
+              "pid": 9143,
+              "restore": false,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            },
+            {
+              "pid": 9659,
+              "restore": true,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            }
+          ],
+          "restarts": [
+            {
+              "beforePid": 9143,
+              "afterPid": 9659,
+              "code": null,
+              "signal": "SIGKILL",
+              "closeObserved": true,
+              "stage": "await_first_head",
+              "preservedIdentitySha256": "4a4f7560e047c7443a080f6674f6f1fd6646e929c61cdd866f382ac321b15763",
+              "sameThread": true,
+              "sameRoot": true,
+              "sameAction": true,
+              "sameWaits": true,
+              "duplicateCallbacks": 0,
+              "duplicateReports": 0,
+              "providerGetsDuringRestore": 0,
+              "scriptedCallsDuringRestore": 0
+            }
+          ],
+          "parentProviderGets": 23,
+          "rejectedProviderRequests": 0,
+          "workerForbiddenNetworkCalls": 0
+        }
+      }
+    },
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "url": "https://github.com/zts212653/clowder-ai/pull/1701",
+      "authorLogin": "whutzefengxie-ops",
+      "listedUpdatedAt": "2026-10-22T16:14:32Z",
+      "status": "await_first_head",
+      "snapshot": {
+        "name": "pr-1701",
+        "repository": "zts212653/clowder-ai",
+        "number": 1701,
+        "stage": "await_first_head",
+        "ownerId": "c76b4d72-0a48-4903-b88f-792a27c5a3f9",
+        "threadId": "9416e501-ced6-459e-ae7d-0996d467b917",
+        "rootId": "7a522eb3-c989-4468-af3e-0febb50d4d60",
+        "actionId": "975b6a3b-94bb-4e4a-94d4-56af826f0b76",
+        "canonicalActionCount": 1,
+        "protocolLayer": "Actual production composition/authority and SQLite; local scripted model replies and local independent-review protocol assertions only",
+        "fixtureConfiguration": {
+          "modelReplyTimeoutMs": 120000,
+          "maxInputTokens": 65536,
+          "applicationTools": [
+            "transfer_action",
+            "review_context",
+            "submit_review",
+            "complete_action",
+            "check_review_gate",
+            "start_review_revision",
+            "track_event"
+          ],
+          "activityAllowanceMs": 10000,
+          "defaultActivityBoundary": {
+            "activityAllowanceMs": 1000,
+            "previousIsolatedFailure": "THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED",
+            "scope": "Synchronous full-contract preparation exceeded the initial activity slice before scripted transport; default production guard remains unchanged"
+          },
+          "activityPolicy": "Explicit disposable Owner revision through budget.reviseRoot; total activity/token/cost/invocation caps retain defaults"
+        },
+        "realModelCalls": 0,
+        "realModelTokens": 0,
+        "realExternalWrites": 0,
+        "scriptedCalls": 3,
+        "providerReads": 23,
+        "credentialReads": 273,
+        "productionOpened": false,
+        "chain": {
+          "heads": [
+            "b0374ab3d94299dc435757aa4b955189716c0f9b"
+          ],
+          "waits": [
+            {
+              "index": 1,
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+              "baselineEventSeq": 1,
+              "rootId": "7a522eb3-c989-4468-af3e-0febb50d4d60",
+              "registeredFromMessageId": "77866249-3f3d-4499-8c9b-8e73b01cb217",
+              "observed": null
+            }
+          ],
+          "gates": [
+            {
+              "label": "old-head-approved",
+              "checkId": "5457773c-a3ba-483a-a002-d64391b73850",
+              "actionId": "975b6a3b-94bb-4e4a-94d4-56af826f0b76",
+              "generation": 1,
+              "workflowVersion": 1,
+              "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+              "status": "approved",
+              "approvalGateSatisfied": true,
+              "reasons": [],
+              "checkedAt": 1792685848628,
+              "scope": "local_independent_review",
+              "externalApprovalGranted": false
+            }
+          ],
+          "reports": [
+            {
+              "label": "initial-approved",
+              "actionId": "975b6a3b-94bb-4e4a-94d4-56af826f0b76",
+              "generation": 1,
+              "version": 1,
+              "evidenceId": "c0129ae8-66d0-4d2b-97c6-15663e686331",
+              "messageId": "77866249-3f3d-4499-8c9b-8e73b01cb217",
+              "findingIds": [],
+              "verdict": "approved",
+              "actionCompleted": false,
+              "approvalGateSatisfied": false,
+              "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+              "authorAgentId": "pr-1701-author",
+              "reviewerAgentId": "pr-1701-reviewer",
+              "acceptedSourceMessageId": "f87b602b-0479-4dbb-be4c-a070e89ad591",
+              "acceptedRevision": 2,
+              "responsibilityCompleted": true,
+              "substantiveCodeReview": false
+            }
+          ],
+          "revisions": [],
+          "rebuilds": [
+            {
+              "stage": "await_first_head",
+              "restoredFromSavedStage": true,
+              "actualDatabaseReopened": true,
+              "productionFactoryRebuilt": true,
+              "providerReads": 0,
+              "memoryCredentialChecks": 3,
+              "scriptedCalls": 0,
+              "duplicateCallbacks": 0,
+              "duplicateReviews": 0
+            }
+          ],
+          "acceptedSources": [
+            {
+              "generation": 1,
+              "messageId": "f87b602b-0479-4dbb-be4c-a070e89ad591",
+              "revision": 2
+            }
+          ],
+          "retries": [
+            {
+              "kind": "review",
+              "label": "initial-approved",
+              "evidenceId": "c0129ae8-66d0-4d2b-97c6-15663e686331",
+              "duplicateEvidence": false
+            }
+          ]
+        },
+        "durableIdentity": {
+          "callbacks": [
+            {
+              "id": "f655f63d-4ecd-4f20-a405-4b06ccf58b2d",
+              "source_id": "action-completed:975b6a3b-94bb-4e4a-94d4-56af826f0b76:1",
+              "state": "delivered",
+              "message_id": "97bfd18f-fae0-4a4d-8b49-3c8f6f7adf50"
+            }
+          ],
+          "events": [
+            {
+              "seq": 1
+            },
+            {
+              "seq": 2
+            }
+          ],
+          "messages": [
+            {
+              "id": "7a522eb3-c989-4468-af3e-0febb50d4d60"
+            },
+            {
+              "id": "f87b602b-0479-4dbb-be4c-a070e89ad591"
+            },
+            {
+              "id": "6c1b1e07-d706-448a-82ab-3587977582f9"
+            },
+            {
+              "id": "77866249-3f3d-4499-8c9b-8e73b01cb217"
+            },
+            {
+              "id": "97bfd18f-fae0-4a4d-8b49-3c8f6f7adf50"
+            },
+            {
+              "id": "d2f2cc94-a2a8-495a-a080-6e23fc16f5e3"
+            },
+            {
+              "id": "8c9afcc1-d2cd-4334-b288-11cf86b29b97"
+            }
+          ],
+          "reports": [
+            {
+              "evidence_id": "c0129ae8-66d0-4d2b-97c6-15663e686331"
+            }
+          ],
+          "versions": [
+            {
+              "action_id": "975b6a3b-94bb-4e4a-94d4-56af826f0b76",
+              "version": 1
+            }
+          ],
+          "claims": [],
+          "generations": [
+            {
+              "action_id": "975b6a3b-94bb-4e4a-94d4-56af826f0b76",
+              "generation": 1
+            }
+          ],
+          "terminals": [
+            {
+              "invocation_id": "54948995-3de1-4e89-ab85-c807c5f1b126"
+            },
+            {
+              "invocation_id": "568c7fca-4377-448e-8803-57ab9a44b1fd"
+            },
+            {
+              "invocation_id": "e101bcb3-cef7-41db-a4ae-f80e454964cb"
+            }
+          ]
+        },
+        "foreignKeyViolations": 0,
+        "counts": {
+          "trackingCallbacks": 0,
+          "reviewReports": 1,
+          "revisionClaims": 0
+        },
+        "processEvidence": {
+          "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+          "mainIndexProcess": false,
+          "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+          "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+          "directWorkerNetworkForbidden": true,
+          "pids": [
+            {
+              "pid": 9144,
+              "restore": false,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            },
+            {
+              "pid": 9661,
+              "restore": true,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            }
+          ],
+          "restarts": [
+            {
+              "beforePid": 9144,
+              "afterPid": 9661,
+              "code": null,
+              "signal": "SIGKILL",
+              "closeObserved": true,
+              "stage": "await_first_head",
+              "preservedIdentitySha256": "748204c9c22c6af93d777d0e75080ccc280ca06277ce30fb472fb92944c3b921",
+              "sameThread": true,
+              "sameRoot": true,
+              "sameAction": true,
+              "sameWaits": true,
+              "duplicateCallbacks": 0,
+              "duplicateReports": 0,
+              "providerGetsDuringRestore": 0,
+              "scriptedCallsDuringRestore": 0
+            }
+          ],
+          "parentProviderGets": 23,
+          "rejectedProviderRequests": 0,
+          "workerForbiddenNetworkCalls": 0
+        }
+      }
+    },
+    {
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "url": "https://github.com/zts212653/clowder-ai/pull/1505",
+      "authorLogin": "amazing-fish",
+      "listedUpdatedAt": "2026-10-22T16:15:34Z",
+      "status": "await_first_head",
+      "snapshot": {
+        "name": "pr-1505",
+        "repository": "zts212653/clowder-ai",
+        "number": 1505,
+        "stage": "await_first_head",
+        "ownerId": "38b61afa-f7e6-4fec-a3db-420d31c8c6e0",
+        "threadId": "4b1b4caf-8ab6-4c99-a447-f576cae4ff65",
+        "rootId": "b28841c8-6750-4e77-bc52-94836c394db4",
+        "actionId": "408df5c7-c20e-42ad-9756-2cc29636dcf3",
+        "canonicalActionCount": 1,
+        "protocolLayer": "Actual production composition/authority and SQLite; local scripted model replies and local independent-review protocol assertions only",
+        "fixtureConfiguration": {
+          "modelReplyTimeoutMs": 120000,
+          "maxInputTokens": 65536,
+          "applicationTools": [
+            "transfer_action",
+            "review_context",
+            "submit_review",
+            "complete_action",
+            "check_review_gate",
+            "start_review_revision",
+            "track_event"
+          ],
+          "activityAllowanceMs": 10000,
+          "defaultActivityBoundary": {
+            "activityAllowanceMs": 1000,
+            "previousIsolatedFailure": "THREADED_BUDGET_ACTIVITY_ALLOWANCE_EXPIRED",
+            "scope": "Synchronous full-contract preparation exceeded the initial activity slice before scripted transport; default production guard remains unchanged"
+          },
+          "activityPolicy": "Explicit disposable Owner revision through budget.reviseRoot; total activity/token/cost/invocation caps retain defaults"
+        },
+        "realModelCalls": 0,
+        "realModelTokens": 0,
+        "realExternalWrites": 0,
+        "scriptedCalls": 3,
+        "providerReads": 23,
+        "credentialReads": 273,
+        "productionOpened": false,
+        "chain": {
+          "heads": [
+            "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa"
+          ],
+          "waits": [
+            {
+              "index": 1,
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+              "baselineEventSeq": 1,
+              "rootId": "b28841c8-6750-4e77-bc52-94836c394db4",
+              "registeredFromMessageId": "43ef8725-3128-491f-b32e-f7a3ea1b99cc",
+              "observed": null
+            }
+          ],
+          "gates": [
+            {
+              "label": "old-head-approved",
+              "checkId": "855f1e4c-9ff9-48a3-a897-bdc1ccd315a2",
+              "actionId": "408df5c7-c20e-42ad-9756-2cc29636dcf3",
+              "generation": 1,
+              "workflowVersion": 1,
+              "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+              "status": "approved",
+              "approvalGateSatisfied": true,
+              "reasons": [],
+              "checkedAt": 1792685859992,
+              "scope": "local_independent_review",
+              "externalApprovalGranted": false
+            }
+          ],
+          "reports": [
+            {
+              "label": "initial-approved",
+              "actionId": "408df5c7-c20e-42ad-9756-2cc29636dcf3",
+              "generation": 1,
+              "version": 1,
+              "evidenceId": "d0f36746-2355-4281-83ea-00cfeebe4c63",
+              "messageId": "43ef8725-3128-491f-b32e-f7a3ea1b99cc",
+              "findingIds": [],
+              "verdict": "approved",
+              "actionCompleted": false,
+              "approvalGateSatisfied": false,
+              "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+              "authorAgentId": "pr-1505-author",
+              "reviewerAgentId": "pr-1505-reviewer",
+              "acceptedSourceMessageId": "56ee0186-8f30-4cd1-9628-f10548759f9e",
+              "acceptedRevision": 2,
+              "responsibilityCompleted": true,
+              "substantiveCodeReview": false
+            }
+          ],
+          "revisions": [],
+          "rebuilds": [
+            {
+              "stage": "await_first_head",
+              "restoredFromSavedStage": true,
+              "actualDatabaseReopened": true,
+              "productionFactoryRebuilt": true,
+              "providerReads": 0,
+              "memoryCredentialChecks": 3,
+              "scriptedCalls": 0,
+              "duplicateCallbacks": 0,
+              "duplicateReviews": 0
+            }
+          ],
+          "acceptedSources": [
+            {
+              "generation": 1,
+              "messageId": "56ee0186-8f30-4cd1-9628-f10548759f9e",
+              "revision": 2
+            }
+          ],
+          "retries": [
+            {
+              "kind": "review",
+              "label": "initial-approved",
+              "evidenceId": "d0f36746-2355-4281-83ea-00cfeebe4c63",
+              "duplicateEvidence": false
+            }
+          ]
+        },
+        "durableIdentity": {
+          "callbacks": [
+            {
+              "id": "34d633a6-db51-426d-b098-0883f33ca197",
+              "source_id": "action-completed:408df5c7-c20e-42ad-9756-2cc29636dcf3:1",
+              "state": "delivered",
+              "message_id": "4c179ef0-74a9-46f9-8505-af8a057ad819"
+            }
+          ],
+          "events": [
+            {
+              "seq": 1
+            },
+            {
+              "seq": 2
+            }
+          ],
+          "messages": [
+            {
+              "id": "b28841c8-6750-4e77-bc52-94836c394db4"
+            },
+            {
+              "id": "56ee0186-8f30-4cd1-9628-f10548759f9e"
+            },
+            {
+              "id": "4bde0199-4295-477c-a95f-679d3fa8ef4a"
+            },
+            {
+              "id": "43ef8725-3128-491f-b32e-f7a3ea1b99cc"
+            },
+            {
+              "id": "4c179ef0-74a9-46f9-8505-af8a057ad819"
+            },
+            {
+              "id": "49968736-bd84-441f-be28-de851b7e8f3f"
+            },
+            {
+              "id": "6621b5ca-250e-4f76-9071-441e6b5096d8"
+            }
+          ],
+          "reports": [
+            {
+              "evidence_id": "d0f36746-2355-4281-83ea-00cfeebe4c63"
+            }
+          ],
+          "versions": [
+            {
+              "action_id": "408df5c7-c20e-42ad-9756-2cc29636dcf3",
+              "version": 1
+            }
+          ],
+          "claims": [],
+          "generations": [
+            {
+              "action_id": "408df5c7-c20e-42ad-9756-2cc29636dcf3",
+              "generation": 1
+            }
+          ],
+          "terminals": [
+            {
+              "invocation_id": "1ab16ea0-2930-4f25-982a-3355ae70cf79"
+            },
+            {
+              "invocation_id": "643464bb-302e-4362-a753-220270d0b726"
+            },
+            {
+              "invocation_id": "793ff741-01f2-47a0-b85b-9f9c33d62ec9"
+            }
+          ]
+        },
+        "foreignKeyViolations": 0,
+        "counts": {
+          "trackingCallbacks": 0,
+          "reviewReports": 1,
+          "revisionClaims": 0
+        },
+        "processEvidence": {
+          "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+          "mainIndexProcess": false,
+          "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+          "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+          "directWorkerNetworkForbidden": true,
+          "pids": [
+            {
+              "pid": 9161,
+              "restore": false,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            },
+            {
+              "pid": 9662,
+              "restore": true,
+              "environmentKeys": [
+                "LOG_LEVEL",
+                "NODE_ENV",
+                "PATH",
+                "__CF_USER_TEXT_ENCODING"
+              ],
+              "argvCount": 2
+            }
+          ],
+          "restarts": [
+            {
+              "beforePid": 9161,
+              "afterPid": 9662,
+              "code": null,
+              "signal": "SIGKILL",
+              "closeObserved": true,
+              "stage": "await_first_head",
+              "preservedIdentitySha256": "63d93f0693761936cc9b02ec9793010737e378e22f824bb1c810f42ed2160d59",
+              "sameThread": true,
+              "sameRoot": true,
+              "sameAction": true,
+              "sameWaits": true,
+              "duplicateCallbacks": 0,
+              "duplicateReports": 0,
+              "providerGetsDuringRestore": 0,
+              "scriptedCallsDuringRestore": 0
+            }
+          ],
+          "parentProviderGets": 23,
+          "rejectedProviderRequests": 0,
+          "workerForbiddenNetworkCalls": 0
+        }
+      }
+    }
+  ],
+  "polls": [
+    {
+      "at": "2026-10-22T16:18:11.816Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:18:53.641Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:19:28.963Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:20:04.439Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:20:38.850Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:21:21.523Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:22:05.174Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:22:40.980Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:23:17.852Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:23:52.821Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:24:27.105Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:25:02.239Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:25:36.714Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:26:10.926Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:26:47.294Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:27:21.250Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "at": "2026-10-22T16:27:41.816Z",
+      "targets": [
+        {
+          "number": 1698,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+          "baselineHead": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+          "refresh": [
+            {
+              "waitId": "310cefbc-26a4-4ca8-9fbd-6b052839622e",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1701,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+          "baselineHead": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+          "refresh": [
+            {
+              "waitId": "e85142e4-73de-412a-b54b-e06d59e4e2ba",
+              "status": "observed"
+            }
+          ]
+        },
+        {
+          "number": 1505,
+          "observed": false,
+          "stage": "await_first_head",
+          "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+          "baselineHead": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+          "refresh": [
+            {
+              "waitId": "52657547-f399-456f-a9be-aeee4413d98e",
+              "status": "observed"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "restarts": [
+    {
+      "number": 1698,
+      "passed": true,
+      "githubRequests": 0,
+      "beforeStage": "await_first_head",
+      "afterStage": "await_first_head",
+      "evidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9143,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9659,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9143,
+            "afterPid": 9659,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "4a4f7560e047c7443a080f6674f6f1fd6646e929c61cdd866f382ac321b15763",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    },
+    {
+      "number": 1701,
+      "passed": true,
+      "githubRequests": 0,
+      "beforeStage": "await_first_head",
+      "afterStage": "await_first_head",
+      "evidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9144,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9661,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9144,
+            "afterPid": 9661,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "748204c9c22c6af93d777d0e75080ccc280ca06277ce30fb472fb92944c3b921",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    },
+    {
+      "number": 1505,
+      "passed": true,
+      "githubRequests": 0,
+      "beforeStage": "await_first_head",
+      "afterStage": "await_first_head",
+      "evidence": {
+        "composition": "Actual separate child PID; createThreadedProduction with disposable SQLite and persisted stage metadata",
+        "mainIndexProcess": false,
+        "restartBoundary": "Completed initialize/poll/advanceObserved stage boundaries; no arbitrary mid-commit crash claim",
+        "credentialPolicy": "Real token retained only by parent callback; never worker env, argv, IPC, SQLite, output or metadata",
+        "directWorkerNetworkForbidden": true,
+        "pids": [
+          {
+            "pid": 9161,
+            "restore": false,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          },
+          {
+            "pid": 9662,
+            "restore": true,
+            "environmentKeys": [
+              "LOG_LEVEL",
+              "NODE_ENV",
+              "PATH",
+              "__CF_USER_TEXT_ENCODING"
+            ],
+            "argvCount": 2
+          }
+        ],
+        "restarts": [
+          {
+            "beforePid": 9161,
+            "afterPid": 9662,
+            "code": null,
+            "signal": "SIGKILL",
+            "closeObserved": true,
+            "stage": "await_first_head",
+            "preservedIdentitySha256": "63d93f0693761936cc9b02ec9793010737e378e22f824bb1c810f42ed2160d59",
+            "sameThread": true,
+            "sameRoot": true,
+            "sameAction": true,
+            "sameWaits": true,
+            "duplicateCallbacks": 0,
+            "duplicateReports": 0,
+            "providerGetsDuringRestore": 0,
+            "scriptedCallsDuringRestore": 0
+          }
+        ],
+        "parentProviderGets": 23,
+        "rejectedProviderRequests": 0,
+        "workerForbiddenNetworkCalls": 0
+      }
+    }
+  ],
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "realExternalWrites": 0,
+  "dailyProductionOpened": false,
+  "dailyDatabaseAccessed": false,
+  "principalLogin": "cat15926",
+  "requests": [
+    {
+      "sequence": 1,
+      "path": "/user",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:35.781Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:16:37.492Z",
+      "responseSha256": "65ff0bee58c1ad65fed29b5096809d1131cec03cd680d268c788affa145987eb"
+    },
+    {
+      "sequence": 2,
+      "path": "/repos/zts212653/clowder-ai/pulls?state=open&sort=updated&direction=desc&per_page=30",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:37.495Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:16:51.938Z",
+      "responseSha256": "0393c219e58ea0f0f1da9e9dfe3089d8bf5d24390cd71f8653a3c2c465b3cf62"
+    },
+    {
+      "sequence": 3,
+      "path": "/user",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:52.467Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:16:53.739Z",
+      "responseSha256": "65ff0bee58c1ad65fed29b5096809d1131cec03cd680d268c788affa145987eb"
+    },
+    {
+      "sequence": 4,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:53.756Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:16:55.556Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 5,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:55.804Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:16:57.486Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 6,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:16:57.539Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:07.200Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 7,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:07.248Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:09.496Z",
+      "responseSha256": "8fbf4c7b5803c8fb7cf92ace34702410a55cce79ed64d2b34d21795e57760115"
+    },
+    {
+      "sequence": 8,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:09.770Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:12.879Z",
+      "responseSha256": "8fbf4c7b5803c8fb7cf92ace34702410a55cce79ed64d2b34d21795e57760115"
+    },
+    {
+      "sequence": 9,
+      "path": "/user",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:13.394Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:13.814Z",
+      "responseSha256": "65ff0bee58c1ad65fed29b5096809d1131cec03cd680d268c788affa145987eb"
+    },
+    {
+      "sequence": 10,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:13.835Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:15.562Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 11,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:15.804Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:17.304Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 12,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:17.356Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:19.519Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 13,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:19.567Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:28.604Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 14,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:28.878Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:30.582Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 15,
+      "path": "/user",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:31.111Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:31.528Z",
+      "responseSha256": "65ff0bee58c1ad65fed29b5096809d1131cec03cd680d268c788affa145987eb"
+    },
+    {
+      "sequence": 16,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:31.548Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:34.166Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 17,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:34.412Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:36.275Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 18,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:36.327Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:38.030Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 19,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:38.070Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:39.969Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 20,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:17:40.240Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:17:41.720Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 21,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:11.831Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:17.231Z",
+      "responseSha256": "dff460c2355b8dfa902ae44a381f2a6eb41354665570f544725482c75e272e4c"
+    },
+    {
+      "sequence": 22,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:17.264Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:21.598Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 23,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:21.623Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:23.621Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 24,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:53.657Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:55.326Z",
+      "responseSha256": "dff460c2355b8dfa902ae44a381f2a6eb41354665570f544725482c75e272e4c"
+    },
+    {
+      "sequence": 25,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:55.352Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:57.729Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 26,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:18:57.757Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:18:58.943Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 27,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:19:29.007Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:19:31.678Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 28,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:19:31.705Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:19:33.056Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 29,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:19:33.081Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:19:34.416Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 30,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:04.458Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:05.775Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 31,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:05.802Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:07.615Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 32,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:07.644Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:08.833Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 33,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:38.863Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:41.208Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 34,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:41.235Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:42.605Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 35,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:20:42.627Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:20:51.495Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 36,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:21:21.539Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:21:25.329Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 37,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:21:25.358Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:21:32.084Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 38,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:21:32.111Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:21:35.151Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 39,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:05.192Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:08.531Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 40,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:08.559Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:09.667Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 41,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:09.693Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:10.959Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 42,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:40.999Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:43.755Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 43,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:43.794Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:45.446Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 44,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:22:45.478Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:22:47.781Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 45,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:17.869Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:19.406Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 46,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:19.432Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:20.889Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 47,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:20.908Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:22.811Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 48,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:52.842Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:54.682Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 49,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:54.733Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:55.980Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 50,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:23:55.992Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:23:57.092Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 51,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:24:27.120Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:24:29.495Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 52,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:24:29.518Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:24:30.910Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 53,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:24:30.932Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:24:32.219Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 54,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:02.256Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:04.262Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 55,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:04.287Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:05.602Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 56,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:05.626Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:06.694Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 57,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:36.729Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:38.207Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 58,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:38.232Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:39.649Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 59,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:25:39.670Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:25:40.905Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 60,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:10.940Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:13.524Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 61,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:13.550Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:15.545Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 62,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:15.569Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:17.271Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 63,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:47.308Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:48.538Z",
+      "responseSha256": "2c2c77c8e213626524bd1b4884a04c6ca2e120e838a3362c48e0b8726e8f1f26"
+    },
+    {
+      "sequence": 64,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:48.564Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:50.131Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 65,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:26:50.159Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:26:51.226Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 66,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:21.267Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:23.214Z",
+      "responseSha256": "106a1f20e3fe86e79af63e0c2bd0f7c044199311cbbfd79d21479951bab9b32a"
+    },
+    {
+      "sequence": 67,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:23.239Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:25.180Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 68,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:25.200Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:26.463Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 69,
+      "path": "/repos/zts212653/clowder-ai/pulls/1698",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:41.830Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:46.553Z",
+      "responseSha256": "106a1f20e3fe86e79af63e0c2bd0f7c044199311cbbfd79d21479951bab9b32a"
+    },
+    {
+      "sequence": 70,
+      "path": "/repos/zts212653/clowder-ai/pulls/1701",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:46.583Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:48.381Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 71,
+      "path": "/repos/zts212653/clowder-ai/pulls/1505",
+      "method": "GET",
+      "requestedAt": "2026-10-22T16:27:48.406Z",
+      "status": 200,
+      "observedAt": "2026-10-22T16:27:49.781Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    }
+  ],
+  "observations": [
+    {
+      "sequence": 4,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:15:58Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:16:55.556Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 5,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:15:58Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:16:57.486Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 6,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:15:58Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:17:07.200Z",
+      "responseSha256": "c8b2c936e97d245deb2f84d2500b4e0f98c909a070c1886d3ff5c5b07ee02c64"
+    },
+    {
+      "sequence": 7,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:07Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:17:09.496Z",
+      "responseSha256": "8fbf4c7b5803c8fb7cf92ace34702410a55cce79ed64d2b34d21795e57760115"
+    },
+    {
+      "sequence": 8,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:07Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:17:12.879Z",
+      "responseSha256": "8fbf4c7b5803c8fb7cf92ace34702410a55cce79ed64d2b34d21795e57760115"
+    },
+    {
+      "sequence": 10,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:17:15.562Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 11,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:17:17.304Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 12,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:17:19.519Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 13,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:17:28.604Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 14,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:17:30.582Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 16,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:17:34.166Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 17,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:17:36.275Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 18,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:17:38.030Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 19,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:17:39.969Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 20,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:17:41.720Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 21,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:18:17.231Z",
+      "responseSha256": "dff460c2355b8dfa902ae44a381f2a6eb41354665570f544725482c75e272e4c"
+    },
+    {
+      "sequence": 22,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:18:21.598Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 23,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:15:34Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:18:23.621Z",
+      "responseSha256": "969d5a7244f503220ae9a2f024912b9dcb997353ef842ed38a4070c6e1959df1"
+    },
+    {
+      "sequence": 24,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:18:55.326Z",
+      "responseSha256": "dff460c2355b8dfa902ae44a381f2a6eb41354665570f544725482c75e272e4c"
+    },
+    {
+      "sequence": 25,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:18:57.729Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 26,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:18:58.943Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 27,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:19:31.678Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 28,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:19:33.056Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 29,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:19:34.416Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 30,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:20:05.775Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 31,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:20:07.615Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 32,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:20:08.833Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 33,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:20:41.208Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 34,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:20:42.605Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 35,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:20:51.495Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 36,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:21:25.329Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 37,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:21:32.084Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 38,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:21:35.151Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 39,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:22:08.531Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 40,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:22:09.667Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 41,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:22:10.959Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 42,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:22:43.755Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 43,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:22:45.446Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 44,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:22:47.781Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 45,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:23:19.406Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 46,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:23:20.889Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 47,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:23:22.811Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 48,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:23:54.682Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 49,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:23:55.980Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 50,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:23:57.092Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 51,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:24:29.495Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 52,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:24:30.910Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 53,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:24:32.219Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 54,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:25:04.262Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 55,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:25:05.602Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 56,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:25:06.694Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 57,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:25:38.207Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 58,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:25:39.649Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 59,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:25:40.905Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 60,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:17:28Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:26:13.524Z",
+      "responseSha256": "71d5d70341022e630eaaadb910dc87c1ea27f3c681b66abec7a5bc551ab00135"
+    },
+    {
+      "sequence": 61,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:26:15.545Z",
+      "responseSha256": "8bccffcc4fbf4850f590c96933d07de63045b23858b764bb8c74895adede4d97"
+    },
+    {
+      "sequence": 62,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:26:17.271Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 63,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:26:21Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:26:48.538Z",
+      "responseSha256": "2c2c77c8e213626524bd1b4884a04c6ca2e120e838a3362c48e0b8726e8f1f26"
+    },
+    {
+      "sequence": 64,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:26:50.131Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 65,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:26:51.226Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 66,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:26:52Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:27:23.214Z",
+      "responseSha256": "106a1f20e3fe86e79af63e0c2bd0f7c044199311cbbfd79d21479951bab9b32a"
+    },
+    {
+      "sequence": 67,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:27:25.180Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 68,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:27:26.463Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    },
+    {
+      "sequence": 69,
+      "repository": "zts212653/clowder-ai",
+      "number": 1698,
+      "headSha": "865ea7dd3dedb86998115f536a67a920524b2a3d",
+      "updatedAt": "2026-10-22T16:26:52Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "mindfn",
+      "observedAt": "2026-10-22T16:27:46.553Z",
+      "responseSha256": "106a1f20e3fe86e79af63e0c2bd0f7c044199311cbbfd79d21479951bab9b32a"
+    },
+    {
+      "sequence": 70,
+      "repository": "zts212653/clowder-ai",
+      "number": 1701,
+      "headSha": "b0374ab3d94299dc435757aa4b955189716c0f9b",
+      "updatedAt": "2026-10-22T16:14:32Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "whutzefengxie-ops",
+      "observedAt": "2026-10-22T16:27:48.381Z",
+      "responseSha256": "b814f2b05e76ed2d70406fbbb438b4cc1cd78e88ed92951b43905dd4f85b0d69"
+    },
+    {
+      "sequence": 71,
+      "repository": "zts212653/clowder-ai",
+      "number": 1505,
+      "headSha": "2f5ebf30e4e0668145bb417fa0fa499f3d871dfa",
+      "updatedAt": "2026-10-22T16:18:26Z",
+      "state": "open",
+      "merged": false,
+      "authorLogin": "amazing-fish",
+      "observedAt": "2026-10-22T16:27:49.781Z",
+      "responseSha256": "236cc03b7d921b54394e24685930821ecf906d03b7acb37e261d4b26a2a942ef"
+    }
+  ],
+  "transport": {
+    "state": "ready",
+    "requests": 71,
+    "observations": 66,
+    "selected": 3,
+    "principalVerified": true,
+    "activeRequests": 0,
+    "realExternalWrites": 0
+  },
+  "observationStartedAt": "2026-10-22T16:17:41.815Z",
+  "completedAt": "2026-10-22T16:27:50.459Z",
+  "elapsedSeconds": 609,
+  "completedChains": [],
+  "partiallyObservedChains": [],
+  "limits": [
+    "A real two-HEAD continuous chain is mandatory; stable reads and historical HEAD inequalities are not new events.",
+    "The authenticated local author is the acceptance requester, not the real external PR author; scripted revision/review statements are protocol fixtures.",
+    "Local review gate approval never grants GitHub approval and no remote comment, review, commit, branch or PR is created.",
+    "The observation window is bounded; not_observed or observed_partial leaves RC04 live acceptance incomplete.",
+    "Each acceptance process is isolated; this is not the deployed index process or real-model supplier-fault acceptance."
+  ]
+}
