@@ -1,0 +1,1858 @@
+{
+  "schemaVersion": 1,
+  "task": "RC05 isolated timer recovery contracts",
+  "at": "2026-10-23T10:37:36.352Z",
+  "passed": 9,
+  "checks": [
+    "RW01: classifier distinguishes fireAt−1, fireAt equality, fireAt+1 and SLA−1/equality/+1; classifier equality is separate from dispatch retry eligibility",
+    "RW02: restore before fireAt retains online one-shot even when later polled after SLA; startup exactly at/after fireAt recovers once under original root, wait, source and admission without a model call",
+    "RW03: missed timer dispatch succeeds strictly before SLA; exact SLA has no retry window and later SLA expires, both durably retire without callback, wake, new admission or replay",
+    "RW04: a paused missed-timer callback keeps its ID and cannot dispatch at the original SLA equality, even after a second rebuild",
+    "RW05: registered owner identity, root, fireAt, creation time and timer record are immutable at SQLite boundary; ordinary code cannot drift or rebase them",
+    "RW06: malformed imported timer rows with plausible shifted fireAt, changed/missing/string seconds or wrong stored kind retire invalid; recovery never reconstructs authority from their plausible delay",
+    "RW07: original member permission/role/membership and changed/unknown trusted source authorization/anchor retire missed timer invalid without borrowing newer authority or dispatching a callback",
+    "RW08: trusted source authority is checked again before a paused callback is delivered; revocation rejects the existing callback without rebasing wait or retrying model",
+    "RW09: a real tool-mediated Action return advances generation; its original holder timer retires invalid rather than waking or satisfying the newer generation"
+  ],
+  "cases": [
+    {
+      "name": "startup fireAt -1ms",
+      "before": {
+        "waitId": "40ee7f36-1e32-477d-a804-8f08247c6c24",
+        "rootId": "96a7e205-53ab-408b-9bf3-80c1c2ef2083",
+        "bindingId": "c514c969-4b89-4080-852f-05b4b6082376",
+        "invocationId": "a7a3e888-2382-4372-9778-2be40478ec1f",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f813dacd53ce3d00dbb09baa379361b50766eb75e119fb800174e15efd347ddd",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "a1feab0e-ad4e-4ed2-a425-15a7b23cc960",
+            "thread_id": "3165ab79-724c-4490-9daf-2a0c71139dff",
+            "agent_id": "api-member",
+            "admission_key": "wait:40ee7f36-1e32-477d-a804-8f08247c6c24",
+            "kind": "timer",
+            "source_id": "40ee7f36-1e32-477d-a804-8f08247c6c24",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "7cc1ff41-00b9-4082-af79-a7f194c1a9d4"
+        ],
+        "budgetRequestIds": [
+          "3584ca34-8e11-47d6-85a4-d3d9903c2dd9"
+        ],
+        "rootIds": [
+          "96a7e205-53ab-408b-9bf3-80c1c2ef2083"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "92b975c1-5b87-48fc-ad74-e32fa13191b3",
+          "96a7e205-53ab-408b-9bf3-80c1c2ef2083"
+        ],
+        "wakeIds": [
+          "61a13e2d-5b73-4139-81a3-4a063a07403d"
+        ]
+      },
+      "after": {
+        "waitId": "40ee7f36-1e32-477d-a804-8f08247c6c24",
+        "rootId": "96a7e205-53ab-408b-9bf3-80c1c2ef2083",
+        "bindingId": "c514c969-4b89-4080-852f-05b4b6082376",
+        "invocationId": "a7a3e888-2382-4372-9778-2be40478ec1f",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f813dacd53ce3d00dbb09baa379361b50766eb75e119fb800174e15efd347ddd",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "197e4834-c699-42bf-ad8a-9ee2a8ae60e7",
+          "state": "delivered",
+          "reason": null,
+          "messageId": "3a54b63e-50fe-42f7-bcd9-70298d6336e0"
+        },
+        "admissions": [
+          {
+            "owner_id": "a1feab0e-ad4e-4ed2-a425-15a7b23cc960",
+            "thread_id": "3165ab79-724c-4490-9daf-2a0c71139dff",
+            "agent_id": "api-member",
+            "admission_key": "wait:40ee7f36-1e32-477d-a804-8f08247c6c24",
+            "kind": "timer",
+            "source_id": "40ee7f36-1e32-477d-a804-8f08247c6c24",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "7cc1ff41-00b9-4082-af79-a7f194c1a9d4"
+        ],
+        "budgetRequestIds": [
+          "3584ca34-8e11-47d6-85a4-d3d9903c2dd9"
+        ],
+        "rootIds": [
+          "96a7e205-53ab-408b-9bf3-80c1c2ef2083"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "3a54b63e-50fe-42f7-bcd9-70298d6336e0",
+          "92b975c1-5b87-48fc-ad74-e32fa13191b3",
+          "96a7e205-53ab-408b-9bf3-80c1c2ef2083"
+        ],
+        "wakeIds": [
+          "429d8f34-7df9-41bf-9a76-79ac5a763d94",
+          "61a13e2d-5b73-4139-81a3-4a063a07403d"
+        ]
+      }
+    },
+    {
+      "name": "startup fireAt 0ms",
+      "before": {
+        "waitId": "fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+        "rootId": "e2304e9d-e187-49c0-ad63-0b3b4b8144e3",
+        "bindingId": "c1736f2e-9302-4e81-96cc-8719cf141ff4",
+        "invocationId": "ef67a91a-ab54-40b2-9e47-46e00f647ddf",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "a1fdf54f400a3cc17e14eae28c5a9ea17b70a159e586274fd47aaf43c9cb7052",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "f0736c96-42f5-4084-bdfe-075aedc64b57",
+            "thread_id": "bcd43413-18e2-490f-a6c1-112905361177",
+            "agent_id": "api-member",
+            "admission_key": "wait:fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+            "kind": "timer",
+            "source_id": "fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "1308e871-0a44-4aa8-bb14-c29fd2a744b8"
+        ],
+        "budgetRequestIds": [
+          "501915b0-d1a8-4138-bb5f-89af21b8488a"
+        ],
+        "rootIds": [
+          "e2304e9d-e187-49c0-ad63-0b3b4b8144e3"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "706966c2-f8fb-4a9a-a3b0-7317f3d884de",
+          "e2304e9d-e187-49c0-ad63-0b3b4b8144e3"
+        ],
+        "wakeIds": [
+          "36bf873c-f0ad-4927-8c43-39466c89a6f2"
+        ]
+      },
+      "after": {
+        "waitId": "fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+        "rootId": "e2304e9d-e187-49c0-ad63-0b3b4b8144e3",
+        "bindingId": "c1736f2e-9302-4e81-96cc-8719cf141ff4",
+        "invocationId": "ef67a91a-ab54-40b2-9e47-46e00f647ddf",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "a1fdf54f400a3cc17e14eae28c5a9ea17b70a159e586274fd47aaf43c9cb7052",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "recoveredMissedTimer": true,
+          "retryUntil": 1800000010000,
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "3d42a5d7-c8a8-4819-bd1a-cf04c3f2b8d1",
+          "state": "delivered",
+          "reason": null,
+          "messageId": "4cc42ea6-a5d4-42db-a518-cb82af72d136"
+        },
+        "admissions": [
+          {
+            "owner_id": "f0736c96-42f5-4084-bdfe-075aedc64b57",
+            "thread_id": "bcd43413-18e2-490f-a6c1-112905361177",
+            "agent_id": "api-member",
+            "admission_key": "wait:fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+            "kind": "timer",
+            "source_id": "fc40a4f8-fc2c-48c8-8fc0-742a2d04edfc",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "1308e871-0a44-4aa8-bb14-c29fd2a744b8"
+        ],
+        "budgetRequestIds": [
+          "501915b0-d1a8-4138-bb5f-89af21b8488a"
+        ],
+        "rootIds": [
+          "e2304e9d-e187-49c0-ad63-0b3b4b8144e3"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "4cc42ea6-a5d4-42db-a518-cb82af72d136",
+          "706966c2-f8fb-4a9a-a3b0-7317f3d884de",
+          "e2304e9d-e187-49c0-ad63-0b3b4b8144e3"
+        ],
+        "wakeIds": [
+          "36bf873c-f0ad-4927-8c43-39466c89a6f2",
+          "ad27ebf4-03e0-41d9-aedc-94916a1c9928"
+        ]
+      }
+    },
+    {
+      "name": "startup fireAt 1ms",
+      "before": {
+        "waitId": "40286a28-036e-455f-888b-f1873da3ebfd",
+        "rootId": "ffdd010a-bd9e-4717-92af-14937cfa9256",
+        "bindingId": "9782d406-a596-42bc-9389-8d362e80ee44",
+        "invocationId": "6c57bab4-933b-40a0-9d0a-6aa24f3a5eab",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "54cf5054a229da092bfaf30275e67f593a61855c40741d439fdb35062383bb72",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "5aaf9f3f-9cd9-4c01-a2c3-c1c1f406a163",
+            "thread_id": "96f530b5-4bc4-40d2-973f-69617e9ca820",
+            "agent_id": "api-member",
+            "admission_key": "wait:40286a28-036e-455f-888b-f1873da3ebfd",
+            "kind": "timer",
+            "source_id": "40286a28-036e-455f-888b-f1873da3ebfd",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "cc515aac-600b-41b8-b160-6dd79e63c9b1"
+        ],
+        "budgetRequestIds": [
+          "0052670c-a6c5-4320-adf3-04ea3ad0fb3f"
+        ],
+        "rootIds": [
+          "ffdd010a-bd9e-4717-92af-14937cfa9256"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "2d33e56c-3968-481f-bcf4-eb560df33649",
+          "ffdd010a-bd9e-4717-92af-14937cfa9256"
+        ],
+        "wakeIds": [
+          "8fa62fc3-b663-4f55-b5e3-fed260cdc53b"
+        ]
+      },
+      "after": {
+        "waitId": "40286a28-036e-455f-888b-f1873da3ebfd",
+        "rootId": "ffdd010a-bd9e-4717-92af-14937cfa9256",
+        "bindingId": "9782d406-a596-42bc-9389-8d362e80ee44",
+        "invocationId": "6c57bab4-933b-40a0-9d0a-6aa24f3a5eab",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "54cf5054a229da092bfaf30275e67f593a61855c40741d439fdb35062383bb72",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "recoveredMissedTimer": true,
+          "retryUntil": 1800000010000,
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "9e1c5714-fa1f-4cd4-b0c8-69262503f44f",
+          "state": "delivered",
+          "reason": null,
+          "messageId": "17575f0a-9c5b-4537-b357-2c9662ff3896"
+        },
+        "admissions": [
+          {
+            "owner_id": "5aaf9f3f-9cd9-4c01-a2c3-c1c1f406a163",
+            "thread_id": "96f530b5-4bc4-40d2-973f-69617e9ca820",
+            "agent_id": "api-member",
+            "admission_key": "wait:40286a28-036e-455f-888b-f1873da3ebfd",
+            "kind": "timer",
+            "source_id": "40286a28-036e-455f-888b-f1873da3ebfd",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "cc515aac-600b-41b8-b160-6dd79e63c9b1"
+        ],
+        "budgetRequestIds": [
+          "0052670c-a6c5-4320-adf3-04ea3ad0fb3f"
+        ],
+        "rootIds": [
+          "ffdd010a-bd9e-4717-92af-14937cfa9256"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "17575f0a-9c5b-4537-b357-2c9662ff3896",
+          "2d33e56c-3968-481f-bcf4-eb560df33649",
+          "ffdd010a-bd9e-4717-92af-14937cfa9256"
+        ],
+        "wakeIds": [
+          "8fa62fc3-b663-4f55-b5e3-fed260cdc53b",
+          "97a5bc28-6a96-4b6d-8675-c27018dcf831"
+        ]
+      }
+    },
+    {
+      "name": "startup SLA -1ms",
+      "before": {
+        "waitId": "ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+        "rootId": "32097493-bbea-48db-8a8e-98e6bc3ed6cc",
+        "bindingId": "6053c239-a7f0-4dcd-9bbf-95f270d543c4",
+        "invocationId": "abf08c94-7a2d-481c-b481-9cfa485bb4d3",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "21084ade6508c6158d1f0099a439397ec03a1f9b73438aeb2975f9576446d4c3",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "680af359-18dc-478b-9a52-f84f2d18fa00",
+            "thread_id": "2f83a870-655f-4ac3-8021-bc5582f4a252",
+            "agent_id": "api-member",
+            "admission_key": "wait:ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+            "kind": "timer",
+            "source_id": "ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "6726f675-578e-4681-b498-aced715f9e12"
+        ],
+        "budgetRequestIds": [
+          "9506c739-36b9-4de0-8a3f-e7715823415d"
+        ],
+        "rootIds": [
+          "32097493-bbea-48db-8a8e-98e6bc3ed6cc"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "32097493-bbea-48db-8a8e-98e6bc3ed6cc",
+          "ab2245a9-ec54-436a-af44-6e7018791467"
+        ],
+        "wakeIds": [
+          "7ad00eb1-45b6-4329-a9c6-afd371596b59"
+        ]
+      },
+      "after": {
+        "waitId": "ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+        "rootId": "32097493-bbea-48db-8a8e-98e6bc3ed6cc",
+        "bindingId": "6053c239-a7f0-4dcd-9bbf-95f270d543c4",
+        "invocationId": "abf08c94-7a2d-481c-b481-9cfa485bb4d3",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "21084ade6508c6158d1f0099a439397ec03a1f9b73438aeb2975f9576446d4c3",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "recoveredMissedTimer": true,
+          "retryUntil": 1800000010000,
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "3b0f0a5c-77f3-41f2-a017-ae3ba1ac915e",
+          "state": "delivered",
+          "reason": null,
+          "messageId": "d309cf18-8cfd-43e4-aae6-b4817eb2aba4"
+        },
+        "admissions": [
+          {
+            "owner_id": "680af359-18dc-478b-9a52-f84f2d18fa00",
+            "thread_id": "2f83a870-655f-4ac3-8021-bc5582f4a252",
+            "agent_id": "api-member",
+            "admission_key": "wait:ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+            "kind": "timer",
+            "source_id": "ecfa17a3-f21e-4f5b-a734-5b83a6b51087",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "6726f675-578e-4681-b498-aced715f9e12"
+        ],
+        "budgetRequestIds": [
+          "9506c739-36b9-4de0-8a3f-e7715823415d"
+        ],
+        "rootIds": [
+          "32097493-bbea-48db-8a8e-98e6bc3ed6cc"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "32097493-bbea-48db-8a8e-98e6bc3ed6cc",
+          "ab2245a9-ec54-436a-af44-6e7018791467",
+          "d309cf18-8cfd-43e4-aae6-b4817eb2aba4"
+        ],
+        "wakeIds": [
+          "7ad00eb1-45b6-4329-a9c6-afd371596b59",
+          "cabbaa17-38e9-4dd5-9712-77c92d4a0606"
+        ]
+      }
+    },
+    {
+      "name": "startup SLA 0ms",
+      "before": {
+        "waitId": "aa9ce207-87f9-4235-9f56-a282f163429f",
+        "rootId": "6ab9ce99-1930-41ff-841d-629a454e54a2",
+        "bindingId": "b1a43d57-6a38-450e-a904-4384491adce4",
+        "invocationId": "435fb3c8-1a60-498c-9207-7e6b6814710b",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "b6c6d3c42a765aae001f8fe678aef49baa6664f0fcff1d2e33322b7a63ee54c4",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "e7b7bcda-4eba-4af1-946c-ba42aa6eed1b",
+            "thread_id": "2f871781-0452-45f6-aed5-06dd16ca86ba",
+            "agent_id": "api-member",
+            "admission_key": "wait:aa9ce207-87f9-4235-9f56-a282f163429f",
+            "kind": "timer",
+            "source_id": "aa9ce207-87f9-4235-9f56-a282f163429f",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "1f908aa4-84d4-4260-9743-0e0af1480d70"
+        ],
+        "budgetRequestIds": [
+          "b43df0e8-c87d-4962-a68e-3c1dfbf5ca77"
+        ],
+        "rootIds": [
+          "6ab9ce99-1930-41ff-841d-629a454e54a2"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "6ab9ce99-1930-41ff-841d-629a454e54a2",
+          "7768cb60-6925-4ca1-9cb4-f1e61f0c89b1"
+        ],
+        "wakeIds": [
+          "dfb9cdc6-5c39-4010-8b89-9f4e5af866d4"
+        ]
+      },
+      "after": {
+        "waitId": "aa9ce207-87f9-4235-9f56-a282f163429f",
+        "rootId": "6ab9ce99-1930-41ff-841d-629a454e54a2",
+        "bindingId": "b1a43d57-6a38-450e-a904-4384491adce4",
+        "invocationId": "435fb3c8-1a60-498c-9207-7e6b6814710b",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "b6c6d3c42a765aae001f8fe678aef49baa6664f0fcff1d2e33322b7a63ee54c4",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_expired",
+          "classification": "recover",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "e7b7bcda-4eba-4af1-946c-ba42aa6eed1b",
+            "thread_id": "2f871781-0452-45f6-aed5-06dd16ca86ba",
+            "agent_id": "api-member",
+            "admission_key": "wait:aa9ce207-87f9-4235-9f56-a282f163429f",
+            "kind": "timer",
+            "source_id": "aa9ce207-87f9-4235-9f56-a282f163429f",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "1f908aa4-84d4-4260-9743-0e0af1480d70"
+        ],
+        "budgetRequestIds": [
+          "b43df0e8-c87d-4962-a68e-3c1dfbf5ca77"
+        ],
+        "rootIds": [
+          "6ab9ce99-1930-41ff-841d-629a454e54a2"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "6ab9ce99-1930-41ff-841d-629a454e54a2",
+          "7768cb60-6925-4ca1-9cb4-f1e61f0c89b1"
+        ],
+        "wakeIds": [
+          "dfb9cdc6-5c39-4010-8b89-9f4e5af866d4"
+        ]
+      }
+    },
+    {
+      "name": "startup SLA 1ms",
+      "before": {
+        "waitId": "770a2379-38bf-490c-88b0-dd62a9c0e399",
+        "rootId": "98418269-7b1d-414c-be50-eb9f89a26a89",
+        "bindingId": "3c45bd37-b1d2-4990-bceb-7b10c281ea09",
+        "invocationId": "4a59994d-0f04-4ef5-a283-e3b0ca071864",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "9e93dcd5c6810562d67e56a473100fc49d0af448ea26b54b9db68399512d6d55",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "8be815a9-7fc8-450b-9d38-f8eac526dec1",
+            "thread_id": "641d4b1d-4502-4714-86db-6b2b1b00c804",
+            "agent_id": "api-member",
+            "admission_key": "wait:770a2379-38bf-490c-88b0-dd62a9c0e399",
+            "kind": "timer",
+            "source_id": "770a2379-38bf-490c-88b0-dd62a9c0e399",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "cb287edf-39e2-4551-9033-d2bbb572c3a7"
+        ],
+        "budgetRequestIds": [
+          "9fb9358c-145c-4915-bc49-ec1857b5a5fb"
+        ],
+        "rootIds": [
+          "98418269-7b1d-414c-be50-eb9f89a26a89"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "98418269-7b1d-414c-be50-eb9f89a26a89",
+          "a8fc05c0-a61d-4c47-a636-8780f731e69f"
+        ],
+        "wakeIds": [
+          "d11ec648-1b68-4817-92a7-50ea3fa24437"
+        ]
+      },
+      "after": {
+        "waitId": "770a2379-38bf-490c-88b0-dd62a9c0e399",
+        "rootId": "98418269-7b1d-414c-be50-eb9f89a26a89",
+        "bindingId": "3c45bd37-b1d2-4990-bceb-7b10c281ea09",
+        "invocationId": "4a59994d-0f04-4ef5-a283-e3b0ca071864",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "9e93dcd5c6810562d67e56a473100fc49d0af448ea26b54b9db68399512d6d55",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_expired",
+          "classification": "expired",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "8be815a9-7fc8-450b-9d38-f8eac526dec1",
+            "thread_id": "641d4b1d-4502-4714-86db-6b2b1b00c804",
+            "agent_id": "api-member",
+            "admission_key": "wait:770a2379-38bf-490c-88b0-dd62a9c0e399",
+            "kind": "timer",
+            "source_id": "770a2379-38bf-490c-88b0-dd62a9c0e399",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "cb287edf-39e2-4551-9033-d2bbb572c3a7"
+        ],
+        "budgetRequestIds": [
+          "9fb9358c-145c-4915-bc49-ec1857b5a5fb"
+        ],
+        "rootIds": [
+          "98418269-7b1d-414c-be50-eb9f89a26a89"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "98418269-7b1d-414c-be50-eb9f89a26a89",
+          "a8fc05c0-a61d-4c47-a636-8780f731e69f"
+        ],
+        "wakeIds": [
+          "d11ec648-1b68-4817-92a7-50ea3fa24437"
+        ]
+      }
+    },
+    {
+      "name": "paused recovered expiry",
+      "before": {
+        "waitId": "16324906-8ff3-4539-953e-e4b45e1c5948",
+        "rootId": "372d88f6-0a71-4458-a428-49bab2f61284",
+        "bindingId": "93cdf2fc-ea4d-4b7a-9dea-1d6b6136a30d",
+        "invocationId": "496f4275-46b1-4b66-9bab-58e1439c0a81",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "2c1dec8e14252ee3b830b86601336d95319f2cbc4443a68ab512c64c75c598ef",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "98f90dfe-e475-4f23-861e-be6a926111ed",
+            "thread_id": "4d5e961b-9b0e-484d-87c9-4b7afcdc6716",
+            "agent_id": "api-member",
+            "admission_key": "wait:16324906-8ff3-4539-953e-e4b45e1c5948",
+            "kind": "timer",
+            "source_id": "16324906-8ff3-4539-953e-e4b45e1c5948",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "95d03195-0b0c-4e7e-afb5-9baea2bd5a66"
+        ],
+        "budgetRequestIds": [
+          "a478e925-0c47-43dc-b99c-2ec03af62ae7"
+        ],
+        "rootIds": [
+          "372d88f6-0a71-4458-a428-49bab2f61284"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "372d88f6-0a71-4458-a428-49bab2f61284",
+          "dc679b3c-16e4-4642-af78-c11b765840bb"
+        ],
+        "wakeIds": [
+          "68f3618e-7b7e-4498-9ce0-9ed154fb10a0"
+        ]
+      },
+      "after": {
+        "waitId": "16324906-8ff3-4539-953e-e4b45e1c5948",
+        "rootId": "372d88f6-0a71-4458-a428-49bab2f61284",
+        "bindingId": "93cdf2fc-ea4d-4b7a-9dea-1d6b6136a30d",
+        "invocationId": "496f4275-46b1-4b66-9bab-58e1439c0a81",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "2c1dec8e14252ee3b830b86601336d95319f2cbc4443a68ab512c64c75c598ef",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "recoveredMissedTimer": true,
+          "retryUntil": 1800000010000,
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "828b8cbc-1efa-455a-b23c-0e23171ea502",
+          "state": "rejected",
+          "reason": "THREADED_TIMER_RECOVERY_EXPIRED",
+          "messageId": null
+        },
+        "admissions": [
+          {
+            "owner_id": "98f90dfe-e475-4f23-861e-be6a926111ed",
+            "thread_id": "4d5e961b-9b0e-484d-87c9-4b7afcdc6716",
+            "agent_id": "api-member",
+            "admission_key": "wait:16324906-8ff3-4539-953e-e4b45e1c5948",
+            "kind": "timer",
+            "source_id": "16324906-8ff3-4539-953e-e4b45e1c5948",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "95d03195-0b0c-4e7e-afb5-9baea2bd5a66"
+        ],
+        "budgetRequestIds": [
+          "a478e925-0c47-43dc-b99c-2ec03af62ae7"
+        ],
+        "rootIds": [
+          "372d88f6-0a71-4458-a428-49bab2f61284"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "372d88f6-0a71-4458-a428-49bab2f61284",
+          "dc679b3c-16e4-4642-af78-c11b765840bb"
+        ],
+        "wakeIds": [
+          "68f3618e-7b7e-4498-9ce0-9ed154fb10a0"
+        ]
+      }
+    },
+    {
+      "name": "inserted malformed baseline deadline",
+      "before": {
+        "waitId": "529c7f33-59e9-49dc-90f9-56283fa79a49",
+        "rootId": "c6255284-8fb9-465e-9b3e-5acd67d11452",
+        "bindingId": "2ab34d42-4e10-407a-a75d-e90b9f0b02b1",
+        "invocationId": "90c4af13-b367-44ad-b248-69830a30437f",
+        "deadline": 1800000005001,
+        "createdAt": 1800000000000,
+        "recordHash": "b23581826e21f29d37b23650c8e7ec767202bf28b137d429975e791237ddb9d1",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "60c195bb-be41-4246-84f5-5452bb21db23",
+            "thread_id": "aaa1032c-ed63-46fd-9c11-154195502d3e",
+            "agent_id": "api-member",
+            "admission_key": "wait:6a27f9a3-e6ec-4f47-a6bd-e22fc299a52d",
+            "kind": "timer",
+            "source_id": "6a27f9a3-e6ec-4f47-a6bd-e22fc299a52d",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "be3b5e97-4538-4830-bd93-d024828aa979"
+        ],
+        "budgetRequestIds": [
+          "3fb70e32-7b7d-4da3-989b-3e614cd69442"
+        ],
+        "rootIds": [
+          "c6255284-8fb9-465e-9b3e-5acd67d11452"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "a7e1e9a8-2b17-4c21-a9c2-ee199ddf5043",
+          "c6255284-8fb9-465e-9b3e-5acd67d11452"
+        ],
+        "wakeIds": [
+          "b84ff3a6-ce63-40b6-965b-2b790d9e0a08"
+        ]
+      },
+      "after": {
+        "waitId": "529c7f33-59e9-49dc-90f9-56283fa79a49",
+        "rootId": "c6255284-8fb9-465e-9b3e-5acd67d11452",
+        "bindingId": "2ab34d42-4e10-407a-a75d-e90b9f0b02b1",
+        "invocationId": "90c4af13-b367-44ad-b248-69830a30437f",
+        "deadline": 1800000005001,
+        "createdAt": 1800000000000,
+        "recordHash": "b23581826e21f29d37b23650c8e7ec767202bf28b137d429975e791237ddb9d1",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "60c195bb-be41-4246-84f5-5452bb21db23",
+            "thread_id": "aaa1032c-ed63-46fd-9c11-154195502d3e",
+            "agent_id": "api-member",
+            "admission_key": "wait:6a27f9a3-e6ec-4f47-a6bd-e22fc299a52d",
+            "kind": "timer",
+            "source_id": "6a27f9a3-e6ec-4f47-a6bd-e22fc299a52d",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "be3b5e97-4538-4830-bd93-d024828aa979"
+        ],
+        "budgetRequestIds": [
+          "3fb70e32-7b7d-4da3-989b-3e614cd69442"
+        ],
+        "rootIds": [
+          "c6255284-8fb9-465e-9b3e-5acd67d11452"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "a7e1e9a8-2b17-4c21-a9c2-ee199ddf5043",
+          "c6255284-8fb9-465e-9b3e-5acd67d11452",
+          "fa644c0a-17ab-4383-a503-6d0b9312f6b4"
+        ],
+        "wakeIds": [
+          "b7581a5e-bcec-408c-b54d-41d532f90ab4",
+          "b84ff3a6-ce63-40b6-965b-2b790d9e0a08"
+        ]
+      }
+    },
+    {
+      "name": "inserted malformed baseline seconds",
+      "before": {
+        "waitId": "294088f6-0038-42d1-8d42-98f2df91a15e",
+        "rootId": "00c0b377-a070-4dec-8f40-791d26cb3e94",
+        "bindingId": "cd67509a-4f2a-44ee-986e-1edeef808852",
+        "invocationId": "1b011e64-e9eb-46ed-9dab-b0e9fbb0201b",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "ba7cff71cb38570277e02f620742f86c7ed531e6ed9fbe46904549d69dd42cad",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "8891f839-ba2c-457d-be26-033e9a54bec5",
+            "thread_id": "739ecfbe-d950-4115-8eb3-719537274099",
+            "agent_id": "api-member",
+            "admission_key": "wait:4c4e7a56-5a4c-4788-a537-7308927ab511",
+            "kind": "timer",
+            "source_id": "4c4e7a56-5a4c-4788-a537-7308927ab511",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "5cf38f60-f7cd-46df-bca0-83acb1bc8db4"
+        ],
+        "budgetRequestIds": [
+          "3bef5a61-75c7-498b-9a04-ae9ae54e92f4"
+        ],
+        "rootIds": [
+          "00c0b377-a070-4dec-8f40-791d26cb3e94"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "00c0b377-a070-4dec-8f40-791d26cb3e94",
+          "04ae11a1-7733-4955-8d2b-a857d22db987"
+        ],
+        "wakeIds": [
+          "7e452dbe-52f1-4ac2-b25d-06f2b2fc4837"
+        ]
+      },
+      "after": {
+        "waitId": "294088f6-0038-42d1-8d42-98f2df91a15e",
+        "rootId": "00c0b377-a070-4dec-8f40-791d26cb3e94",
+        "bindingId": "cd67509a-4f2a-44ee-986e-1edeef808852",
+        "invocationId": "1b011e64-e9eb-46ed-9dab-b0e9fbb0201b",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "ba7cff71cb38570277e02f620742f86c7ed531e6ed9fbe46904549d69dd42cad",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "8891f839-ba2c-457d-be26-033e9a54bec5",
+            "thread_id": "739ecfbe-d950-4115-8eb3-719537274099",
+            "agent_id": "api-member",
+            "admission_key": "wait:4c4e7a56-5a4c-4788-a537-7308927ab511",
+            "kind": "timer",
+            "source_id": "4c4e7a56-5a4c-4788-a537-7308927ab511",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "5cf38f60-f7cd-46df-bca0-83acb1bc8db4"
+        ],
+        "budgetRequestIds": [
+          "3bef5a61-75c7-498b-9a04-ae9ae54e92f4"
+        ],
+        "rootIds": [
+          "00c0b377-a070-4dec-8f40-791d26cb3e94"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "00c0b377-a070-4dec-8f40-791d26cb3e94",
+          "04ae11a1-7733-4955-8d2b-a857d22db987",
+          "8f386617-f948-4bc3-b651-29ea255a1414"
+        ],
+        "wakeIds": [
+          "6da973bb-3c80-4f81-ba38-f617a75fa146",
+          "7e452dbe-52f1-4ac2-b25d-06f2b2fc4837"
+        ]
+      }
+    },
+    {
+      "name": "inserted malformed baseline missing-seconds",
+      "before": {
+        "waitId": "8f483a4f-a1c3-4b5b-8c0b-3e6aeb64cd97",
+        "rootId": "60bc5f4c-2796-4bdd-aebf-fb50d3e11384",
+        "bindingId": "1db40b65-4c27-4ca4-88ce-a9707c71acaa",
+        "invocationId": "9ebf2271-6bcf-4733-a7c5-507eab1c07e6",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "db7a09fd3fdc3c2b6d9d50da3e4618506b06f3f7ebb36aedeceba91682acf647",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "27ace698-8d4d-470f-9344-3feb4ec91712",
+            "thread_id": "1a2eafec-9e49-4604-94bf-fe6242758020",
+            "agent_id": "api-member",
+            "admission_key": "wait:d6db0da0-d949-41bf-abec-7b2faf44cdc1",
+            "kind": "timer",
+            "source_id": "d6db0da0-d949-41bf-abec-7b2faf44cdc1",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "29838b5f-219a-40dc-95f8-7c8b0fe6c9bd"
+        ],
+        "budgetRequestIds": [
+          "62a75a05-8e71-4007-927e-d13e529d451f"
+        ],
+        "rootIds": [
+          "60bc5f4c-2796-4bdd-aebf-fb50d3e11384"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "2a6e7550-385c-4cfd-b5fc-f75bb309fd6c",
+          "60bc5f4c-2796-4bdd-aebf-fb50d3e11384"
+        ],
+        "wakeIds": [
+          "0974175a-9449-4ec1-803f-3e520d8819b2"
+        ]
+      },
+      "after": {
+        "waitId": "8f483a4f-a1c3-4b5b-8c0b-3e6aeb64cd97",
+        "rootId": "60bc5f4c-2796-4bdd-aebf-fb50d3e11384",
+        "bindingId": "1db40b65-4c27-4ca4-88ce-a9707c71acaa",
+        "invocationId": "9ebf2271-6bcf-4733-a7c5-507eab1c07e6",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "db7a09fd3fdc3c2b6d9d50da3e4618506b06f3f7ebb36aedeceba91682acf647",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "27ace698-8d4d-470f-9344-3feb4ec91712",
+            "thread_id": "1a2eafec-9e49-4604-94bf-fe6242758020",
+            "agent_id": "api-member",
+            "admission_key": "wait:d6db0da0-d949-41bf-abec-7b2faf44cdc1",
+            "kind": "timer",
+            "source_id": "d6db0da0-d949-41bf-abec-7b2faf44cdc1",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "29838b5f-219a-40dc-95f8-7c8b0fe6c9bd"
+        ],
+        "budgetRequestIds": [
+          "62a75a05-8e71-4007-927e-d13e529d451f"
+        ],
+        "rootIds": [
+          "60bc5f4c-2796-4bdd-aebf-fb50d3e11384"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "2a6e7550-385c-4cfd-b5fc-f75bb309fd6c",
+          "60bc5f4c-2796-4bdd-aebf-fb50d3e11384",
+          "a3a0dbee-b816-4a3b-84cd-c887c27f8ab7"
+        ],
+        "wakeIds": [
+          "0974175a-9449-4ec1-803f-3e520d8819b2",
+          "a4009ca6-dbc4-455c-a24b-9920c7fe613b"
+        ]
+      }
+    },
+    {
+      "name": "inserted malformed baseline string-seconds",
+      "before": {
+        "waitId": "f6018419-d34d-43d4-98f3-9cb496e7255c",
+        "rootId": "e16ffdda-b548-48a5-a974-5a653703f630",
+        "bindingId": "f3603c10-a12f-4ca1-a93d-f0c674bc4e54",
+        "invocationId": "837cb214-2e3f-4a87-9a63-8e04198d5fef",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "b167b9a6eb43c818bb0878ce126e6ff1ae53d322f59dd6a86c9f6f21d53e6f42",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "602cd30b-039c-4fee-9d07-a85e466c476d",
+            "thread_id": "e8563a4c-43b0-4019-84d5-ff6f69ccf522",
+            "agent_id": "api-member",
+            "admission_key": "wait:36651e24-b960-4d06-9b3b-766e14222945",
+            "kind": "timer",
+            "source_id": "36651e24-b960-4d06-9b3b-766e14222945",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "83af442b-ac92-48a6-971e-ca5816a58886"
+        ],
+        "budgetRequestIds": [
+          "aa1ab262-7a06-4311-b303-a500383df083"
+        ],
+        "rootIds": [
+          "e16ffdda-b548-48a5-a974-5a653703f630"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "a53e70b7-69ed-47eb-917e-b44a471987f9",
+          "e16ffdda-b548-48a5-a974-5a653703f630"
+        ],
+        "wakeIds": [
+          "25f4e27c-ed81-4936-bef3-b4cb57811710"
+        ]
+      },
+      "after": {
+        "waitId": "f6018419-d34d-43d4-98f3-9cb496e7255c",
+        "rootId": "e16ffdda-b548-48a5-a974-5a653703f630",
+        "bindingId": "f3603c10-a12f-4ca1-a93d-f0c674bc4e54",
+        "invocationId": "837cb214-2e3f-4a87-9a63-8e04198d5fef",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "b167b9a6eb43c818bb0878ce126e6ff1ae53d322f59dd6a86c9f6f21d53e6f42",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "602cd30b-039c-4fee-9d07-a85e466c476d",
+            "thread_id": "e8563a4c-43b0-4019-84d5-ff6f69ccf522",
+            "agent_id": "api-member",
+            "admission_key": "wait:36651e24-b960-4d06-9b3b-766e14222945",
+            "kind": "timer",
+            "source_id": "36651e24-b960-4d06-9b3b-766e14222945",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "83af442b-ac92-48a6-971e-ca5816a58886"
+        ],
+        "budgetRequestIds": [
+          "aa1ab262-7a06-4311-b303-a500383df083"
+        ],
+        "rootIds": [
+          "e16ffdda-b548-48a5-a974-5a653703f630"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "48390ded-93dc-41c7-918a-d769bd9c4f8a",
+          "a53e70b7-69ed-47eb-917e-b44a471987f9",
+          "e16ffdda-b548-48a5-a974-5a653703f630"
+        ],
+        "wakeIds": [
+          "25f4e27c-ed81-4936-bef3-b4cb57811710",
+          "cf1e6bb3-19bb-4cff-80ba-b1991142471a"
+        ]
+      }
+    },
+    {
+      "name": "inserted malformed baseline wrong-kind",
+      "before": {
+        "waitId": "f68de1ad-01c7-486a-8766-1c71562f4b0f",
+        "rootId": "1cb3015e-1447-4911-aba2-e273b4955084",
+        "bindingId": "3cd3d711-6888-499a-bfb8-4ef98771a839",
+        "invocationId": "c89214ea-5259-492e-b686-fddb1bfebe93",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "78e53eec7853bf7cb94a35318a9acaa5a23f52a395701ec9a236cfc30782347b",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "26669345-1386-4412-bc86-acc3f02a03b3",
+            "thread_id": "0b72007b-a0bd-4a42-ad0d-1dfd0c97212a",
+            "agent_id": "api-member",
+            "admission_key": "wait:5700f51d-e3b7-41fc-9b4e-5d5bbc5dc808",
+            "kind": "timer",
+            "source_id": "5700f51d-e3b7-41fc-9b4e-5d5bbc5dc808",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "dc767612-15ee-4795-9710-27e8cb5ae4cd"
+        ],
+        "budgetRequestIds": [
+          "16e888f4-3776-470f-94f2-a11f15addd1d"
+        ],
+        "rootIds": [
+          "1cb3015e-1447-4911-aba2-e273b4955084"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "1cb3015e-1447-4911-aba2-e273b4955084",
+          "edbeddf7-2afa-4b69-bd57-ce9ba52299da"
+        ],
+        "wakeIds": [
+          "dc3da88f-9fa0-40ca-9002-48fcf8456e1e"
+        ]
+      },
+      "after": {
+        "waitId": "f68de1ad-01c7-486a-8766-1c71562f4b0f",
+        "rootId": "1cb3015e-1447-4911-aba2-e273b4955084",
+        "bindingId": "3cd3d711-6888-499a-bfb8-4ef98771a839",
+        "invocationId": "c89214ea-5259-492e-b686-fddb1bfebe93",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "78e53eec7853bf7cb94a35318a9acaa5a23f52a395701ec9a236cfc30782347b",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "26669345-1386-4412-bc86-acc3f02a03b3",
+            "thread_id": "0b72007b-a0bd-4a42-ad0d-1dfd0c97212a",
+            "agent_id": "api-member",
+            "admission_key": "wait:5700f51d-e3b7-41fc-9b4e-5d5bbc5dc808",
+            "kind": "timer",
+            "source_id": "5700f51d-e3b7-41fc-9b4e-5d5bbc5dc808",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "dc767612-15ee-4795-9710-27e8cb5ae4cd"
+        ],
+        "budgetRequestIds": [
+          "16e888f4-3776-470f-94f2-a11f15addd1d"
+        ],
+        "rootIds": [
+          "1cb3015e-1447-4911-aba2-e273b4955084"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "0ed8dd0d-d7c6-4ab3-a927-a60e699eb67e",
+          "1cb3015e-1447-4911-aba2-e273b4955084",
+          "edbeddf7-2afa-4b69-bd57-ce9ba52299da"
+        ],
+        "wakeIds": [
+          "bd8962a5-8371-46b8-985a-93e489f423a1",
+          "dc3da88f-9fa0-40ca-9002-48fcf8456e1e"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift permission",
+      "before": {
+        "waitId": "babc7e81-9edf-4974-a7a8-79d2a8993729",
+        "rootId": "364cc5c9-425d-44c4-992b-03811b88ef76",
+        "bindingId": "1044daab-1917-47f4-9cfc-235b810ac093",
+        "invocationId": "96dc3cde-715e-4e07-a8aa-b72194a22954",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "335c249e34d05ac7d11cc112f9bc6c86f768840d38aa63f00ac86e594a118980",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "8124f855-8edd-440a-99ad-0ecbbf37b77b",
+            "thread_id": "233a7b2c-e450-4aed-80a7-b98ad61df59d",
+            "agent_id": "api-member",
+            "admission_key": "wait:babc7e81-9edf-4974-a7a8-79d2a8993729",
+            "kind": "timer",
+            "source_id": "babc7e81-9edf-4974-a7a8-79d2a8993729",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "bb53bb1d-bcc5-4c15-a30f-a27e977eb24d"
+        ],
+        "budgetRequestIds": [
+          "9de3166a-5812-40f6-8878-7b26aea1aff4"
+        ],
+        "rootIds": [
+          "364cc5c9-425d-44c4-992b-03811b88ef76"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "1404dd0d-488a-4f38-a6ff-d3133c1c6ac1",
+          "364cc5c9-425d-44c4-992b-03811b88ef76"
+        ],
+        "wakeIds": [
+          "aae3d4d9-5aac-4a1d-be7d-775a97882eff"
+        ]
+      },
+      "after": {
+        "waitId": "babc7e81-9edf-4974-a7a8-79d2a8993729",
+        "rootId": "364cc5c9-425d-44c4-992b-03811b88ef76",
+        "bindingId": "1044daab-1917-47f4-9cfc-235b810ac093",
+        "invocationId": "96dc3cde-715e-4e07-a8aa-b72194a22954",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "335c249e34d05ac7d11cc112f9bc6c86f768840d38aa63f00ac86e594a118980",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "8124f855-8edd-440a-99ad-0ecbbf37b77b",
+            "thread_id": "233a7b2c-e450-4aed-80a7-b98ad61df59d",
+            "agent_id": "api-member",
+            "admission_key": "wait:babc7e81-9edf-4974-a7a8-79d2a8993729",
+            "kind": "timer",
+            "source_id": "babc7e81-9edf-4974-a7a8-79d2a8993729",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "bb53bb1d-bcc5-4c15-a30f-a27e977eb24d"
+        ],
+        "budgetRequestIds": [
+          "9de3166a-5812-40f6-8878-7b26aea1aff4"
+        ],
+        "rootIds": [
+          "364cc5c9-425d-44c4-992b-03811b88ef76"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "1404dd0d-488a-4f38-a6ff-d3133c1c6ac1",
+          "364cc5c9-425d-44c4-992b-03811b88ef76"
+        ],
+        "wakeIds": [
+          "aae3d4d9-5aac-4a1d-be7d-775a97882eff"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift role",
+      "before": {
+        "waitId": "bd58054c-b346-4523-a1bf-5296281fe121",
+        "rootId": "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1",
+        "bindingId": "997258e8-bb40-47c5-bb46-758a98eee7ac",
+        "invocationId": "672bf3b4-1cf7-4d14-84e6-bb0ba24fceec",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "55d583877b5ed614e1a53ec52ef3d5aa1871a51fc5c1490b19ecbe2c90549878",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "d014e3ed-8409-41fc-a638-c6b89ef3e63a",
+            "thread_id": "f2425aa6-cf81-496e-81c7-e16d913a98f4",
+            "agent_id": "api-member",
+            "admission_key": "wait:bd58054c-b346-4523-a1bf-5296281fe121",
+            "kind": "timer",
+            "source_id": "bd58054c-b346-4523-a1bf-5296281fe121",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "85ff2d01-de16-4270-806d-db20e4987517"
+        ],
+        "budgetRequestIds": [
+          "7e08ecb5-3e3d-40f3-a1c6-70f91d182820"
+        ],
+        "rootIds": [
+          "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "12ad961e-7b15-413a-b5c4-c98343272d3b",
+          "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1"
+        ],
+        "wakeIds": [
+          "fa956865-b877-4802-90e8-67c92c6c60c6"
+        ]
+      },
+      "after": {
+        "waitId": "bd58054c-b346-4523-a1bf-5296281fe121",
+        "rootId": "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1",
+        "bindingId": "997258e8-bb40-47c5-bb46-758a98eee7ac",
+        "invocationId": "672bf3b4-1cf7-4d14-84e6-bb0ba24fceec",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "55d583877b5ed614e1a53ec52ef3d5aa1871a51fc5c1490b19ecbe2c90549878",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "d014e3ed-8409-41fc-a638-c6b89ef3e63a",
+            "thread_id": "f2425aa6-cf81-496e-81c7-e16d913a98f4",
+            "agent_id": "api-member",
+            "admission_key": "wait:bd58054c-b346-4523-a1bf-5296281fe121",
+            "kind": "timer",
+            "source_id": "bd58054c-b346-4523-a1bf-5296281fe121",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "85ff2d01-de16-4270-806d-db20e4987517"
+        ],
+        "budgetRequestIds": [
+          "7e08ecb5-3e3d-40f3-a1c6-70f91d182820"
+        ],
+        "rootIds": [
+          "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "12ad961e-7b15-413a-b5c4-c98343272d3b",
+          "d23b3d54-e09f-4fc8-ac8c-fa03caaadaa1"
+        ],
+        "wakeIds": [
+          "fa956865-b877-4802-90e8-67c92c6c60c6"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift membership",
+      "before": {
+        "waitId": "e9bbb897-2af3-449a-9a4c-95fcace43904",
+        "rootId": "74b5aa93-0ead-414a-ba81-37516ec4e439",
+        "bindingId": "b89131bc-85fa-4981-86ca-7a6f7a011472",
+        "invocationId": "fe08e8c2-72aa-4e27-918e-94135aef844d",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "14a32470aca4986a83f2ecfa6d8db0c6fdb5a6997f17515e31066b5b358808b5",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "572a1be8-2801-47ba-be5f-b98e923f197d",
+            "thread_id": "7ec09818-a7d9-4e3f-a5d7-f5042b2ba484",
+            "agent_id": "api-member",
+            "admission_key": "wait:e9bbb897-2af3-449a-9a4c-95fcace43904",
+            "kind": "timer",
+            "source_id": "e9bbb897-2af3-449a-9a4c-95fcace43904",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "36fe21fd-395a-4ccf-9240-a884e19fcdae"
+        ],
+        "budgetRequestIds": [
+          "948b8391-54a6-48e4-ae1a-14b66ec795f7"
+        ],
+        "rootIds": [
+          "74b5aa93-0ead-414a-ba81-37516ec4e439"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "082147dd-eee4-4a3c-abd1-c6a0cfad1b82",
+          "74b5aa93-0ead-414a-ba81-37516ec4e439"
+        ],
+        "wakeIds": [
+          "f07487f4-add8-41cf-9d5f-32341d315a3f"
+        ]
+      },
+      "after": {
+        "waitId": "e9bbb897-2af3-449a-9a4c-95fcace43904",
+        "rootId": "74b5aa93-0ead-414a-ba81-37516ec4e439",
+        "bindingId": "b89131bc-85fa-4981-86ca-7a6f7a011472",
+        "invocationId": "fe08e8c2-72aa-4e27-918e-94135aef844d",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "14a32470aca4986a83f2ecfa6d8db0c6fdb5a6997f17515e31066b5b358808b5",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "572a1be8-2801-47ba-be5f-b98e923f197d",
+            "thread_id": "7ec09818-a7d9-4e3f-a5d7-f5042b2ba484",
+            "agent_id": "api-member",
+            "admission_key": "wait:e9bbb897-2af3-449a-9a4c-95fcace43904",
+            "kind": "timer",
+            "source_id": "e9bbb897-2af3-449a-9a4c-95fcace43904",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "36fe21fd-395a-4ccf-9240-a884e19fcdae"
+        ],
+        "budgetRequestIds": [
+          "948b8391-54a6-48e4-ae1a-14b66ec795f7"
+        ],
+        "rootIds": [
+          "74b5aa93-0ead-414a-ba81-37516ec4e439"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "082147dd-eee4-4a3c-abd1-c6a0cfad1b82",
+          "74b5aa93-0ead-414a-ba81-37516ec4e439"
+        ],
+        "wakeIds": [
+          "f07487f4-add8-41cf-9d5f-32341d315a3f"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift source-auth",
+      "before": {
+        "waitId": "e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+        "rootId": "e790b750-60d5-4652-8ffa-d5c3bb930563",
+        "bindingId": "67a53671-f366-4938-8409-fe8c587ef2a1",
+        "invocationId": "0a93f794-6b91-4124-86cf-faa4adf647d9",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f02643843a59e75da3a63a42bf9ef6fefe6fa15e1ae3e3f8133d0e9e0d3d4977",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "a3552d10-c2e9-4207-b252-59762ea620fa",
+            "thread_id": "68ee589f-64cb-4070-beca-2847b5a08c42",
+            "agent_id": "api-member",
+            "admission_key": "wait:e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+            "kind": "timer",
+            "source_id": "e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "58ca88d3-7b03-40b1-849b-a4403766cc17"
+        ],
+        "budgetRequestIds": [
+          "d5ac6041-5667-4c51-b49e-c2a106ba71d7"
+        ],
+        "rootIds": [
+          "e790b750-60d5-4652-8ffa-d5c3bb930563"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "63b6df50-eab3-4915-884a-2e0eea01b091",
+          "e790b750-60d5-4652-8ffa-d5c3bb930563"
+        ],
+        "wakeIds": [
+          "bf06d0c8-5070-4b56-9978-93a223c557f7"
+        ]
+      },
+      "after": {
+        "waitId": "e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+        "rootId": "e790b750-60d5-4652-8ffa-d5c3bb930563",
+        "bindingId": "67a53671-f366-4938-8409-fe8c587ef2a1",
+        "invocationId": "0a93f794-6b91-4124-86cf-faa4adf647d9",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f02643843a59e75da3a63a42bf9ef6fefe6fa15e1ae3e3f8133d0e9e0d3d4977",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "a3552d10-c2e9-4207-b252-59762ea620fa",
+            "thread_id": "68ee589f-64cb-4070-beca-2847b5a08c42",
+            "agent_id": "api-member",
+            "admission_key": "wait:e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+            "kind": "timer",
+            "source_id": "e29f4a0b-1fab-472d-bf5a-c9ef32db2468",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "58ca88d3-7b03-40b1-849b-a4403766cc17"
+        ],
+        "budgetRequestIds": [
+          "d5ac6041-5667-4c51-b49e-c2a106ba71d7"
+        ],
+        "rootIds": [
+          "e790b750-60d5-4652-8ffa-d5c3bb930563"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "63b6df50-eab3-4915-884a-2e0eea01b091",
+          "e790b750-60d5-4652-8ffa-d5c3bb930563"
+        ],
+        "wakeIds": [
+          "bf06d0c8-5070-4b56-9978-93a223c557f7"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift source-auth-unknown",
+      "before": {
+        "waitId": "f75d970b-4b2d-4708-931a-d57b8decf927",
+        "rootId": "0cc81d54-863c-41fa-a2aa-691fd175fc3d",
+        "bindingId": "eb9f17e6-0094-4c93-a19a-278301505c6d",
+        "invocationId": "52909b5d-246e-4f76-a211-ea597e6e4797",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "3bc1026939f53e9ec67b05223ed741f7f9862e6a549c3784b2ba988a6a254bbb",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "d39dd956-651c-4d5e-b8a4-8960985b1629",
+            "thread_id": "3a061373-1e5f-4ec1-8643-baf79cc3f198",
+            "agent_id": "api-member",
+            "admission_key": "wait:f75d970b-4b2d-4708-931a-d57b8decf927",
+            "kind": "timer",
+            "source_id": "f75d970b-4b2d-4708-931a-d57b8decf927",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "b240749b-2d55-4abe-820e-a1ace6299a0d"
+        ],
+        "budgetRequestIds": [
+          "f6506c89-7cbc-4008-b94b-ee9d35d7c912"
+        ],
+        "rootIds": [
+          "0cc81d54-863c-41fa-a2aa-691fd175fc3d"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "0cc81d54-863c-41fa-a2aa-691fd175fc3d",
+          "691ad6d8-4cd3-48cc-9ec6-2824d2aee7e3"
+        ],
+        "wakeIds": [
+          "3cdd12c2-fb8b-48c3-888c-361f38dcabe1"
+        ]
+      },
+      "after": {
+        "waitId": "f75d970b-4b2d-4708-931a-d57b8decf927",
+        "rootId": "0cc81d54-863c-41fa-a2aa-691fd175fc3d",
+        "bindingId": "eb9f17e6-0094-4c93-a19a-278301505c6d",
+        "invocationId": "52909b5d-246e-4f76-a211-ea597e6e4797",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "3bc1026939f53e9ec67b05223ed741f7f9862e6a549c3784b2ba988a6a254bbb",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "d39dd956-651c-4d5e-b8a4-8960985b1629",
+            "thread_id": "3a061373-1e5f-4ec1-8643-baf79cc3f198",
+            "agent_id": "api-member",
+            "admission_key": "wait:f75d970b-4b2d-4708-931a-d57b8decf927",
+            "kind": "timer",
+            "source_id": "f75d970b-4b2d-4708-931a-d57b8decf927",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "b240749b-2d55-4abe-820e-a1ace6299a0d"
+        ],
+        "budgetRequestIds": [
+          "f6506c89-7cbc-4008-b94b-ee9d35d7c912"
+        ],
+        "rootIds": [
+          "0cc81d54-863c-41fa-a2aa-691fd175fc3d"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "0cc81d54-863c-41fa-a2aa-691fd175fc3d",
+          "691ad6d8-4cd3-48cc-9ec6-2824d2aee7e3"
+        ],
+        "wakeIds": [
+          "3cdd12c2-fb8b-48c3-888c-361f38dcabe1"
+        ]
+      }
+    },
+    {
+      "name": "missed original authority drift source-anchor",
+      "before": {
+        "waitId": "4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+        "rootId": "8f751c73-5831-417c-b662-643f3a06c1ad",
+        "bindingId": "74a902b2-df11-4986-bd30-585e270a56ce",
+        "invocationId": "ce18298a-18a0-408d-9802-334c35335184",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "e6fb0961e186c3ff2231a4cced7fe0807d06d6a3b722c74e3c7d282fc4320c12",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "921f725b-bcbb-4f8e-a3b7-478f6c38bae5",
+            "thread_id": "7ada1d77-e56f-4f74-b5a3-383d8ec7e703",
+            "agent_id": "api-member",
+            "admission_key": "wait:4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+            "kind": "timer",
+            "source_id": "4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "dedc2acb-88cd-4b10-87f4-1f254a40798b"
+        ],
+        "budgetRequestIds": [
+          "fb8cea56-c297-4a9a-836c-1981c5686033"
+        ],
+        "rootIds": [
+          "8f751c73-5831-417c-b662-643f3a06c1ad"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "8f751c73-5831-417c-b662-643f3a06c1ad",
+          "a57fdc1c-385f-4fd1-92ee-b88a376e9a9d"
+        ],
+        "wakeIds": [
+          "b9914338-4833-4f87-9a3d-d676b0700ac2"
+        ]
+      },
+      "after": {
+        "waitId": "4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+        "rootId": "8f751c73-5831-417c-b662-643f3a06c1ad",
+        "bindingId": "74a902b2-df11-4986-bd30-585e270a56ce",
+        "invocationId": "ce18298a-18a0-408d-9802-334c35335184",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "e6fb0961e186c3ff2231a4cced7fe0807d06d6a3b722c74e3c7d282fc4320c12",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "921f725b-bcbb-4f8e-a3b7-478f6c38bae5",
+            "thread_id": "7ada1d77-e56f-4f74-b5a3-383d8ec7e703",
+            "agent_id": "api-member",
+            "admission_key": "wait:4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+            "kind": "timer",
+            "source_id": "4636cb5b-5d68-4d4f-8982-46ba2511acb0",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "dedc2acb-88cd-4b10-87f4-1f254a40798b"
+        ],
+        "budgetRequestIds": [
+          "fb8cea56-c297-4a9a-836c-1981c5686033"
+        ],
+        "rootIds": [
+          "8f751c73-5831-417c-b662-643f3a06c1ad"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "8f751c73-5831-417c-b662-643f3a06c1ad",
+          "a57fdc1c-385f-4fd1-92ee-b88a376e9a9d"
+        ],
+        "wakeIds": [
+          "b9914338-4833-4f87-9a3d-d676b0700ac2"
+        ]
+      }
+    },
+    {
+      "name": "paused callback source-authority revoked",
+      "before": {
+        "waitId": "411d39f8-d7be-4fe9-a655-3072e19676bc",
+        "rootId": "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a",
+        "bindingId": "326f6e34-6f3e-4ddc-b49d-0971269b6a1c",
+        "invocationId": "7796e5fc-624a-499e-91a4-41ba809506f5",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f5377ea35f727bc4c87167c9d3a1c30db3cd68d6a343bb4a6c35c7b8a97a24a2",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "b423205d-763f-4db2-ae35-3dd6dc871fa2",
+            "thread_id": "1e4b8617-e12a-4bf0-92a4-11f2924662d7",
+            "agent_id": "api-member",
+            "admission_key": "wait:411d39f8-d7be-4fe9-a655-3072e19676bc",
+            "kind": "timer",
+            "source_id": "411d39f8-d7be-4fe9-a655-3072e19676bc",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "a19d1524-89d2-4c26-abb6-6a655cdef24e"
+        ],
+        "budgetRequestIds": [
+          "17bf5348-7cd6-4c08-82bf-22be51e3ebd1"
+        ],
+        "rootIds": [
+          "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a",
+          "5db6355f-6ffd-4de1-8470-68607c2a3f74"
+        ],
+        "wakeIds": [
+          "c16d4550-5d20-4323-b1b9-b809f1054281"
+        ]
+      },
+      "after": {
+        "waitId": "411d39f8-d7be-4fe9-a655-3072e19676bc",
+        "rootId": "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a",
+        "bindingId": "326f6e34-6f3e-4ddc-b49d-0971269b6a1c",
+        "invocationId": "7796e5fc-624a-499e-91a4-41ba809506f5",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "f5377ea35f727bc4c87167c9d3a1c30db3cd68d6a343bb4a6c35c7b8a97a24a2",
+        "state": "settled",
+        "version": 2,
+        "outcome": {
+          "type": "timer_elapsed",
+          "recoveredMissedTimer": true,
+          "retryUntil": 1800000010000,
+          "businessConditionVerified": false
+        },
+        "callback": {
+          "id": "da151432-1864-4ad9-aa31-e68d84497851",
+          "state": "rejected",
+          "reason": "THREADED_WAIT_SOURCE_AUTHORITY_CHANGED",
+          "messageId": null
+        },
+        "admissions": [
+          {
+            "owner_id": "b423205d-763f-4db2-ae35-3dd6dc871fa2",
+            "thread_id": "1e4b8617-e12a-4bf0-92a4-11f2924662d7",
+            "agent_id": "api-member",
+            "admission_key": "wait:411d39f8-d7be-4fe9-a655-3072e19676bc",
+            "kind": "timer",
+            "source_id": "411d39f8-d7be-4fe9-a655-3072e19676bc",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "a19d1524-89d2-4c26-abb6-6a655cdef24e"
+        ],
+        "budgetRequestIds": [
+          "17bf5348-7cd6-4c08-82bf-22be51e3ebd1"
+        ],
+        "rootIds": [
+          "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a"
+        ],
+        "modelRequests": 1,
+        "messageIds": [
+          "2bb0b2d9-284e-456f-8b09-0f08c8ffda3a",
+          "5db6355f-6ffd-4de1-8470-68607c2a3f74"
+        ],
+        "wakeIds": [
+          "c16d4550-5d20-4323-b1b9-b809f1054281"
+        ]
+      }
+    },
+    {
+      "name": "actual Action generation returned before timer recovery",
+      "before": {
+        "waitId": "b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+        "rootId": "077feb8e-ec80-4b16-9b1d-a3b46738157b",
+        "bindingId": "57c5fa97-5434-4f1d-aa5b-8cb56c8aeaea",
+        "invocationId": "64f4a558-923f-41f5-bec1-8277a97fad1a",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "2473ec84c79cceca15f772494d6712fc3c6272b72af399dc144048b85eb5298f",
+        "state": "awaiting",
+        "version": 1,
+        "outcome": null,
+        "admissions": [
+          {
+            "owner_id": "3f473cdc-15e2-47d0-b55c-54db83f285dd",
+            "thread_id": "122d650a-3d6e-474a-9853-2ed9a30bd24f",
+            "agent_id": "other-member",
+            "admission_key": "wait:b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+            "kind": "timer",
+            "source_id": "b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "58de70f6-4fe2-4b42-8c78-e048b0467dd5",
+          "5b7a897f-2eac-43df-aa51-47b29113a735"
+        ],
+        "budgetRequestIds": [
+          "834635d4-34b3-4c68-b88a-425c67e6f665",
+          "9e0c8cf8-e53a-46c8-ac62-cbf62891dfd7"
+        ],
+        "rootIds": [
+          "077feb8e-ec80-4b16-9b1d-a3b46738157b"
+        ],
+        "modelRequests": 2,
+        "messageIds": [
+          "077feb8e-ec80-4b16-9b1d-a3b46738157b",
+          "26bed2a1-53ba-44b9-bc66-bca7a7119d89",
+          "35fc06fc-769e-43eb-8d6b-c845bbde276c",
+          "39077671-c506-49b2-bd30-a500b74afdda",
+          "c65204f6-1bfa-4aec-b8c1-bb80dae750c2"
+        ],
+        "wakeIds": [
+          "25f03da5-9e02-4328-986f-467c890ac659",
+          "3fcfc4f9-ba12-4208-9870-474dcc0b5d20",
+          "6aa473a5-2c2e-46a1-8a59-9d9c2cdee1bc"
+        ]
+      },
+      "after": {
+        "waitId": "b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+        "rootId": "077feb8e-ec80-4b16-9b1d-a3b46738157b",
+        "bindingId": "57c5fa97-5434-4f1d-aa5b-8cb56c8aeaea",
+        "invocationId": "64f4a558-923f-41f5-bec1-8277a97fad1a",
+        "deadline": 1800000005000,
+        "createdAt": 1800000000000,
+        "recordHash": "2473ec84c79cceca15f772494d6712fc3c6272b72af399dc144048b85eb5298f",
+        "state": "withdrawn",
+        "version": 2,
+        "outcome": {
+          "type": "timer_recovery_retired",
+          "disposition": "retired_invalid",
+          "classification": "invalid",
+          "businessConditionVerified": false
+        },
+        "admissions": [
+          {
+            "owner_id": "3f473cdc-15e2-47d0-b55c-54db83f285dd",
+            "thread_id": "122d650a-3d6e-474a-9853-2ed9a30bd24f",
+            "agent_id": "other-member",
+            "admission_key": "wait:b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+            "kind": "timer",
+            "source_id": "b7d7d9ec-4ee2-420c-bcb8-ef262a06a203",
+            "created_at": 1800000000000
+          }
+        ],
+        "backendRequestIds": [
+          "58de70f6-4fe2-4b42-8c78-e048b0467dd5",
+          "5b7a897f-2eac-43df-aa51-47b29113a735"
+        ],
+        "budgetRequestIds": [
+          "834635d4-34b3-4c68-b88a-425c67e6f665",
+          "9e0c8cf8-e53a-46c8-ac62-cbf62891dfd7"
+        ],
+        "rootIds": [
+          "077feb8e-ec80-4b16-9b1d-a3b46738157b"
+        ],
+        "modelRequests": 2,
+        "messageIds": [
+          "077feb8e-ec80-4b16-9b1d-a3b46738157b",
+          "26bed2a1-53ba-44b9-bc66-bca7a7119d89",
+          "35fc06fc-769e-43eb-8d6b-c845bbde276c",
+          "39077671-c506-49b2-bd30-a500b74afdda",
+          "c65204f6-1bfa-4aec-b8c1-bb80dae750c2"
+        ],
+        "wakeIds": [
+          "25f03da5-9e02-4328-986f-467c890ac659",
+          "3fcfc4f9-ba12-4208-9870-474dcc0b5d20",
+          "6aa473a5-2c2e-46a1-8a59-9d9c2cdee1bc"
+        ]
+      }
+    }
+  ],
+  "scriptedModelRequests": 22,
+  "realModelRequests": 0,
+  "externalNetworkRequests": 0,
+  "scope": {
+    "composition": "actual threaded backend factories, disposable SQLite, deterministic injected provider",
+    "recovery": "SQLite connection and runtime factory reopen; this file does not prove actual PID or index restart",
+    "ownerAuth": "local immutable instance owner plus frozen member identity and trusted source authorization; no claim of identical upstream fields",
+    "baseline": "immutable original row + exact registered seconds/creation/fireAt recovery comparison",
+    "sla": "missed timer only; classifier allows equality, delivery requires now < original SLA",
+    "credentials": "none read",
+    "dailyDatabase": "not opened",
+    "migrations": "historical v25–v35 unchanged"
+  }
+}

@@ -167,6 +167,12 @@ Thread grant 冻结 backend、backendVersion、model、角色版本、权限版�
 
 `THREADED_RELEASE_CREDENTIAL_VERSION_MISSING` 表示匹配的加密凭据版本行缺失：准入会显示不可用，已接收根明确阻塞，不尝试解密。`THREADED_RELEASE_CREDENTIAL_UNAVAILABLE` 表示实际安全读取/解密失败：该 Agent 在本进程内保留不可用故障，避免通知驱动的反复解密和排队活锁。保留根与账本，修复原主密钥、原凭据版本或文件权限后，正常重启匹配 pack 再核验；不要生成新 Key、替换账户或删除 unknown 来使旧工作继续。
 
+### RC05 故障边界补充
+
+[RC05合同](../architecture/threaded-fault-recovery-acceptance-v1.md)与[报告](../reports/threaded-collaboration-rc05-fault-recovery-2026-10-23.md)提供实际index/选定供应商、timer停机与SQLite故障分层证据，不授日常启用。missed timer必须保留原fireAt/seconds及来源/SLA，畸形旧记录退休；恢复已unknown的原outcome原因与预算hash不重结算。后台lease/hold恢复tick遇操作性SQLITE存储错误只终止当前周期，记录固定任务名/错误码并等下一既有周期；启动时恢复/迁移与其他错误仍fail-fast。存储恢复前不能承诺新工作成功，恢复后不能盲重放原请求。
+
+默认1000ms片长仍可能在同步准备期间过期；本轮仅合成根通过正规Owner CAS显式选10000ms并验真实供应商。目标发布须明确选定片长和总预算，不能直接沿用验收根配置打开日常入口。SDK中途杀父后即使宿主确认guardian组已停，原持久registered/unknown及供应商未知费用仍保留，待可信事实对账。原89758未知加本轮97271未知预留全部保持；当前累计252210 token保守占额及两轮未定位真实超时详见报告，不据新成功自动释放旧项。
+
 ## 5. 一致性备份与恢复
 
 关闭新根并核对 threaded 清单后，还须独立检查旧协作、自主协作、手动 Run、工具执行、登录/账户测试、原生进程、未知效果和费用。`drain.ready=true` 不能替代整库停机检查，`accounts:backup` 的既有原生进程检查也不能代替新模式的进程/claim/unknown 清单。

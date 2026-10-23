@@ -210,7 +210,12 @@
     "verify:threaded-rc04-live": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-live.mjs",
     "verify:threaded-rc04-delivery-authorization": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-delivery-authorization.mjs",
     "verify:threaded-rc04-sharing": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-sharing.mjs",
-    "verify:threaded-rc04-process": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-process.mjs"
+    "verify:threaded-rc04-process": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc04-process.mjs",
+    "verify:threaded-rc05-waits": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc05-waits.mjs",
+    "verify:threaded-rc05-storage": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc05-storage.mjs",
+    "verify:threaded-rc05-activity": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc05-activity.mjs",
+    "verify:threaded-rc05-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc05-main.mjs",
+    "verify:threaded-rc05-main-waits": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc05-main-waits.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

@@ -1,0 +1,36 @@
+{
+  "ok": false,
+  "stage": "RC05 actual index timer recovery",
+  "at": "2026-10-23T10:57:10.065Z",
+  "groups": 0,
+  "checks": [],
+  "failures": [
+    {
+      "reason": "EPERM"
+    }
+  ],
+  "actualMainIndex": true,
+  "actualIndexPids": 0,
+  "processes": [],
+  "cases": [],
+  "realSupplierRequests": 0,
+  "realSupplierTokens": 0,
+  "remoteWrites": 0,
+  "actualSigkillRestarts": 0,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "selectedSyntheticRootActivityAllowanceMs": 10000,
+  "scope": {
+    "composition": "actual apps/server/src/index.ts with production singleton, release pack, HTTP ingress, account and authority policy",
+    "registration": "trusted in-flight test hook invokes real tools.execute(hold_ball) on a current active production binding; not a natural model tool choice",
+    "clock": "Date.now controlled before service construction and advanced only by trusted test IPC; real index PIDs terminate and reopen the same SQLite file",
+    "transport": "local deterministic model response only; global fetch guard prevents unregistered external effects",
+    "dailyDatabase": "never opened",
+    "credentials": "fresh synthetic credential only",
+    "startup": "fixture-only isolated execution bypass is cleared before production singleton import",
+    "boundaries": "actual stop/restart at fireAt−1/equality/+1 and SLA−1/equality/+1; equality classifier recover but no dispatch retry window",
+    "limitations": [
+      "Controlled clock boundaries are deterministic; this is not wall-clock scheduler punctuality or real provider behavior.",
+      "Source ownerAuth, member identity, malformed baseline and Action generation drift are separately covered in waits.json."
+    ]
+  }
+}

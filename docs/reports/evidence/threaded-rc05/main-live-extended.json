@@ -1,0 +1,461 @@
+{
+  "ok": false,
+  "stage": "RC05",
+  "date": "2026-10-23T10:59:57.880Z",
+  "case": "extended",
+  "groups": 0,
+  "checks": [],
+  "failures": [
+    {
+      "id": "receipt-io",
+      "reason": "RC05_TIMEOUT_facts",
+      "facts": {
+        "pid": 16352,
+        "entry": "apps/server/src/index.ts",
+        "isolatedExecutionBypass": false,
+        "beforeRecovery": 0,
+        "calls": 1,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "sequence": 1,
+            "requestId": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "authorizationId": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+            "backend": "api",
+            "pathname": "/api/anthropic/v1/messages",
+            "transport": "configured supplier",
+            "headersReceived": true,
+            "status": 200
+          }
+        ],
+        "diagnostics": {
+          "closed": false,
+          "scheduled": false,
+          "draining": false,
+          "requested": false,
+          "active": 1,
+          "lastError": null,
+          "executionEnabled": true,
+          "notifications": {
+            "lastError": null,
+            "subscribers": 1
+          }
+        },
+        "queue": {
+          "seq": 1,
+          "id": "c0edc248-befd-4f55-955b-34228153be99",
+          "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+          "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+          "agent_id": "rc05-api",
+          "wake_id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+          "source_message_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "wave_id": "1cfdb3a0-0533-4c41-ab09-d50452bb69c9",
+          "input_max_seq": 1,
+          "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "state": "claimed",
+          "reason": null,
+          "version": 7,
+          "invocation_id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+          "ticket_id": "aa2a78e5-5093-49a0-8c8c-5a351093538b",
+          "prepared_attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+          "preparation": "{\"session\":{\"id\":\"a588e75b-424a-451b-94fb-e4bfffbc7c0b\",\"version\":1,\"nativeId\":null,\"resourceKey\":null},\"workspaces\":[{\"path\":\"/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc05-index-Xvwj7H/receipt-io/sandbox/threaded/d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9/4031d2b2-bf91-4fce-b7b2-4ee2df222332/rc05-api\",\"access\":\"read\"}],\"providerKey\":\"anthropic\",\"accountId\":\"267c2e27-b25f-43cf-acaa-143327f7f714\",\"quote\":{\"maxOutputTokens\":4096},\"threadedContext\":{\"decision\":{\"session\":{\"id\":\"a588e75b-424a-451b-94fb-e4bfffbc7c0b\",\"version\":1,\"nativeId\":null,\"resourceKey\":null},\"sessionKind\":\"reconstructed\",\"mode\":\"reconstructed\",\"reason\":\"api_reconstructed\",\"anchorId\":null,\"boundaryVersion\":1,\"policyHash\":\"8bcc5f1204393a3f5e348ae8df7f9145cf14a92d846802bf4d2e2422cc3a772b\"},\"configurationHash\":\"3324605f39592960c5be582c6302ad153c059a67c3860f538778efb36c55428a\"}}",
+          "authorization_version": 1,
+          "generation": 1,
+          "available_at": "2026-10-23T10:59:40.682Z",
+          "created_at": "2026-10-23T10:59:40.682Z",
+          "updated_at": "2026-10-23T10:59:40.706Z"
+        },
+        "invocation": {
+          "id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+          "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+          "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+          "agent_id": "rc05-api",
+          "schema_version": 1,
+          "version": 3,
+          "authority_epoch": 1,
+          "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "wake_source_id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+          "status": "running",
+          "current_attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+          "created_at": "2026-10-23T10:59:40.696Z",
+          "updated_at": "2026-10-23T10:59:40.728Z",
+          "goal": "Reply exactly RC05_ACK. No tools or reasoning.",
+          "pause_requested": 0,
+          "cancel_requested": 0,
+          "recovery_reason": null,
+          "account_id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+          "account_identity_generation": null,
+          "client_request_id": "wake:85ef144d-808e-4c01-a37d-40d16102e24e",
+          "request_hash": "85851042de212060770eded3f5f111c1d32e5c409788c088978c0b2965c3eed5",
+          "reserved_run_id": "be65f45d-9a66-4572-9898-604289ac6f45"
+        },
+        "attempts": [
+          {
+            "id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "invocation_id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+            "attempt_no": 1,
+            "status": "running",
+            "execution_stage": "started",
+            "resource_release_state": null,
+            "execution_reason": null
+          }
+        ],
+        "requests": [
+          {
+            "id": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "authorization_id": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+            "backend": "api",
+            "binding_id": "fecb064c-8005-4920-885d-8d6de0a5727c",
+            "attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+            "agent_id": "rc05-api",
+            "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "reserved_run_id": "be65f45d-9a66-4572-9898-604289ac6f45",
+            "status": "running"
+          }
+        ],
+        "messages": [
+          {
+            "id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "body": "Reply exactly RC05_ACK. No tools or reasoning.",
+            "origin": "user",
+            "source_attempt_id": null,
+            "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+            "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+            "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+            "source_message_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "delivery_id": "5997c987-facb-4ac2-861d-fe35b8072727",
+            "schema_version": 1,
+            "target_agent_id": "rc05-api",
+            "purpose": "message",
+            "routing_revision": 1,
+            "wave_id": "1cfdb3a0-0533-4c41-ab09-d50452bb69c9",
+            "input_max_seq": 1,
+            "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "authority_epoch": 1,
+            "target_member_version": 1,
+            "target_permission_version": 1,
+            "status": "pending",
+            "version": 1,
+            "available_at": "2026-10-23T10:59:40.682Z",
+            "record": "{\"schemaVersion\":1,\"id\":\"85ef144d-808e-4c01-a37d-40d16102e24e\",\"ownerId\":\"d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9\",\"threadId\":\"4031d2b2-bf91-4fce-b7b2-4ee2df222332\",\"sourceMessageId\":\"6cbba463-1ea3-4363-bddc-41367c19a756\",\"deliveryId\":\"5997c987-facb-4ac2-861d-fe35b8072727\",\"targetAgentId\":\"rc05-api\",\"purpose\":\"message\",\"routingRevision\":1,\"waveId\":\"1cfdb3a0-0533-4c41-ab09-d50452bb69c9\",\"inputMaxSeq\":1,\"causalRootId\":\"6cbba463-1ea3-4363-bddc-41367c19a756\",\"authorityEpoch\":1,\"targetMemberVersion\":1,\"targetPermissionVersion\":1,\"status\":\"pending\",\"version\":1,\"createdAt\":\"2026-10-23T10:59:40.682Z\",\"updatedAt\":\"2026-10-23T10:59:40.682Z\"}",
+            "created_at": "2026-10-23T10:59:40.682Z",
+            "updated_at": "2026-10-23T10:59:40.682Z"
+          }
+        ],
+        "terminals": [],
+        "runs": [
+          {
+            "id": "be65f45d-9a66-4572-9898-604289ac6f45",
+            "status": "running"
+          }
+        ],
+        "processes": [],
+        "claims": [
+          {
+            "id": "b10da65c-16f5-4a8c-9490-79458f9c7219",
+            "state": "started"
+          }
+        ],
+        "approvals": [],
+        "counts": {
+          "threaded_messages": 1,
+          "threaded_wakes": 1,
+          "threaded_outbox": 2,
+          "threaded_wake_queue": 1,
+          "threaded_invocations": 1,
+          "threaded_attempts": 1,
+          "threaded_backend_requests": 1,
+          "threaded_invocation_terminals": 0,
+          "threaded_budget_roots": 1,
+          "runs": 1
+        },
+        "budget": {
+          "invocations": 1,
+          "attempts": 1,
+          "actualRequests": 1,
+          "outputTokens": 4096,
+          "costMicrousd": 1000000,
+          "activityMs": 1874,
+          "activityReservedMs": 8219,
+          "unknownRequests": 0
+        },
+        "rootPolicy": {
+          "maxOutputTokens": 300000,
+          "maxOutputTokensPerRequest": 24576,
+          "maxInvocations": 20,
+          "maxAttemptsPerInvocation": 2,
+          "maxActivityMs": 1800000,
+          "maxCostMicrousd": 10000000,
+          "maxA2ADepth": 15,
+          "activityAllowanceMs": 10000,
+          "unknownCost": "reserve",
+          "unknownCostReserveMicrousd": 1000000,
+          "deadlineAt": null
+        },
+        "slowApplied": false,
+        "foreignKeys": []
+      }
+    }
+  ],
+  "actualMainIndex": true,
+  "entry": "apps/server/src/index.ts",
+  "actualPids": [
+    {
+      "name": "receipt-io",
+      "restore": false,
+      "pid": 16352
+    }
+  ],
+  "realSupplier": true,
+  "account": {
+    "id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+    "name": "Claude-GML-5.3",
+    "model": "glm-5.3",
+    "endpointHost": "open.bigmodel.cn"
+  },
+  "operatorTokenLimit": 500000,
+  "priorUsage": {
+    "knownTokens": 65006,
+    "unknownReserve": 148275
+  },
+  "usage": {
+    "knownTokens": 65006,
+    "unknownReserve": 161193
+  },
+  "priorLedgerRowsUnchanged": true,
+  "priorLedgerDigest": "84b6899e97cb4505190341a810a1e8b5dcbe7a9ae2095f13fabed5e881a73920",
+  "knownTokensThisRun": 0,
+  "unknownReserveThisRun": 12918,
+  "selectedActivityAllowanceMs": 10000,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "dailyConfigurationChanged": false,
+  "sourceDbReadOnly": true,
+  "dailyMessagesRead": false,
+  "keyInArgvEnvReports": false,
+  "keyTransferredViaPrivateIPC": true,
+  "limitations": [
+    "Preload supplies isolated paths, pinned account metadata and fault barriers; actual index startup/recovery, production singleton, routes, release and authority guards execute unchanged.",
+    "Approval is created through the real lifecycle at a controlled in-flight fault hook; it is not a naturally model-triggered approval.",
+    "Ten-second activity slice is a regular Owner CAS on synthetic roots, not a change to the one-second production default.",
+    "Process exit proof never settles unknown remote usage or releases unknown execution authority."
+  ],
+  "cleanup": [],
+  "evidence": [
+    {
+      "worker": "receipt-io",
+      "label": "generation headers received before actual index receipt I/O fault",
+      "pid": 16352,
+      "entry": "apps/server/src/index.ts",
+      "isolatedExecutionBypass": false,
+      "beforeRecovery": 0,
+      "calls": 1,
+      "deniedEgress": 0,
+      "effects": [
+        {
+          "sequence": 1,
+          "requestId": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+          "authorizationId": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+          "backend": "api",
+          "pathname": "/api/anthropic/v1/messages",
+          "transport": "configured supplier",
+          "headersReceived": true,
+          "status": 200
+        }
+      ],
+      "diagnostics": {
+        "closed": false,
+        "scheduled": false,
+        "draining": false,
+        "requested": false,
+        "active": 1,
+        "lastError": null,
+        "executionEnabled": true,
+        "notifications": {
+          "lastError": null,
+          "subscribers": 1
+        }
+      },
+      "queue": {
+        "seq": 1,
+        "id": "c0edc248-befd-4f55-955b-34228153be99",
+        "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+        "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+        "agent_id": "rc05-api",
+        "wake_id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+        "source_message_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+        "wave_id": "1cfdb3a0-0533-4c41-ab09-d50452bb69c9",
+        "input_max_seq": 1,
+        "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+        "state": "claimed",
+        "reason": null,
+        "version": 7,
+        "invocation_id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+        "ticket_id": "aa2a78e5-5093-49a0-8c8c-5a351093538b",
+        "prepared_attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+        "preparation": "{\"session\":{\"id\":\"a588e75b-424a-451b-94fb-e4bfffbc7c0b\",\"version\":1,\"nativeId\":null,\"resourceKey\":null},\"workspaces\":[{\"path\":\"/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc05-index-Xvwj7H/receipt-io/sandbox/threaded/d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9/4031d2b2-bf91-4fce-b7b2-4ee2df222332/rc05-api\",\"access\":\"read\"}],\"providerKey\":\"anthropic\",\"accountId\":\"267c2e27-b25f-43cf-acaa-143327f7f714\",\"quote\":{\"maxOutputTokens\":4096},\"threadedContext\":{\"decision\":{\"session\":{\"id\":\"a588e75b-424a-451b-94fb-e4bfffbc7c0b\",\"version\":1,\"nativeId\":null,\"resourceKey\":null},\"sessionKind\":\"reconstructed\",\"mode\":\"reconstructed\",\"reason\":\"api_reconstructed\",\"anchorId\":null,\"boundaryVersion\":1,\"policyHash\":\"8bcc5f1204393a3f5e348ae8df7f9145cf14a92d846802bf4d2e2422cc3a772b\"},\"configurationHash\":\"3324605f39592960c5be582c6302ad153c059a67c3860f538778efb36c55428a\"}}",
+        "authorization_version": 1,
+        "generation": 1,
+        "available_at": "2026-10-23T10:59:40.682Z",
+        "created_at": "2026-10-23T10:59:40.682Z",
+        "updated_at": "2026-10-23T10:59:40.706Z"
+      },
+      "invocation": {
+        "id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+        "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+        "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+        "agent_id": "rc05-api",
+        "schema_version": 1,
+        "version": 3,
+        "authority_epoch": 1,
+        "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+        "wake_source_id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+        "status": "running",
+        "current_attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+        "created_at": "2026-10-23T10:59:40.696Z",
+        "updated_at": "2026-10-23T10:59:40.728Z",
+        "goal": "Reply exactly RC05_ACK. No tools or reasoning.",
+        "pause_requested": 0,
+        "cancel_requested": 0,
+        "recovery_reason": null,
+        "account_id": "267c2e27-b25f-43cf-acaa-143327f7f714",
+        "account_identity_generation": null,
+        "client_request_id": "wake:85ef144d-808e-4c01-a37d-40d16102e24e",
+        "request_hash": "85851042de212060770eded3f5f111c1d32e5c409788c088978c0b2965c3eed5",
+        "reserved_run_id": "be65f45d-9a66-4572-9898-604289ac6f45"
+      },
+      "attempts": [
+        {
+          "id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+          "invocation_id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+          "attempt_no": 1,
+          "status": "running",
+          "execution_stage": "started",
+          "resource_release_state": null,
+          "execution_reason": null
+        }
+      ],
+      "requests": [
+        {
+          "id": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+          "authorization_id": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+          "backend": "api",
+          "binding_id": "fecb064c-8005-4920-885d-8d6de0a5727c",
+          "attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+          "state": "sending",
+          "delivered": 0,
+          "input_tokens": null,
+          "output_tokens": null
+        }
+      ],
+      "invocations": [
+        {
+          "id": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+          "agent_id": "rc05-api",
+          "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "reserved_run_id": "be65f45d-9a66-4572-9898-604289ac6f45",
+          "status": "running"
+        }
+      ],
+      "messages": [
+        {
+          "id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "body": "Reply exactly RC05_ACK. No tools or reasoning.",
+          "origin": "user",
+          "source_attempt_id": null,
+          "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756"
+        }
+      ],
+      "wakes": [
+        {
+          "id": "85ef144d-808e-4c01-a37d-40d16102e24e",
+          "owner_id": "d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9",
+          "thread_id": "4031d2b2-bf91-4fce-b7b2-4ee2df222332",
+          "source_message_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "delivery_id": "5997c987-facb-4ac2-861d-fe35b8072727",
+          "schema_version": 1,
+          "target_agent_id": "rc05-api",
+          "purpose": "message",
+          "routing_revision": 1,
+          "wave_id": "1cfdb3a0-0533-4c41-ab09-d50452bb69c9",
+          "input_max_seq": 1,
+          "causal_root_id": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "authority_epoch": 1,
+          "target_member_version": 1,
+          "target_permission_version": 1,
+          "status": "pending",
+          "version": 1,
+          "available_at": "2026-10-23T10:59:40.682Z",
+          "record": "{\"schemaVersion\":1,\"id\":\"85ef144d-808e-4c01-a37d-40d16102e24e\",\"ownerId\":\"d3ee3a1a-616b-4d9e-a6e2-e21d7ca1cda9\",\"threadId\":\"4031d2b2-bf91-4fce-b7b2-4ee2df222332\",\"sourceMessageId\":\"6cbba463-1ea3-4363-bddc-41367c19a756\",\"deliveryId\":\"5997c987-facb-4ac2-861d-fe35b8072727\",\"targetAgentId\":\"rc05-api\",\"purpose\":\"message\",\"routingRevision\":1,\"waveId\":\"1cfdb3a0-0533-4c41-ab09-d50452bb69c9\",\"inputMaxSeq\":1,\"causalRootId\":\"6cbba463-1ea3-4363-bddc-41367c19a756\",\"authorityEpoch\":1,\"targetMemberVersion\":1,\"targetPermissionVersion\":1,\"status\":\"pending\",\"version\":1,\"createdAt\":\"2026-10-23T10:59:40.682Z\",\"updatedAt\":\"2026-10-23T10:59:40.682Z\"}",
+          "created_at": "2026-10-23T10:59:40.682Z",
+          "updated_at": "2026-10-23T10:59:40.682Z"
+        }
+      ],
+      "terminals": [],
+      "runs": [
+        {
+          "id": "be65f45d-9a66-4572-9898-604289ac6f45",
+          "status": "running"
+        }
+      ],
+      "processes": [],
+      "claims": [
+        {
+          "id": "b10da65c-16f5-4a8c-9490-79458f9c7219",
+          "state": "started"
+        }
+      ],
+      "approvals": [],
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_wake_queue": 1,
+        "threaded_invocations": 1,
+        "threaded_attempts": 1,
+        "threaded_backend_requests": 1,
+        "threaded_invocation_terminals": 0,
+        "threaded_budget_roots": 1,
+        "runs": 1
+      },
+      "budget": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 4096,
+        "costMicrousd": 1000000,
+        "activityMs": 1606,
+        "activityReservedMs": 8487,
+        "unknownRequests": 0
+      },
+      "rootPolicy": {
+        "maxOutputTokens": 300000,
+        "maxOutputTokensPerRequest": 24576,
+        "maxInvocations": 20,
+        "maxAttemptsPerInvocation": 2,
+        "maxActivityMs": 1800000,
+        "maxCostMicrousd": 10000000,
+        "maxA2ADepth": 15,
+        "activityAllowanceMs": 10000,
+        "unknownCost": "reserve",
+        "unknownCostReserveMicrousd": 1000000,
+        "deadlineAt": null
+      },
+      "slowApplied": false,
+      "foreignKeys": []
+    }
+  ]
+}

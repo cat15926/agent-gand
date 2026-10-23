@@ -1,0 +1,3233 @@
+{
+  "ok": true,
+  "groups": 9,
+  "checks": [
+    {
+      "id": "SR01",
+      "description": "Actual API/backend service composition SIGKILL immediately after message COMMIT and before its scheduled notification; new process recovers one Wake and one execution.",
+      "passed": true
+    },
+    {
+      "id": "SR02",
+      "description": "Prepared-but-not-sent crash retries only a new Attempt within the same Invocation, Run and causal budget root.",
+      "passed": true
+    },
+    {
+      "id": "SR03",
+      "description": "Possible-send crash stays unknown with reserved budget and resource fences; repeated restart/TTL never issues another request or false terminal.",
+      "passed": true
+    },
+    {
+      "id": "SR04",
+      "description": "Post-response COMMIT crash reconstructs terminal/release/projection and preserves one successor with the original cumulative causal budget.",
+      "passed": true
+    },
+    {
+      "id": "SR05",
+      "description": "Partial multi_mention survives SIGKILL, times out only missing targets at its original deadline, settles/calls back once, and rejects a callback after permission drift.",
+      "passed": true
+    },
+    {
+      "id": "SR06",
+      "description": "Approval-wait SIGKILL expires in-memory login and old approval authority; fresh authenticated Owner approve is rejected and cannot restart an unknown driver.",
+      "passed": true
+    },
+    {
+      "id": "SR07",
+      "description": "Departed member, disabled/revoked account and stopped Thread remain denied across restart before creating any Attempt/resource/provider send.",
+      "passed": true
+    },
+    {
+      "id": "SR08",
+      "description": "Actual readonly SQLite HTTP submission fails closed with no durable partial message, Wake, outbox, execution or phantom success after restart.",
+      "passed": true
+    },
+    {
+      "id": "SR09",
+      "description": "Mixed legacy/threaded data remains isolated through SIGKILL and authenticated HTTP projection; production capability declarations remain closed.",
+      "passed": true
+    }
+  ],
+  "actualChildProcesses": 24,
+  "composition": "Fastify registered HTTP routes + authenticated access + real backendRuntime/lifecycle/collaboration/view",
+  "mainIndexProcess": false,
+  "modelTransport": "injected deterministic Anthropic Messages response",
+  "realModelCalls": 0,
+  "realSupplierTokens": 0,
+  "remoteWrites": 0,
+  "forbiddenNetworkCalls": 0,
+  "limitations": [
+    "This fixture composes production modules inside a real child process; it is not apps/server/src/index.ts.",
+    "Supplier transport is injected. No provider, native SDK, external process resumption or remote PR write is exercised.",
+    "An approval cannot restore a driver that died after possible send; such approval expires and the Invocation remains unknown."
+  ],
+  "checkpoints": [
+    {
+      "name": "message-before-notification",
+      "pid": 18392,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "message-before-notification",
+      "pid": 18402,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "claimed-not-sent",
+      "pid": 18413,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "claimed-not-sent",
+      "pid": 18423,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "request-maybe-sent",
+      "pid": 18433,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "request-maybe-sent",
+      "pid": 18443,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "response-successor-committed",
+      "pid": 18453,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "response-successor-committed",
+      "pid": 18463,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "multi-mention-partial",
+      "pid": 18473,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "multi-mention-partial",
+      "pid": 18483,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "multi-mention-permission",
+      "pid": 18493,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "multi-mention-permission",
+      "pid": 18503,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "approval-restart",
+      "pid": 18513,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "approval-restart",
+      "pid": 18523,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-member-left",
+      "pid": 18538,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-member-left",
+      "pid": 18548,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-account",
+      "pid": 18558,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-account",
+      "pid": 18568,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-stop",
+      "pid": 18578,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "revoke-stop",
+      "pid": 18588,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "storage-fail-closed",
+      "pid": 18598,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "storage-fail-closed",
+      "pid": 18608,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "mixed-mode-isolation",
+      "pid": 18618,
+      "restore": false,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    },
+    {
+      "name": "mixed-mode-isolation",
+      "pid": 18628,
+      "restore": true,
+      "composition": [
+        "Fastify registered threaded routes",
+        "authenticated access",
+        "createThreadedBackendRuntime",
+        "createThreadedLifecycle",
+        "createThreadedCollaboration",
+        "createThreadedView"
+      ],
+      "mainIndex": false,
+      "externalProviders": false,
+      "transport": "injected synthetic API response"
+    }
+  ],
+  "evidence": [
+    {
+      "label": "message committed before any notification or model request; fresh service recovery",
+      "process": 18402,
+      "clock": 1792754757721,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "89e158c3-53bf-4765-8e23-6f221713f478",
+        "conversationId": "c28dda94-47d8-4ff3-8fa1-9a8e7aa213c5",
+        "ownerId": "5f0f4858-c302-4957-a46d-d388ce14d083",
+        "mode": "threaded",
+        "state": "open",
+        "title": "message-before-notification",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:57.537Z",
+        "updatedAt": "2026-10-23T11:24:57.537Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [
+        {
+          "id": "923a4a67-70ac-4c09-b717-8a1197afaf66",
+          "origin": "user",
+          "body": "T12_DURABLE_BEFORE_NOTIFICATION",
+          "causal_root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66"
+        }
+      ],
+      "queue": [
+        {
+          "id": "2daff5c4-90b6-4530-a8cd-65a920608c46",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:57.319Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "f3ca7654d11fd341301e2e5bd83b6d2eeb7c2a64060bf37e2a2b1e7de34f85fc"
+    },
+    {
+      "label": "recovered durable source executed exactly once",
+      "process": 18402,
+      "clock": 1792754757721,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "89e158c3-53bf-4765-8e23-6f221713f478",
+        "conversationId": "c28dda94-47d8-4ff3-8fa1-9a8e7aa213c5",
+        "ownerId": "5f0f4858-c302-4957-a46d-d388ce14d083",
+        "mode": "threaded",
+        "state": "open",
+        "title": "message-before-notification",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:57.537Z",
+        "updatedAt": "2026-10-23T11:24:57.537Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 2,
+        "threaded_wakes": 1,
+        "threaded_outbox": 3,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 1,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "923a4a67-70ac-4c09-b717-8a1197afaf66",
+          "origin": "user",
+          "body": "T12_DURABLE_BEFORE_NOTIFICATION",
+          "causal_root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66"
+        },
+        {
+          "id": "24b938fb-8dda-4320-806e-508fbfe3e81c",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66"
+        }
+      ],
+      "queue": [
+        {
+          "id": "2daff5c4-90b6-4530-a8cd-65a920608c46",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66",
+          "invocation_id": "ef7c93ea-1d2e-491f-9757-c43e60ba046a"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "c882a6ce-5b78-4910-822c-6420f836f0e1",
+          "invocation_id": "ef7c93ea-1d2e-491f-9757-c43e60ba046a",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "ad180691-04a7-4fc4-b643-611f93afbb13",
+          "root_id": "923a4a67-70ac-4c09-b717-8a1197afaf66",
+          "owner_id": "5f0f4858-c302-4957-a46d-d388ce14d083",
+          "thread_id": "89e158c3-53bf-4765-8e23-6f221713f478",
+          "invocation_id": "ef7c93ea-1d2e-491f-9757-c43e60ba046a",
+          "attempt_id": "c882a6ce-5b78-4910-822c-6420f836f0e1",
+          "request_key": "queue:2daff5c4-90b6-4530-a8cd-65a920608c46:c882a6ce-5b78-4910-822c-6420f836f0e1",
+          "request_hash": "4de16be072c29ba3bbe7f1528c7142a69dab37b83a03797b4e3e77c49481335d",
+          "policy_version": 1,
+          "claim_id": "82f69806-0360-43c8-8063-6f93ff480389",
+          "generation": 1,
+          "fencing_token": "cc5cbaab-241d-4ed1-9267-2a2160ec6cf8",
+          "claim_owner": "t07:e5c9a3c2-39ba-42ee-b8e7-48138717751a",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "8942f2062f27a826a40802ce465c03ed9c03c31cc39266f62d88d988062aeb14",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754757721,
+          "started_at": 1792754757721,
+          "settled_at": 1792754757721
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:57.319Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "d1308cb9f2723c2dc006289daa18db9dbe3e1de6f911512a5a94d2bde85852e2"
+    },
+    {
+      "label": "prepared process died; trusted not-started recovery",
+      "process": 18423,
+      "clock": 1792754878281,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "d2704174-7a68-4a9a-a726-3f3f6e692463",
+        "conversationId": "b38f8802-5a3f-4774-afbd-ad3bd3b188ec",
+        "ownerId": "7aca74ea-75a6-4139-a8c1-7cdcbfae148f",
+        "mode": "threaded",
+        "state": "open",
+        "title": "claimed-not-sent",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:58.549Z",
+        "updatedAt": "2026-10-23T11:24:58.549Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [
+        {
+          "id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "origin": "user",
+          "body": "T12_NOT_SENT",
+          "causal_root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8"
+        }
+      ],
+      "queue": [
+        {
+          "id": "bce52719-9cb0-40e2-9b1a-136bde9a726f",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "status": "failed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "94278eea-c8ef-49c3-a15f-3f4e5548fc22",
+          "root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "owner_id": "7aca74ea-75a6-4139-a8c1-7cdcbfae148f",
+          "thread_id": "d2704174-7a68-4a9a-a726-3f3f6e692463",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "attempt_id": "46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "request_key": "queue:bce52719-9cb0-40e2-9b1a-136bde9a726f:46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "request_hash": "3780c4ca99655a5f53c6c7d0b635bb89e8f4000543dd6321cefec24d79607fa0",
+          "policy_version": 1,
+          "claim_id": "0701e901-d7c9-409c-80dd-8f638c1affd8",
+          "generation": 1,
+          "fencing_token": "90c03d32-0182-4b57-94ae-a168933c895c",
+          "claim_owner": "t07:66814a26-2061-4608-82e3-035ae09ac5d5",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 0,
+          "known_cost": 0,
+          "execution_state": "not_started",
+          "usage_state": "settled",
+          "outcome_hash": "8d0a8043f7ed668927eb372737d5a85933fc4d73797cdd7119ce00846977dcd3",
+          "outcome_kind": "not_started",
+          "evidence_reference": "36256dad-851b-43c0-8229-b1227a7acc11",
+          "created_at": 1792754758281,
+          "started_at": null,
+          "settled_at": 1792754878281
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:58.355Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "be93a2bdfa02a4fe5390adaecf06690a951aa100050e5a106c67b09afe6915d9"
+    },
+    {
+      "label": "same Invocation/Run/root with replacement Attempt; exactly one synthetic send",
+      "process": 18423,
+      "clock": 1792754878281,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "d2704174-7a68-4a9a-a726-3f3f6e692463",
+        "conversationId": "b38f8802-5a3f-4774-afbd-ad3bd3b188ec",
+        "ownerId": "7aca74ea-75a6-4139-a8c1-7cdcbfae148f",
+        "mode": "threaded",
+        "state": "open",
+        "title": "claimed-not-sent",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:58.549Z",
+        "updatedAt": "2026-10-23T11:24:58.549Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 2,
+        "threaded_wakes": 1,
+        "threaded_outbox": 3,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 1,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "origin": "user",
+          "body": "T12_NOT_SENT",
+          "causal_root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8"
+        },
+        {
+          "id": "0665aa86-18b4-4db6-b372-4945c41378aa",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8"
+        }
+      ],
+      "queue": [
+        {
+          "id": "bce52719-9cb0-40e2-9b1a-136bde9a726f",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "status": "failed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "ff86c764-76f8-4e8b-ac62-43551ce0fe0a",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "94278eea-c8ef-49c3-a15f-3f4e5548fc22",
+          "root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "owner_id": "7aca74ea-75a6-4139-a8c1-7cdcbfae148f",
+          "thread_id": "d2704174-7a68-4a9a-a726-3f3f6e692463",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "attempt_id": "46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "request_key": "queue:bce52719-9cb0-40e2-9b1a-136bde9a726f:46f332dd-2d8d-4540-a129-91c2e64a4afb",
+          "request_hash": "3780c4ca99655a5f53c6c7d0b635bb89e8f4000543dd6321cefec24d79607fa0",
+          "policy_version": 1,
+          "claim_id": "0701e901-d7c9-409c-80dd-8f638c1affd8",
+          "generation": 1,
+          "fencing_token": "90c03d32-0182-4b57-94ae-a168933c895c",
+          "claim_owner": "t07:66814a26-2061-4608-82e3-035ae09ac5d5",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 0,
+          "known_cost": 0,
+          "execution_state": "not_started",
+          "usage_state": "settled",
+          "outcome_hash": "8d0a8043f7ed668927eb372737d5a85933fc4d73797cdd7119ce00846977dcd3",
+          "outcome_kind": "not_started",
+          "evidence_reference": "36256dad-851b-43c0-8229-b1227a7acc11",
+          "created_at": 1792754758281,
+          "started_at": null,
+          "settled_at": 1792754878281
+        },
+        {
+          "id": "980b5ee0-94e6-460e-8517-fc97a1c6e62e",
+          "root_id": "ae4ebbe0-6a8c-4d8b-9114-00a155fac9f8",
+          "owner_id": "7aca74ea-75a6-4139-a8c1-7cdcbfae148f",
+          "thread_id": "d2704174-7a68-4a9a-a726-3f3f6e692463",
+          "invocation_id": "896fe4a7-f7fb-40ef-bdbe-938a9e202177",
+          "attempt_id": "ff86c764-76f8-4e8b-ac62-43551ce0fe0a",
+          "request_key": "queue:bce52719-9cb0-40e2-9b1a-136bde9a726f:ff86c764-76f8-4e8b-ac62-43551ce0fe0a",
+          "request_hash": "1ecc05bd8d18af657364bb0f2687f84026737c9e786f53a6facb2d20d324bbaf",
+          "policy_version": 1,
+          "claim_id": "35b894ec-d038-4d8f-a306-3e2f325f9244",
+          "generation": 2,
+          "fencing_token": "52d814e9-62b6-47ae-b8ce-4e9d26f05424",
+          "claim_owner": "t07:dc19d92d-6913-4d66-ab21-1c7d19f0203e",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "1a1d9316e9a503a7ab1a59ea322f843e36a7f1bfccde0f73ba81b298d24389aa",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754878281,
+          "started_at": 1792754878281,
+          "settled_at": 1792754878281
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:58.355Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "5090c010e0fbb7ed8ed0f759430504b584f67896e7f0234ed366651c8af59c63"
+    },
+    {
+      "label": "request barrier crossed then SIGKILL; unknown persists on first restart",
+      "process": 18443,
+      "clock": 1792754879346,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "42fe53f6-8861-4ee1-8db3-4886db2a001a",
+        "conversationId": "fbb5d263-737b-49ed-8f3a-09eaec787669",
+        "ownerId": "6c7ff4b9-62f0-4fa2-aea0-fad9b6ff2f59",
+        "mode": "threaded",
+        "state": "open",
+        "title": "request-maybe-sent",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:59.603Z",
+        "updatedAt": "2026-10-23T11:24:59.603Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "origin": "user",
+          "body": "T12_UNKNOWN_REQUEST",
+          "causal_root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8"
+        }
+      ],
+      "queue": [
+        {
+          "id": "f31166e5-be6c-4eb2-bab6-27b4af3a4074",
+          "state": "unknown",
+          "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+          "causal_root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510",
+          "status": "unknown",
+          "execution_stage": "unknown",
+          "resource_release_state": null
+        }
+      ],
+      "budgets": [
+        {
+          "id": "c1bd7b03-c469-413b-8aed-62c88ed83866",
+          "root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "owner_id": "6c7ff4b9-62f0-4fa2-aea0-fad9b6ff2f59",
+          "thread_id": "42fe53f6-8861-4ee1-8db3-4886db2a001a",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510",
+          "attempt_id": "2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "request_key": "queue:f31166e5-be6c-4eb2-bab6-27b4af3a4074:2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "request_hash": "97047b374ef45c493865e04c60b4f84fe4ef2142094ce5f32533b6f66bb65a4f",
+          "policy_version": 1,
+          "claim_id": "fd9ca338-0243-4ccb-9d91-7045dba0c7aa",
+          "generation": 1,
+          "fencing_token": "092fcb28-999a-47d7-ae7a-95bb8ad98ecb",
+          "claim_owner": "t07:00986cf6-b69d-4f8d-8d53-c5d04008b587",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": null,
+          "known_cost": null,
+          "execution_state": "unknown",
+          "usage_state": "unknown",
+          "outcome_hash": null,
+          "outcome_kind": null,
+          "evidence_reference": null,
+          "created_at": 1792754759346,
+          "started_at": 1792754759346,
+          "settled_at": null
+        }
+      ],
+      "claims": [
+        {
+          "state": "unknown"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:59.423Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "fba25e48f13e4485dd96e5f43421a1c3c5d5439a0d9db7e2fbedee9faf49c4a4"
+    },
+    {
+      "label": "one-day lease aging and repeated recovery cannot prove no-send or replay request",
+      "process": 18443,
+      "clock": 1792841159346,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "42fe53f6-8861-4ee1-8db3-4886db2a001a",
+        "conversationId": "fbb5d263-737b-49ed-8f3a-09eaec787669",
+        "ownerId": "6c7ff4b9-62f0-4fa2-aea0-fad9b6ff2f59",
+        "mode": "threaded",
+        "state": "open",
+        "title": "request-maybe-sent",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:24:59.603Z",
+        "updatedAt": "2026-10-23T11:24:59.603Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "origin": "user",
+          "body": "T12_UNKNOWN_REQUEST",
+          "causal_root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8"
+        }
+      ],
+      "queue": [
+        {
+          "id": "f31166e5-be6c-4eb2-bab6-27b4af3a4074",
+          "state": "unknown",
+          "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+          "causal_root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510",
+          "status": "unknown",
+          "execution_stage": "unknown",
+          "resource_release_state": null
+        }
+      ],
+      "budgets": [
+        {
+          "id": "c1bd7b03-c469-413b-8aed-62c88ed83866",
+          "root_id": "cb84602a-4169-4cf1-9f36-d4f68f431bb8",
+          "owner_id": "6c7ff4b9-62f0-4fa2-aea0-fad9b6ff2f59",
+          "thread_id": "42fe53f6-8861-4ee1-8db3-4886db2a001a",
+          "invocation_id": "80141383-41da-4fbc-bc01-bb2385e32510",
+          "attempt_id": "2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "request_key": "queue:f31166e5-be6c-4eb2-bab6-27b4af3a4074:2ce954d5-889b-4b5d-a6b9-8bc8f88cf153",
+          "request_hash": "97047b374ef45c493865e04c60b4f84fe4ef2142094ce5f32533b6f66bb65a4f",
+          "policy_version": 1,
+          "claim_id": "fd9ca338-0243-4ccb-9d91-7045dba0c7aa",
+          "generation": 1,
+          "fencing_token": "092fcb28-999a-47d7-ae7a-95bb8ad98ecb",
+          "claim_owner": "t07:00986cf6-b69d-4f8d-8d53-c5d04008b587",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": null,
+          "known_cost": null,
+          "execution_state": "unknown",
+          "usage_state": "unknown",
+          "outcome_hash": null,
+          "outcome_kind": null,
+          "evidence_reference": null,
+          "created_at": 1792754759346,
+          "started_at": 1792754759346,
+          "settled_at": null
+        }
+      ],
+      "claims": [
+        {
+          "state": "unknown"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:24:59.423Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "14d172c9dd38f9e5bc125dac7606f530c39ef4480738829ec74f39a7848536b5"
+    },
+    {
+      "label": "terminal, final message and successor committed before release; fresh process repairs release only",
+      "process": 18463,
+      "clock": 1792754880248,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "99fe25ed-e47e-4a0f-9377-897ac25a3cd9",
+        "conversationId": "ac9e6c1f-4069-43b7-a77a-6fcc13205682",
+        "ownerId": "c95e3c98-98bb-4116-ac09-e4103edf4e21",
+        "mode": "threaded",
+        "state": "open",
+        "title": "response-successor-committed",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:00.506Z",
+        "updatedAt": "2026-10-23T11:25:00.506Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 2,
+        "threaded_wakes": 2,
+        "threaded_outbox": 4,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 1,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "origin": "user",
+          "body": "T12_SUCCESSOR",
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc"
+        },
+        {
+          "id": "93d4c1d7-7724-4305-9af5-395bac6179b6",
+          "origin": "agent_response",
+          "body": "@other-member T12_COMMITTED_SUCCESSOR",
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc"
+        }
+      ],
+      "queue": [
+        {
+          "id": "3006de1d-7bab-4d4a-bffe-c4b9e5132115",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d"
+        },
+        {
+          "id": "65bde7b6-e2ea-4bf8-abd7-0672a02734f4",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [
+        {
+          "id": "16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "e9c89186-ae94-4460-91bd-ea90a674518e",
+          "root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "owner_id": "c95e3c98-98bb-4116-ac09-e4103edf4e21",
+          "thread_id": "99fe25ed-e47e-4a0f-9377-897ac25a3cd9",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d",
+          "attempt_id": "16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "request_key": "queue:3006de1d-7bab-4d4a-bffe-c4b9e5132115:16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "request_hash": "bc6962484ec74b0205c5322924789baa3e916e4789fbc44c49a8c32b4440d1a7",
+          "policy_version": 1,
+          "claim_id": "95af89e2-539e-48a3-a636-58b47fdb0dff",
+          "generation": 1,
+          "fencing_token": "7a0cb2eb-5e8b-45c6-97a5-6b8807759d71",
+          "claim_owner": "t07:7f02aaaa-2ebf-4337-9b9e-312ac875bd40",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "779e16b05a5f92ef6814f779b7ea13638e62a91fef7425b5b6bd8dbd6831ad08",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754760248,
+          "started_at": 1792754760248,
+          "settled_at": 1792754760248
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:00.328Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "28e0e06f712509b4225ce62167ea0a53dede78ca71226cb40be7801dcbaa1b1a"
+    },
+    {
+      "label": "successor executes once under original root; original response never replayed",
+      "process": 18463,
+      "clock": 1792754880248,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "99fe25ed-e47e-4a0f-9377-897ac25a3cd9",
+        "conversationId": "ac9e6c1f-4069-43b7-a77a-6fcc13205682",
+        "ownerId": "c95e3c98-98bb-4116-ac09-e4103edf4e21",
+        "mode": "threaded",
+        "state": "open",
+        "title": "response-successor-committed",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:00.506Z",
+        "updatedAt": "2026-10-23T11:25:00.506Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 3,
+        "threaded_wakes": 2,
+        "threaded_outbox": 5,
+        "threaded_invocations": 2,
+        "runs": 2,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 2,
+        "threaded_backend_requests": 2,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 2
+      },
+      "messages": [
+        {
+          "id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "origin": "user",
+          "body": "T12_SUCCESSOR",
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc"
+        },
+        {
+          "id": "93d4c1d7-7724-4305-9af5-395bac6179b6",
+          "origin": "agent_response",
+          "body": "@other-member T12_COMMITTED_SUCCESSOR",
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc"
+        },
+        {
+          "id": "b79f7a06-84ab-4ab6-a954-9e7ebea9a2dd",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc"
+        }
+      ],
+      "queue": [
+        {
+          "id": "3006de1d-7bab-4d4a-bffe-c4b9e5132115",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d"
+        },
+        {
+          "id": "65bde7b6-e2ea-4bf8-abd7-0672a02734f4",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "invocation_id": "bd155329-15b7-4913-81e0-8c67138872be"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "fad3df11-e8c6-4d45-8499-63b6423f7ef4",
+          "invocation_id": "bd155329-15b7-4913-81e0-8c67138872be",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "e9c89186-ae94-4460-91bd-ea90a674518e",
+          "root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "owner_id": "c95e3c98-98bb-4116-ac09-e4103edf4e21",
+          "thread_id": "99fe25ed-e47e-4a0f-9377-897ac25a3cd9",
+          "invocation_id": "6da14d7e-0615-45dc-a641-bec9f398b51d",
+          "attempt_id": "16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "request_key": "queue:3006de1d-7bab-4d4a-bffe-c4b9e5132115:16f95678-9c41-4fa8-b323-fcce150bcfc9",
+          "request_hash": "bc6962484ec74b0205c5322924789baa3e916e4789fbc44c49a8c32b4440d1a7",
+          "policy_version": 1,
+          "claim_id": "95af89e2-539e-48a3-a636-58b47fdb0dff",
+          "generation": 1,
+          "fencing_token": "7a0cb2eb-5e8b-45c6-97a5-6b8807759d71",
+          "claim_owner": "t07:7f02aaaa-2ebf-4337-9b9e-312ac875bd40",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "779e16b05a5f92ef6814f779b7ea13638e62a91fef7425b5b6bd8dbd6831ad08",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754760248,
+          "started_at": 1792754760248,
+          "settled_at": 1792754760248
+        },
+        {
+          "id": "2bf8893e-75f9-46cf-a6e4-adbd2d076b40",
+          "root_id": "17adbdfc-bdef-456f-9b7a-900b19c373bc",
+          "owner_id": "c95e3c98-98bb-4116-ac09-e4103edf4e21",
+          "thread_id": "99fe25ed-e47e-4a0f-9377-897ac25a3cd9",
+          "invocation_id": "bd155329-15b7-4913-81e0-8c67138872be",
+          "attempt_id": "fad3df11-e8c6-4d45-8499-63b6423f7ef4",
+          "request_key": "queue:65bde7b6-e2ea-4bf8-abd7-0672a02734f4:fad3df11-e8c6-4d45-8499-63b6423f7ef4",
+          "request_hash": "3e494f5a755a557ad1966d2b0814a289ef9feaf87aa20338db79f36992920c66",
+          "policy_version": 1,
+          "claim_id": "600266c6-a8ab-45f4-a7c5-2b9ebbafb8a0",
+          "generation": 2,
+          "fencing_token": "0604cb34-b77e-4168-ab17-3851d6e172c9",
+          "claim_owner": "t07:7fc75221-f339-4a1f-962f-769c9e934e0b",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "c8bad5a689de0834bfb4eb74c40e72aaf4d80ac59b39262a1ebb0db1e749f204",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754880248,
+          "started_at": 1792754880248,
+          "settled_at": 1792754880248
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:00.328Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "96ccc3222d29fec1820ce64379d5e02f5ec6b1cf27acf50c5fe532c1d51609fc"
+    },
+    {
+      "label": "partial MM restart at original deadline; authorized callback",
+      "process": 18483,
+      "clock": 1792754941470,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+        "conversationId": "0b634dcf-d01a-4180-91ed-d21701898e36",
+        "ownerId": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+        "mode": "threaded",
+        "state": "open",
+        "title": "multi-mention-partial",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:01.740Z",
+        "updatedAt": "2026-10-23T11:25:01.740Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 6,
+        "threaded_wakes": 4,
+        "threaded_outbox": 10,
+        "threaded_invocations": 3,
+        "runs": 2,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 2,
+        "threaded_backend_requests": 2,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 1,
+        "threaded_collaboration_callbacks": 1,
+        "fixture_t12_requests": 2
+      },
+      "messages": [
+        {
+          "id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "origin": "user",
+          "body": "T12_CONSULTATION",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "b8f503bb-8ecb-478a-8125-76cf011932be",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754941469}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "3197470d-badd-4756-be24-eebb540dc5c6",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754941469}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "d500c147-04e6-42d3-a2e4-6344857fec56",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "6056b520-d7b3-449f-8575-b80608e7e95e",
+          "origin": "agent_response",
+          "body": "T12_FIRST_DIFFERING_ANSWER",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "79715dd0-d9fb-4467-93dc-f316fab14a71",
+          "origin": "system",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"kind\":\"partial\",\"responses\":[{\"agentId\":\"fourth-member\",\"status\":\"timeout\",\"responseMessageId\":null,\"body\":null},{\"agentId\":\"other-member\",\"status\":\"responded\",\"responseMessageId\":\"6056b520-d7b3-449f-8575-b80608e7e95e\",\"body\":\"T12_FIRST_DIFFERING_ANSWER\"}]}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        }
+      ],
+      "queue": [
+        {
+          "id": "3de0641a-0899-45e6-82fd-d4691b411c05",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905"
+        },
+        {
+          "id": "334bc2e8-9cf8-4d28-88b5-9749bae83d04",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21"
+        },
+        {
+          "id": "69e55c9e-336a-44d5-b0a4-1017378fb63d",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "9ffe83ce-87b2-45fa-a34e-3b2f6e45cd0a"
+        },
+        {
+          "id": "1e49f7c9-af67-450a-9daa-3cef4bc50610",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [
+        {
+          "id": "4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "5d94bbdf-3232-4f65-812e-e5742dc630d5",
+          "root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "owner_id": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+          "thread_id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905",
+          "attempt_id": "4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "request_key": "queue:3de0641a-0899-45e6-82fd-d4691b411c05:4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "request_hash": "4d85debf8fd28c93cfdaf3355d8dd1af5de61826fa27de08ce30f2874b5f9ffd",
+          "policy_version": 1,
+          "claim_id": "5f7439f4-c6d8-474c-9f27-d182a5f6d440",
+          "generation": 1,
+          "fencing_token": "708e572d-b464-4833-a922-4d4cd43a6ea0",
+          "claim_owner": "t07:c521b9a1-51d4-41fa-aad9-247caf75cf35",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "19b775c49f845b77bd99ee9918e5fd99728136a1fb696fa5f74e9e4c30e0a09c",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754761469,
+          "started_at": 1792754761469,
+          "settled_at": 1792754761469
+        },
+        {
+          "id": "f8ef1383-9028-4fa1-bbb4-b5542d5f29b4",
+          "root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "owner_id": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+          "thread_id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21",
+          "attempt_id": "9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "request_key": "queue:334bc2e8-9cf8-4d28-88b5-9749bae83d04:9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "request_hash": "8ecd514930464e95d6dfaaaa1a31ce533571bf90bcf29b2662a6faf76ca1d1f1",
+          "policy_version": 1,
+          "claim_id": "04d97989-038c-4e81-b712-44916f866746",
+          "generation": 2,
+          "fencing_token": "97cb609d-eb44-4e0d-b4e6-ff8b285e2a67",
+          "claim_owner": "t07:c521b9a1-51d4-41fa-aad9-247caf75cf35",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "c83a106fcd59da61e11097e301ccc6e3d78b4efd1341e7ca035bd8965ebaa57b",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754761469,
+          "started_at": 1792754761469,
+          "settled_at": 1792754761469
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [
+        {
+          "groupId": "df03e9ce-b5ba-411f-8059-9d15e7d68369",
+          "kind": "partial",
+          "responses": [
+            {
+              "agentId": "fourth-member",
+              "status": "timeout",
+              "responseMessageId": null,
+              "body": null
+            },
+            {
+              "agentId": "other-member",
+              "status": "responded",
+              "responseMessageId": "6056b520-d7b3-449f-8575-b80608e7e95e",
+              "body": "T12_FIRST_DIFFERING_ANSWER"
+            }
+          ]
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "9652548d-8356-4a6f-8d58-4d8431a1ae43",
+          "state": "delivered",
+          "message_id": "79715dd0-d9fb-4467-93dc-f316fab14a71",
+          "reason": null
+        }
+      ],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:01.558Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "0743f16d07e0fd44b3a0ba4eb207b8c8cdb9b079598cfcf831b54a446f02e88e"
+    },
+    {
+      "label": "MM repeated recovery remains one settlement/callback and no model replay",
+      "process": 18483,
+      "clock": 1792754941470,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+        "conversationId": "0b634dcf-d01a-4180-91ed-d21701898e36",
+        "ownerId": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+        "mode": "threaded",
+        "state": "open",
+        "title": "multi-mention-partial",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:01.740Z",
+        "updatedAt": "2026-10-23T11:25:01.740Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 6,
+        "threaded_wakes": 4,
+        "threaded_outbox": 10,
+        "threaded_invocations": 3,
+        "runs": 2,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 2,
+        "threaded_backend_requests": 2,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 1,
+        "threaded_collaboration_callbacks": 1,
+        "fixture_t12_requests": 2
+      },
+      "messages": [
+        {
+          "id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "origin": "user",
+          "body": "T12_CONSULTATION",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "b8f503bb-8ecb-478a-8125-76cf011932be",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754941469}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "3197470d-badd-4756-be24-eebb540dc5c6",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754941469}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "d500c147-04e6-42d3-a2e4-6344857fec56",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "6056b520-d7b3-449f-8575-b80608e7e95e",
+          "origin": "agent_response",
+          "body": "T12_FIRST_DIFFERING_ANSWER",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        },
+        {
+          "id": "79715dd0-d9fb-4467-93dc-f316fab14a71",
+          "origin": "system",
+          "body": "{\"groupId\":\"df03e9ce-b5ba-411f-8059-9d15e7d68369\",\"kind\":\"partial\",\"responses\":[{\"agentId\":\"fourth-member\",\"status\":\"timeout\",\"responseMessageId\":null,\"body\":null},{\"agentId\":\"other-member\",\"status\":\"responded\",\"responseMessageId\":\"6056b520-d7b3-449f-8575-b80608e7e95e\",\"body\":\"T12_FIRST_DIFFERING_ANSWER\"}]}",
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60"
+        }
+      ],
+      "queue": [
+        {
+          "id": "3de0641a-0899-45e6-82fd-d4691b411c05",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905"
+        },
+        {
+          "id": "334bc2e8-9cf8-4d28-88b5-9749bae83d04",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21"
+        },
+        {
+          "id": "69e55c9e-336a-44d5-b0a4-1017378fb63d",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": "9ffe83ce-87b2-45fa-a34e-3b2f6e45cd0a"
+        },
+        {
+          "id": "1e49f7c9-af67-450a-9daa-3cef4bc50610",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [
+        {
+          "id": "4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "5d94bbdf-3232-4f65-812e-e5742dc630d5",
+          "root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "owner_id": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+          "thread_id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+          "invocation_id": "0df2d36d-97c3-4872-acf1-1efa8827a905",
+          "attempt_id": "4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "request_key": "queue:3de0641a-0899-45e6-82fd-d4691b411c05:4dcb4661-2d59-442e-b6c2-9614201e1c79",
+          "request_hash": "4d85debf8fd28c93cfdaf3355d8dd1af5de61826fa27de08ce30f2874b5f9ffd",
+          "policy_version": 1,
+          "claim_id": "5f7439f4-c6d8-474c-9f27-d182a5f6d440",
+          "generation": 1,
+          "fencing_token": "708e572d-b464-4833-a922-4d4cd43a6ea0",
+          "claim_owner": "t07:c521b9a1-51d4-41fa-aad9-247caf75cf35",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "19b775c49f845b77bd99ee9918e5fd99728136a1fb696fa5f74e9e4c30e0a09c",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754761469,
+          "started_at": 1792754761469,
+          "settled_at": 1792754761469
+        },
+        {
+          "id": "f8ef1383-9028-4fa1-bbb4-b5542d5f29b4",
+          "root_id": "75b91757-5c03-407a-9029-ebc980459e60",
+          "owner_id": "f14bdb40-dfba-48f1-8ae9-32f92793617f",
+          "thread_id": "45a02c7a-dca8-4955-844a-9d7ae813cf47",
+          "invocation_id": "376a3d44-909f-4930-9c16-c8ec3a7c0d21",
+          "attempt_id": "9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "request_key": "queue:334bc2e8-9cf8-4d28-88b5-9749bae83d04:9156d28d-6595-4c24-b9d4-8e3ac9d5d96d",
+          "request_hash": "8ecd514930464e95d6dfaaaa1a31ce533571bf90bcf29b2662a6faf76ca1d1f1",
+          "policy_version": 1,
+          "claim_id": "04d97989-038c-4e81-b712-44916f866746",
+          "generation": 2,
+          "fencing_token": "97cb609d-eb44-4e0d-b4e6-ff8b285e2a67",
+          "claim_owner": "t07:c521b9a1-51d4-41fa-aad9-247caf75cf35",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "c83a106fcd59da61e11097e301ccc6e3d78b4efd1341e7ca035bd8965ebaa57b",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754761469,
+          "started_at": 1792754761469,
+          "settled_at": 1792754761469
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [
+        {
+          "groupId": "df03e9ce-b5ba-411f-8059-9d15e7d68369",
+          "kind": "partial",
+          "responses": [
+            {
+              "agentId": "fourth-member",
+              "status": "timeout",
+              "responseMessageId": null,
+              "body": null
+            },
+            {
+              "agentId": "other-member",
+              "status": "responded",
+              "responseMessageId": "6056b520-d7b3-449f-8575-b80608e7e95e",
+              "body": "T12_FIRST_DIFFERING_ANSWER"
+            }
+          ]
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "9652548d-8356-4a6f-8d58-4d8431a1ae43",
+          "state": "delivered",
+          "message_id": "79715dd0-d9fb-4467-93dc-f316fab14a71",
+          "reason": null
+        }
+      ],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:01.558Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "0743f16d07e0fd44b3a0ba4eb207b8c8cdb9b079598cfcf831b54a446f02e88e"
+    },
+    {
+      "label": "partial MM restart at original deadline; permission",
+      "process": 18503,
+      "clock": 1792754942694,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+        "conversationId": "413b756e-83a5-47cb-88a8-166e2b7e3724",
+        "ownerId": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+        "mode": "threaded",
+        "state": "open",
+        "title": "multi-mention-permission",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:02.947Z",
+        "updatedAt": "2026-10-23T11:25:02.947Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 5,
+        "threaded_wakes": 3,
+        "threaded_outbox": 8,
+        "threaded_invocations": 3,
+        "runs": 2,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 2,
+        "threaded_backend_requests": 2,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 1,
+        "threaded_collaboration_callbacks": 1,
+        "fixture_t12_requests": 2
+      },
+      "messages": [
+        {
+          "id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "origin": "user",
+          "body": "T12_CONSULTATION",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "a7765e67-dcd8-4bd9-b63c-d069c52104e3",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"9fb6d60a-70f5-483f-b3fd-252e05a19045\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754942693}",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "8d1a0407-1f77-49da-9bb7-5599a58f2105",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"9fb6d60a-70f5-483f-b3fd-252e05a19045\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754942693}",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "a1ad7338-b425-4181-a4df-c5f015f8b93c",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "b3e0e3d0-2c42-47dc-8982-13cb5a9a8571",
+          "origin": "agent_response",
+          "body": "T12_FIRST_DIFFERING_ANSWER",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        }
+      ],
+      "queue": [
+        {
+          "id": "98ac6a87-d509-4da5-b69f-c7ab4cbaddfe",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325"
+        },
+        {
+          "id": "cd5ddba7-8a3f-463a-be6d-fd2c37b355a9",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344"
+        },
+        {
+          "id": "49197ef4-b993-464d-8e35-a757d96d38d1",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "6c49a9ac-032e-4263-8781-d5b1c80517f7"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "f9750986-9d2b-4a77-9352-7e72e2b76271",
+          "root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "owner_id": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+          "thread_id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325",
+          "attempt_id": "acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "request_key": "queue:98ac6a87-d509-4da5-b69f-c7ab4cbaddfe:acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "request_hash": "d51d964d4e33179e05d72fa440e27b338a87bd45065cbb1ea2108e7515ff564b",
+          "policy_version": 1,
+          "claim_id": "90fb9899-0c75-4da2-b8e3-27f7d33baf39",
+          "generation": 1,
+          "fencing_token": "6b10718f-92fa-4799-a9f4-d4f7d42a4e97",
+          "claim_owner": "t07:b91f6a72-fbf5-43f0-b1b4-82c5b1d24c05",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "c277241d254dc4ac3d5c23db4b27f098c112394a041d1e293be40ff09b76adf2",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754762693,
+          "started_at": 1792754762693,
+          "settled_at": 1792754762693
+        },
+        {
+          "id": "3e111ccc-8ed4-4732-88ac-55110e371457",
+          "root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "owner_id": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+          "thread_id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344",
+          "attempt_id": "943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "request_key": "queue:cd5ddba7-8a3f-463a-be6d-fd2c37b355a9:943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "request_hash": "235326d26a1d37efda0e752a15fdcebe612d4f18f9ad8e1743976414a59f9190",
+          "policy_version": 1,
+          "claim_id": "a0570944-0299-4fa4-bd2f-cefc56ffb6cf",
+          "generation": 2,
+          "fencing_token": "92e2b58a-0f6d-418d-b90e-5c5eae96467f",
+          "claim_owner": "t07:b91f6a72-fbf5-43f0-b1b4-82c5b1d24c05",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "bc5eb587bb8539982b63c6187c10a793c2dca6d7c3ec43e40b884b8a3d27689c",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754762693,
+          "started_at": 1792754762693,
+          "settled_at": 1792754762693
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [
+        {
+          "groupId": "9fb6d60a-70f5-483f-b3fd-252e05a19045",
+          "kind": "partial",
+          "responses": [
+            {
+              "agentId": "fourth-member",
+              "status": "timeout",
+              "responseMessageId": null,
+              "body": null
+            },
+            {
+              "agentId": "other-member",
+              "status": "responded",
+              "responseMessageId": "b3e0e3d0-2c42-47dc-8982-13cb5a9a8571",
+              "body": "T12_FIRST_DIFFERING_ANSWER"
+            }
+          ]
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "10498216-62d3-4e40-ab37-b24c6b7e660a",
+          "state": "rejected",
+          "message_id": null,
+          "reason": "THREADED_CALLBACK_AUTHORITY_CHANGED"
+        }
+      ],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:02.769Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "a8ba8bdf75172ebefaa4a8eb297c6a4546becbbc16ca2e369089a57e86fed450"
+    },
+    {
+      "label": "MM repeated recovery remains one settlement/callback and no model replay",
+      "process": 18503,
+      "clock": 1792754942694,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+        "conversationId": "413b756e-83a5-47cb-88a8-166e2b7e3724",
+        "ownerId": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+        "mode": "threaded",
+        "state": "open",
+        "title": "multi-mention-permission",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:02.947Z",
+        "updatedAt": "2026-10-23T11:25:02.947Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 5,
+        "threaded_wakes": 3,
+        "threaded_outbox": 8,
+        "threaded_invocations": 3,
+        "runs": 2,
+        "threaded_attempts": 2,
+        "threaded_invocation_terminals": 2,
+        "threaded_backend_requests": 2,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 2,
+        "execution_resource_claims": 2,
+        "threaded_consultation_settlements": 1,
+        "threaded_collaboration_callbacks": 1,
+        "fixture_t12_requests": 2
+      },
+      "messages": [
+        {
+          "id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "origin": "user",
+          "body": "T12_CONSULTATION",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "a7765e67-dcd8-4bd9-b63c-d069c52104e3",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"9fb6d60a-70f5-483f-b3fd-252e05a19045\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754942693}",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "8d1a0407-1f77-49da-9bb7-5599a58f2105",
+          "origin": "agent_post",
+          "body": "{\"groupId\":\"9fb6d60a-70f5-483f-b3fd-252e05a19045\",\"question\":\"Retain different answers across service restart\",\"context\":\"\",\"deadline\":1792754942693}",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "a1ad7338-b425-4181-a4df-c5f015f8b93c",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        },
+        {
+          "id": "b3e0e3d0-2c42-47dc-8982-13cb5a9a8571",
+          "origin": "agent_response",
+          "body": "T12_FIRST_DIFFERING_ANSWER",
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7"
+        }
+      ],
+      "queue": [
+        {
+          "id": "98ac6a87-d509-4da5-b69f-c7ab4cbaddfe",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325"
+        },
+        {
+          "id": "cd5ddba7-8a3f-463a-be6d-fd2c37b355a9",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344"
+        },
+        {
+          "id": "49197ef4-b993-464d-8e35-a757d96d38d1",
+          "state": "queued",
+          "reason": null,
+          "causal_root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "invocation_id": "6c49a9ac-032e-4263-8781-d5b1c80517f7"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        },
+        {
+          "id": "943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "f9750986-9d2b-4a77-9352-7e72e2b76271",
+          "root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "owner_id": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+          "thread_id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+          "invocation_id": "a798dd2a-19fa-40e3-8ad1-02751d6a7325",
+          "attempt_id": "acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "request_key": "queue:98ac6a87-d509-4da5-b69f-c7ab4cbaddfe:acbf8ebd-07be-4400-a8c1-a004acec427b",
+          "request_hash": "d51d964d4e33179e05d72fa440e27b338a87bd45065cbb1ea2108e7515ff564b",
+          "policy_version": 1,
+          "claim_id": "90fb9899-0c75-4da2-b8e3-27f7d33baf39",
+          "generation": 1,
+          "fencing_token": "6b10718f-92fa-4799-a9f4-d4f7d42a4e97",
+          "claim_owner": "t07:b91f6a72-fbf5-43f0-b1b4-82c5b1d24c05",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "c277241d254dc4ac3d5c23db4b27f098c112394a041d1e293be40ff09b76adf2",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754762693,
+          "started_at": 1792754762693,
+          "settled_at": 1792754762693
+        },
+        {
+          "id": "3e111ccc-8ed4-4732-88ac-55110e371457",
+          "root_id": "712ed012-6e50-418f-af14-7c26516d19b7",
+          "owner_id": "7c73cc89-5963-4c3a-8c8e-92fb22123964",
+          "thread_id": "d1d9d993-779e-41f6-87c7-47fc93141b9c",
+          "invocation_id": "7a715790-6901-4e67-b748-22544f5f2344",
+          "attempt_id": "943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "request_key": "queue:cd5ddba7-8a3f-463a-be6d-fd2c37b355a9:943bc8ff-5742-466a-8f1f-c752ffab9986",
+          "request_hash": "235326d26a1d37efda0e752a15fdcebe612d4f18f9ad8e1743976414a59f9190",
+          "policy_version": 1,
+          "claim_id": "a0570944-0299-4fa4-bd2f-cefc56ffb6cf",
+          "generation": 2,
+          "fencing_token": "92e2b58a-0f6d-418d-b90e-5c5eae96467f",
+          "claim_owner": "t07:b91f6a72-fbf5-43f0-b1b4-82c5b1d24c05",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "bc5eb587bb8539982b63c6187c10a793c2dca6d7c3ec43e40b884b8a3d27689c",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754762693,
+          "started_at": 1792754762693,
+          "settled_at": 1792754762693
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        },
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [
+        {
+          "groupId": "9fb6d60a-70f5-483f-b3fd-252e05a19045",
+          "kind": "partial",
+          "responses": [
+            {
+              "agentId": "fourth-member",
+              "status": "timeout",
+              "responseMessageId": null,
+              "body": null
+            },
+            {
+              "agentId": "other-member",
+              "status": "responded",
+              "responseMessageId": "b3e0e3d0-2c42-47dc-8982-13cb5a9a8571",
+              "body": "T12_FIRST_DIFFERING_ANSWER"
+            }
+          ]
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "10498216-62d3-4e40-ab37-b24c6b7e660a",
+          "state": "rejected",
+          "message_id": null,
+          "reason": "THREADED_CALLBACK_AUTHORITY_CHANGED"
+        }
+      ],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:02.769Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "a8ba8bdf75172ebefaa4a8eb297c6a4546becbbc16ca2e369089a57e86fed450"
+    },
+    {
+      "label": "stale Owner session expires; reauthenticated approve cannot revive old driver or unknown request",
+      "process": 18523,
+      "clock": 1792754883892,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "13b5b21b-0dae-4b01-b978-32ef3f0ed12e",
+        "conversationId": "6721155e-df6b-492d-84ee-8d01f4877b5c",
+        "ownerId": "960816da-8c65-4f5c-bbad-ef36992607dd",
+        "mode": "threaded",
+        "state": "open",
+        "title": "approval-restart",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:04.144Z",
+        "updatedAt": "2026-10-23T11:25:04.144Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "e623ac3e-63f4-426c-af4d-0f9ca7a60b30",
+          "origin": "user",
+          "body": "T12_APPROVAL",
+          "causal_root_id": "e623ac3e-63f4-426c-af4d-0f9ca7a60b30"
+        }
+      ],
+      "queue": [
+        {
+          "id": "893dfb74-aff4-4f06-9f71-fcddc2fe5134",
+          "state": "unknown",
+          "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+          "causal_root_id": "e623ac3e-63f4-426c-af4d-0f9ca7a60b30",
+          "invocation_id": "1beb72d5-8040-43f8-a615-66f372e372f3"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "c44e33e7-6441-4d45-992a-048a612c5e47",
+          "invocation_id": "1beb72d5-8040-43f8-a615-66f372e372f3",
+          "status": "unknown",
+          "execution_stage": "unknown",
+          "resource_release_state": null
+        }
+      ],
+      "budgets": [
+        {
+          "id": "bf84368e-f65b-42b4-9451-eaa601ab60cc",
+          "root_id": "e623ac3e-63f4-426c-af4d-0f9ca7a60b30",
+          "owner_id": "960816da-8c65-4f5c-bbad-ef36992607dd",
+          "thread_id": "13b5b21b-0dae-4b01-b978-32ef3f0ed12e",
+          "invocation_id": "1beb72d5-8040-43f8-a615-66f372e372f3",
+          "attempt_id": "c44e33e7-6441-4d45-992a-048a612c5e47",
+          "request_key": "queue:893dfb74-aff4-4f06-9f71-fcddc2fe5134:c44e33e7-6441-4d45-992a-048a612c5e47",
+          "request_hash": "b01c5071afa9ba862617eb8217440e2fa755318dcc7a059af49f96a0bc5fa739",
+          "policy_version": 1,
+          "claim_id": "e935f398-6285-49fe-9afc-0d75347c0d32",
+          "generation": 1,
+          "fencing_token": "b2fa69ba-d332-4bd8-96be-44256094e13e",
+          "claim_owner": "t07:7242659a-5ed5-4bc7-95ee-bc8da8436008",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": null,
+          "known_cost": null,
+          "execution_state": "unknown",
+          "usage_state": "unknown",
+          "outcome_hash": null,
+          "outcome_kind": null,
+          "evidence_reference": null,
+          "created_at": 1792754763892,
+          "started_at": 1792754763892,
+          "settled_at": null
+        }
+      ],
+      "claims": [
+        {
+          "state": "unknown"
+        }
+      ],
+      "approvals": [
+        {
+          "id": "254505dd-6e1c-499b-ad20-37178a7749ec",
+          "status": "expired"
+        }
+      ],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:03.966Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "d8ebbaea5957c4ebaa0553323917fde0d4e4bdb9c8c53cf851ba1afd97001a98"
+    },
+    {
+      "label": "member-left survives process restart",
+      "process": 18548,
+      "clock": 1792754884831,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "1de3c0be-907c-4811-b148-034c08bdab31",
+        "conversationId": "ce24291b-a3f9-4e6c-94ab-dc4d51438664",
+        "ownerId": "b50e0c81-c3b6-4678-b838-35b1e836df48",
+        "mode": "threaded",
+        "state": "open",
+        "title": "revoke-member-left",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:05.087Z",
+        "updatedAt": "2026-10-23T11:25:05.087Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [
+        {
+          "id": "b2f47112-7229-447f-a371-b193808e4de4",
+          "origin": "user",
+          "body": "T12_REVOKE_member-left",
+          "causal_root_id": "b2f47112-7229-447f-a371-b193808e4de4"
+        }
+      ],
+      "queue": [
+        {
+          "id": "9e86a92d-f128-43f8-9036-3f0d1db3ade0",
+          "state": "blocked",
+          "reason": "THREADED_QUEUE_SOURCE_AUTHORITY_CHANGED",
+          "causal_root_id": "b2f47112-7229-447f-a371-b193808e4de4",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:04.910Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "6c879d9c34a68dc6b79f242347db4f5d4f7992eb5d405b62681dbb3bf2057c29"
+    },
+    {
+      "label": "account survives process restart",
+      "process": 18568,
+      "clock": 1792754885593,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "c8dee154-1f30-4b7e-9ee5-b158e06e3b6d",
+        "conversationId": "fec03429-e001-4c22-a678-c84000992dba",
+        "ownerId": "de4f6687-9136-4313-bdab-ff387b4466f0",
+        "mode": "threaded",
+        "state": "open",
+        "title": "revoke-account",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:05.859Z",
+        "updatedAt": "2026-10-23T11:25:05.859Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [
+        {
+          "id": "d56fe0ab-7bf4-48c0-bd0c-896941982892",
+          "origin": "user",
+          "body": "T12_REVOKE_account",
+          "causal_root_id": "d56fe0ab-7bf4-48c0-bd0c-896941982892"
+        }
+      ],
+      "queue": [
+        {
+          "id": "3e35e2b4-5451-452e-9819-e364494c4fec",
+          "state": "blocked",
+          "reason": "THREADED_QUEUE_SOURCE_AUTHORITY_CHANGED",
+          "causal_root_id": "d56fe0ab-7bf4-48c0-bd0c-896941982892",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:05.673Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "e79bc850d5d57580197b5fb8bdbe52d8fbcb97fad1de551b59b64fd495f51947"
+    },
+    {
+      "label": "stop survives process restart",
+      "process": 18588,
+      "clock": 1792754886341,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "2355ce35-ccf7-40da-99a1-3abfba626396",
+        "conversationId": "5111e1cf-05c4-4b26-bc0f-9435c0593ddd",
+        "ownerId": "48b3e9fe-c018-4292-a7d4-d744a8e3530b",
+        "mode": "threaded",
+        "state": "closed",
+        "title": "revoke-stop",
+        "version": 2,
+        "policyVersion": 1,
+        "authorityEpoch": 2,
+        "createdAt": "2026-10-23T11:25:06.593Z",
+        "updatedAt": "2026-10-23T11:25:06.722Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 1,
+        "threaded_wakes": 1,
+        "threaded_outbox": 2,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [
+        {
+          "id": "427069c1-1332-40e9-b59a-f79b07663c80",
+          "origin": "user",
+          "body": "T12_REVOKE_stop",
+          "causal_root_id": "427069c1-1332-40e9-b59a-f79b07663c80"
+        }
+      ],
+      "queue": [
+        {
+          "id": "a63d7b42-02e5-4d46-a9ea-ebe9e2e478d2",
+          "state": "cancelled",
+          "reason": "THREADED_QUEUE_CONTROL_CANCELLED",
+          "causal_root_id": "427069c1-1332-40e9-b59a-f79b07663c80",
+          "invocation_id": null
+        }
+      ],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:06.416Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "85f9920890fa0d0364ab5a4c69642369cba45b28e62712dfa25d8c026cf8d0fc"
+    },
+    {
+      "label": "before real SQLite query_only storage failure",
+      "process": 18598,
+      "clock": 1792754767072,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "c71d6036-156c-40e2-a5a3-ec810465f778",
+        "conversationId": "4705044b-f9f7-4766-bcf5-31cf85e918e0",
+        "ownerId": "ce547c25-e52f-4d96-8f45-4ed137e7d174",
+        "mode": "threaded",
+        "state": "closed",
+        "title": "storage-fail-closed",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:07.325Z",
+        "updatedAt": "2026-10-23T11:25:07.325Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 0,
+        "threaded_wakes": 0,
+        "threaded_outbox": 0,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [],
+      "queue": [],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:07.147Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "a5c8a50bbd6309ea76b5d5f5052ec0de0e3655a34980c84946b3dd1af2d568da"
+    },
+    {
+      "label": "HTTP failure creates no message/Wake/outbox/attempt or false success",
+      "process": 18598,
+      "clock": 1792754767072,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "c71d6036-156c-40e2-a5a3-ec810465f778",
+        "conversationId": "4705044b-f9f7-4766-bcf5-31cf85e918e0",
+        "ownerId": "ce547c25-e52f-4d96-8f45-4ed137e7d174",
+        "mode": "threaded",
+        "state": "closed",
+        "title": "storage-fail-closed",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:07.325Z",
+        "updatedAt": "2026-10-23T11:25:07.325Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 0,
+        "threaded_wakes": 0,
+        "threaded_outbox": 0,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [],
+      "queue": [],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:07.147Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "a5c8a50bbd6309ea76b5d5f5052ec0de0e3655a34980c84946b3dd1af2d568da"
+    },
+    {
+      "label": "fresh process finds no phantom successful message",
+      "process": 18608,
+      "clock": 1792754767470,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "c71d6036-156c-40e2-a5a3-ec810465f778",
+        "conversationId": "4705044b-f9f7-4766-bcf5-31cf85e918e0",
+        "ownerId": "ce547c25-e52f-4d96-8f45-4ed137e7d174",
+        "mode": "threaded",
+        "state": "open",
+        "title": "storage-fail-closed",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:07.325Z",
+        "updatedAt": "2026-10-23T11:25:07.325Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 0,
+        "threaded_wakes": 0,
+        "threaded_outbox": 0,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [],
+      "queue": [],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:07.147Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "8b5ad1e719d7b8812e7eb4b5da202be5a11a07b400783530a103aec432a618e7"
+    },
+    {
+      "label": "legacy message coexists in the same isolated service database",
+      "process": 18618,
+      "clock": 1792754767806,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "3f76d03e-9953-47e5-965a-46602de0ab08",
+        "conversationId": "e4d930f6-0f97-4f55-9a82-7f229b9051e1",
+        "ownerId": "15b6da85-0cbf-46d5-a28a-b0e4c941d7df",
+        "mode": "threaded",
+        "state": "closed",
+        "title": "mixed-mode-isolation",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:08.058Z",
+        "updatedAt": "2026-10-23T11:25:08.058Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 0,
+        "threaded_wakes": 0,
+        "threaded_outbox": 0,
+        "threaded_invocations": 0,
+        "runs": 0,
+        "threaded_attempts": 0,
+        "threaded_invocation_terminals": 0,
+        "threaded_backend_requests": 0,
+        "threaded_budget_roots": 0,
+        "threaded_budget_requests": 0,
+        "execution_resource_claims": 0,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 0
+      },
+      "messages": [],
+      "queue": [],
+      "attempts": [],
+      "budgets": [],
+      "claims": [],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:07.880Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "9b9fcaf0131999e18e95a4e14d85d4863efdba467915c8b17e0bb619566b2d8d"
+    },
+    {
+      "label": "restored real HTTP projection omits legacy tables and keeps them unchanged",
+      "process": 18628,
+      "clock": 1792754768402,
+      "thread": {
+        "schemaVersion": 1,
+        "id": "3f76d03e-9953-47e5-965a-46602de0ab08",
+        "conversationId": "e4d930f6-0f97-4f55-9a82-7f229b9051e1",
+        "ownerId": "15b6da85-0cbf-46d5-a28a-b0e4c941d7df",
+        "mode": "threaded",
+        "state": "open",
+        "title": "mixed-mode-isolation",
+        "version": 1,
+        "policyVersion": 1,
+        "authorityEpoch": 1,
+        "createdAt": "2026-10-23T11:25:08.058Z",
+        "updatedAt": "2026-10-23T11:25:08.058Z"
+      },
+      "forbiddenNetworkCalls": 0,
+      "counts": {
+        "threaded_messages": 2,
+        "threaded_wakes": 1,
+        "threaded_outbox": 3,
+        "threaded_invocations": 1,
+        "runs": 1,
+        "threaded_attempts": 1,
+        "threaded_invocation_terminals": 1,
+        "threaded_backend_requests": 1,
+        "threaded_budget_roots": 1,
+        "threaded_budget_requests": 1,
+        "execution_resource_claims": 1,
+        "threaded_consultation_settlements": 0,
+        "threaded_collaboration_callbacks": 0,
+        "fixture_t12_requests": 1
+      },
+      "messages": [
+        {
+          "id": "ac0d0a9a-4565-4c8c-803a-6bdf29915bbc",
+          "origin": "user",
+          "body": "T12_THREADED_ONLY",
+          "causal_root_id": "ac0d0a9a-4565-4c8c-803a-6bdf29915bbc"
+        },
+        {
+          "id": "36dc52f7-2a97-4e4d-858b-53e67d34dff4",
+          "origin": "agent_response",
+          "body": "T12 synthetic final",
+          "causal_root_id": "ac0d0a9a-4565-4c8c-803a-6bdf29915bbc"
+        }
+      ],
+      "queue": [
+        {
+          "id": "0bd45b8d-6e56-42e3-aa0c-4b0b23ead58a",
+          "state": "settled",
+          "reason": null,
+          "causal_root_id": "ac0d0a9a-4565-4c8c-803a-6bdf29915bbc",
+          "invocation_id": "1579770a-2bf1-4675-bcde-2d69e93669ce"
+        }
+      ],
+      "attempts": [
+        {
+          "id": "4d466aa0-c57f-46fd-9e28-80f4ae239971",
+          "invocation_id": "1579770a-2bf1-4675-bcde-2d69e93669ce",
+          "status": "completed",
+          "execution_stage": "quiescent",
+          "resource_release_state": "released"
+        }
+      ],
+      "budgets": [
+        {
+          "id": "8cebb735-80af-42f8-aad3-cb7910da4871",
+          "root_id": "ac0d0a9a-4565-4c8c-803a-6bdf29915bbc",
+          "owner_id": "15b6da85-0cbf-46d5-a28a-b0e4c941d7df",
+          "thread_id": "3f76d03e-9953-47e5-965a-46602de0ab08",
+          "invocation_id": "1579770a-2bf1-4675-bcde-2d69e93669ce",
+          "attempt_id": "4d466aa0-c57f-46fd-9e28-80f4ae239971",
+          "request_key": "queue:0bd45b8d-6e56-42e3-aa0c-4b0b23ead58a:4d466aa0-c57f-46fd-9e28-80f4ae239971",
+          "request_hash": "88d6bb2c0a71ea6ed013a0bf79730faab6821988ffed51698fa6fb39f572f37b",
+          "policy_version": 1,
+          "claim_id": "e158ef13-8b3a-4ac5-af16-66110b423d49",
+          "generation": 1,
+          "fencing_token": "ff29ab55-dfe9-407d-8efa-f8de41f1693e",
+          "claim_owner": "t07:9b85bdf9-20b9-4092-a6df-61db299986d7",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": 7,
+          "known_cost": 27,
+          "execution_state": "quiescent",
+          "usage_state": "settled",
+          "outcome_hash": "7da0f3e60718cde0c2fb7fc6ee743adc61b1d8dcf2b8a8ea9ad0aaa4d43db96b",
+          "outcome_kind": "completed",
+          "evidence_reference": null,
+          "created_at": 1792754767806,
+          "started_at": 1792754767806,
+          "settled_at": 1792754767806
+        }
+      ],
+      "claims": [
+        {
+          "state": "released"
+        }
+      ],
+      "approvals": [],
+      "settlements": [],
+      "callbacks": [],
+      "legacy": [
+        {
+          "id": "t12-legacy-message",
+          "run_id": "t12-legacy-run",
+          "conversation_id": null,
+          "seq": null,
+          "from_agent": "api-member",
+          "to_agent": "other-member",
+          "kind": "text",
+          "body": "T12_LEGACY_ONLY",
+          "meta": null,
+          "visibility": "public",
+          "audience": "[]",
+          "task_id": null,
+          "reply_to": null,
+          "message_type": "informational",
+          "payload": null,
+          "delivery_status": null,
+          "client_message_id": null,
+          "created_at": "2026-10-23T11:25:07.880Z"
+        }
+      ],
+      "foreignKeys": [],
+      "digest": "6a91f71cbf3d60dcbb5323ff1f72b9f24e14343f4e8d0df20ad4f1f192b8e3e4"
+    }
+  ]
+}

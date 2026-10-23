@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "scope": "RC05 cumulative shared operator token ledger; unchanged original rows reconstructed by exact request authorization set",
+  "at": "2026-10-23T11:29:41.378Z",
+  "operatorTokenLimit": 500000,
+  "userAuthorizedTokenLimit": 10000000,
+  "originalRows": 33,
+  "addedRows": 14,
+  "originalRowsUnchanged": true,
+  "originalRowsSha256": "cdad66212245419ac47c086a9afd1e0b02e69f73a34f3de88dff80287f57a30a",
+  "baselineEvidence": "main-live-first.json",
+  "baselineDigestMatches": true,
+  "before": {
+    "knownTokens": 63336,
+    "unknownReserve": 89758
+  },
+  "delta": {
+    "knownTokens": 1845,
+    "unknownReserve": 97271
+  },
+  "final": {
+    "knownTokens": 65181,
+    "unknownReserve": 187029
+  },
+  "conservativelyChargedTokens": 252210,
+  "remainingWithinSelectedCap": 247790,
+  "addedKnownRequests": 7,
+  "addedUnknownReservations": 7,
+  "addedRequests": [
+    {
+      "id": "0fa3eebb-5478-4bc2-a9a4-53f5be02975e",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "2094e17b-612f-4782-980b-218de4f4b9d3",
+      "reserved": 12918,
+      "actual": 175,
+      "state": "known"
+    },
+    {
+      "id": "3afbd4bc-53f8-4aeb-9670-2e5f6bc04529",
+      "reserved": 19763,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "4eaadea8-be85-4dd1-91c8-d915d2b49f1c",
+      "reserved": 12918,
+      "actual": 206,
+      "state": "known"
+    },
+    {
+      "id": "67882e1c-6609-43e3-9edd-c969b5800826",
+      "reserved": 13012,
+      "actual": 235,
+      "state": "known"
+    },
+    {
+      "id": "6e019ea5-b6c0-4c1e-8394-68efe727b649",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "8c75f332-394c-4269-8b04-1e848051b399",
+      "reserved": 13356,
+      "actual": 384,
+      "state": "known"
+    },
+    {
+      "id": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "cbae4fe5-4c6c-4720-a6a9-40cb51ad8c75",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "d17c1178-cac0-48b9-baba-84229ace3a9b",
+      "reserved": 13012,
+      "actual": 251,
+      "state": "known"
+    },
+    {
+      "id": "e314062b-e1ed-44ee-a816-cd2e67bd74a4",
+      "reserved": 12918,
+      "actual": null,
+      "state": "reserved"
+    },
+    {
+      "id": "e6f45e7e-672b-4e34-a76b-c74a99241584",
+      "reserved": 13356,
+      "actual": 398,
+      "state": "known"
+    },
+    {
+      "id": "ebdf19fd-c98a-41e2-a6d0-c75b0bcd6df7",
+      "reserved": 12918,
+      "actual": 196,
+      "state": "known"
+    }
+  ],
+  "runs": [
+    {
+      "evidence": "main-live-first.json",
+      "ok": false,
+      "knownTokens": 831,
+      "unknownReserve": 0,
+      "priorRowsUnchanged": true
+    },
+    {
+      "evidence": "main-live-second.json",
+      "ok": true,
+      "knownTokens": 839,
+      "unknownReserve": 58517,
+      "priorRowsUnchanged": true
+    },
+    {
+      "evidence": "main-live-extended.json",
+      "ok": false,
+      "knownTokens": 0,
+      "unknownReserve": 12918,
+      "priorRowsUnchanged": true
+    },
+    {
+      "evidence": "main-live-extended-second.json",
+      "ok": false,
+      "knownTokens": 0,
+      "unknownReserve": 12918,
+      "priorRowsUnchanged": true
+    },
+    {
+      "evidence": "main-live-activity.json",
+      "ok": true,
+      "knownTokens": 175,
+      "unknownReserve": 0,
+      "priorRowsUnchanged": true
+    },
+    {
+      "evidence": "main-live-receipt-io-after-fix.json",
+      "ok": true,
+      "knownTokens": 0,
+      "unknownReserve": 12918,
+      "priorRowsUnchanged": true
+    }
+  ],
+  "limitations": [
+    "No supplier final usage or price is inferred for actual=NULL. Old and new unknown reservations remain charged.",
+    "Each failed real acceptance report remains separately retained; later successful fixtures do not settle earlier requests."
+  ]
+}

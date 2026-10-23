@@ -75,9 +75,19 @@ threadedRuntime.startDispatch();
 
 await app.listen({ port: config.port, host: config.host });
 app.log.info(`agent-gand server 就绪: http://localhost:${config.port}（agents=${agents.length}）`);
-const collaborationLeaseTimer = setInterval(sweepCollaborationLeases, Math.max(1_000, Math.floor(config.collaboration.attemptLeaseMs / 3)));
+// Operational storage faults end this tick, without turning a committed send
+// into success or retrying it. Startup recovery above remains fail-fast.
+function recoveryTick(name: string, recover: () => unknown): void {
+  try { recover(); }
+  catch (error) {
+    const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
+    if (typeof code !== 'string' || !/^SQLITE_(?:READONLY|BUSY|LOCKED|FULL|IOERR|CANTOPEN)(?:_[A-Z0-9_]+)?$/.test(code)) throw error;
+    app.log.error({ recovery: name, code }, '后台恢复遇到存储故障，本轮已终止，等待下一周期');
+  }
+}
+const collaborationLeaseTimer = setInterval(() => recoveryTick('collaboration_leases', sweepCollaborationLeases), Math.max(1_000, Math.floor(config.collaboration.attemptLeaseMs / 3)));
 collaborationLeaseTimer.unref();
-const durableHoldTimer = setInterval(recoverDurableHolds, 1_000);
+const durableHoldTimer = setInterval(() => recoveryTick('durable_holds', recoverDurableHolds), 1_000);
 durableHoldTimer.unref();
 
 // graceful 退出

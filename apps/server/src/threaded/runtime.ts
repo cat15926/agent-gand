@@ -235,8 +235,15 @@ export function createThreadedRuntime(db: Database.Database, options: {
         lifecycle.recordOutcome(plan.binding, { kind: 'not_started', reason: 'PROCESS_RESTART_NOT_STARTED', quiescence: proof });
       } else if (plan.action === 'unknown') {
         const authorization = queue.authorizationForBinding(plan.binding);
+        // A pre-request executor failure can already have recorded unknown while
+        // its initial request remains reserved. Preserve that first outcome and
+        // its immutable budget hash instead of settling a different restart cause.
+        const outcome = db.prepare('SELECT outcome_kind FROM threaded_budget_requests WHERE id=?')
+          .get(authorization.id) as { outcome_kind: string | null };
         if (authorization.executionState === 'reserved' || authorization.executionState === 'started') {
-          lifecycle.recordOutcome(plan.binding, { kind: 'unknown', reason: 'PROCESS_RESTART_UNKNOWN' });
+          if (outcome.outcome_kind !== 'unknown') {
+            lifecycle.recordOutcome(plan.binding, { kind: 'unknown', reason: 'PROCESS_RESTART_UNKNOWN' });
+          }
         }
       }
     }

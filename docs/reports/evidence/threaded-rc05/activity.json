@@ -1,0 +1,1040 @@
+{
+  "ok": true,
+  "groups": 5,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "mainIndexProcess": false,
+  "realClock": true,
+  "injectedSynchronousWorkMs": 1250,
+  "realSupplierRequests": 0,
+  "realSupplierTokens": 0,
+  "remoteWrites": 0,
+  "forbiddenNetworkCalls": 0,
+  "checks": [
+    {
+      "id": "ACT01",
+      "description": "Default 1000ms renewable slices preserve one asynchronous 1600ms request through live runner checkpoints; exact receipt and terminal commit once.",
+      "passed": true
+    },
+    {
+      "id": "ACT02",
+      "description": "A 1250ms synchronous preparation exceeds the default slice before provider request admission; it cannot publish success, release the unknown fence or silently replay after rebuilding.",
+      "passed": true
+    },
+    {
+      "id": "ACT03",
+      "description": "Explicit Owner CAS selects a 10000ms slice for the identical synchronous work; all other root limits remain equal and the response commits once.",
+      "passed": true
+    },
+    {
+      "id": "ACT04",
+      "description": "After durable request admission, a blocked event loop expires the slice; late response parsing fails closed, preserves unknown request/usage and never automatically sends again.",
+      "passed": true
+    },
+    {
+      "id": "ACT05",
+      "description": "An explicit 10000ms slice remains bounded by its original absolute deadline; synchronous preparation crossing it cannot send or revive on recovery.",
+      "passed": true
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ACT01",
+      "elapsedMs": 1810.005417,
+      "result": {
+        "invocationId": "97a0ded9-4245-4a2d-ba62-6d4c70c9d5b7",
+        "runId": "ec13dc57-4cf5-4d58-a231-30040df7bf2f",
+        "status": "completed",
+        "terminal": true,
+        "resourceReleasePending": false
+      },
+      "binding": {
+        "schemaVersion": 1,
+        "id": "42fa2867-c82b-456b-8151-f655915758b7",
+        "origin": "threaded_invocation_attempt",
+        "threadId": "8018b9cc-4606-4f3a-b580-c13fa4e76ef1",
+        "invocationId": "97a0ded9-4245-4a2d-ba62-6d4c70c9d5b7",
+        "runId": "ec13dc57-4cf5-4d58-a231-30040df7bf2f",
+        "attemptId": "df770464-dc1f-4ebd-bdac-f7a0ad06c02c",
+        "ownerId": "3575bb77-1f09-4bae-abd3-efaea55a7000",
+        "agentId": "api-member",
+        "authorityEpoch": 1,
+        "claimId": "dd7b4664-0d1d-416a-b9b3-33f825b2f969",
+        "generation": 1,
+        "fencingToken": "d00b04aa-6c2a-4046-978f-174058b2f661"
+      },
+      "state": {
+        "counts": {
+          "threaded_backend_requests": 1,
+          "threaded_outputs": 1,
+          "threaded_invocation_terminals": 1,
+          "threaded_attempts": 1,
+          "threaded_budget_outcomes": 1,
+          "threaded_budget_versions": 1
+        },
+        "requests": [
+          {
+            "id": "512db049-e150-40b7-b761-72f31ea9ad48",
+            "state": "complete",
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7
+          }
+        ],
+        "attempts": [
+          {
+            "id": "df770464-dc1f-4ebd-bdac-f7a0ad06c02c",
+            "status": "completed",
+            "execution_stage": "quiescent",
+            "execution_reason": null,
+            "resource_release_state": "released"
+          }
+        ],
+        "queue": [
+          {
+            "state": "settled",
+            "reason": null
+          }
+        ],
+        "claims": [
+          {
+            "state": "released"
+          }
+        ],
+        "activity": [
+          {
+            "state": "closed",
+            "kind": "tool",
+            "started_at": 1792751813833,
+            "observed_at": 1792751815610,
+            "ended_at": 1792751815610
+          },
+          {
+            "state": "closed",
+            "kind": "model",
+            "started_at": 1792751813918,
+            "observed_at": 1792751815567,
+            "ended_at": 1792751815567
+          }
+        ],
+        "budgetOutcomes": [
+          {
+            "authorization_id": "37928130-4f34-43c8-ba43-46bc0a56e880",
+            "outcome_hash": "0daad9ee7b2ee950a3b9beed2ba084f04d1b0dbc51afaf4a2b52b474dc9bc066",
+            "kind": "completed",
+            "record": "{\"kind\":\"completed\",\"content\":\"RC05 local activity acceptance response\",\"budgetState\":\"unknown\",\"quiescence\":{\"schemaVersion\":1,\"id\":\"06deae9d-3914-4298-8200-542c105abb24\",\"attemptId\":\"df770464-dc1f-4ebd-bdac-f7a0ad06c02c\",\"claimId\":\"dd7b4664-0d1d-416a-b9b3-33f825b2f969\",\"generation\":1,\"fencingToken\":\"d00b04aa-6c2a-4046-978f-174058b2f661\",\"reason\":\"process_exited\",\"sideEffects\":\"reconciled\"}}"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "37928130-4f34-43c8-ba43-46bc0a56e880",
+            "execution_state": "quiescent",
+            "usage_state": "settled",
+            "outcome_hash": "0daad9ee7b2ee950a3b9beed2ba084f04d1b0dbc51afaf4a2b52b474dc9bc066",
+            "outcome_kind": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "usage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 7,
+        "costMicrousd": 27,
+        "activityMs": 1777,
+        "activityReservedMs": 0,
+        "unknownRequests": 0
+      },
+      "injectedProviderCalls": 1
+    },
+    {
+      "id": "ACT02",
+      "elapsedMs": 1285.2223330000002,
+      "result": {
+        "invocationId": "b778756b-340b-4ff1-b408-644281a2c57a",
+        "runId": "2dce0d40-2ea7-4108-8648-3f7872d9e02e",
+        "status": "unknown"
+      },
+      "binding": {
+        "schemaVersion": 1,
+        "id": "6b6f8e93-18a0-4cc4-a49e-5563cdd8bdf4",
+        "origin": "threaded_invocation_attempt",
+        "threadId": "9b087d61-2845-4d59-a195-4644da77cf05",
+        "invocationId": "b778756b-340b-4ff1-b408-644281a2c57a",
+        "runId": "2dce0d40-2ea7-4108-8648-3f7872d9e02e",
+        "attemptId": "035be334-1c58-4b70-a4f4-1410aad7c2a4",
+        "ownerId": "d0dd4560-b4ad-4eb7-ba3c-3f0ba2dd134c",
+        "agentId": "api-member",
+        "authorityEpoch": 1,
+        "claimId": "202b20ee-f630-4013-9a87-a7b6b7193e04",
+        "generation": 1,
+        "fencingToken": "70f5c2b1-5d24-407b-ad52-3c3a78cadaa3"
+      },
+      "synchronousWork": [
+        {
+          "injectedSynchronousWork": true,
+          "minimumMs": 1250,
+          "elapsedMs": 1255.0432499999997
+        }
+      ],
+      "state": {
+        "counts": {
+          "threaded_backend_requests": 0,
+          "threaded_outputs": 0,
+          "threaded_invocation_terminals": 0,
+          "threaded_attempts": 1,
+          "threaded_budget_outcomes": 1,
+          "threaded_budget_versions": 1
+        },
+        "requests": [],
+        "attempts": [
+          {
+            "id": "035be334-1c58-4b70-a4f4-1410aad7c2a4",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+            "resource_release_state": null
+          }
+        ],
+        "queue": [
+          {
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+          }
+        ],
+        "claims": [
+          {
+            "state": "unknown"
+          }
+        ],
+        "activity": [
+          {
+            "state": "unknown",
+            "kind": "tool",
+            "started_at": 1792751815724,
+            "observed_at": 1792751816988,
+            "ended_at": null
+          }
+        ],
+        "budgetOutcomes": [
+          {
+            "authorization_id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+            "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+            "kind": "unknown",
+            "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+            "execution_state": "reserved",
+            "usage_state": "reserved",
+            "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+            "outcome_kind": "unknown"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "usage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 0,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 1280,
+        "activityReservedMs": 0,
+        "unknownRequests": 0
+      },
+      "recovery": {
+        "before": {
+          "counts": {
+            "threaded_backend_requests": 0,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 1
+          },
+          "requests": [],
+          "attempts": [
+            {
+              "id": "035be334-1c58-4b70-a4f4-1410aad7c2a4",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751815724,
+              "observed_at": 1792751816988,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+              "execution_state": "reserved",
+              "usage_state": "reserved",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "after": {
+          "counts": {
+            "threaded_backend_requests": 0,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 1
+          },
+          "requests": [],
+          "attempts": [
+            {
+              "id": "035be334-1c58-4b70-a4f4-1410aad7c2a4",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751815724,
+              "observed_at": 1792751816988,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "b84f7c4c-1cf4-4ffd-ba11-f751aed1ee75",
+              "execution_state": "reserved",
+              "usage_state": "reserved",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "injectedProviderCalls": 0
+      }
+    },
+    {
+      "id": "ACT03",
+      "elapsedMs": 1441.4176249999996,
+      "result": {
+        "invocationId": "b05d5a5f-82f6-4712-ba73-9130413275aa",
+        "runId": "db6e1ff0-83d8-4662-bf04-46043593161a",
+        "status": "completed",
+        "terminal": true,
+        "resourceReleasePending": false
+      },
+      "binding": {
+        "schemaVersion": 1,
+        "id": "c456136b-b314-4300-b8a6-1feaab31f2bf",
+        "origin": "threaded_invocation_attempt",
+        "threadId": "bb0112c3-d893-490f-bf2c-9d7b3d76d981",
+        "invocationId": "b05d5a5f-82f6-4712-ba73-9130413275aa",
+        "runId": "db6e1ff0-83d8-4662-bf04-46043593161a",
+        "attemptId": "11baf716-9cfd-40bc-9a24-7f95b468696b",
+        "ownerId": "599a4ecb-1b85-41ac-8b33-e0c41863ba7b",
+        "agentId": "api-member",
+        "authorityEpoch": 1,
+        "claimId": "9fc9ba13-cdb4-4a4c-9ad0-8304fb1b6926",
+        "generation": 1,
+        "fencingToken": "b1f080ba-693d-4c44-8d37-71400d2ae9db"
+      },
+      "synchronousWork": [
+        {
+          "injectedSynchronousWork": true,
+          "minimumMs": 1250,
+          "elapsedMs": 1255.0445829999999
+        }
+      ],
+      "policy": {
+        "receipt": {
+          "id": "6118fc2a-9c9f-4a55-8146-643987a24be2",
+          "ownerId": "599a4ecb-1b85-41ac-8b33-e0c41863ba7b",
+          "homeThreadId": "bb0112c3-d893-490f-bf2c-9d7b3d76d981",
+          "version": 2,
+          "state": "open",
+          "policy": {
+            "maxOutputTokens": 300000,
+            "maxOutputTokensPerRequest": 24576,
+            "maxInvocations": 20,
+            "maxAttemptsPerInvocation": 2,
+            "maxActivityMs": 1800000,
+            "maxCostMicrousd": 5000000,
+            "maxA2ADepth": 15,
+            "activityAllowanceMs": 10000,
+            "unknownCost": "stop",
+            "unknownCostReserveMicrousd": null,
+            "deadlineAt": null
+          }
+        },
+        "policy": {
+          "maxOutputTokens": 300000,
+          "maxOutputTokensPerRequest": 24576,
+          "maxInvocations": 20,
+          "maxAttemptsPerInvocation": 2,
+          "maxActivityMs": 1800000,
+          "maxCostMicrousd": 5000000,
+          "maxA2ADepth": 15,
+          "activityAllowanceMs": 10000,
+          "unknownCost": "stop",
+          "unknownCostReserveMicrousd": null,
+          "deadlineAt": null
+        }
+      },
+      "state": {
+        "counts": {
+          "threaded_backend_requests": 1,
+          "threaded_outputs": 1,
+          "threaded_invocation_terminals": 1,
+          "threaded_attempts": 1,
+          "threaded_budget_outcomes": 1,
+          "threaded_budget_versions": 2
+        },
+        "requests": [
+          {
+            "id": "d4dfad1c-2484-47d1-8716-6890b257149d",
+            "state": "complete",
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7
+          }
+        ],
+        "attempts": [
+          {
+            "id": "11baf716-9cfd-40bc-9a24-7f95b468696b",
+            "status": "completed",
+            "execution_stage": "quiescent",
+            "execution_reason": null,
+            "resource_release_state": "released"
+          }
+        ],
+        "queue": [
+          {
+            "state": "settled",
+            "reason": null
+          }
+        ],
+        "claims": [
+          {
+            "state": "released"
+          }
+        ],
+        "activity": [
+          {
+            "state": "closed",
+            "kind": "tool",
+            "started_at": 1792751817109,
+            "observed_at": 1792751818517,
+            "ended_at": 1792751818517
+          },
+          {
+            "state": "closed",
+            "kind": "model",
+            "started_at": 1792751818452,
+            "observed_at": 1792751818491,
+            "ended_at": 1792751818491
+          }
+        ],
+        "budgetOutcomes": [
+          {
+            "authorization_id": "3748ca46-bdfe-42a4-a741-525b33e5761b",
+            "outcome_hash": "244e8e7b0a1119da06b88bb8fa74f9af08ab8aff9572d9f0efd3570dd5c39161",
+            "kind": "completed",
+            "record": "{\"kind\":\"completed\",\"content\":\"RC05 local activity acceptance response\",\"budgetState\":\"unknown\",\"quiescence\":{\"schemaVersion\":1,\"id\":\"8dc0e86e-9740-4b82-b6af-64ea98e4d534\",\"attemptId\":\"11baf716-9cfd-40bc-9a24-7f95b468696b\",\"claimId\":\"9fc9ba13-cdb4-4a4c-9ad0-8304fb1b6926\",\"generation\":1,\"fencingToken\":\"b1f080ba-693d-4c44-8d37-71400d2ae9db\",\"reason\":\"process_exited\",\"sideEffects\":\"reconciled\"}}"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "3748ca46-bdfe-42a4-a741-525b33e5761b",
+            "execution_state": "quiescent",
+            "usage_state": "settled",
+            "outcome_hash": "244e8e7b0a1119da06b88bb8fa74f9af08ab8aff9572d9f0efd3570dd5c39161",
+            "outcome_kind": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "usage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 7,
+        "costMicrousd": 27,
+        "activityMs": 1408,
+        "activityReservedMs": 0,
+        "unknownRequests": 0
+      },
+      "injectedProviderCalls": 1
+    },
+    {
+      "id": "ACT04",
+      "elapsedMs": 1408.6929170000003,
+      "result": {
+        "invocationId": "61795215-1814-445a-9963-72f1ef82e2b6",
+        "runId": "3e824779-fa9c-4708-9b36-72a7f7c2cd8d",
+        "status": "unknown"
+      },
+      "binding": {
+        "schemaVersion": 1,
+        "id": "344c21b4-6dae-43a6-8d79-807949e15738",
+        "origin": "threaded_invocation_attempt",
+        "threadId": "a7ed8873-60d5-47bb-b2fd-20a43773e419",
+        "invocationId": "61795215-1814-445a-9963-72f1ef82e2b6",
+        "runId": "3e824779-fa9c-4708-9b36-72a7f7c2cd8d",
+        "attemptId": "3042c0c9-a829-42e5-801b-d533b34ffc09",
+        "ownerId": "0c5ac994-66ea-48f8-b319-1500e1ab5244",
+        "agentId": "api-member",
+        "authorityEpoch": 1,
+        "claimId": "b287db60-4c23-467e-8a82-cd671ee805a6",
+        "generation": 1,
+        "fencingToken": "0e5a3e34-cfb0-4ee1-b857-8c0ff9813dd0"
+      },
+      "synchronousWork": {
+        "injectedSynchronousWork": true,
+        "minimumMs": 1250,
+        "elapsedMs": 1251.7939589999996
+      },
+      "state": {
+        "counts": {
+          "threaded_backend_requests": 1,
+          "threaded_outputs": 0,
+          "threaded_invocation_terminals": 0,
+          "threaded_attempts": 1,
+          "threaded_budget_outcomes": 1,
+          "threaded_budget_versions": 1
+        },
+        "requests": [
+          {
+            "id": "43df4a52-c64a-45a6-8d5e-86ba3ea0ece3",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "3042c0c9-a829-42e5-801b-d533b34ffc09",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+            "resource_release_state": null
+          }
+        ],
+        "queue": [
+          {
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+          }
+        ],
+        "claims": [
+          {
+            "state": "unknown"
+          }
+        ],
+        "activity": [
+          {
+            "state": "unknown",
+            "kind": "tool",
+            "started_at": 1792751818633,
+            "observed_at": 1792751820021,
+            "ended_at": null
+          },
+          {
+            "state": "unknown",
+            "kind": "model",
+            "started_at": 1792751818734,
+            "observed_at": 1792751820021,
+            "ended_at": null
+          }
+        ],
+        "budgetOutcomes": [
+          {
+            "authorization_id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "kind": "unknown",
+            "record": "{\"kind\":\"unknown\",\"reason\":\"THREADED_API_QUIESCENCE_UNCONFIRMED\"}"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+            "execution_state": "unknown",
+            "usage_state": "unknown",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "outcome_kind": "unknown"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "usage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 1410,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      },
+      "recovery": {
+        "before": {
+          "counts": {
+            "threaded_backend_requests": 1,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 1
+          },
+          "requests": [
+            {
+              "id": "43df4a52-c64a-45a6-8d5e-86ba3ea0ece3",
+              "state": "unknown",
+              "delivered": 0,
+              "input_tokens": null,
+              "output_tokens": null
+            }
+          ],
+          "attempts": [
+            {
+              "id": "3042c0c9-a829-42e5-801b-d533b34ffc09",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751818633,
+              "observed_at": 1792751820021,
+              "ended_at": null
+            },
+            {
+              "state": "unknown",
+              "kind": "model",
+              "started_at": 1792751818734,
+              "observed_at": 1792751820021,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+              "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"THREADED_API_QUIESCENCE_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+              "execution_state": "unknown",
+              "usage_state": "unknown",
+              "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "after": {
+          "counts": {
+            "threaded_backend_requests": 1,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 1
+          },
+          "requests": [
+            {
+              "id": "43df4a52-c64a-45a6-8d5e-86ba3ea0ece3",
+              "state": "unknown",
+              "delivered": 0,
+              "input_tokens": null,
+              "output_tokens": null
+            }
+          ],
+          "attempts": [
+            {
+              "id": "3042c0c9-a829-42e5-801b-d533b34ffc09",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751818633,
+              "observed_at": 1792751820021,
+              "ended_at": null
+            },
+            {
+              "state": "unknown",
+              "kind": "model",
+              "started_at": 1792751818734,
+              "observed_at": 1792751820021,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+              "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"THREADED_API_QUIESCENCE_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "dcf7ef74-01b7-4d88-b87f-836cecdd1c28",
+              "execution_state": "unknown",
+              "usage_state": "unknown",
+              "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "injectedProviderCalls": 1
+      }
+    },
+    {
+      "id": "ACT05",
+      "elapsedMs": 1286.4317919999994,
+      "result": {
+        "invocationId": "5aed3148-aa35-4724-9a03-64ad650d3287",
+        "runId": "6f51c084-6ec5-418c-8f65-9d23006b67fe",
+        "status": "unknown"
+      },
+      "binding": {
+        "schemaVersion": 1,
+        "id": "b2f8dea2-9a01-4fe8-bbb6-fee65ae4f284",
+        "origin": "threaded_invocation_attempt",
+        "threadId": "3caf3f11-28ec-401a-bf93-615c7e0ba977",
+        "invocationId": "5aed3148-aa35-4724-9a03-64ad650d3287",
+        "runId": "6f51c084-6ec5-418c-8f65-9d23006b67fe",
+        "attemptId": "af3f1b48-6f28-4c54-9d5a-6380bc665de0",
+        "ownerId": "3f74077c-aa62-4d8d-b32d-438f5f3e06ea",
+        "agentId": "api-member",
+        "authorityEpoch": 1,
+        "claimId": "305d8aea-ae7f-48e2-8acb-3a3a99bac2ec",
+        "generation": 1,
+        "fencingToken": "3941ae96-f73a-4cfa-a604-4f5940e1d04d"
+      },
+      "synchronousWork": [
+        {
+          "injectedSynchronousWork": true,
+          "minimumMs": 1250,
+          "elapsedMs": 1250.9641250000004
+        }
+      ],
+      "policy": {
+        "receipt": {
+          "id": "9dad8754-56bf-4c34-b17f-0727ed49293a",
+          "ownerId": "3f74077c-aa62-4d8d-b32d-438f5f3e06ea",
+          "homeThreadId": "3caf3f11-28ec-401a-bf93-615c7e0ba977",
+          "version": 2,
+          "state": "open",
+          "policy": {
+            "maxOutputTokens": 300000,
+            "maxOutputTokensPerRequest": 24576,
+            "maxInvocations": 20,
+            "maxAttemptsPerInvocation": 2,
+            "maxActivityMs": 1800000,
+            "maxCostMicrousd": 5000000,
+            "maxA2ADepth": 15,
+            "activityAllowanceMs": 10000,
+            "unknownCost": "stop",
+            "unknownCostReserveMicrousd": null,
+            "deadlineAt": 1792751821117
+          }
+        },
+        "policy": {
+          "maxOutputTokens": 300000,
+          "maxOutputTokensPerRequest": 24576,
+          "maxInvocations": 20,
+          "maxAttemptsPerInvocation": 2,
+          "maxActivityMs": 1800000,
+          "maxCostMicrousd": 5000000,
+          "maxA2ADepth": 15,
+          "activityAllowanceMs": 10000,
+          "unknownCost": "stop",
+          "unknownCostReserveMicrousd": null,
+          "deadlineAt": 1792751821117
+        }
+      },
+      "state": {
+        "counts": {
+          "threaded_backend_requests": 0,
+          "threaded_outputs": 0,
+          "threaded_invocation_terminals": 0,
+          "threaded_attempts": 1,
+          "threaded_budget_outcomes": 1,
+          "threaded_budget_versions": 2
+        },
+        "requests": [],
+        "attempts": [
+          {
+            "id": "af3f1b48-6f28-4c54-9d5a-6380bc665de0",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+            "resource_release_state": null
+          }
+        ],
+        "queue": [
+          {
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+          }
+        ],
+        "claims": [
+          {
+            "state": "unknown"
+          }
+        ],
+        "activity": [
+          {
+            "state": "unknown",
+            "kind": "tool",
+            "started_at": 1792751820145,
+            "observed_at": 1792751821411,
+            "ended_at": null
+          }
+        ],
+        "budgetOutcomes": [
+          {
+            "authorization_id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+            "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+            "kind": "unknown",
+            "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+            "execution_state": "reserved",
+            "usage_state": "reserved",
+            "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+            "outcome_kind": "unknown"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "usage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 0,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 1280,
+        "activityReservedMs": 0,
+        "unknownRequests": 0
+      },
+      "recovery": {
+        "before": {
+          "counts": {
+            "threaded_backend_requests": 0,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 2
+          },
+          "requests": [],
+          "attempts": [
+            {
+              "id": "af3f1b48-6f28-4c54-9d5a-6380bc665de0",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751820145,
+              "observed_at": 1792751821411,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+              "execution_state": "reserved",
+              "usage_state": "reserved",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "after": {
+          "counts": {
+            "threaded_backend_requests": 0,
+            "threaded_outputs": 0,
+            "threaded_invocation_terminals": 0,
+            "threaded_attempts": 1,
+            "threaded_budget_outcomes": 1,
+            "threaded_budget_versions": 2
+          },
+          "requests": [],
+          "attempts": [
+            {
+              "id": "af3f1b48-6f28-4c54-9d5a-6380bc665de0",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "EXECUTOR_OUTCOME_UNCONFIRMED",
+              "resource_release_state": null
+            }
+          ],
+          "queue": [
+            {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            }
+          ],
+          "claims": [
+            {
+              "state": "unknown"
+            }
+          ],
+          "activity": [
+            {
+              "state": "unknown",
+              "kind": "tool",
+              "started_at": 1792751820145,
+              "observed_at": 1792751821411,
+              "ended_at": null
+            }
+          ],
+          "budgetOutcomes": [
+            {
+              "authorization_id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "kind": "unknown",
+              "record": "{\"kind\":\"unknown\",\"reason\":\"EXECUTOR_OUTCOME_UNCONFIRMED\"}"
+            }
+          ],
+          "budgetRequests": [
+            {
+              "id": "b779caa7-10c8-4c6c-88ad-046d2c3dac84",
+              "execution_state": "reserved",
+              "usage_state": "reserved",
+              "outcome_hash": "963bb0a73a6ce57f037b1de7ef81ee10fb59d2a74b4b980f137a95c2f29a80d1",
+              "outcome_kind": "unknown"
+            }
+          ],
+          "foreignKeys": []
+        },
+        "injectedProviderCalls": 0
+      }
+    }
+  ],
+  "limitations": [
+    "Production backend runtime and SQLite are exercised with injected transport and deliberately blocked synchronous preparation.",
+    "The default 1000ms slice is unchanged; ACT02 is an availability limitation, not a successful long-preparation execution.",
+    "Explicit Owner selection of a longer slice does not prove a different target release configuration, provider or native SDK is accepted."
+  ]
+}

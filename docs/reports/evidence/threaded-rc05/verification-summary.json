@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "task": "RC05",
+  "baselineCommit": "d831a702a697756db711e57a7402478e9d3794fe",
+  "previousStageCommittedAndPushed": true,
+  "rc05ChangesCommitted": false,
+  "implementation": "delivered within documented scope; explicit limits and unlocated historical real timeouts remain",
+  "groups": 150,
+  "newGroups": 51,
+  "regressionGroups": 99,
+  "acceptedNewIndexPids": 58,
+  "acceptedNewRealSupplierGroups": 10,
+  "originalRules": 16,
+  "originalScenarios": 59,
+  "originalTextsUnchanged": true,
+  "schemaVersionOfCode": 35,
+  "historicalMigrationsChanged": false,
+  "dailyMigratedOrEnabled": false,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "selectedTargetActivityAllowanceMs": 10000,
+  "operatorTokenLimit": 500000,
+  "userAuthorizedTokenLimit": 10000000,
+  "operatorLedger": {
+    "knownTokens": 65181,
+    "unknownReserve": 187029
+  },
+  "operatorConservativelyChargedTokens": 252210,
+  "unknownReservationsReleased": false,
+  "rc04LiveChainPassed": false,
+  "rc04LiveStatus": "not_observed",
+  "suites": [
+    {
+      "name": "waits",
+      "groups": 9,
+      "evidence": "waits.json",
+      "layer": "factory/injected",
+      "passed": true,
+      "sha256": "51c2156162bd2378cc8f9fd3bc673081c8a069abd1b97a52ab64c868c31a0d7f"
+    },
+    {
+      "name": "storage",
+      "groups": 10,
+      "evidence": "storage.json",
+      "layer": "production factory/SQLite/injected",
+      "passed": true,
+      "sha256": "5749d21f02f77f3be7b747441f5f2c1293bfaa76366b60aef9f8768fbd0bfa79"
+    },
+    {
+      "name": "activity",
+      "groups": 5,
+      "evidence": "activity.json",
+      "layer": "backend factory/real clock/injected",
+      "passed": true,
+      "sha256": "0c0db6027445828ce15d1ba9e430418139e3ce78529dd25f1062b6d10d5be062"
+    },
+    {
+      "name": "main-injected",
+      "groups": 10,
+      "evidence": "main-injected-post-fix.json",
+      "layer": "actual index/injected",
+      "passed": true,
+      "sha256": "65ab746865196cfe41cc16930f768f7c43deddbbe2b2d162acb95a829fb8df58"
+    },
+    {
+      "name": "main-waits",
+      "groups": 6,
+      "evidence": "main-waits.json",
+      "layer": "actual index/controlled clock/injected",
+      "passed": true,
+      "sha256": "c176dd49e806271bdb9ef1fd8f520f96e38be11ac2af470368c528e434eabcb3"
+    },
+    {
+      "name": "streamed-io",
+      "groups": 1,
+      "evidence": "main-streamed-receipt-io.json",
+      "layer": "actual index/slow SSE/injected",
+      "passed": true,
+      "sha256": "6907849eadf0d2e02e2895ecb906cf841b3ea59988eb7aea642fbf54af7408ac"
+    },
+    {
+      "name": "main-live-core",
+      "groups": 7,
+      "evidence": "main-live-second.json",
+      "layer": "actual index/configured supplier",
+      "passed": true,
+      "sha256": "375a99c95bc655e42d984d3993b3b79a7ee1ff2e8e4853f0e7748cad4e1fe7e7"
+    },
+    {
+      "name": "main-live-activity",
+      "groups": 2,
+      "evidence": "main-live-activity.json",
+      "layer": "actual index/configured supplier",
+      "passed": true,
+      "sha256": "d8ceda41c7ec15d0323497fb80f6a313811a6b5018c817a72aa989081bc05db5"
+    },
+    {
+      "name": "main-live-io",
+      "groups": 1,
+      "evidence": "main-live-receipt-io-after-fix.json",
+      "layer": "actual index/configured supplier",
+      "passed": true,
+      "sha256": "77eba341e3eb81fecbae61be733b86bd6f2bac89df8525e448af38c08db4aebd"
+    },
+    {
+      "name": "budget",
+      "groups": 14,
+      "evidence": "regressions/budget.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "a2dba2e54457dc69a59630ba6d1a23627e9dfae2fda732ce4e85391d6511196e"
+    },
+    {
+      "name": "runtime",
+      "groups": 18,
+      "evidence": "regressions/runtime.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "c2e357d7367c88d367cbdc42c726091b5168b1cdb46d9fe02a27cb97f3c53b91"
+    },
+    {
+      "name": "rc03-waits",
+      "groups": 14,
+      "evidence": "regressions/rc03-waits.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "2071b63c3696140075df98ec18f04e017c9275b864c0d7ef16e8c4f400b47fe1"
+    },
+    {
+      "name": "collaboration",
+      "groups": 17,
+      "evidence": "regressions/collaboration.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "a23bc859648e34034e6f2ed4d1ed0acd03c6a16a9e952bff64ebe2d658334e14"
+    },
+    {
+      "name": "production",
+      "groups": 16,
+      "evidence": "regressions/production.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "name": "release",
+      "groups": 7,
+      "evidence": "regressions/release.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "628a3f193c3dfe2e14cc1d0329fcb5562df4d3e92835bf5813199d676f87d041"
+    },
+    {
+      "name": "main-process",
+      "groups": 4,
+      "evidence": "regressions/main-process.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "0d32ebaf5988ca02bb0f33afac447352f11dd22630de1921ec9cbbca44525844"
+    },
+    {
+      "name": "service-recovery",
+      "groups": 9,
+      "evidence": "regressions/service-recovery.json",
+      "layer": "regression",
+      "passed": true,
+      "sha256": "74af6f5d5d7fe0e8e3f4e2cd0fee15cb3046a9942f096f5548a136458ed94e44"
+    }
+  ]
+}

@@ -120,6 +120,14 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
       return !!record.waitSourceAuthority&&!!current&&digest(current)===digest(record.waitSourceAuthority);
     }catch{return false;}
   }
+  function timerBaselineValid(wait:Wait) {
+    // The immutable row deadline must still describe the original registered timer.
+    // A plausible 5s–1h deadline alone cannot authorize an imported/malformed wait.
+    try{const record=JSON.parse(wait.record) as {kind?:unknown;seconds?:unknown};
+      return record.kind==='timer'&&Number.isSafeInteger(record.seconds)&&Number(record.seconds)>=5&&Number(record.seconds)<=3600
+        &&Number.isSafeInteger(wait.created_at+Number(record.seconds)*1000)&&wait.deadline===wait.created_at+Number(record.seconds)*1000;
+    }catch{return false;}
+  }
   function admitHoldWithin(binding:ThreadedBinding,input:{key:string;kind:'timer'|'command'}) {
     if(!db.inTransaction)reject('THREADED_HOLD_TRANSACTION_REQUIRED');
     running(binding);const key=text(input.key,500),prefix=input.kind==='timer'?'wait:':'command:';
@@ -355,7 +363,7 @@ export function createThreadedCooperation(db:Database.Database,options:Collabora
             return !!row&&!!options.messages.getMessage({ownerId:wait.owner_id,threadId:row.thread_id,viewer:{kind:'agent',agentId:wait.agent_id}},id);});
           const classification=classifyThreadedTimerRecovery({deadline:wait.deadline,createdAt:wait.created_at,now:now(),source:record.waitSourceRef,
             identityValid:!!thread&&!['closed','archived'].includes(thread.state)&&!cancelled&&!!currentIdentity&&currentIdentity===record.frozen?.identity&&
-              (!fence||!!options.actionScope?.valid(fence,wait.agent_id)),sourceValid:sourcesValid&&timerSourceAuthorized(wait)});
+              (!fence||!!options.actionScope?.valid(fence,wait.agent_id)),sourceValid:sourcesValid&&timerSourceAuthorized(wait)&&timerBaselineValid(wait)});
           // The source classifier permits the SLA boundary, while dispatch requires a nonempty retry window.
           if(classification.kind==='invalid'||classification.kind==='expired'||now()>=classification.slaUntilMs){
             const disposition=classification.kind==='invalid'?'retired_invalid':'retired_expired';

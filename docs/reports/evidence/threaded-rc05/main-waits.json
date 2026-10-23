@@ -1,0 +1,3010 @@
+{
+  "ok": true,
+  "stage": "RC05 actual index timer recovery",
+  "at": "2026-10-23T10:58:38.091Z",
+  "groups": 6,
+  "checks": [
+    {
+      "id": "before-fireAt",
+      "passed": true,
+      "startupOffsetFromFireAtMs": -1,
+      "startupOffsetFromSlaMs": -5001,
+      "expected": "online"
+    },
+    {
+      "id": "equal-fireAt",
+      "passed": true,
+      "startupOffsetFromFireAtMs": 0,
+      "startupOffsetFromSlaMs": -5000,
+      "expected": "recovered"
+    },
+    {
+      "id": "after-fireAt",
+      "passed": true,
+      "startupOffsetFromFireAtMs": 1,
+      "startupOffsetFromSlaMs": -4999,
+      "expected": "recovered"
+    },
+    {
+      "id": "before-SLA",
+      "passed": true,
+      "startupOffsetFromFireAtMs": 4999,
+      "startupOffsetFromSlaMs": -1,
+      "expected": "recovered"
+    },
+    {
+      "id": "equal-SLA",
+      "passed": true,
+      "startupOffsetFromFireAtMs": 5000,
+      "startupOffsetFromSlaMs": 0,
+      "expected": "expired-equality"
+    },
+    {
+      "id": "after-SLA",
+      "passed": true,
+      "startupOffsetFromFireAtMs": 5001,
+      "startupOffsetFromSlaMs": 1,
+      "expected": "expired"
+    }
+  ],
+  "failures": [],
+  "actualMainIndex": true,
+  "actualIndexPids": 18,
+  "processes": [
+    {
+      "name": "before-fireAt",
+      "restore": false,
+      "pid": 15979,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753105552,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "before-fireAt",
+      "restore": true,
+      "pid": 15989,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753110551,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "before-fireAt",
+      "restore": true,
+      "pid": 16008,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753120552,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-fireAt",
+      "restore": false,
+      "pid": 16027,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753107886,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-fireAt",
+      "restore": true,
+      "pid": 16041,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753112886,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-fireAt",
+      "restore": true,
+      "pid": 16060,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753112886,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-fireAt",
+      "restore": false,
+      "pid": 16079,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753109941,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-fireAt",
+      "restore": true,
+      "pid": 16113,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753114942,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-fireAt",
+      "restore": true,
+      "pid": 16132,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753114942,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "before-SLA",
+      "restore": false,
+      "pid": 16151,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753112051,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "before-SLA",
+      "restore": true,
+      "pid": 16161,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753122050,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "before-SLA",
+      "restore": true,
+      "pid": 16180,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753122050,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-SLA",
+      "restore": false,
+      "pid": 16199,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753114100,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-SLA",
+      "restore": true,
+      "pid": 16211,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753124100,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "equal-SLA",
+      "restore": true,
+      "pid": 16230,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753124100,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-SLA",
+      "restore": false,
+      "pid": 16249,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753116097,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-SLA",
+      "restore": true,
+      "pid": 16259,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753126098,
+      "entry": "apps/server/src/index.ts"
+    },
+    {
+      "name": "after-SLA",
+      "restore": true,
+      "pid": 16278,
+      "host": "ruhonglindeAir",
+      "controlledNow": 1792753126098,
+      "entry": "apps/server/src/index.ts"
+    }
+  ],
+  "cases": [
+    {
+      "name": "before-fireAt",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 15979,
+        "sequence": 1,
+        "requestId": "35518f83-698a-46b3-8cfd-7247c06b8805",
+        "authorizationId": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "c28ac0ed-169e-49c0-a91b-bfacb3858874",
+        "attemptId": "405b0ca0-f304-4909-aedd-125a2b8c4738"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+          "version": 1,
+          "deadline": 1792753110552
+        }
+      },
+      "before": {
+        "pid": 15979,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753105552,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "binding_id": "c28ac0ed-169e-49c0-a91b-bfacb3858874",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f034f80a478009367dba0378d644575f76c3ab0d63d5c46b42c0febffe895df8",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753110552,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753115552},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"e5800428281147e95d78dae6699efe834379aa9b2129b1529b160bd95f21f98a\",\"sourceMessageIds\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753105552,
+            "updated_at": 1792753105552
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "kind": "timer",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "created_at": 1792753105552
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "35518f83-698a-46b3-8cfd-7247c06b8805",
+            "authorization_id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "outcome_kind": "completed",
+            "outcome_hash": "f87e768724cef744587b45aced986b459fad5106d76535e9032e7e7788549006"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "origin": "user",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "3c853c06-69aa-4c41-8d2a-8d7f685cbe17",
+            "origin": "agent_response",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "05be7550-b7bb-4f4a-aee7-2123e21cb5d4",
+            "source_message_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 15979,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 15989,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753110551,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "binding_id": "c28ac0ed-169e-49c0-a91b-bfacb3858874",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f034f80a478009367dba0378d644575f76c3ab0d63d5c46b42c0febffe895df8",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753110552,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753115552},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"e5800428281147e95d78dae6699efe834379aa9b2129b1529b160bd95f21f98a\",\"sourceMessageIds\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753105552,
+            "updated_at": 1792753105552
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "kind": "timer",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "created_at": 1792753105552
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "35518f83-698a-46b3-8cfd-7247c06b8805",
+            "authorization_id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "outcome_kind": "completed",
+            "outcome_hash": "f87e768724cef744587b45aced986b459fad5106d76535e9032e7e7788549006"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "origin": "user",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "3c853c06-69aa-4c41-8d2a-8d7f685cbe17",
+            "origin": "agent_response",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "05be7550-b7bb-4f4a-aee7-2123e21cb5d4",
+            "source_message_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 15989,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753120552,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "binding_id": "c28ac0ed-169e-49c0-a91b-bfacb3858874",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f034f80a478009367dba0378d644575f76c3ab0d63d5c46b42c0febffe895df8",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753110552,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753115552},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"e5800428281147e95d78dae6699efe834379aa9b2129b1529b160bd95f21f98a\",\"sourceMessageIds\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"businessConditionVerified\":false}",
+            "created_at": 1792753105552,
+            "updated_at": 1792753120552
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "ed373d16-5896-48ba-bb79-76998f8c654e",
+            "kind": "wait",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"ef6cdb55-a55c-4bb2-8662-9f4096c14e69\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "created_at": 1792753120552
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "kind": "timer",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "created_at": 1792753105552
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "35518f83-698a-46b3-8cfd-7247c06b8805",
+            "authorization_id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "outcome_kind": "completed",
+            "outcome_hash": "f87e768724cef744587b45aced986b459fad5106d76535e9032e7e7788549006"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "origin": "user",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "3c853c06-69aa-4c41-8d2a-8d7f685cbe17",
+            "origin": "agent_response",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "origin": "system",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "05be7550-b7bb-4f4a-aee7-2123e21cb5d4",
+            "source_message_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "75da177c-f0c5-4db4-8bfa-5a73e1b3f855",
+            "source_message_id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 15989,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16008,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753120552,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "binding_id": "c28ac0ed-169e-49c0-a91b-bfacb3858874",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f034f80a478009367dba0378d644575f76c3ab0d63d5c46b42c0febffe895df8",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753110552,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753115552},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"e5800428281147e95d78dae6699efe834379aa9b2129b1529b160bd95f21f98a\",\"sourceMessageIds\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"businessConditionVerified\":false}",
+            "created_at": 1792753105552,
+            "updated_at": 1792753120552
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "ed373d16-5896-48ba-bb79-76998f8c654e",
+            "kind": "wait",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"ef6cdb55-a55c-4bb2-8662-9f4096c14e69\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4430ad18-0aaa-4a0e-9789-51997de9f617\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4430ad18-0aaa-4a0e-9789-51997de9f617\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "created_at": 1792753120552
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "9cde686d-8f4f-4503-a262-00ad0f8c9889",
+            "thread_id": "196ba012-5a68-4de9-9132-e41282bbeca6",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "kind": "timer",
+            "source_id": "ef6cdb55-a55c-4bb2-8662-9f4096c14e69",
+            "created_at": 1792753105552
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "35518f83-698a-46b3-8cfd-7247c06b8805",
+            "authorization_id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "3931fe3a-8c61-43ba-a4ad-4405b808a8d4",
+            "outcome_kind": "completed",
+            "outcome_hash": "f87e768724cef744587b45aced986b459fad5106d76535e9032e7e7788549006"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "origin": "user",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "3c853c06-69aa-4c41-8d2a-8d7f685cbe17",
+            "origin": "agent_response",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "origin": "system",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "05be7550-b7bb-4f4a-aee7-2123e21cb5d4",
+            "source_message_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          },
+          {
+            "id": "75da177c-f0c5-4db4-8bfa-5a73e1b3f855",
+            "source_message_id": "0275e620-c943-47bd-86b9-9a46c85d2eb4",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4430ad18-0aaa-4a0e-9789-51997de9f617",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ef79bbee-1a27-4534-b0ba-b303808bc103",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "equal-fireAt",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 16027,
+        "sequence": 1,
+        "requestId": "ab65632a-7590-4533-80c1-f8278611bd48",
+        "authorizationId": "d7873186-8cac-4a93-9b94-f70334a00799",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "1b84a7ff-6465-4871-8be2-6b247d3058f8",
+        "attemptId": "01bd55ac-a135-4f93-b13f-7035b765e5cd"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+          "version": 1,
+          "deadline": 1792753112886
+        }
+      },
+      "before": {
+        "pid": 16027,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753107886,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "binding_id": "1b84a7ff-6465-4871-8be2-6b247d3058f8",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "bf4a18994096478e7f6a516d094261a823f3a9005718ed685528b35eea66126d",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753112886,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753117886},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"31c3033de2e5c44802ccfc02be792eeb5eeb6b28250ccedecf7b56d7a2aae344\",\"sourceMessageIds\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753107886,
+            "updated_at": 1792753107886
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "kind": "timer",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "created_at": 1792753107886
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "ab65632a-7590-4533-80c1-f8278611bd48",
+            "authorization_id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "outcome_kind": "completed",
+            "outcome_hash": "3b4456445d4095b3996b276125b7b84c3419b391f4e97d0135659f56f17e2794"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "origin": "user",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "dd464b89-f704-4832-ab14-2015e8ea8558",
+            "origin": "agent_response",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "14635a86-d573-4e15-a6fe-8a59f261464b",
+            "source_message_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 16027,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 16041,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753112886,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "binding_id": "1b84a7ff-6465-4871-8be2-6b247d3058f8",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "bf4a18994096478e7f6a516d094261a823f3a9005718ed685528b35eea66126d",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753112886,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753117886},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"31c3033de2e5c44802ccfc02be792eeb5eeb6b28250ccedecf7b56d7a2aae344\",\"sourceMessageIds\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753117886,\"businessConditionVerified\":false}",
+            "created_at": 1792753107886,
+            "updated_at": 1792753112886
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "6dde217f-cc13-42a0-904f-9674080c054e",
+            "kind": "wait",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e691eb6a-521f-4c2c-b6cd-505d04b74302\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753117886,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "created_at": 1792753112886
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "kind": "timer",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "created_at": 1792753107886
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "ab65632a-7590-4533-80c1-f8278611bd48",
+            "authorization_id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "outcome_kind": "completed",
+            "outcome_hash": "3b4456445d4095b3996b276125b7b84c3419b391f4e97d0135659f56f17e2794"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "origin": "user",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "dd464b89-f704-4832-ab14-2015e8ea8558",
+            "origin": "agent_response",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "origin": "system",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "14635a86-d573-4e15-a6fe-8a59f261464b",
+            "source_message_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "c44b5b5b-67ca-4648-9df1-c68544f55adb",
+            "source_message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 16041,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753112886,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "binding_id": "1b84a7ff-6465-4871-8be2-6b247d3058f8",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "bf4a18994096478e7f6a516d094261a823f3a9005718ed685528b35eea66126d",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753112886,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753117886},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"31c3033de2e5c44802ccfc02be792eeb5eeb6b28250ccedecf7b56d7a2aae344\",\"sourceMessageIds\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753117886,\"businessConditionVerified\":false}",
+            "created_at": 1792753107886,
+            "updated_at": 1792753112886
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "6dde217f-cc13-42a0-904f-9674080c054e",
+            "kind": "wait",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e691eb6a-521f-4c2c-b6cd-505d04b74302\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753117886,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "created_at": 1792753112886
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "kind": "timer",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "created_at": 1792753107886
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "ab65632a-7590-4533-80c1-f8278611bd48",
+            "authorization_id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "outcome_kind": "completed",
+            "outcome_hash": "3b4456445d4095b3996b276125b7b84c3419b391f4e97d0135659f56f17e2794"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "origin": "user",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "dd464b89-f704-4832-ab14-2015e8ea8558",
+            "origin": "agent_response",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "origin": "system",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "14635a86-d573-4e15-a6fe-8a59f261464b",
+            "source_message_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "c44b5b5b-67ca-4648-9df1-c68544f55adb",
+            "source_message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 16041,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16060,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753112886,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "binding_id": "1b84a7ff-6465-4871-8be2-6b247d3058f8",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "bf4a18994096478e7f6a516d094261a823f3a9005718ed685528b35eea66126d",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753112886,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753117886},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"31c3033de2e5c44802ccfc02be792eeb5eeb6b28250ccedecf7b56d7a2aae344\",\"sourceMessageIds\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753117886,\"businessConditionVerified\":false}",
+            "created_at": 1792753107886,
+            "updated_at": 1792753112886
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "6dde217f-cc13-42a0-904f-9674080c054e",
+            "kind": "wait",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e691eb6a-521f-4c2c-b6cd-505d04b74302\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753117886,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"cd7bc333-ba02-40ca-8429-690e2cc57a91\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"cd7bc333-ba02-40ca-8429-690e2cc57a91\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "created_at": 1792753112886
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "a368e8f6-3727-473a-b352-319576c73873",
+            "thread_id": "b4621649-c2c3-4c7d-a4e1-abad81ad1743",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "kind": "timer",
+            "source_id": "e691eb6a-521f-4c2c-b6cd-505d04b74302",
+            "created_at": 1792753107886
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "ab65632a-7590-4533-80c1-f8278611bd48",
+            "authorization_id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "d7873186-8cac-4a93-9b94-f70334a00799",
+            "outcome_kind": "completed",
+            "outcome_hash": "3b4456445d4095b3996b276125b7b84c3419b391f4e97d0135659f56f17e2794"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "origin": "user",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "dd464b89-f704-4832-ab14-2015e8ea8558",
+            "origin": "agent_response",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "origin": "system",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "14635a86-d573-4e15-a6fe-8a59f261464b",
+            "source_message_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          },
+          {
+            "id": "c44b5b5b-67ca-4648-9df1-c68544f55adb",
+            "source_message_id": "2b75f2a4-5ac9-4634-908e-2d543482a10d",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "cd7bc333-ba02-40ca-8429-690e2cc57a91",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "48d2e0c4-7836-412c-8239-796ac7caf444",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "after-fireAt",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 16079,
+        "sequence": 1,
+        "requestId": "d3122bd1-1c0b-4d44-8d6f-b4dfcc71462c",
+        "authorizationId": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "e7251c86-c2ea-4fc9-b07f-3a95d54df36f",
+        "attemptId": "fea26532-be9b-4f97-aa03-6eff5ec68bc9"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+          "version": 1,
+          "deadline": 1792753114941
+        }
+      },
+      "before": {
+        "pid": 16079,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753109941,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "binding_id": "e7251c86-c2ea-4fc9-b07f-3a95d54df36f",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f6582368572501f85777287b777fe21fa15961426dd82bcec1f0386af36b118e",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753114941,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753119941},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b397df815104cd9be8fb08a5a9536ed8f736836d2a15fdd4e5fefb1a406613ee\",\"sourceMessageIds\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753109941,
+            "updated_at": 1792753109941
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "kind": "timer",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "created_at": 1792753109941
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "d3122bd1-1c0b-4d44-8d6f-b4dfcc71462c",
+            "authorization_id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "outcome_kind": "completed",
+            "outcome_hash": "6749f5a182a1a1f281c964136a30522cf28951292ce756d26cb9b69332153bfb"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "origin": "user",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "7a7a02b2-776b-4a05-9056-ca0a5832d69f",
+            "origin": "agent_response",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "c2bfd898-51da-4976-82c8-4417f1701046",
+            "source_message_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 16079,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 16113,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753114942,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "binding_id": "e7251c86-c2ea-4fc9-b07f-3a95d54df36f",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f6582368572501f85777287b777fe21fa15961426dd82bcec1f0386af36b118e",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753114941,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753119941},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b397df815104cd9be8fb08a5a9536ed8f736836d2a15fdd4e5fefb1a406613ee\",\"sourceMessageIds\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753119941,\"businessConditionVerified\":false}",
+            "created_at": 1792753109941,
+            "updated_at": 1792753114942
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "11da080c-22d6-4d1f-a496-c543b5db40f1",
+            "kind": "wait",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"97a6756b-95c2-45f6-9779-2c692ef297d2\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753119941,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "created_at": 1792753114942
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "kind": "timer",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "created_at": 1792753109941
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "d3122bd1-1c0b-4d44-8d6f-b4dfcc71462c",
+            "authorization_id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "outcome_kind": "completed",
+            "outcome_hash": "6749f5a182a1a1f281c964136a30522cf28951292ce756d26cb9b69332153bfb"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "origin": "user",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "7a7a02b2-776b-4a05-9056-ca0a5832d69f",
+            "origin": "agent_response",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "origin": "system",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "c2bfd898-51da-4976-82c8-4417f1701046",
+            "source_message_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "ff96967d-185f-4b73-b0e7-8e4511a976a5",
+            "source_message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 16113,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753114942,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "binding_id": "e7251c86-c2ea-4fc9-b07f-3a95d54df36f",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f6582368572501f85777287b777fe21fa15961426dd82bcec1f0386af36b118e",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753114941,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753119941},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b397df815104cd9be8fb08a5a9536ed8f736836d2a15fdd4e5fefb1a406613ee\",\"sourceMessageIds\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753119941,\"businessConditionVerified\":false}",
+            "created_at": 1792753109941,
+            "updated_at": 1792753114942
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "11da080c-22d6-4d1f-a496-c543b5db40f1",
+            "kind": "wait",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"97a6756b-95c2-45f6-9779-2c692ef297d2\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753119941,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "created_at": 1792753114942
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "kind": "timer",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "created_at": 1792753109941
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "d3122bd1-1c0b-4d44-8d6f-b4dfcc71462c",
+            "authorization_id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "outcome_kind": "completed",
+            "outcome_hash": "6749f5a182a1a1f281c964136a30522cf28951292ce756d26cb9b69332153bfb"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "origin": "user",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "7a7a02b2-776b-4a05-9056-ca0a5832d69f",
+            "origin": "agent_response",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "origin": "system",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "c2bfd898-51da-4976-82c8-4417f1701046",
+            "source_message_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "ff96967d-185f-4b73-b0e7-8e4511a976a5",
+            "source_message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 16113,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16132,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753114942,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "binding_id": "e7251c86-c2ea-4fc9-b07f-3a95d54df36f",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "f6582368572501f85777287b777fe21fa15961426dd82bcec1f0386af36b118e",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753114941,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753119941},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b397df815104cd9be8fb08a5a9536ed8f736836d2a15fdd4e5fefb1a406613ee\",\"sourceMessageIds\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753119941,\"businessConditionVerified\":false}",
+            "created_at": 1792753109941,
+            "updated_at": 1792753114942
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "11da080c-22d6-4d1f-a496-c543b5db40f1",
+            "kind": "wait",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"97a6756b-95c2-45f6-9779-2c692ef297d2\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753119941,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"31f70257-f090-43b8-b6e1-c9d94715a649\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"31f70257-f090-43b8-b6e1-c9d94715a649\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "created_at": 1792753114942
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "0546e85b-1d44-439c-b367-29e3fbd42cfc",
+            "thread_id": "ec3e464a-c4f7-4cd5-aca6-51634b020c4c",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "kind": "timer",
+            "source_id": "97a6756b-95c2-45f6-9779-2c692ef297d2",
+            "created_at": 1792753109941
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "d3122bd1-1c0b-4d44-8d6f-b4dfcc71462c",
+            "authorization_id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "1ff673ff-3c59-4c1c-81b8-1863e04b08ef",
+            "outcome_kind": "completed",
+            "outcome_hash": "6749f5a182a1a1f281c964136a30522cf28951292ce756d26cb9b69332153bfb"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "origin": "user",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "7a7a02b2-776b-4a05-9056-ca0a5832d69f",
+            "origin": "agent_response",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "origin": "system",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "c2bfd898-51da-4976-82c8-4417f1701046",
+            "source_message_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          },
+          {
+            "id": "ff96967d-185f-4b73-b0e7-8e4511a976a5",
+            "source_message_id": "c7b1e100-df22-413b-96c6-0b9a883c5cc9",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "31f70257-f090-43b8-b6e1-c9d94715a649",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "ea6bd0db-1055-4c23-9bab-9b8197f81431",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "before-SLA",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 16151,
+        "sequence": 1,
+        "requestId": "4612d3eb-b1a7-42e2-848a-c187d24fd509",
+        "authorizationId": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "dd0ff719-b51e-4f5b-be69-4d743256a4a7",
+        "attemptId": "b7261395-0da1-4804-b2f0-d03afd77ab80"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "e210186e-1a0c-4a10-976c-83364714cf29",
+          "version": 1,
+          "deadline": 1792753117051
+        }
+      },
+      "before": {
+        "pid": 16151,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753112051,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "binding_id": "dd0ff719-b51e-4f5b-be69-4d743256a4a7",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "eef705f8ac1d4df549cbcbe4e245dfd30dc82de6e20849c2031b2f0ddea05470",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753117051,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753122051},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b15131bf22555277cba247c0b8e9949a755533da3bdecea3daee3e99adc15bef\",\"sourceMessageIds\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753112051,
+            "updated_at": 1792753112051
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e210186e-1a0c-4a10-976c-83364714cf29",
+            "kind": "timer",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "created_at": 1792753112051
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "4612d3eb-b1a7-42e2-848a-c187d24fd509",
+            "authorization_id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "outcome_kind": "completed",
+            "outcome_hash": "68f150fb8488018b760c8ff9bf786adc0914ac9f207c4c6a1a40e6215cf3ad29"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "origin": "user",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "593df576-87ca-4ae8-89f8-7412f3cbdcc7",
+            "origin": "agent_response",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "f8138930-d418-45b0-a5f1-15133d40466e",
+            "source_message_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 16151,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 16161,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753122050,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "binding_id": "dd0ff719-b51e-4f5b-be69-4d743256a4a7",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "eef705f8ac1d4df549cbcbe4e245dfd30dc82de6e20849c2031b2f0ddea05470",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753117051,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753122051},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b15131bf22555277cba247c0b8e9949a755533da3bdecea3daee3e99adc15bef\",\"sourceMessageIds\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753122051,\"businessConditionVerified\":false}",
+            "created_at": 1792753112051,
+            "updated_at": 1792753122050
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "fe06f258-2eeb-425b-9b6a-7637d67cb971",
+            "kind": "wait",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e210186e-1a0c-4a10-976c-83364714cf29\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753122051,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "created_at": 1792753122050
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e210186e-1a0c-4a10-976c-83364714cf29",
+            "kind": "timer",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "created_at": 1792753112051
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "4612d3eb-b1a7-42e2-848a-c187d24fd509",
+            "authorization_id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "outcome_kind": "completed",
+            "outcome_hash": "68f150fb8488018b760c8ff9bf786adc0914ac9f207c4c6a1a40e6215cf3ad29"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "origin": "user",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "593df576-87ca-4ae8-89f8-7412f3cbdcc7",
+            "origin": "agent_response",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "origin": "system",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "1bb2b3da-dd62-462c-b793-ed3140a9e242",
+            "source_message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "f8138930-d418-45b0-a5f1-15133d40466e",
+            "source_message_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 16161,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753122050,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "binding_id": "dd0ff719-b51e-4f5b-be69-4d743256a4a7",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "eef705f8ac1d4df549cbcbe4e245dfd30dc82de6e20849c2031b2f0ddea05470",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753117051,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753122051},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b15131bf22555277cba247c0b8e9949a755533da3bdecea3daee3e99adc15bef\",\"sourceMessageIds\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753122051,\"businessConditionVerified\":false}",
+            "created_at": 1792753112051,
+            "updated_at": 1792753122050
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "fe06f258-2eeb-425b-9b6a-7637d67cb971",
+            "kind": "wait",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e210186e-1a0c-4a10-976c-83364714cf29\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753122051,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "created_at": 1792753122050
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e210186e-1a0c-4a10-976c-83364714cf29",
+            "kind": "timer",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "created_at": 1792753112051
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "4612d3eb-b1a7-42e2-848a-c187d24fd509",
+            "authorization_id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "outcome_kind": "completed",
+            "outcome_hash": "68f150fb8488018b760c8ff9bf786adc0914ac9f207c4c6a1a40e6215cf3ad29"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "origin": "user",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "593df576-87ca-4ae8-89f8-7412f3cbdcc7",
+            "origin": "agent_response",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "origin": "system",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "1bb2b3da-dd62-462c-b793-ed3140a9e242",
+            "source_message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "f8138930-d418-45b0-a5f1-15133d40466e",
+            "source_message_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 16161,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16180,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753122050,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "binding_id": "dd0ff719-b51e-4f5b-be69-4d743256a4a7",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "eef705f8ac1d4df549cbcbe4e245dfd30dc82de6e20849c2031b2f0ddea05470",
+            "state": "settled",
+            "version": 2,
+            "deadline": 1792753117051,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753122051},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"b15131bf22555277cba247c0b8e9949a755533da3bdecea3daee3e99adc15bef\",\"sourceMessageIds\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_elapsed\",\"recoveredMissedTimer\":true,\"retryUntil\":1792753122051,\"businessConditionVerified\":false}",
+            "created_at": 1792753112051,
+            "updated_at": 1792753122050
+          }
+        ],
+        "callbacks": [
+          {
+            "id": "fe06f258-2eeb-425b-9b6a-7637d67cb971",
+            "kind": "wait",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "parent_invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "state": "delivered",
+            "reason": null,
+            "record": "{\"body\":\"{\\\"waitId\\\":\\\"e210186e-1a0c-4a10-976c-83364714cf29\\\",\\\"kind\\\":\\\"timer\\\",\\\"outcome\\\":{\\\"type\\\":\\\"timer_elapsed\\\",\\\"recoveredMissedTimer\\\":true,\\\"retryUntil\\\":1792753122051,\\\"businessConditionVerified\\\":false}}\",\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"3c4105b3-83d8-454d-b2cb-328be331ea82\"],\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"3c4105b3-83d8-454d-b2cb-328be331ea82\",\"actionFence\":null,\"controlSeq\":0}}",
+            "message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "created_at": 1792753122050
+          }
+        ],
+        "admissions": [
+          {
+            "owner_id": "c914160d-f002-42f2-8e30-acc25bcc0353",
+            "thread_id": "0524563d-dacb-47f2-9bde-0ab8a848369b",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:e210186e-1a0c-4a10-976c-83364714cf29",
+            "kind": "timer",
+            "source_id": "e210186e-1a0c-4a10-976c-83364714cf29",
+            "created_at": 1792753112051
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "4612d3eb-b1a7-42e2-848a-c187d24fd509",
+            "authorization_id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "45f07752-7371-42a5-9c32-5dbfae6735b2",
+            "outcome_kind": "completed",
+            "outcome_hash": "68f150fb8488018b760c8ff9bf786adc0914ac9f207c4c6a1a40e6215cf3ad29"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "origin": "user",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "593df576-87ca-4ae8-89f8-7412f3cbdcc7",
+            "origin": "agent_response",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "origin": "system",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "1bb2b3da-dd62-462c-b793-ed3140a9e242",
+            "source_message_id": "ba2a61ec-0a04-4a38-8bf7-33fc0c81f2cd",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          },
+          {
+            "id": "f8138930-d418-45b0-a5f1-15133d40466e",
+            "source_message_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "3c4105b3-83d8-454d-b2cb-328be331ea82",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "e33a0520-6282-48fa-93f4-2f7471c50a7f",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "equal-SLA",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 16199,
+        "sequence": 1,
+        "requestId": "853d8675-a2fe-4df7-b0c0-7ed8afc2c1dc",
+        "authorizationId": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "5c7db0a9-8438-4a86-b723-47f3e6ae7f3c",
+        "attemptId": "21ffcf93-77fc-4b66-80b2-51364d4ab88b"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+          "version": 1,
+          "deadline": 1792753119100
+        }
+      },
+      "before": {
+        "pid": 16199,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753114100,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "binding_id": "5c7db0a9-8438-4a86-b723-47f3e6ae7f3c",
+            "parent_invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "5826bcb1a73fa4b04fd1909958d83d56157e710c6e3344d8354601870b08e951",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753119100,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753124100},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"0a4cae2a55ecc275f337211c6781dd720ab9c542ab3c23bb3f8ab27c298201cd\",\"sourceMessageIds\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753114100,
+            "updated_at": 1792753114100
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "kind": "timer",
+            "source_id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "created_at": 1792753114100
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "853d8675-a2fe-4df7-b0c0-7ed8afc2c1dc",
+            "authorization_id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "outcome_kind": "completed",
+            "outcome_hash": "4ec697d26f09951f0c93f23f5ca975029453b2ac6ddbbd26f74cd8ef1d20b3ae"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "origin": "user",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          },
+          {
+            "id": "a6502124-b65f-459b-8d2b-c3d19d8f8633",
+            "origin": "agent_response",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "3f2c45b9-8460-494e-9141-f36b6d6de7d7",
+            "source_message_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 16199,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 16211,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753124100,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "binding_id": "5c7db0a9-8438-4a86-b723-47f3e6ae7f3c",
+            "parent_invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "5826bcb1a73fa4b04fd1909958d83d56157e710c6e3344d8354601870b08e951",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753119100,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753124100},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"0a4cae2a55ecc275f337211c6781dd720ab9c542ab3c23bb3f8ab27c298201cd\",\"sourceMessageIds\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"recover\",\"businessConditionVerified\":false}",
+            "created_at": 1792753114100,
+            "updated_at": 1792753124100
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "kind": "timer",
+            "source_id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "created_at": 1792753114100
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "853d8675-a2fe-4df7-b0c0-7ed8afc2c1dc",
+            "authorization_id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "outcome_kind": "completed",
+            "outcome_hash": "4ec697d26f09951f0c93f23f5ca975029453b2ac6ddbbd26f74cd8ef1d20b3ae"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "origin": "user",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          },
+          {
+            "id": "a6502124-b65f-459b-8d2b-c3d19d8f8633",
+            "origin": "agent_response",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "3f2c45b9-8460-494e-9141-f36b6d6de7d7",
+            "source_message_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 16211,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753124100,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "binding_id": "5c7db0a9-8438-4a86-b723-47f3e6ae7f3c",
+            "parent_invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "5826bcb1a73fa4b04fd1909958d83d56157e710c6e3344d8354601870b08e951",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753119100,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753124100},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"0a4cae2a55ecc275f337211c6781dd720ab9c542ab3c23bb3f8ab27c298201cd\",\"sourceMessageIds\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"recover\",\"businessConditionVerified\":false}",
+            "created_at": 1792753114100,
+            "updated_at": 1792753124100
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "kind": "timer",
+            "source_id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "created_at": 1792753114100
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "853d8675-a2fe-4df7-b0c0-7ed8afc2c1dc",
+            "authorization_id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "outcome_kind": "completed",
+            "outcome_hash": "4ec697d26f09951f0c93f23f5ca975029453b2ac6ddbbd26f74cd8ef1d20b3ae"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "origin": "user",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          },
+          {
+            "id": "a6502124-b65f-459b-8d2b-c3d19d8f8633",
+            "origin": "agent_response",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "3f2c45b9-8460-494e-9141-f36b6d6de7d7",
+            "source_message_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 16211,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16230,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753124100,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "binding_id": "5c7db0a9-8438-4a86-b723-47f3e6ae7f3c",
+            "parent_invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "5826bcb1a73fa4b04fd1909958d83d56157e710c6e3344d8354601870b08e951",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753119100,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753124100},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"0a4cae2a55ecc275f337211c6781dd720ab9c542ab3c23bb3f8ab27c298201cd\",\"sourceMessageIds\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"d8b76242-0201-4b2e-97de-699c28e19c11\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"d8b76242-0201-4b2e-97de-699c28e19c11\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"recover\",\"businessConditionVerified\":false}",
+            "created_at": 1792753114100,
+            "updated_at": 1792753124100
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "4e400ce8-5612-4b91-8dfe-e09a14b0f126",
+            "thread_id": "332bb20b-14ff-43f8-9482-ed3b11bfa560",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "kind": "timer",
+            "source_id": "1aac4d6b-dd76-4279-8baf-ba5ed15c5522",
+            "created_at": 1792753114100
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "853d8675-a2fe-4df7-b0c0-7ed8afc2c1dc",
+            "authorization_id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "da6d3bfb-3ecb-4601-bc26-f7a74e6e24bf",
+            "outcome_kind": "completed",
+            "outcome_hash": "4ec697d26f09951f0c93f23f5ca975029453b2ac6ddbbd26f74cd8ef1d20b3ae"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "origin": "user",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          },
+          {
+            "id": "a6502124-b65f-459b-8d2b-c3d19d8f8633",
+            "origin": "agent_response",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "3f2c45b9-8460-494e-9141-f36b6d6de7d7",
+            "source_message_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "d8b76242-0201-4b2e-97de-699c28e19c11",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "3bc2e5e4-3ea0-4cee-934f-5e0d3a4ecf69",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "after-SLA",
+      "originalToolHook": {
+        "event": "wait-register-ready",
+        "pid": 16249,
+        "sequence": 1,
+        "requestId": "15a105b2-9350-4820-ab5b-a23565732848",
+        "authorizationId": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+        "backend": "api",
+        "pathname": "/v1/messages",
+        "transport": "injected",
+        "headersReceived": true,
+        "status": 200,
+        "bindingId": "26c66c89-3c8e-4197-9b8c-ad1dc7764aac",
+        "attemptId": "2c474783-cae9-41e0-8508-04fdd5ff223d"
+      },
+      "registration": {
+        "ok": true,
+        "result": {
+          "waitId": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+          "version": 1,
+          "deadline": 1792753121097
+        }
+      },
+      "before": {
+        "pid": 16249,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753116097,
+        "calls": 1,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "binding_id": "26c66c89-3c8e-4197-9b8c-ad1dc7764aac",
+            "parent_invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "475745ff0e07655cae90146a204f48d2e19e4581f1697b95b4f6c9ef98f28759",
+            "state": "awaiting",
+            "version": 1,
+            "deadline": 1792753121097,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753126097},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"9919e173db08d50ffc6d6297c684e0269668144ab4bcd8ab90cbf40602376669\",\"sourceMessageIds\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": null,
+            "created_at": 1792753116097,
+            "updated_at": 1792753116097
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "kind": "timer",
+            "source_id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "created_at": 1792753116097
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "15a105b2-9350-4820-ab5b-a23565732848",
+            "authorization_id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "outcome_kind": "completed",
+            "outcome_hash": "bc26a625572644fdca9307c9c6acf276adad8df7a17b82d75c53dd45c65cbf87"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "origin": "user",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          },
+          {
+            "id": "ab402f34-8335-430f-9972-cd2ad77a42ea",
+            "origin": "agent_response",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "e025a558-a0ff-4736-83e9-a2d796f630da",
+            "source_message_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "fc448162-382e-4697-9990-136ce0addac3",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "firstStop": {
+        "pid": 16249,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "atStartup": {
+        "pid": 16259,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753126098,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "binding_id": "26c66c89-3c8e-4197-9b8c-ad1dc7764aac",
+            "parent_invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "475745ff0e07655cae90146a204f48d2e19e4581f1697b95b4f6c9ef98f28759",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753121097,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753126097},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"9919e173db08d50ffc6d6297c684e0269668144ab4bcd8ab90cbf40602376669\",\"sourceMessageIds\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"expired\",\"businessConditionVerified\":false}",
+            "created_at": 1792753116097,
+            "updated_at": 1792753126098
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "kind": "timer",
+            "source_id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "created_at": 1792753116097
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "15a105b2-9350-4820-ab5b-a23565732848",
+            "authorization_id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "outcome_kind": "completed",
+            "outcome_hash": "bc26a625572644fdca9307c9c6acf276adad8df7a17b82d75c53dd45c65cbf87"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "origin": "user",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          },
+          {
+            "id": "ab402f34-8335-430f-9972-cd2ad77a42ea",
+            "origin": "agent_response",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "e025a558-a0ff-4736-83e9-a2d796f630da",
+            "source_message_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "fc448162-382e-4697-9990-136ce0addac3",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "after": {
+        "pid": 16259,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753126098,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "binding_id": "26c66c89-3c8e-4197-9b8c-ad1dc7764aac",
+            "parent_invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "475745ff0e07655cae90146a204f48d2e19e4581f1697b95b4f6c9ef98f28759",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753121097,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753126097},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"9919e173db08d50ffc6d6297c684e0269668144ab4bcd8ab90cbf40602376669\",\"sourceMessageIds\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"expired\",\"businessConditionVerified\":false}",
+            "created_at": 1792753116097,
+            "updated_at": 1792753126098
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "kind": "timer",
+            "source_id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "created_at": 1792753116097
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "15a105b2-9350-4820-ab5b-a23565732848",
+            "authorization_id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "outcome_kind": "completed",
+            "outcome_hash": "bc26a625572644fdca9307c9c6acf276adad8df7a17b82d75c53dd45c65cbf87"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "origin": "user",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          },
+          {
+            "id": "ab402f34-8335-430f-9972-cd2ad77a42ea",
+            "origin": "agent_response",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "e025a558-a0ff-4736-83e9-a2d796f630da",
+            "source_message_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "fc448162-382e-4697-9990-136ce0addac3",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      },
+      "secondStop": {
+        "pid": 16259,
+        "code": null,
+        "signal": "SIGKILL"
+      },
+      "secondRecovery": {
+        "pid": 16278,
+        "actualIndexEntry": true,
+        "isolatedExecutionBypass": false,
+        "now": 1792753126098,
+        "calls": 0,
+        "deniedEgress": 0,
+        "waits": [
+          {
+            "id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "binding_id": "26c66c89-3c8e-4197-9b8c-ad1dc7764aac",
+            "parent_invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "job_key": "rc05-main-wait",
+            "kind": "timer",
+            "request_hash": "475745ff0e07655cae90146a204f48d2e19e4581f1697b95b4f6c9ef98f28759",
+            "state": "withdrawn",
+            "version": 2,
+            "deadline": 1792753121097,
+            "record": "{\"jobKey\":\"rc05-main-wait\",\"kind\":\"timer\",\"seconds\":5,\"waitSourceRef\":{\"kind\":\"thread_message\",\"value\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"expectedSignal\":\"business_check_completed\",\"slaUntilMs\":1792753126097},\"baseline\":null,\"waitSourceAuthority\":{\"authorization\":\"9919e173db08d50ffc6d6297c684e0269668144ab4bcd8ab90cbf40602376669\",\"sourceMessageIds\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"holdDomain\":\"ordinary\",\"scope\":{\"visibility\":\"public\",\"audience\":[],\"sourceRefs\":[\"4be74c7d-71c5-4eef-b89f-f03768e50544\"]},\"frozen\":{\"identity\":\"fd01a2a957a0626cabe4234787d32a8571609516c7951b4343e70e691043423c\",\"sourceId\":\"4be74c7d-71c5-4eef-b89f-f03768e50544\",\"actionFence\":null,\"controlSeq\":0}}",
+            "outcome": "{\"type\":\"timer_recovery_retired\",\"disposition\":\"retired_expired\",\"classification\":\"expired\",\"businessConditionVerified\":false}",
+            "created_at": 1792753116097,
+            "updated_at": 1792753126098
+          }
+        ],
+        "callbacks": [],
+        "admissions": [
+          {
+            "owner_id": "dd088b11-5792-4c0e-941a-4a13fcab04df",
+            "thread_id": "30506115-1f26-4e03-866f-2458bb0e83c3",
+            "agent_id": "rc05-waiter",
+            "admission_key": "wait:97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "kind": "timer",
+            "source_id": "97d9f78a-8008-4f4d-9294-525d1f97604f",
+            "created_at": 1792753116097
+          }
+        ],
+        "backendRequests": [
+          {
+            "id": "15a105b2-9350-4820-ab5b-a23565732848",
+            "authorization_id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "state": "complete"
+          }
+        ],
+        "budgetRequests": [
+          {
+            "id": "9f3e8565-4753-4418-9c1a-1d20a05e59a8",
+            "outcome_kind": "completed",
+            "outcome_hash": "bc26a625572644fdca9307c9c6acf276adad8df7a17b82d75c53dd45c65cbf87"
+          }
+        ],
+        "budgetRoots": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "current_version": 2,
+            "state": "open"
+          }
+        ],
+        "messages": [
+          {
+            "id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "origin": "user",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          },
+          {
+            "id": "ab402f34-8335-430f-9972-cd2ad77a42ea",
+            "origin": "agent_response",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "wakes": [
+          {
+            "id": "e025a558-a0ff-4736-83e9-a2d796f630da",
+            "source_message_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "fc448162-382e-4697-9990-136ce0addac3",
+            "agent_id": "rc05-waiter",
+            "causal_root_id": "4be74c7d-71c5-4eef-b89f-f03768e50544",
+            "status": "completed"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "fc448162-382e-4697-9990-136ce0addac3",
+            "status": "completed"
+          }
+        ],
+        "foreignKeys": []
+      }
+    }
+  ],
+  "realSupplierRequests": 0,
+  "realSupplierTokens": 0,
+  "remoteWrites": 0,
+  "actualSigkillRestarts": 12,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "selectedSyntheticRootActivityAllowanceMs": 10000,
+  "scope": {
+    "composition": "actual apps/server/src/index.ts with production singleton, release pack, HTTP ingress, account and authority policy",
+    "registration": "trusted in-flight test hook invokes real tools.execute(hold_ball) on a current active production binding; not a natural model tool choice",
+    "clock": "Date.now controlled before service construction and advanced only by trusted test IPC; real index PIDs terminate and reopen the same SQLite file",
+    "transport": "local deterministic model response only; global fetch guard prevents unregistered external effects",
+    "dailyDatabase": "never opened",
+    "credentials": "fresh synthetic credential only",
+    "startup": "fixture-only isolated execution bypass is cleared before production singleton import",
+    "boundaries": "actual stop/restart at fireAt−1/equality/+1 and SLA−1/equality/+1; equality classifier recover but no dispatch retry window",
+    "limitations": [
+      "Controlled clock boundaries are deterministic; this is not wall-clock scheduler punctuality or real provider behavior.",
+      "Source ownerAuth, member identity, malformed baseline and Action generation drift are separately covered in waits.json."
+    ]
+  }
+}
