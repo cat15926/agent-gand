@@ -1,0 +1,40 @@
+{
+  "stage": "RC07",
+  "date": "2026-10-26",
+  "reason": "Generic credential redactor matched the opening brace following budgetAuthorization as if it were a credential value; business object contents remained present.",
+  "originalFile": "native-live-first-redacted-original.txt",
+  "originalSha256": "b28544de116932e4b6521d7914213d80f58c50845ee4a264b7ab62844fe63a77",
+  "repairedFile": "native-live-first.json",
+  "repairedSha256": "8a12a645e9b3109f6e6505ab7236334a98f91bc0c2ef1d31b6b17d9973048652",
+  "changes": [
+    {
+      "byteOffset": 9311,
+      "line": 268,
+      "from": "\"budgetAuthorization\": [redacted]",
+      "to": "\"budgetAuthorization\": {"
+    },
+    {
+      "byteOffset": 13456,
+      "line": 363,
+      "from": "\"budgetAuthorization\": [redacted]",
+      "to": "\"budgetAuthorization\": {"
+    },
+    {
+      "byteOffset": 17643,
+      "line": 458,
+      "from": "\"budgetAuthorization\": [redacted]",
+      "to": "\"budgetAuthorization\": {"
+    },
+    {
+      "byteOffset": 21830,
+      "line": 553,
+      "from": "\"budgetAuthorization\": [redacted]",
+      "to": "\"budgetAuthorization\": {"
+    }
+  ],
+  "otherBytesUnchanged": true,
+  "jsonParsePassed": true,
+  "authorizationBindingsCrossChecked": 4,
+  "additionalSupplierCalls": 0,
+  "businessValuesInferred": false
+}

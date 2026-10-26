@@ -1,0 +1,121 @@
+{
+  "ok": true,
+  "stage": "RC07",
+  "date": "2026-10-26",
+  "baselineCommit": "f03648e20c9f17f70f166b0d7628d894e694e6ab",
+  "newGroups": 31,
+  "regressionGroups": 83,
+  "totalUniqueGroups": 114,
+  "counting": "Unique case per evidence layer. Repeated checks, metadata aggregation, static checks and development partial successes excluded.",
+  "layers": [
+    {
+      "evidence": "context.json",
+      "groups": 7,
+      "status": "passed"
+    },
+    {
+      "evidence": "admission.json",
+      "groups": 5,
+      "status": "passed"
+    },
+    {
+      "evidence": "native.json",
+      "groups": 7,
+      "status": "passed"
+    },
+    {
+      "evidence": "main-injected-final.json",
+      "groups": 5,
+      "status": "passed"
+    },
+    {
+      "evidence": "main-live-first.json",
+      "groups": 5,
+      "status": "passed"
+    },
+    {
+      "evidence": "native-injected-live-runner.json",
+      "groups": 1,
+      "status": "passed"
+    },
+    {
+      "evidence": "native-live-first.json",
+      "groups": 1,
+      "status": "passed"
+    }
+  ],
+  "regressions": [
+    {
+      "evidence": "regressions/backend-runtime.json",
+      "groups": 7,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/backends.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/context.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/production.json",
+      "groups": 16,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/queue.json",
+      "groups": 11,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/resource-integration.json",
+      "groups": 8,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/session-context.json",
+      "groups": 13,
+      "status": "passed"
+    }
+  ],
+  "actualProcesses": {
+    "contextWorkers": 7,
+    "nativeInjectedGuardians": 9,
+    "indexInjected": 7,
+    "indexReal": 7,
+    "controlledNativeInjected": 4,
+    "controlledNativeReal": 4,
+    "note": "Per-layer counts, not a deployment/process-concurrency claim."
+  },
+  "realSupplierRequests": 11,
+  "newKnownTokens": 116740,
+  "newUnknownReserve": 0,
+  "cumulativeLedger": "ledger.json",
+  "repeatChecksExcluded": [
+    "main-injected-wave-retry.json",
+    "main-injected-cursor-first.json",
+    "native-serialization-injected.json",
+    "native-runner-final-injected.json"
+  ],
+  "preservedDevelopmentEvidence": [
+    "admission-before-fix.json",
+    "admission-development-findings.json",
+    "main-injected-first.json",
+    "native-development-findings.json",
+    "native-live-first-redacted-original.txt",
+    "native-live-serialization-repair.json",
+    "server-typecheck-first-failure.txt"
+  ],
+  "nativeLiveProvenance": "native-live-provenance.json",
+  "scopeLimitations": [
+    "API reconstruction is distinct from native incremental context.",
+    "Controlled 32k SDK window uses actual supplier usage/summary but does not prove default-window natural compaction.",
+    "Native factory has isolated execution bypass; no actual-index complete native combination claim.",
+    "Trusted low-level seal is not a product HTTP/UI seal operation.",
+    "Historical RC04/RC05/RC06 limitations and all unknown charges remain.",
+    "Schema 35, defaults and daily closed configuration unchanged."
+  ]
+}

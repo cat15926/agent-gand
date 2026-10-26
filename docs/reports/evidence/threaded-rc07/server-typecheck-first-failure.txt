@@ -1,0 +1,8 @@
+
+> @agent-gand/server@0.1.0 typecheck /Users/ruhonglin/lhz/agent-gand/apps/server
+> tsc --noEmit
+
+src/threaded/backendRuntime.ts(212,60): error TS18048: 'intent' is possibly 'undefined'.
+/Users/ruhonglin/lhz/agent-gand/apps/server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @agent-gand/server@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2

@@ -106,7 +106,7 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
           } else if(record.type==='system'&&record.subtype==='compact_boundary') {
             if(record.session_id!==nativeId||typeof record.uuid!=='string')throw new Error('THREADED_SDK_COMPACTION_INVALID');
             compactionBoundary=record.uuid;
-            const evidence=options.evidence.nativeCompaction(input.binding,prepared,record.uuid);
+            const evidence=options.evidence.nativeCompaction(input.binding,prepared,record.uuid,record.compact_metadata);
             prepared.nativeEvent?.({type:'compact',nativeId,evidence});
           } else if(record.type==='result') {
             if(record.session_id!==nativeId||typeof record.uuid!=='string')throw new Error('THREADED_SDK_TERMINAL_INVALID');

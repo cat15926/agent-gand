@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "findings": [
+    {
+      "id": "api_envelope_rejected_before_send_leaves_context_pending",
+      "classification": "production_defect_reproduced_and_fixed",
+      "beforeFixEvidence": "admission-before-fix.json",
+      "afterFixEvidence": "admission.json",
+      "behavior": "A ready manifest under an 8192-byte request ceiling with all allowed application-tool descriptions produced zero injected HTTP calls, but left sending and possible-exposure records; after reopening the SQLite/runtime and increasing the request ceiling, the later Invocation became unknown with zero HTTP calls.",
+      "fix": "For API only, persist input/send records inside admitted request and backend-receipt transactions. SDK local-prompt exposure remains eager. Delivery resolves the committed intent from SQLite instead of caching a transaction-local ID."
+    },
+    {
+      "id": "first_sandbox_admission_sdk_assertion",
+      "classification": "environment_candidate_not_diagnosed",
+      "command": "THREADED_RC07_ADMISSION_OUTPUT=docs/reports/evidence/threaded-rc07/admission.json node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-admission.mjs",
+      "executionMode": "sandbox_default",
+      "exitCode": 1,
+      "observed": "The first SDK local-prompt case returned status unknown where the test expected failed. The preceding four API cases completed their assertions. The adapter catches failures and this run did not retain the underlying exception, so the cause was not established.",
+      "assertion": "scripts/verify-threaded-rc07-admission.mjs:127: actual unknown, expected failed",
+      "candidate": "The SDK adapter creates a loopback relay before invoking the injected process port; sandbox restrictions could affect that setup. This is an environment candidate, not a proven cause.",
+      "subsequentRun": "The same code passed all five cases with sandbox escalation for the isolated loopback test.",
+      "subsequentEvidence": "admission.json",
+      "supplierCalls": 0,
+      "dailyDatabaseReads": 0,
+      "nativeProcesses": 0
+    }
+  ]
+}

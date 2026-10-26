@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "scope": "T07 Session/context boundaries; real SQLite/coordinator/runtime, fake backend evidence only, no models",
+  "groups": 13,
+  "checks": [
+    "Cold native input requires trusted quiescent terminal evidence; anchor replay and a fresh SQLite connection restore the same native identity across Invocations.",
+    "API Sessions remain reconstructable metadata with no native ID, resume token or SDK anchor capability.",
+    "Two SQLite connections enforce Session CAS: a stale writer cannot replace the winning native identity or append an orphan context version.",
+    "Backend version, model, workspace, information boundary, account config/credential/native identity generation, permission and role/tool changes each create a fresh retained native identity.",
+    "Only included, authorized published sources become possible exposure; private/draft text and another member or owner anchor never cross the Session boundary.",
+    "Recursive source authorization is rechecked across Threads even when local permissions stay unchanged; revoked history forces a new Session and hides the old anchor.",
+    "Unknown execution retains its real claim; neither unconfirmed input nor an explicit cold boundary may silently rotate the active native identity.",
+    "A successful transport delivery without a trusted terminal anchor remains possible exposure and cold-starts after resource release.",
+    "An unexpected backend UUID durably marks reconciliation while preserving the original native ID and lock; no automatic replacement or false anchor is recorded.",
+    "Compaction requires verified native evidence and authorized source provenance; only a terminal anchor covering the exact boundary may resume.",
+    "Seal is an immutable idempotent boundary; it blocks further input and rotates identity only after the old claim is safely released.",
+    "Restoring an older Wake cutoff cannot reuse native memory containing later messages; the new cutoff produces a cold identity after safe release.",
+    "Possible exposure and context sending share one transaction; write failures roll back both, and failed anchors never become recoverable facts."
+  ]
+}

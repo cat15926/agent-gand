@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "status": "RC07 implementation and enumerated layered checks delivered; default-window natural compaction, product seal and actual-index complete native combinations remain unverified",
+  "baselineCommit": "f03648e20c9f17f70f166b0d7628d894e694e6ab",
+  "rc06CommittedAndPushed": true,
+  "remoteMainVerified": "f03648e20c9f17f70f166b0d7628d894e694e6ab",
+  "rc07Committed": false,
+  "rc07Pushed": false,
+  "dailyConfigurationChanged": false,
+  "dailyDatabaseMigrated": false,
+  "defaultMode": "closed",
+  "schemaVersionUnchanged": 35,
+  "historicalMigrationsChanged": false,
+  "historicalEvidenceChanged": false,
+  "unrelatedOutputsExcluded": true,
+  "checks": {
+    "dedicatedGroups": 31,
+    "regressionGroups": 83,
+    "uniqueEnumeratedGroups": 114,
+    "serverTypecheck": "passed",
+    "localDocumentationLinks": "passed",
+    "gitDiffCheck": "passed",
+    "K16And59ScenarioExpectedTexts": "unchanged",
+    "original57OperatorLedgerRows": "unchanged",
+    "nativeLiveSourceProvenance": "passed, independent offline audit; no new supplier calls or acceptance groups",
+    "allEvidenceJson": "valid",
+    "nativeReportRepair": "original retained, only four structural opening braces restored, independent byte comparison passed",
+    "nativeRunnerFinalInjectedRepeat": "passed, excluded from group total"
+  },
+  "verificationSummary": "verification-summary.json",
+  "originalTexts": "original-text-invariance.json",
+  "operatorLedger": "ledger.json",
+  "manifestExcludesSelf": true,
+  "files": [
+    {
+      "path": "apps/server/src/threaded/backendRuntime.ts",
+      "bytes": 18580,
+      "sha256": "f54df4805f36b7102ddc9f15e62d0d80321e7c983c07f5cca1a1ca791bfcae0a"
+    },
+    {
+      "path": "apps/server/src/threaded/backends/claudeSdk.ts",
+      "bytes": 10363,
+      "sha256": "33df7705cc00e8bf0f522674721a7b4e157c4f9aecd3dea5c2edb3e4008da112"
+    },
+    {
+      "path": "apps/server/src/threaded/backends/evidence.ts",
+      "bytes": 15049,
+      "sha256": "3491e72fa4d77d7cef167c60e94cf6699f05f887ec65ce49bbd2f59c02f86c52"
+    },
+    {
+      "path": "apps/server/src/threaded/sessionContextTypes.ts",
+      "bytes": 4440,
+      "sha256": "6a3cb6f8306f6babab9338736ee5a519fc1e43c88c6f3b69c52a2f2d5353786d"
+    },
+    {
+      "path": "docs/architecture/threaded-context-acceptance-v1.md",
+      "bytes": 10045,
+      "sha256": "84a7d762c9b200f9e68882e5533958739ae36f4b2e2878cf376b329d4313f1de"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "bytes": 24163,
+      "sha256": "7f2d6043fe3cbe704e08e9045ee6392285cb79ee260a379ea5730d94dba65201"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 88989,
+      "sha256": "6fb9072ce89d06215010dacc05f84f4dc6eb97a4341d87bf0dd4a54a522a60d9"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 51011,
+      "sha256": "cdcaa5ddc236aef17d4005b9ac1d5a41d231ff8ceab9872c92dc8635fdfcf3d0"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 43106,
+      "sha256": "a7f07592307b83d04e846794719e44b8a90b3f27a51a463e88227ddaac610926"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 25800,
+      "sha256": "005ad4623181f0a0d57c980be4f89485228f3c5373c2e78beb855e2c3f4e5a5a"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/admission-before-fix.json",
+      "bytes": 13930,
+      "sha256": "9fbcdec30d73f2a98a2f82a05c3865ceb238c5b15bd2bf452302a92600f40096"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/admission-development-findings.json",
+      "bytes": 2114,
+      "sha256": "cceb2f5d1c34e23835b59595315fef167f31db3de59e1141befc2404f596d329"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/admission.json",
+      "bytes": 69102,
+      "sha256": "5b66cbc5f0070c1e34cc63ca714ce756688741557698d15759afa5337098a8b1"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/context.json",
+      "bytes": 64646,
+      "sha256": "41ae2c5f43eb041ca49eb3a95f618cb316433aa8a436ac47a51808fc2af1f085"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/docs-check.txt",
+      "bytes": 132,
+      "sha256": "c76e746a84a18be406bb440f2c2d949c722e58756c9d7b63cf0130646d257367"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/ledger.json",
+      "bytes": 2879,
+      "sha256": "14d493683fd872a88c08d7ea799f8ad689d433cf34b15ede66c55fbe49fa760c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/main-injected-cursor-first.json",
+      "bytes": 41922,
+      "sha256": "595b7de71b9a6d3b845662c35cd1f6a4d10e3ec126db3644af6fff4bc953dea5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/main-injected-final.json",
+      "bytes": 256564,
+      "sha256": "a8d25d2192ecedf238744546340266386eef30cba9bd247b6ec2182fcc6e4aec"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/main-injected-first.json",
+      "bytes": 160635,
+      "sha256": "416e86280259c4992f1467972a36c27f2a9ad523b26113486773d68a77c5e7df"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/main-injected-wave-retry.json",
+      "bytes": 66429,
+      "sha256": "10e28107ace24f1ea06ec36da301cef102e592acaa7870d4d2ab1e0c39eed3b5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/main-live-first.json",
+      "bytes": 257139,
+      "sha256": "a0f9fbea3f3a178d8ab14829e02cb2eecea5857b732c8e8af1293020229c694b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-development-findings.json",
+      "bytes": 5506,
+      "sha256": "a129459546b27f19d3fa60c7b6a158cd6363fef35f0c00cb573a1a4c9845d173"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-injected-live-runner.json",
+      "bytes": 125685,
+      "sha256": "901816c6c3373af47e519e899eb928a8704d2096e0c29d4649f63d01ec4643f7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-first-redacted-original.txt",
+      "bytes": 127029,
+      "sha256": "b28544de116932e4b6521d7914213d80f58c50845ee4a264b7ab62844fe63a77"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-first.json",
+      "bytes": 126993,
+      "sha256": "8a12a645e9b3109f6e6505ab7236334a98f91bc0c2ef1d31b6b17d9973048652"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-provenance.json",
+      "bytes": 16759,
+      "sha256": "456eb5600f9d55e6de6c735e2bf5d491c112c7616a454dd48ca60301f64c39ca"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-serialization-repair.json",
+      "bytes": 1300,
+      "sha256": "b504af99c18544ad00858554c27b6a837896f3def453022200abfb6db8afcc5e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-runner-final-injected.json",
+      "bytes": 125685,
+      "sha256": "d1d8f4ce5129f7c23af11d6f12b97a30fbce3bac0dca3a953f2c01e2d243a39b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native-serialization-injected.json",
+      "bytes": 125685,
+      "sha256": "db458655a4d9bdfca06e765871b62451c5ec3581f3e0c6fde78f6e2f55448a2e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/native.json",
+      "bytes": 694787,
+      "sha256": "d8f5994218abd6fe841c4e12a6ad7299ad7b4366940d0de25e54f2461ef4c7f6"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/original-text-invariance.json",
+      "bytes": 14545,
+      "sha256": "9584c99e6a5cad72b44af3ffea15cdc67256f132fec4ee5679c65441efc3113d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/backend-runtime.json",
+      "bytes": 1407,
+      "sha256": "47bc01d8c8a67942902e158a758bcd02ac97de6d9989b1146f7e31656081cc92"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/backends.json",
+      "bytes": 2214,
+      "sha256": "725f85f58c43444f9aecf1c822014bdf8257e2a49ead49be6dc49ebc248d6182"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/context.json",
+      "bytes": 2177,
+      "sha256": "26cb4d16e237c674987344aa17ce69dc138865200732606176c33916530696e7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/production.json",
+      "bytes": 4151,
+      "sha256": "801a4792a9f00b058e2e0b19de54c42ea8a7156a006a064d0a62264dcb4fc930"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/queue.json",
+      "bytes": 1491,
+      "sha256": "1ac6db98fba5f799608b2d94501248ca1082d8371d2626b768d15037ab0dc203"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/resource-integration.json",
+      "bytes": 1101,
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/regressions/session-context.json",
+      "bytes": 2184,
+      "sha256": "2d35fa26cea7d883b7fbd44cd6f415b08607acd6c3188f6f376e8d94e721549d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/server-typecheck-first-failure.txt",
+      "bytes": 337,
+      "sha256": "2ad2004fc676b7d5f0da0648a2f40dc28c602682877d7fc27f4662ad2c560c3c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/server-typecheck.txt",
+      "bytes": 98,
+      "sha256": "fa38638964bf6c604728c0c8d5f9feb19f76b6cf867d4923e44e6cf9e8e9352c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/verification-summary.json",
+      "bytes": 3335,
+      "sha256": "9f7db4c3b0838823cfbdbe2018908badeb8b092258cd3d4218eecbaae89fda93"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc07-context-2026-10-26.md",
+      "bytes": 12561,
+      "sha256": "2718b32e07a9cba5f00069d08ee3a28304905135b94e0f2fea0d4671d2301722"
+    },
+    {
+      "path": "package.json",
+      "bytes": 28534,
+      "sha256": "585182ed0f7429584a53ca4162cc22a735e33638f6e8d357343ccce3c2a66ace"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc07ContextWorker.mjs",
+      "bytes": 2633,
+      "sha256": "c7974c75b97934ea6ff679428f6e2efecf105c4c344fb7493a09d19d8eddd17b"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc07MainGuard.mjs",
+      "bytes": 12630,
+      "sha256": "552d665c520f6630911710ba86d81beab910b9950f8f7270768e6870f66e27f7"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-admission.mjs",
+      "bytes": 11785,
+      "sha256": "80c1991210b5f0166b8fe58f3ceecaed587c1f274fa8824d32b9c7598a0e7e07"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-context.mjs",
+      "bytes": 18961,
+      "sha256": "06ff71d0abc931462ed18cee06a0f5fa030f09d7da23df57253b9cb2d9dccb4b"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-main.mjs",
+      "bytes": 30228,
+      "sha256": "7ac84c6263738adac02c9b4bf2a4bc9ed39ac8c6bc864e76009c885ddb552b52"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-native-real.mjs",
+      "bytes": 20123,
+      "sha256": "b2e208a74259dc6f7280f5be03740070997c13d28348662b104d361a0aedc7bb"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-native.mjs",
+      "bytes": 21119,
+      "sha256": "0b81a0718293be99c544ea0c7f3bd5b0cff550237f3376e151803c4f7e80f669"
+    }
+  ],
+  "limitations": [
+    "Controlled 32k SDK context window does not prove default-window natural compaction.",
+    "Native real-supplier factory uses isolated execution bypass; actual-index complete native combinations remain unverified.",
+    "Seal is a trusted low-level operation without product HTTP/UI entry.",
+    "RC04 natural double-HEAD not_observed, RC05 unknown/timeout and activity availability limitations, RC06 source-write/merge/resource wait/legacy mixing gaps remain.",
+    "No daily deployment, schema migration or runtime activation."
+  ],
+  "independentReadOnlyReview": "Production/API atomic admission, SDK local exposure, metadata validation and transport/ledger guards reviewed; no blocking production issue. Report serialization, strict URL/method guard and evidence-provenance improvements applied separately. B02 stale cumulative total corrected.",
+  "taskFileCountExcludingSelf": 50
+}

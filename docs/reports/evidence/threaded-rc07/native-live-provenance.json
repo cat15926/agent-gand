@@ -1,0 +1,385 @@
+{
+  "ok": true,
+  "stage": "RC07",
+  "date": "2026-10-26T15:51:15.323591+00:00",
+  "kind": "offline_saved_native_evidence_provenance_audit",
+  "acceptanceGroupIncrement": 0,
+  "additionalSupplierCalls": 0,
+  "credentialsRead": false,
+  "databaseConnections": 0,
+  "sourceFilesUnchanged": true,
+  "assertionsPassed": 503,
+  "inputs": {
+    "report": {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-first.json",
+      "sha256": "8a12a645e9b3109f6e6505ab7236334a98f91bc0c2ef1d31b6b17d9973048652",
+      "originalRunDate": "2026-10-26T15:43:00.104Z"
+    },
+    "preservedOriginal": {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-first-redacted-original.txt",
+      "sha256": "b28544de116932e4b6521d7914213d80f58c50845ee4a264b7ab62844fe63a77"
+    },
+    "serializationRepair": {
+      "path": "docs/reports/evidence/threaded-rc07/native-live-serialization-repair.json",
+      "sha256": "b504af99c18544ad00858554c27b6a837896f3def453022200abfb6db8afcc5e",
+      "exactlyFourBudgetAuthorizationOpeningBracesRestored": true,
+      "allOtherBytesUnchanged": true
+    }
+  },
+  "implementationReferences": [
+    {
+      "path": "apps/server/src/threaded/sessionContext.ts",
+      "sha256": "34683a7d4e7fb5bc84f873089c9fa8610bc979b61e1e59194f87466ddb40678b"
+    },
+    {
+      "path": "apps/server/src/threaded/backendRuntime.ts",
+      "sha256": "f54df4805f36b7102ddc9f15e62d0d80321e7c983c07f5cca1a1ca791bfcae0a"
+    },
+    {
+      "path": "scripts/fixtures/threadedBackendRuntimeFixture.mjs",
+      "sha256": "eb4211cf87b18fcde83c738f8c7259f80c1b00d2940c3d0aedf85868e1472a03"
+    },
+    {
+      "path": "scripts/verify-threaded-rc07-native-real.mjs",
+      "sha256": "b2e208a74259dc6f7280f5be03740070997c13d28348662b104d361a0aedc7bb"
+    }
+  ],
+  "method": [
+    "Read production allSources: canonical sorted union of boundary sources, tool exposures, all input intents, and included sources of non-not_sent core send intents for the exact session/version.",
+    "For this factory runner, prepareResources supplies no explicit boundarySources and configured applicationTools defaults to empty. No full tool/boundary/send tables were retained, so this audit reconstructs exact saved input/manifest provenance and separately records that snapshot limitation.",
+    "Derive each input set independently from saved manifest included items and serialized payload IDs; verify payload/body hashes, included ACL observations, native session scope, binding/attempt/wave and inputMaxSeq. Every own member response sourceRef must equal the previous user source, already in the accumulated authorized set.",
+    "Accumulate only sources present by each invocation; match every anchor and the third-invocation compaction to that exact set, then cross-check durable native evidence, observed compact metadata and final native identity.",
+    "Cross-check all five observed HTTP calls against immutable request IDs/body hashes/bindings and saved new ledger authorizations; this is saved-evidence reconciliation, not a new live ledger read."
+  ],
+  "scope": {
+    "sdkVersion": "0.3.288",
+    "actualGuardianAndSdkCli": true,
+    "actualIndexEntry": false,
+    "isolatedWorkerBypass": true,
+    "originalRealSupplierCalls": 5,
+    "syntheticUsage": false,
+    "controlledThreshold": {
+      "nativeEnvironment": {
+        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "100000",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "32000"
+      },
+      "maxContextOverrideAppliedFromInvocation": 3,
+      "syntheticUsage": false,
+      "syntheticReferenceBytes": 44999,
+      "syntheticReferenceHash": "b2f9483ec80e82983b739176e51ee65e5105f9e98777f92a0bce601592ba6cb7",
+      "productionDefaultsChanged": false
+    },
+    "ownerId": "2784084a-11a2-4569-9228-93430b20a30e",
+    "threadId": "c448da62-cb74-4529-b9bd-a5e519218bd3",
+    "agentId": "sdk-member",
+    "session": {
+      "id": "a0f89a33-fa43-4e20-b1c9-f6c3f2ef7239",
+      "version": 1,
+      "nativeId": "919e35a5-3c0d-4a4b-8985-c7c5b29460c9",
+      "resourceKey": "native-session:60d8c3e50a2a3db9a8baaadf8247d3b581dfb9319563adbb3f841403edcf6659"
+    }
+  },
+  "sourceCatalog": [
+    {
+      "messageId": "078321ad-2d66-4b62-a3a8-f60586e349e9",
+      "seq": 1,
+      "origin": "user",
+      "sender": {
+        "kind": "user"
+      },
+      "bodyHash": "773b18cfb37d256f125e5b1bd58cd8dad711d21962b98484474777384f08d0aa",
+      "sourceRefs": [],
+      "firstManifestId": "09cfdcc1-de2b-4807-a26e-f59206c752fc",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2",
+      "seq": 2,
+      "origin": "agent_response",
+      "sender": {
+        "kind": "agent",
+        "agentId": "sdk-member"
+      },
+      "bodyHash": "20464b2d166ca30f26440ce0927808a02317ec4802a2d3248453875ce5e97d7f",
+      "sourceRefs": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9"
+      ],
+      "firstManifestId": "eab00b08-2454-4e11-a6c5-e0a45493f0bf",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+      "seq": 3,
+      "origin": "user",
+      "sender": {
+        "kind": "user"
+      },
+      "bodyHash": "5e9d908fc1145eaac4850af0adfb6d7de0aae3b4383d4ee21603f3896a9a3f55",
+      "sourceRefs": [],
+      "firstManifestId": "eab00b08-2454-4e11-a6c5-e0a45493f0bf",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "a35377d9-e0d2-490a-9189-3037783c7460",
+      "seq": 4,
+      "origin": "agent_response",
+      "sender": {
+        "kind": "agent",
+        "agentId": "sdk-member"
+      },
+      "bodyHash": "20464b2d166ca30f26440ce0927808a02317ec4802a2d3248453875ce5e97d7f",
+      "sourceRefs": [
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a"
+      ],
+      "firstManifestId": "e8440ee0-3f84-44ad-948b-871ba3b70ccb",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+      "seq": 5,
+      "origin": "user",
+      "sender": {
+        "kind": "user"
+      },
+      "bodyHash": "4a935aa0fc88038d583c92d7f5e2f29736cc4830360809e63c0701867bc52681",
+      "sourceRefs": [],
+      "firstManifestId": "e8440ee0-3f84-44ad-948b-871ba3b70ccb",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "eb7c3698-883e-4892-9d2d-21497530d22e",
+      "seq": 6,
+      "origin": "agent_response",
+      "sender": {
+        "kind": "agent",
+        "agentId": "sdk-member"
+      },
+      "bodyHash": "20464b2d166ca30f26440ce0927808a02317ec4802a2d3248453875ce5e97d7f",
+      "sourceRefs": [
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd"
+      ],
+      "firstManifestId": "6c00de5d-8899-4509-be73-8ffceeb3d474",
+      "acl": "allowed"
+    },
+    {
+      "messageId": "35b31dbb-57b1-41c9-8178-e29e7d521766",
+      "seq": 7,
+      "origin": "user",
+      "sender": {
+        "kind": "user"
+      },
+      "bodyHash": "ae476c12d3c7eafc160c5d022c832aca919120bfc4c43b281876eca278fba66a",
+      "sourceRefs": [],
+      "firstManifestId": "6c00de5d-8899-4509-be73-8ffceeb3d474",
+      "acl": "allowed"
+    }
+  ],
+  "perInvocation": [
+    {
+      "invocation": 1,
+      "invocationId": "fa3803c1-cc9a-4589-a894-9e7468af1d2b",
+      "bindingId": "8a9a1a6d-1fe3-4ca1-a667-8935d4f55190",
+      "sourceMessageId": "078321ad-2d66-4b62-a3a8-f60586e349e9",
+      "manifestId": "09cfdcc1-de2b-4807-a26e-f59206c752fc",
+      "manifestPayloadSha256": "2ed497fbbafe075b6631678ab50f03bc33fd2f6d706fff0ef9bf6d8390edc9f3",
+      "inputIntentId": "850df0d1-14b2-4aa4-9eed-9cf40ec4997a",
+      "inputIntentSeq": 1,
+      "includedSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9"
+      ],
+      "expectedAccumulatedSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9"
+      ],
+      "actualAnchorSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9"
+      ],
+      "anchorId": "46df5b22-4f59-4fa4-9a92-fc38d74f214e",
+      "anchorReceiptId": "71a44236-d958-4fe3-9c6e-a3eaddc5c487",
+      "nativeEventId": "cdc2ae07-a923-44c7-b931-470b842d0e1f",
+      "resumeMode": "cold",
+      "resumeFromAnchorId": null,
+      "exactSourceSet": true
+    },
+    {
+      "invocation": 2,
+      "invocationId": "c8690297-2618-42c4-9745-daaab7d1c717",
+      "bindingId": "3a941a45-7abe-44d1-a7ba-b47deb69c3f1",
+      "sourceMessageId": "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+      "manifestId": "eab00b08-2454-4e11-a6c5-e0a45493f0bf",
+      "manifestPayloadSha256": "8715090a670491d06bbcd701a8508c987bd3bf651009406c141279d34f71f25a",
+      "inputIntentId": "b1739e4f-e34c-455a-bc60-68835116da53",
+      "inputIntentSeq": 2,
+      "includedSourceMessageIds": [
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+      ],
+      "expectedAccumulatedSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+      ],
+      "actualAnchorSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+      ],
+      "anchorId": "06f30915-036b-4442-9795-6e92fedc73de",
+      "anchorReceiptId": "881f8fa9-110d-4864-b8ef-e507d0035c7a",
+      "nativeEventId": "c22a028c-3b0e-4433-895b-d90b15010661",
+      "resumeMode": "resume",
+      "resumeFromAnchorId": "46df5b22-4f59-4fa4-9a92-fc38d74f214e",
+      "exactSourceSet": true
+    },
+    {
+      "invocation": 3,
+      "invocationId": "efcc3a9b-3448-48a8-862e-8da0c51a4f31",
+      "bindingId": "84584a17-762b-4e56-a43f-2c48d67ff7c0",
+      "sourceMessageId": "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+      "manifestId": "e8440ee0-3f84-44ad-948b-871ba3b70ccb",
+      "manifestPayloadSha256": "cf315cec18362a7d42f899d08dfdcfbc63a7bf669ec9bf7cf5cc147898a43d9c",
+      "inputIntentId": "582dd600-b7fb-4beb-bb6d-f8655f769a46",
+      "inputIntentSeq": 3,
+      "includedSourceMessageIds": [
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+        "a35377d9-e0d2-490a-9189-3037783c7460"
+      ],
+      "expectedAccumulatedSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "a35377d9-e0d2-490a-9189-3037783c7460",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+      ],
+      "actualAnchorSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "a35377d9-e0d2-490a-9189-3037783c7460",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+      ],
+      "anchorId": "6c493921-00f7-458f-bbee-badd106c498b",
+      "anchorReceiptId": "bdd57c69-cb2d-4f73-aca0-ea2b0d77402f",
+      "nativeEventId": "beac9242-8aca-478d-8fe4-af6f61964931",
+      "resumeMode": "resume",
+      "resumeFromAnchorId": "06f30915-036b-4442-9795-6e92fedc73de",
+      "exactSourceSet": true
+    },
+    {
+      "invocation": 4,
+      "invocationId": "f02fb22c-e15f-4d08-911b-30320c9f1245",
+      "bindingId": "12818c64-9d17-43c4-b095-68833b571bbf",
+      "sourceMessageId": "35b31dbb-57b1-41c9-8178-e29e7d521766",
+      "manifestId": "6c00de5d-8899-4509-be73-8ffceeb3d474",
+      "manifestPayloadSha256": "b97d813b048119ced1d0de805580b1c141f90bd5b52132c400208c79f6f32b52",
+      "inputIntentId": "eeeaa7e7-dc47-460b-a4ac-9b22afbda086",
+      "inputIntentSeq": 4,
+      "includedSourceMessageIds": [
+        "35b31dbb-57b1-41c9-8178-e29e7d521766",
+        "eb7c3698-883e-4892-9d2d-21497530d22e"
+      ],
+      "expectedAccumulatedSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "35b31dbb-57b1-41c9-8178-e29e7d521766",
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "a35377d9-e0d2-490a-9189-3037783c7460",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2",
+        "eb7c3698-883e-4892-9d2d-21497530d22e"
+      ],
+      "actualAnchorSourceMessageIds": [
+        "078321ad-2d66-4b62-a3a8-f60586e349e9",
+        "35b31dbb-57b1-41c9-8178-e29e7d521766",
+        "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+        "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+        "a35377d9-e0d2-490a-9189-3037783c7460",
+        "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2",
+        "eb7c3698-883e-4892-9d2d-21497530d22e"
+      ],
+      "anchorId": "ad6e810c-cbae-4942-8ca4-1129ad39ce49",
+      "anchorReceiptId": "ab7775e3-d21d-4b62-9d13-258293eeaa80",
+      "nativeEventId": "c3608cd6-5df6-4852-9972-74fa6a16e889",
+      "resumeMode": "resume",
+      "resumeFromAnchorId": "6c493921-00f7-458f-bbee-badd106c498b",
+      "exactSourceSet": true
+    }
+  ],
+  "compaction": {
+    "eventId": "c92a6293-0b00-413b-b959-514db7a5da2d",
+    "nativeEventId": "1472d1fe-421b-4e20-9eb7-db4d990b4516",
+    "bindingId": "84584a17-762b-4e56-a43f-2c48d67ff7c0",
+    "manifestId": "e8440ee0-3f84-44ad-948b-871ba3b70ccb",
+    "duringInvocation": 3,
+    "boundary": "716bbf1d-f2e0-45fd-ae79-ceff2fcc255d",
+    "nativeId": "919e35a5-3c0d-4a4b-8985-c7c5b29460c9",
+    "metadata": {
+      "trigger": "auto",
+      "preTokens": 33046,
+      "postTokens": 1404,
+      "durationMs": 16546
+    },
+    "expectedSourceMessageIds": [
+      "078321ad-2d66-4b62-a3a8-f60586e349e9",
+      "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+      "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+      "a35377d9-e0d2-490a-9189-3037783c7460",
+      "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+    ],
+    "actualSourceMessageIds": [
+      "078321ad-2d66-4b62-a3a8-f60586e349e9",
+      "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+      "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+      "a35377d9-e0d2-490a-9189-3037783c7460",
+      "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2"
+    ],
+    "exactSourceSet": true,
+    "sourceClassification": {
+      "user": 3,
+      "ownPriorAgentResponse": 2
+    },
+    "platformSummaryIsNull": true,
+    "observedMetadataMatchesPersistedWhitelist": true
+  },
+  "finalAnchor": {
+    "id": "ad6e810c-cbae-4942-8ca4-1129ad39ce49",
+    "sourceMessageIds": [
+      "078321ad-2d66-4b62-a3a8-f60586e349e9",
+      "35b31dbb-57b1-41c9-8178-e29e7d521766",
+      "7f6a3a27-a53b-4c49-88f5-842f6d8f6efd",
+      "836afe2e-84fb-477d-80f4-fbdb08e8eb9a",
+      "a35377d9-e0d2-490a-9189-3037783c7460",
+      "ce876931-1a5d-4fd3-b64e-17bf3cbcdcd2",
+      "eb7c3698-883e-4892-9d2d-21497530d22e"
+    ],
+    "exactSourceSet": true,
+    "sourceClassification": {
+      "user": 4,
+      "ownPriorAgentResponse": 3
+    },
+    "nativeId": "919e35a5-3c0d-4a4b-8985-c7c5b29460c9",
+    "compactionBoundary": "716bbf1d-f2e0-45fd-ae79-ceff2fcc255d",
+    "sameNativeAndLatestBoundary": true,
+    "allFourResultsRetainedMarker": true
+  },
+  "requestAndSavedLedgerReconciliation": {
+    "requestCount": 5,
+    "uniqueAuthorizationCount": 5,
+    "knownTokens": 107258,
+    "newUnknownReserve": 0,
+    "priorUnknownReserveRetained": 206832,
+    "reportedCumulativeUsage": {
+      "knownTokens": 187283,
+      "unknownReserve": 206832
+    },
+    "tokenLimit": 500000,
+    "allExactRequestBodyHashBindingAuthorizationMatches": true
+  },
+  "auditDevelopmentNote": "First offline assertion incorrectly assumed response sourceRefs were empty. It stopped before writing evidence. Production own-member responses correctly reference the prior user source; the final audit verifies these exact references and their authorized-set membership. This was an audit assumption correction, not a production defect or supplier rerun.",
+  "limitations": [
+    "Offline consistency audit of the repaired saved report; original malformed bytes and exact repair hashes remain retained. No supplier calls, database connections or credential reads were made.",
+    "Native compaction provenance is the conservative set of possible exposed platform inputs, including the third invocation already admitted to the local SDK; it is not a claim that each source appears verbatim in the private native summary.",
+    "The snapshot does not include session-version boundary_sources, tool exposure, core send-intent tables or original message ACL rows. The exact result is independently checked against captured manifest/intent/payload sets and the inspected no-explicit-boundary/no-application-tool scenario, not a fresh replay of ACL policy against the removed isolated database.",
+    "All captured provenance is scoped to the same SDK member and included manifest ACL observations are allowed; this does not create new cross-member leakage or revocation test coverage. Those boundaries remain covered by separate RC07 injected/native scenarios.",
+    "This remains controlled-threshold real-provider native evidence with an isolated factory bypass; it does not establish natural default-threshold compaction or actual-index SDK compaction.",
+    "This supplemental audit does not add a new real acceptance group, alter original run results, or reconcile historical unknown usage."
+  ]
+}

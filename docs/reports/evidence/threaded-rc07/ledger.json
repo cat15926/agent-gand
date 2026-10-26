@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "scope": "RC07 actual index and controlled native factory real supplier calls; existing shared cumulative ledger",
+  "at": "2026-10-26T15:44:53.552987+00:00",
+  "operatorTokenLimit": 500000,
+  "userAuthorizedTokenLimit": 10000000,
+  "originalRows": 57,
+  "addedRows": 11,
+  "originalRowsUnchanged": true,
+  "originalRowsSha256": "589ca4b0862ee991ab521d4e1762edf5a3750eda507d8752ea6b08611c9e10b8",
+  "baselineEvidence": "main-live-first.json#priorLedgerDigest",
+  "baselineDigestMatches": true,
+  "before": {
+    "knownTokens": 70543,
+    "unknownReserve": 206832
+  },
+  "delta": {
+    "knownTokens": 116740,
+    "unknownReserve": 0
+  },
+  "final": {
+    "knownTokens": 187283,
+    "unknownReserve": 206832
+  },
+  "conservativelyChargedTokens": 394115,
+  "remainingWithinSelectedCap": 105885,
+  "addedKnownRequests": 11,
+  "addedUnknownReservations": 0,
+  "addedRequests": [
+    {
+      "id": "121c6092-dcce-49db-b5ab-516c95a873bf",
+      "reserved": 29879,
+      "actual": 5712,
+      "state": "known"
+    },
+    {
+      "id": "277d2780-4beb-4e6b-83c6-3fc7c5510782",
+      "reserved": 28697,
+      "actual": 3101,
+      "state": "known"
+    },
+    {
+      "id": "29b1f152-b76c-4505-b5b3-8ad2ca7089b9",
+      "reserved": 10118,
+      "actual": 355,
+      "state": "known"
+    },
+    {
+      "id": "30d516ce-7a51-4915-b1f4-70231e486fd1",
+      "reserved": 12049,
+      "actual": 1334,
+      "state": "known"
+    },
+    {
+      "id": "3cf70794-722d-48a8-a698-61d92d45bd73",
+      "reserved": 12740,
+      "actual": 1628,
+      "state": "known"
+    },
+    {
+      "id": "3ebf068f-2436-4a4e-a067-fe8ef75377c0",
+      "reserved": 68781,
+      "actual": 32582,
+      "state": "known"
+    },
+    {
+      "id": "4e5b0a89-d088-467a-a792-87667885196a",
+      "reserved": 69684,
+      "actual": 32865,
+      "state": "known"
+    },
+    {
+      "id": "5ffbe961-19c8-4daf-a738-d575694880a2",
+      "reserved": 76165,
+      "actual": 35325,
+      "state": "known"
+    },
+    {
+      "id": "71c330ab-d3fe-4c37-afa8-86c17c89359a",
+      "reserved": 9861,
+      "actual": 222,
+      "state": "known"
+    },
+    {
+      "id": "88cc8681-c18c-49c3-ac50-24dea88c3663",
+      "reserved": 29593,
+      "actual": 3385,
+      "state": "known"
+    },
+    {
+      "id": "8a9acab1-0af4-4ee5-87ed-4bebf2724a08",
+      "reserved": 9861,
+      "actual": 231,
+      "state": "known"
+    }
+  ],
+  "layers": [
+    {
+      "name": "actual index",
+      "requests": 6,
+      "knownTokens": 9482
+    },
+    {
+      "name": "controlled native factory",
+      "requests": 5,
+      "knownTokens": 107258
+    }
+  ],
+  "limitations": [
+    "Historical unknown reserve 206832 remains charged; stopped processes do not prove supplier usage.",
+    "Known token counts do not imply known monetary prices.",
+    "No ledger reset, refund or modification performed by this read-only aggregation."
+  ]
+}

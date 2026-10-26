@@ -1,0 +1,113 @@
+{
+  "stage": "RC07",
+  "date": "2026-10-26",
+  "purpose": "Development observations, excluded from final passing group counts",
+  "entries": [
+    {
+      "name": "native-third.json",
+      "sha256": "ca88886bd3aefff667207f255c29dff8e1bd6542923373663202002955b80d93",
+      "ok": false,
+      "groups": 3,
+      "failures": [
+        {
+          "id": "automatic-compaction",
+          "code": "ERR_ASSERTION",
+          "message": "RC07_NATIVE_AUTOMATIC_COMPACTION_NOT_OBSERVED",
+          "stack": [
+            "AssertionError [ERR_ASSERTION]: RC07_NATIVE_AUTOMATIC_COMPACTION_NOT_OBSERVED",
+            "    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc07-native.mjs:119:12)",
+            "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+            "    at async scenario (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc07-native.mjs:99:9)",
+            "    at async <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc07-native.mjs:104:3)"
+          ]
+        }
+      ],
+      "realSupplierCalls": 0,
+      "interpretation": "No compact boundary observed with 190000 injected usage and no threshold override; ACL/seal actual native cases passed."
+    },
+    {
+      "name": "native-fourth.json",
+      "sha256": "f1b36bb9608e6811f8dcefad2de80657cd25b8ab28b7a74f88ee3e916f911ca5",
+      "ok": true,
+      "groups": 5,
+      "failures": [],
+      "realSupplierCalls": 0,
+      "interpretation": "Actual SDK auto compact observed using 190000 synthetic usage and controlled environment; early fixture output cap24576 subsequently replaced by8192 final acceptance."
+    },
+    {
+      "name": "short-low-usage.json",
+      "sha256": "766c830fcbdd3e6f523be9368ea4731d9b3597946cdb345ac7a41a242e358e3d",
+      "ok": false,
+      "groups": 0,
+      "failures": [
+        {
+          "code": "ERR_ASSERTION",
+          "message": "RC07_NATIVE_COMPACTION_NOT_OBSERVED"
+        }
+      ],
+      "realSupplierCalls": 0,
+      "interpretation": "glm-5.3 short turns with4000 synthetic usage and100000 window/pct1 did not trigger compact. This is not evidence that1% gives an effective1000-token trigger."
+    },
+    {
+      "name": "initial-small-window.json",
+      "sha256": "af58a6447d55507710ba6ead143db90d6310346e2fa356a52e345102c68b8095",
+      "ok": false,
+      "groups": 0,
+      "failures": [
+        {
+          "code": "ERR_ASSERTION",
+          "message": "{\"invocationId\":\"71778626-bffb-4010-8cbd-e5b0209a4d47\",\"runId\":\"4270732d-34b2-4dda-b285-8704369ac049\",\"status\":\"failed\",\"terminal\":true,\"resourceReleasePending\":false}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n"
+        }
+      ],
+      "realSupplierCalls": 0,
+      "interpretation": "Applying12000 assumed context to the initial large prompt completed no HTTP and produced failed application outcome; not a provider failure."
+    },
+    {
+      "name": "resume-small-window.json",
+      "sha256": "f29b3410f7ae001d03e5f47a6a3478efc006383098d75d8658ae5dcef7982e99",
+      "ok": true,
+      "groups": 1,
+      "failures": [],
+      "realSupplierCalls": 0,
+      "interpretation": "12k override on resume induced SDK compaction, but this configuration was discarded because output+summary buffer could imply a negative threshold. Final real runner uses32k and two completed history groups."
+    }
+  ],
+  "additionalObservedAttempt": {
+    "condition": "32k override with only one completed history group, injected usage19000",
+    "result": "not_observed",
+    "supplierCalls": 0,
+    "interpretation": "Replaced by two completed history groups before applying32k override; SDK requires enough summarized groups unless blocking fallback applies."
+  },
+  "finalEvidence": [
+    "native.json",
+    "native-injected-live-runner.json"
+  ],
+  "productionThresholdsChanged": false,
+  "realSupplierCallsAcrossDevelopment": 0,
+  "officialReferences": [
+    "https://code.claude.com/docs/en/env-vars",
+    "https://code.claude.com/docs/en/model-config"
+  ],
+  "scope": "Installed SDK0.3.288 / Code2.1.288; official current docs are supporting references, observed local behavior governs acceptance.",
+  "realSupplierObservation": {
+    "report": "native-live-first.json",
+    "groups": 1,
+    "requests": 5,
+    "knownTokens": 107258,
+    "unknownReserveAdded": 0,
+    "preTokens": 33046,
+    "postTokens": 1404,
+    "durationMs": 16546,
+    "continuity": "four actual SDK invocations share one native identity; final two anchors cover the observed exact boundary",
+    "trigger": "auto observed under explicit32k assumed custom-model window from invocation3; first2 history groups use100k configured auto-compact window",
+    "naturalDefaultThreshold": "not observed / not tested by this controlled run",
+    "scope": "isolated backend factory, not index.ts; production-compatible8192 output/98304 input/maxRequests4 retained",
+    "summary": "Native summary body stays private. Platform source IDs are conservative authorized possible-source provenance, not a semantic audit of summary fidelity."
+  },
+  "serializationRepair": {
+    "record": "native-live-serialization-repair.json",
+    "original": "native-live-first-redacted-original.txt",
+    "change": "Four credential-redactor replacements affected only budgetAuthorization opening braces; restored structure with business values untouched and exact binding cross-checks. Runner now redacts string values before JSON serialization.",
+    "additionalSupplierCalls": 0
+  }
+}

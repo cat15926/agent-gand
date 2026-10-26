@@ -154,11 +154,14 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
       || resumeAnchor.session.version !== decision.session.version || resumeAnchor.session.nativeId !== decision.session.nativeId)) {
       fail('THREADED_BACKEND_RESUME_ANCHOR_REQUIRED');
     }
-    // Both possible exposure and sending intent exist before any external send.
-    const intent = db.transaction(() => {
-      sessionContext.recordInputIntent(binding, { manifestId: input.contextManifestId, decision, requestId: `input:${binding.attemptId}` });
-      return context.markSending(binding, input.contextManifestId, `input:${binding.attemptId}`);
-    }).immediate();
+    const inputRequestId = `input:${binding.attemptId}`;
+    function recordInputExposure() {
+      sessionContext.recordInputIntent(binding, { manifestId: input.contextManifestId, decision, requestId: inputRequestId });
+      context.markSending(binding, input.contextManifestId, inputRequestId);
+    }
+    // The SDK receives its prompt locally before its first HTTP request. API
+    // input is exposed only after request admission, in the receipt transaction.
+    if (value.kind === 'claude-sdk') db.transaction(recordInputExposure).immediate();
     const requests: BackendPreparedInput['requests'] = {
       begin(requestKey, description) {
         return db.transaction(() => {
@@ -175,6 +178,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
             ? initial : runtime.budget.reserveRequest(binding, `backend:${requestKey}`, { ...value.quote, maxOutputTokens: description.maxOutputTokens });
           options.onRequestReserved?.(authorization.id, description);
           runtime.budget.markStartedWithinTransaction(binding, authorization.id);
+          if (value.kind === 'api') recordInputExposure();
           input.setBudgetAuthorization?.(authorization.id);
           return { id: authorization.id, maxOutputTokens: authorization.maxOutputTokens };
         }).immediate();
@@ -199,8 +203,15 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
         backendVersion: value.backendVersion, cwd: canonicalWorkspace(value.workspace), configDir: canonicalWorkspace(value.configDir),
         resume: decision.mode === 'resume', compactionBoundary: resumeAnchor?.evidence.compactionBoundary },
       assertCurrent() { input.assertAuthorized(); sessionContext.assertForManifest(binding, input.contextManifestId, decision); },
-      delivery(status, reference) { context.recordDeliveryOutcome(binding, { intentId: intent.id, status,
-        evidence: { key: reference, reference, nativeId: decision.session.nativeId } }); },
+      delivery(status, reference) {
+        // Never cache an ID created in requests.begin: its outer receipt write
+        // may have rolled back. Historical delivery uses only persisted input.
+        const intent = db.prepare('SELECT id FROM threaded_context_send_intents WHERE binding_id=? AND request_key=?')
+          .get(binding.id, inputRequestId) as { id: string } | undefined;
+        if (!intent) return fail('THREADED_CONTEXT_SEND_INTENT_REQUIRED');
+        context.recordDeliveryOutcome(binding, { intentId: intent.id, status,
+          evidence: { key: reference, reference, nativeId: decision.session.nativeId } });
+      },
       nativeEvent(event) {
         if(event.type==='tool')db.prepare('INSERT OR IGNORE INTO threaded_tool_receipts VALUES(?,?,?,?,?,?,?)').run(binding.id,
           `native:${event.id}`,event.name,hash(event),JSON.stringify({result:{native:true,completed:true},readSourceIds:[]}),1,options.now?.()??Date.now());

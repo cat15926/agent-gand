@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "groups": 7,
+  "checks": [
+    "One actual API request uses the canonical ACL-filtered frozen manifest, real receipt verifiers, request budget and delivery cursor; seen/mention remain absent and capacity releases only after terminal commit",
+    "A blocked input manifest parks the original Invocation, proves no send, refunds unused request quota and releases capacity without spinning through Attempts",
+    "A rejected actual transport preserves unknown process/request/context evidence and cannot release or replay its source",
+    "A cursor-write failure is repaired from the exact durable backend receipt after terminal commit; repeated recovery adds no delivery and performs no second model call",
+    "The operator acceptance token cap runs inside request admission before transport or actual-request start, so quota refusal cannot emit provider bytes",
+    "The trusted account provider cap limits two API members and mixed legacy/new calls even when global, Thread and account capacities allow more",
+    "A verified compaction boundary survives a resumed Invocation with no new compact; anchor persistence failure preserves known quiescence and forces the next native identity cold"
+  ],
+  "realModelCalls": 0,
+  "externalCalls": 0,
+  "scope": "Isolated SQLite and injected HTTP; SDK continuity uses real loopback with an injected process port, no native process proof claim"
+}

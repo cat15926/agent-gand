@@ -1,0 +1,5 @@
+
+> agent-gand@0.1.0 verify:docs /Users/ruhonglin/lhz/agent-gand
+> node scripts/verify-doc-links.mjs
+
+文档本地链接校验通过

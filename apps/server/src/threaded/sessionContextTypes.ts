@@ -56,6 +56,13 @@ export interface ThreadedSessionCompactionEvidence {
   nativeId: string;
   backendVersion: string;
   boundary: string;
+  /** SDK-observed facts only. Legacy records may omit this; absence never proves automatic compaction. */
+  metadata?: {
+    trigger: 'auto' | 'manual' | 'unknown';
+    preTokens?: number;
+    postTokens?: number;
+    durationMs?: number;
+  };
 }
 export interface ThreadedSessionSummary {
   text: string;

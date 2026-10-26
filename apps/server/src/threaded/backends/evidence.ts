@@ -155,10 +155,23 @@ export function createThreadedBackendEvidence(db: Database.Database, options: { 
         VALUES(?,?,?,?,?,'anchor',?,?)`).run(id,binding.id,prepared.contextManifestId,value.nativeId,value.backendVersion,JSON.stringify(value),now());
       return value;
     },
-    nativeCompaction(binding:ThreadedBinding,prepared:BackendPreparedInput,boundary:string) {
+    nativeCompaction(binding:ThreadedBinding,prepared:BackendPreparedInput,boundary:string,compactMetadata?:unknown) {
       if(!prepared.session.nativeId)fail('THREADED_BACKEND_NATIVE_ID_REQUIRED');
+      let metadata:NonNullable<ThreadedSessionCompactionEvidence['metadata']>={trigger:'unknown'};
+      if(compactMetadata!==undefined) {
+        if(!compactMetadata||typeof compactMetadata!=='object'||Array.isArray(compactMetadata))fail('THREADED_BACKEND_COMPACTION_METADATA_INVALID');
+        const value=compactMetadata as Record<string,unknown>;
+        if(value.trigger!=='auto'&&value.trigger!=='manual'||!Number.isSafeInteger(value.pre_tokens)||Number(value.pre_tokens)<0
+          ||value.post_tokens!==undefined&&(!Number.isSafeInteger(value.post_tokens)||Number(value.post_tokens)<0)
+          ||value.duration_ms!==undefined&&(typeof value.duration_ms!=='number'||!Number.isFinite(value.duration_ms)||value.duration_ms<0)) {
+          fail('THREADED_BACKEND_COMPACTION_METADATA_INVALID');
+        }
+        metadata={trigger:value.trigger as 'auto'|'manual',preTokens:value.pre_tokens as number,
+          ...(value.post_tokens===undefined?{}:{postTokens:value.post_tokens as number}),
+          ...(value.duration_ms===undefined?{}:{durationMs:value.duration_ms as number})};
+      }
       const id=randomUUID(),value:ThreadedSessionCompactionEvidence={reference:`threaded-backend-native:${id}`,
-        nativeId:prepared.session.nativeId!,backendVersion:prepared.session.backendVersion,boundary};
+        nativeId:prepared.session.nativeId!,backendVersion:prepared.session.backendVersion,boundary,metadata};
       db.prepare(`INSERT INTO threaded_backend_native_events(id,binding_id,manifest_id,native_id,backend_version,kind,record,created_at)
         VALUES(?,?,?,?,?,'compact',?,?)`).run(id,binding.id,prepared.contextManifestId,value.nativeId,value.backendVersion,JSON.stringify(value),now());
       return value;

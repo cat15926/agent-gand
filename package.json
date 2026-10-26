@@ -219,7 +219,12 @@
     "verify:threaded-rc06-concurrency": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc06-concurrency.mjs",
     "verify:threaded-rc06-native": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc06-native.mjs",
     "verify:threaded-rc06-workspace": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc06-workspace.mjs",
-    "verify:threaded-rc06-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc06-main.mjs"
+    "verify:threaded-rc06-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc06-main.mjs",
+    "verify:threaded-rc07-context": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-context.mjs",
+    "verify:threaded-rc07-admission": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-admission.mjs",
+    "verify:threaded-rc07-native": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native.mjs",
+    "verify:threaded-rc07-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-main.mjs",
+    "verify:threaded-rc07-native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native-real.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

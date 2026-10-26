@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-24（Asia/Shanghai）。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同已推送 `ee751a3`；RC04实现和所列隔离验收已推送 `d831a70`，真实观察609秒/71 GET后为not_observed、完整真实链未通过；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时；RC06已实施且所列分层41组通过，尚未整体验收关闭，变更未提交。代码schema保持v35，日常仍closed、未配置/迁移；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
+状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-26（Asia/Shanghai）。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同已推送 `ee751a3`；RC04实现和所列隔离验收已推送 `d831a70`，真实观察609秒/71 GET后为not_observed、完整真实链未通过；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时；RC06已实施且所列分层41组通过，尚未整体验收关闭，已推送`f03648e`。RC07实现及所列分层验收完成，默认窗口自然压缩/产品seal及实际index完整原生组合仍未验，尚未整体验收关闭，当前变更未提交。代码schema保持v35，日常仍closed、未配置/迁移；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -142,6 +142,8 @@ exclusive claim 和 thread-slot claim 必须在同一原子竞争机制中看到
 
 分开保存平台接收、上下文投递和业务完成；同时区分 `delivery`、`seen`、`mention_ack`。游标只作加速，单条投递账本处理 ACL 空洞、补投和乱序；后端发送结果未知时不能直接前移游标。权限收缩后冷开或用重新授权的摘要重建，会话不能靠关闭 ACL 获得连续性。
 
+RC07 的补验范围与新边界见[上下文验收合同](../architecture/threaded-context-acceptance-v1.md)：区分来源消息超限与完整 HTTP envelope 超限，核验序号空洞、同波冻结、游标写失败修复、压缩来源和权限收缩。API 仅在完整请求通过准入后记录可能曝光；SDK 在本地 prompt 交付前记录可能曝光。两者不能用“0 fetch”统一推断未曝光。实际 SDK 的合成用量触发、可信低层 seal 与真实供应商行为分层记证；所列分层已通过，受控窗口真实供应商压缩另有证据，默认窗口自然压缩仍未验。
+
 恢复顺序为：schema/策略 → 外部进程与未知副作用 → 资源与 Session → Invocation/响应/投递/wake/outbox → 等待/征询/Action → 内存投影 → 新派发。每条记录只有一个模式恢复器负责。
 
 | 故障窗口 | 恢复要求 |
@@ -279,13 +281,17 @@ pnpm verify:docs
 
 ## 10 当前交接与下一项工作
 
+RC07实现及所列分层验收完成，默认窗口自然压缩/产品seal及实际index完整原生组合仍未验，尚未整体验收关闭，当前变更未提交，见[上下文验收合同](../architecture/threaded-context-acceptance-v1.md)及[RC07报告](../reports/threaded-collaboration-rc07-context-2026-10-26.md)。已修复 API 完整 envelope 本地拒绝、0 fetch 时仍提前留下 sending/input_intent 的缺口；实际入口证据确认拒绝后新 Invocation 可继续。输入可能曝光、请求预算启动和 backend receipt 在外层事务原子提交，receipt 写失败整体回滚；SDK 本地 prompt 前保留曝光。压缩事件增加 auto/manual/unknown 来源及 SDK 元数据，不作为供应商计费凭据。31组专验＝context7＋admission5＋原生SDK注入7＋实际index注入5＋实际index真实5＋受控窗口原生注入1＋受控窗口原生真实1；相关83组＝context14＋session13＋resource integration8＋queue11＋backend runtime7＋backends14＋production16，合计114组通过。实际index注入/真实两层各7个PID，分别包含5场景及cursor/envelope各1次重启。
+
+受控窗口真实供应商验收使用SDK 0.3.288/CLI 2.1.288，4次Invocation、5次HTTP、4个guardian；前两轮100,000窗口，第3/4轮仅在隔离验收环境设置`CLAUDE_CODE_MAX_CONTEXT_TOKENS=32000`，44,999字节合成参考文本的实际用量与压缩摘要均来自供应商，auto事件后按同nativeId及精确boundary续接。该层使用factory隔离执行bypass，不是实际index或默认窗口自然压缩；生产模型正常窗口未改，seal仅通过可信低层端口验收，无HTTP/UI入口。RC07新增11个实际请求全部获得已知用量，新增确认116,740＝主入口9,482＋原生受控压缩107,258 token，新增unknown为0；累计确认187,283＋历史未知206,832＝保守占额394,115，累计50万门禁余105,885。原57行账本保持不变，历史未知不因本轮成功释放；详见[RC07报告](../reports/threaded-collaboration-rc07-context-2026-10-26.md)与[账本核对](../reports/evidence/threaded-rc07/ledger.json)。代码schema 35、日常closed且未配置/迁移不变。
+
 T01–T12阶段代码及所列证据已提交推送，最新为T12 `b99997a`；T12整体发布验收仍未完成。T12追加v34，v25–v33源码及descriptor不变，17组迁移验证通过；未迁移日常库、未回写GitHub issue。
 
 T08 17 组协作、4 组后端接线、4 组 HTTP 与14组迁移通过，并通过上下文、预算、队列、生命周期、资源、消息和旧路径回归。API/SDK 的真实 read/post 工具通过；首轮征询 SDK cancelled 的失败保留，新隔离征询复验通过唯一 settlement/callback，取消原因未定位，不能声称已修复。T08 新增14实际请求、22,757确认token；T07+T08累计占额75,327（含39,010旧未知预留），低于20万门禁。准确证据及边界见[T08 报告](../reports/threaded-collaboration-t08-tools-waits-2026-10-21.md)。
 
 K01–K16 与59项原场景/预期不变，分层状态见[兼容矩阵](threaded-collaboration-compatibility-matrix.md)。T10责任域与W04注册命令端口代际已实现并分层验证，真实GitHub当前/历史HEAD拒绝及baseline通过；W05远端新事件未观察；T12实际macOS命令端口已验，完整发布条件未全部通过。T11 Review/Revision、SOP和基础知识/ACL已实现并通过所列分层验证；语义检索未实现，MEM01整体未全过。T09的4/4/11组分层验证和实际隔离HTTP进程重启通过，零新增模型请求，见[T09报告](../reports/threaded-collaboration-t09-ui-2026-10-21.md)。
 
-**RC01、RC02已按记录范围完成；RC03首批选定生产命令、等待合同与所列隔离验收已推送 `ee751a3`。RC04实现和所列隔离验收已推送 `d831a70`，真实自然事件链尚未通过，当前609秒/71 GET未观察到新HEAD；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时。RC06已实施且所列分层41组通过，尚未整体验收关闭、变更未提交。**[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)已对照Session/预算/hold/工作区/语义实际链，66组隔离回归通过，K01–K16共16条核心合同及59项原文不变；确认的hold来源/SLA恢复/命令准入和工程映射已由RC03按首批范围交付，实际工程竞争交RC06，独立语义检索交EXT01。本地完整Session指纹与根预算作为适配/增强登记，不称上游同形同参。固定pack与根授权、独立入场/派发、只读observe、启动屏障/有界退出、macOS注册命令及分层恢复已实现，见[发布合同](../architecture/threaded-release-v1.md)、[手册](../operations/threaded-release-runbook.md)和[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。7组release、16组production、9组24个恢复进程、4组实际index、8组macOS、5组实际Chrome通过；日常服务没有启用。真实API五工具与修复后SDK五工具/隔离HTTP服务原生续接通过，前两次失败保留，实际远端等待未观察到新HEAD；完整真实组合和发布条件未全部通过。当前事实见[实施状态](threaded-collaboration-implementation-status.md)，具体优先级、依赖及退出条件见[剩余实施与验收计划](threaded-collaboration-remaining-plan.md)。
+**RC01、RC02已按记录范围完成；RC03首批选定生产命令、等待合同与所列隔离验收已推送 `ee751a3`。RC04实现和所列隔离验收已推送 `d831a70`，真实自然事件链尚未通过，当前609秒/71 GET未观察到新HEAD；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时。RC06已实施且所列分层41组通过，尚未整体验收关闭，已推送`f03648e`。**[RC01报告](../reports/threaded-collaboration-rc01-contracts-2026-10-22.md)已对照Session/预算/hold/工作区/语义实际链，66组隔离回归通过，K01–K16共16条核心合同及59项原文不变；确认的hold来源/SLA恢复/命令准入和工程映射已由RC03按首批范围交付，实际工程竞争交RC06，独立语义检索交EXT01。本地完整Session指纹与根预算作为适配/增强登记，不称上游同形同参。固定pack与根授权、独立入场/派发、只读observe、启动屏障/有界退出、macOS注册命令及分层恢复已实现，见[发布合同](../architecture/threaded-release-v1.md)、[手册](../operations/threaded-release-runbook.md)和[报告](../reports/threaded-collaboration-t12-release-2026-10-21.md)。7组release、16组production、9组24个恢复进程、4组实际index、8组macOS、5组实际Chrome通过；日常服务没有启用。真实API五工具与修复后SDK五工具/隔离HTTP服务原生续接通过，前两次失败保留，实际远端等待未观察到新HEAD；完整真实组合和发布条件未全部通过。当前事实见[实施状态](threaded-collaboration-implementation-status.md)，具体优先级、依赖及退出条件见[剩余实施与验收计划](threaded-collaboration-remaining-plan.md)。
 
 RC02已将受信GitHub PR/tracking来源接入实际生产factory，使用固定owner/Thread/Agent/repo/PR、版本化环境凭据与官方/user身份核验，并修复持久tracking事件及暂停回调的撤权窗口；18组专用与54组相关隔离回归通过，真实provider7项/8次官方GET通过，无真实模型调用。详见[合同](../architecture/threaded-github-production-v1.md)及[报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)；日常未配置/启用，真实新HEAD完整链仍交RC04。
 
@@ -297,9 +303,9 @@ RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定�
 
 RC05新增51组及相关回归99组、合计150组通过。新增通过范围实际index共58个PID：注入主入口19、停机等待18、慢SSE拒写2、真实故障核心14、真实活动片3、真实回执I/O 2；该数不含失败尝试及历史回归进程。覆盖所列未发安全重试、可能已发unknown不重放、终态/后继、API与SDK在途、审批/撤权、存储I/O及SLA/PID边界；不据此声明完整模式或发布通过。默认1秒片下1250ms同步准备只能阻断并保留unknown，可用性仍有限；所验Owner显式10秒片不放宽其他总限额或绝对deadline。SDK宿主已停止与持久registered/unknown、供应商用量分别核验，后两项交RC09，不因进程消失释放围栏。
 
-两次真实extended诊断超时各保留12,918 token未知预留，未证明与本地timer的EXIT1同根因；首次真实terminal断言误把后继相同文本当原响应重复，属于验收断言问题，失败证据保留。RC05新增确认1,845、未知预留97,271 token；RC05结束时共享账本累计确认65,181、未知187,029，保守占额252,210，原89,758未知预留及原33行保留。RC06新增确认5,362、未知预留19,803，当前累计确认70,543、未知206,832、保守占额277,375；累计50万门禁余222,625，未知预留不因宿主停止释放。日常未迁移/启用，RC04仍not_observed。
+两次真实extended诊断超时各保留12,918 token未知预留，未证明与本地timer的EXIT1同根因；首次真实terminal断言误把后继相同文本当原响应重复，属于验收断言问题，失败证据保留。RC05新增确认1,845、未知预留97,271 token；RC05结束时共享账本累计确认65,181、未知187,029，保守占额252,210，原89,758未知预留及原33行保留。RC06新增确认5,362、未知预留19,803，RC06结束时累计确认70,543、未知206,832、保守占额277,375；累计50万门禁余222,625，未知预留不因宿主停止释放。日常未迁移/启用，RC04仍not_observed。
 
-RC06已实施且所列分层41组通过，尚未整体验收关闭，变更未提交，见[并发/工程验收合同](../architecture/threaded-concurrency-workspace-acceptance-v1.md)及[RC06报告](../reports/threaded-collaboration-rc06-concurrency-2026-10-24.md)。41组为[协调器16组](../reports/evidence/threaded-rc06/concurrency.json)、[原生宿主6组](../reports/evidence/threaded-rc06/native.json)、[工作区9组](../reports/evidence/threaded-rc06/workspace.json)、[实际index注入5组](../reports/evidence/threaded-rc06/main-injected-final.json)及[实际index真实供应商5组](../reports/evidence/threaded-rc06/main-live-first.json)。实际index两层分别验证同键重试、同槽、跨Thread同Agent、只取消A而B继续、容量释放再入队；真实供应商证据不外推全部账号/后端/故障。多PID资源锁、实际SDK guardian、真实本地工程父子路径读写及生产工厂接线分别留证，模型传输注入的层不标为真实供应商；不以这些组数推导RC06全部退出条件或完整模式通过。
+RC06已实施且所列分层41组通过，尚未整体验收关闭，已推送`f03648e`，见[并发/工程验收合同](../architecture/threaded-concurrency-workspace-acceptance-v1.md)及[RC06报告](../reports/threaded-collaboration-rc06-concurrency-2026-10-24.md)。41组为[协调器16组](../reports/evidence/threaded-rc06/concurrency.json)、[原生宿主6组](../reports/evidence/threaded-rc06/native.json)、[工作区9组](../reports/evidence/threaded-rc06/workspace.json)、[实际index注入5组](../reports/evidence/threaded-rc06/main-injected-final.json)及[实际index真实供应商5组](../reports/evidence/threaded-rc06/main-live-first.json)。实际index两层分别验证同键重试、同槽、跨Thread同Agent、只取消A而B继续、容量释放再入队；真实供应商证据不外推全部账号/后端/故障。多PID资源锁、实际SDK guardian、真实本地工程父子路径读写及生产工厂接线分别留证，模型传输注入的层不标为真实供应商；不以这些组数推导RC06全部退出条件或完整模式通过。
 
 RC06相关回归88组通过：resources19、resource integration8、queue11、backend runtime7、production16、legacy resources11、production commands10、RC03 production2、command admission4；与41组专验合计129组。strict overlap重复补验1组不额外计数。backend-runtime[首轮失败](../reports/evidence/threaded-rc06/regressions/backend-runtime-first-failure.json)为未提权环境下unknown不等于预期completed；独立loopback探针EPERM只是候选，未证实原始原因。保留失败JSON与[单独提权7组通过](../reports/evidence/threaded-rc06/regressions/backend-runtime-retry.json)，不宣称根因已定位或生产修复。
 

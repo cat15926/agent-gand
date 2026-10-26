@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-24。适用 schema 35（RC03前向追加，RC06无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-26。适用 schema 35（RC03前向追加，RC06/RC07无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -182,6 +182,16 @@ Thread grant 冻结 backend、backendVersion、model、角色版本、权限版�
 注册命令补充非容量资源时不另占模型服务轮次，也不更新模型Thread公平性；无冲突模型候选领先不再单独阻塞命令。active或更早有效eligible pending 的真实非容量资源冲突仍挡。真正冲突的单次reserve仍可能保留业务command unknown并回滚OS intent/claim；没有持久等待后自动重试启动保证，不能删unknown或换键盲重放。
 
 RC06真实供应商新增5362已知token和19803未知预留；在RC05历史账本基础上累计已知70543、未知206832，共277375 token保守占额，原未知项及账本行保持。验收根显式选10000ms片长，默认1000ms不变。RC04完整真实链仍not_observed，RC05两轮未定位超时和未知费用限制继续保留。日常仍closed、未配置/迁移；本轮成功不授权日常启用、扩大工具或清除旧unknown。
+
+### RC07 上下文与原生边界补充
+
+[RC07 合同](../architecture/threaded-context-acceptance-v1.md)和[报告](../reports/threaded-collaboration-rc07-context-2026-10-26.md)已分别记录31组专验、83组回归。API 完整 envelope 超预算在请求准入前拒绝，不写入 input/send intent；应用数据库中的 exposure、预算开始及 sending receipt 受同一外层事务约束。SDK 在本地读取 prompt 前仍记录曝光，不能以零 HTTP 发送抹去原生 Session 已见事实。
+
+游标写失败先保留已完成的精确请求回执；恢复器可据此幂等修复 delivery/cursor，不为补界面或丢失响应重发模型。原未知请求保持围栏，没有可信回执时不推进游标。不同成员同波输入使用冻结 cutoff，不能因为 B 后启动就吸收 A 本波答案。
+
+SDK 压缩现在记录 auto/manual/unknown 及实际提供的 token/耗时元数据，平台仅存保守获权来源和 boundary，不公开私有摘要。RC07 的真实供应商工厂在第3轮起显式采用32k测试窗口后观察到auto与同nativeId续接；该参数不是日常发布配置，默认窗口自然压缩和实际index完整原生组合仍未验。低层seal没有产品HTTP/UI入口；撤权、seal或缺checkpoint后不能恢复兼容锚点时须冷开，不能绕过ACL复用旧摘要。
+
+RC07新增11个真实请求全部已知，确认116,740 token、未知新增0；累计确认187,283、未知206,832，保守占额394,115，选择的累计500,000门禁余105,885。原57行和全部历史unknown未变，详见报告账本；RC06段的277,375为当时快照。未修改默认1000ms活动片、schema35或日常closed状态。RC04、RC05、RC06原未完项和RC09对账要求仍保留，本记录不授权日常启用或生产迁移。
 
 ## 5. 一致性备份与恢复
 
