@@ -1,0 +1,135 @@
+{
+  "ok": true,
+  "date": "2026-10-24",
+  "scope": "RC06 enumerated layers only; the full RC06 milestone is not closed",
+  "dedicatedGroups": 41,
+  "regressionGroups": 88,
+  "uniqueEnumeratedGroups": 129,
+  "dedicated": [
+    {
+      "name": "coordinator",
+      "path": "concurrency.json",
+      "groups": 16,
+      "passed": true,
+      "sha256": "b670e141945d2c209de266632484f2026379537ab750fbe3fe427d2a41cf8f99"
+    },
+    {
+      "name": "native",
+      "path": "native.json",
+      "groups": 6,
+      "passed": true,
+      "sha256": "3fd791967cd3bae402c69fe399957b558b89d8a535c30326520b4b3129b61f45"
+    },
+    {
+      "name": "workspace",
+      "path": "workspace.json",
+      "groups": 9,
+      "passed": true,
+      "sha256": "34d40c0a56299bd903a81e1b1983de1ca53d74de8e4c011e513be892d954783a"
+    },
+    {
+      "name": "main-injected",
+      "path": "main-injected-final.json",
+      "groups": 5,
+      "passed": true,
+      "sha256": "d32a8b75c6f615ff2b9bda9429ace04ba0fef858a607f191a70c5aff42da8644"
+    },
+    {
+      "name": "main-real",
+      "path": "main-live-first.json",
+      "groups": 5,
+      "passed": true,
+      "sha256": "8008fa39acd18907c954ae845273f7bfb748d49f580c67a887e6c3c4427d43bf"
+    }
+  ],
+  "regressions": [
+    {
+      "name": "resources",
+      "path": "regressions/resources.txt",
+      "groups": 19,
+      "passed": true,
+      "sha256": "dfba4df665e7ab4766e5721b88f28d53aaebd5d0803811de25e7780b5e5d79eb"
+    },
+    {
+      "name": "resource-integration",
+      "path": "regressions/resource-integration.json",
+      "groups": 8,
+      "passed": true,
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "name": "queue",
+      "path": "regressions/queue.json",
+      "groups": 11,
+      "passed": true,
+      "sha256": "1ac6db98fba5f799608b2d94501248ca1082d8371d2626b768d15037ab0dc203"
+    },
+    {
+      "name": "backend-runtime",
+      "path": "regressions/backend-runtime-retry.json",
+      "groups": 7,
+      "passed": true,
+      "sha256": "0dc29636a9b2be282defa97a66314c7d6bd423789a00abada386a7fb251d66af"
+    },
+    {
+      "name": "production",
+      "path": "regressions/production.json",
+      "groups": 16,
+      "passed": true,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "name": "legacy-resources",
+      "path": "regressions/legacy-resources.json",
+      "groups": 11,
+      "passed": true,
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    },
+    {
+      "name": "production-commands",
+      "path": "regressions/production-commands.json",
+      "groups": 10,
+      "passed": true,
+      "sha256": "d637eeb2873317e958b5a1c6893d06abff8dc07175ccde7f571271275fac7a9b"
+    },
+    {
+      "name": "rc03-production",
+      "path": "regressions/rc03-production.json",
+      "groups": 2,
+      "passed": true,
+      "sha256": "1e2a863d54752b92244dfe6448888a045da6bbcf13bb02b91b588938e641115b"
+    },
+    {
+      "name": "rc03-command-admission",
+      "path": "regressions/rc03-command-admission.json",
+      "groups": 4,
+      "passed": true,
+      "sha256": "4397b36b3712cbad01072aa3aa4d8ba3f2ce095f96a611f36b9aa8f0f8a0b5a8"
+    }
+  ],
+  "additionalRepeat": {
+    "path": "main-injected-strict-overlap.json",
+    "groups": 1,
+    "notAddedToUniqueCount": true
+  },
+  "retainedFailures": [
+    "main-injected-first.json",
+    "main-injected-second.json",
+    "workspace-development-findings.json",
+    "regressions/backend-runtime-first-failure.json"
+  ],
+  "actualProcessesByLayer": {
+    "coordinatorWorkers": 8,
+    "nativeGuardiansOrSdkCli": 3,
+    "nativeResourceWorkers": 2,
+    "workspaceWorkers": 9,
+    "workspaceCommandGuardians": 2,
+    "mainInjectedIndex": 5,
+    "mainRealIndex": 5
+  },
+  "limitations": [
+    "Counts denote enumerated successful groups and do not erase earlier failed fixtures or establish all K/59 acceptance cases.",
+    "No production engineering source-write/merge tool, persistent waiting/retry for genuinely conflicting commands, full legacy supplier mixed run or multi-host execution is claimed.",
+    "Different-policy same-native contention uses deliberately seeded ready Session metadata."
+  ]
+}

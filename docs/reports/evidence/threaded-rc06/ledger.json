@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "scope": "RC06 cumulative existing shared operator token ledger; old 47 rows reconstructed by exact authorization ID set",
+  "at": "2026-10-23T16:49:54.352Z",
+  "operatorTokenLimit": 500000,
+  "userAuthorizedTokenLimit": 10000000,
+  "originalRows": 47,
+  "addedRows": 10,
+  "originalRowsUnchanged": true,
+  "originalRowsSha256": "0268fcc484f524fa7c718d9073c4dec9ee05d20dc522b4098be0001fb003adc0",
+  "baselineEvidence": "main-live-first.json",
+  "baselineDigestMatches": true,
+  "before": {
+    "knownTokens": 65181,
+    "unknownReserve": 187029
+  },
+  "delta": {
+    "knownTokens": 5362,
+    "unknownReserve": 19803
+  },
+  "final": {
+    "knownTokens": 70543,
+    "unknownReserve": 206832
+  },
+  "conservativelyChargedTokens": 277375,
+  "remainingWithinSelectedCap": 222625,
+  "addedKnownRequests": 9,
+  "addedUnknownReservations": 1,
+  "addedRequests": [
+    {
+      "id": "091f59f9-6273-48a4-a19d-edf3b163d0cc",
+      "reserved": 13211,
+      "actual": 319,
+      "state": "known"
+    },
+    {
+      "id": "5e55f1b7-1ecb-4481-83c3-53a54005d0b6",
+      "reserved": 12921,
+      "actual": 220,
+      "state": "known"
+    },
+    {
+      "id": "7dbeb1ab-6508-4827-8e30-a58c16f78c90",
+      "reserved": 12921,
+      "actual": 243,
+      "state": "known"
+    },
+    {
+      "id": "7fc2042a-716c-44d0-af34-987b83dc1a0e",
+      "reserved": 20137,
+      "actual": 3036,
+      "state": "known"
+    },
+    {
+      "id": "917de1a7-e49e-44fc-87fe-46dfe2617fd7",
+      "reserved": 12898,
+      "actual": 188,
+      "state": "known"
+    },
+    {
+      "id": "a2636957-011e-441b-ab94-04f538d4484e",
+      "reserved": 13829,
+      "actual": 570,
+      "state": "known"
+    },
+    {
+      "id": "ad8a7cb0-a25d-4126-81e6-446186641ce8",
+      "reserved": 12921,
+      "actual": 210,
+      "state": "known"
+    },
+    {
+      "id": "c031a264-ddd6-4453-963a-9d7e3ad63923",
+      "reserved": 13211,
+      "actual": 339,
+      "state": "known"
+    },
+    {
+      "id": "c44830d1-b710-4814-ae00-cd2857c4e532",
+      "reserved": 12921,
+      "actual": 237,
+      "state": "known"
+    },
+    {
+      "id": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+      "reserved": 19803,
+      "actual": null,
+      "state": "reserved"
+    }
+  ],
+  "limitations": [
+    "Historic unknown reservations including 89758 before RC05 and 97271 added in RC05 remain unchanged.",
+    "The interrupted SDK request remains unknown with 19803 tokens reserved; process stop is not usage or price settlement.",
+    "Known tokens do not establish known monetary prices. The user 10000000 token authorization is not a reset of this stricter cumulative 500000 token operator gate."
+  ]
+}

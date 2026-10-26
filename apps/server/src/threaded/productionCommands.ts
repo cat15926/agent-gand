@@ -10,8 +10,8 @@ import {createThreadedOsCommandPort} from './osCommands.ts';
 import {createThreadedOsCommandResources} from './osCommandResources.ts';
 import {digest} from './collaborationTypes.ts';
 
-type Member={threadId:string;agentId:string;workspace:string};
-type Project={id:string;root:string;members:Member[]};
+type Member={threadId:string;agentId:string;workspace:string;workspaceMode?:'isolated'|'shared_project'};
+type Project={id:string;root:string;members:Member[];artifactRoot?:string};
 type Entry={id:string;projectId:string;threadId:string;agentId:string;profile:'project_manifest_v1';cwd:string;readPaths:string[];writeRoot:string;settleDelayMs:number};
 type Configuration={schemaVersion:1;version:number;ownerId:string;projects:Project[];commands:Entry[]};
 type FilePin={path:string;dev:number;ino:number;size:number;mtimeMs:number;ctimeMs:number;sha256:string};
@@ -19,6 +19,8 @@ type DirectoryPin={path:string;dev:number;ino:number};
 type State='registered'|'configuration_changed'|'path_changed'|'inputs_changed';
 const object=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v);
 const keys=(v:Record<string,unknown>,names:string[])=>Object.keys(v).length===names.length&&Object.keys(v).every(k=>names.includes(k));
+const shape=(v:Record<string,unknown>,required:string[],optional:string[])=>required.every(k=>Object.hasOwn(v,k))
+  &&Object.keys(v).every(k=>required.includes(k)||optional.includes(k));
 const id=(v:unknown):v is string=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(v);
 const integer=(v:unknown):v is number=>Number.isSafeInteger(v)&&Number(v)>0;
 const sha=(v:Buffer|string)=>createHash('sha256').update(v).digest('hex');
@@ -67,15 +69,23 @@ function validate(value:unknown,ownerId:string):Configuration{
     ||!Array.isArray(value.commands)||!value.commands.length||value.commands.length>32)fail('THREADED_COMMAND_CONFIGURATION_INVALID');
   const scopes=new Set<string>(),projects=new Set<string>(),commands=new Set<string>();
   for(const p of value.projects){
-    if(!object(p)||!keys(p,['id','root','members'])||!id(p.id)||projects.has(p.id)||typeof p.root!=='string'
+    if(!object(p)||!shape(p,['id','root','members'],['artifactRoot'])||!id(p.id)||projects.has(p.id)||typeof p.root!=='string'
       ||!Array.isArray(p.members)||!p.members.length||p.members.length>100)fail('THREADED_COMMAND_CONFIGURATION_INVALID');
     projects.add(p.id);directoryPin(p.root);
     for(const m of p.members){
-      if(!object(m)||!keys(m,['threadId','agentId','workspace'])||!id(m.threadId)||!id(m.agentId)||typeof m.workspace!=='string'
-        ||m.workspace===p.root||!within(p.root,m.workspace))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
+      if(!object(m)||!shape(m,['threadId','agentId','workspace'],['workspaceMode'])||!id(m.threadId)||!id(m.agentId)||typeof m.workspace!=='string'
+        ||m.workspaceMode!==undefined&&!['isolated','shared_project'].includes(String(m.workspaceMode)))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
+      const shared=m.workspaceMode==='shared_project';
+      if(shared?m.workspace!==p.root:m.workspace===p.root||!within(p.root,m.workspace))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
       directoryPin(m.workspace);const scope=`${m.threadId}:${m.agentId}`;
       if(scopes.has(scope))fail('THREADED_COMMAND_CONFIGURATION_INVALID');scopes.add(scope);
     }
+    const shared=(p.members as Member[]).some(m=>m.workspaceMode==='shared_project');
+    if(shared){
+      if((p.members as Member[]).some(m=>m.workspaceMode!=='shared_project')||typeof p.artifactRoot!=='string'
+        ||within(p.root,p.artifactRoot)||within(p.artifactRoot,p.root))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
+      directoryPin(p.artifactRoot);
+    }else if(p.artifactRoot!==undefined)fail('THREADED_COMMAND_CONFIGURATION_INVALID');
   }
   for(const c of value.commands){
     if(!object(c)||!keys(c,['id','projectId','threadId','agentId','profile','cwd','readPaths','writeRoot','settleDelayMs'])
@@ -84,7 +94,8 @@ function validate(value:unknown,ownerId:string):Configuration{
       ||Number(c.settleDelayMs)<0||Number(c.settleDelayMs)>60_000||!Array.isArray(c.readPaths)||!c.readPaths.length||c.readPaths.length>16
       ||c.readPaths.some(v=>typeof v!=='string'))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
     commands.add(c.id);const p=(value.projects as Project[]).find(p=>p.id===c.projectId),m=p?.members.find(m=>m.threadId===c.threadId&&m.agentId===c.agentId);
-    if(!p||!m||c.writeRoot===p.root||!within(p.root,c.writeRoot)||within(m.workspace,c.writeRoot)||within(c.writeRoot,m.workspace))
+    const outputRoot=m?.workspaceMode==='shared_project'?p?.artifactRoot:p?.root;
+    if(!p||!m||!outputRoot||c.writeRoot===outputRoot||!within(outputRoot,c.writeRoot)||within(m.workspace,c.writeRoot)||within(c.writeRoot,m.workspace))
       fail('THREADED_COMMAND_CONFIGURATION_INVALID');
     directoryPin(c.writeRoot);
     for(const filename of c.readPaths as string[]){
@@ -95,9 +106,10 @@ function validate(value:unknown,ownerId:string):Configuration{
   }
   const outputs=(value.commands as Entry[]).map(c=>c.writeRoot);
   if(outputs.some((v,i)=>outputs.some((other,j)=>i!==j&&(within(v,other)||within(other,v)))))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
-  const members=(value.projects as Project[]).flatMap(p=>p.members.map(m=>m.workspace));
-  if(members.some((v,i)=>members.some((other,j)=>i!==j&&(within(v,other)||within(other,v))))
-    ||outputs.some(output=>members.some(member=>within(output,member)||within(member,output))))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
+  const members=(value.projects as Project[]).flatMap(p=>p.members.map(m=>({...m,projectId:p.id})));
+  if(members.some((v,i)=>members.some((other,j)=>i!==j&&(within(v.workspace,other.workspace)||within(other.workspace,v.workspace))
+      &&!(v.projectId===other.projectId&&v.workspaceMode==='shared_project'&&other.workspaceMode==='shared_project'&&v.workspace===other.workspace)))
+    ||outputs.some(output=>members.some(member=>within(output,member.workspace)||within(member.workspace,output))))fail('THREADED_COMMAND_CONFIGURATION_INVALID');
   return value as unknown as Configuration;
 }
 /** Bounded filesystem manifest, re-read independently by the host verifier. */
@@ -137,7 +149,7 @@ export function loadThreadedProductionCommands(db:Database.Database,options:{fil
   const program=realpathSync(process.execPath),worker=fileURLToPath(new URL('./projectManifestWorker.mjs',import.meta.url));
   const guardian=fileURLToPath(new URL('../execution/guardian.mjs',import.meta.url));
   const programs=[fileSnapshot(program).pin,fileSnapshot(worker).pin,fileSnapshot(guardian).pin],directories:DirectoryPin[]=[];
-  for(const p of config.projects){directories.push(directoryPin(p.root));for(const m of p.members)directories.push(directoryPin(m.workspace));}
+  for(const p of config.projects){directories.push(directoryPin(p.root));if(p.artifactRoot)directories.push(directoryPin(p.artifactRoot));for(const m of p.members)directories.push(directoryPin(m.workspace));}
   for(const c of config.commands)directories.push(directoryPin(c.cwd));
   const expected=new Map(config.commands.map(c=>[c.id,inputSnapshot(config.projects.find(p=>p.id===c.projectId)!.root,c.readPaths)]));
   function current(){
@@ -157,7 +169,7 @@ export function loadThreadedProductionCommands(db:Database.Database,options:{fil
     for(const project of config.projects){const member=project.members.find(m=>m.threadId===scope.threadId&&m.agentId===scope.agentId);if(member)return {project,member};}return null;
   }
   function mapping(scope:ActionScope){const s=selected(scope);if(!s)return null;if(!current())fail('THREADED_COMMAND_MAPPING_CHANGED');return {...s,identity:digest({configuration:initial.pin.sha256,version:config.version,
-    project:s.project.id,root:s.project.root,workspace:s.member.workspace,scope:{ownerId:scope.ownerId,threadId:scope.threadId,agentId:scope.agentId},programs,inputs:config.commands.filter(c=>c.threadId===scope.threadId&&c.agentId===scope.agentId)
+    project:s.project.id,root:s.project.root,workspace:s.member.workspace,...(s.member.workspaceMode==='shared_project'?{workspaceMode:s.member.workspaceMode,artifactRoot:s.project.artifactRoot}:{}),scope:{ownerId:scope.ownerId,threadId:scope.threadId,agentId:scope.agentId},programs,inputs:config.commands.filter(c=>c.threadId===scope.threadId&&c.agentId===scope.agentId)
       .map(c=>({command:c.id,sha256:sha(expected.get(c.id)!.receipt),pins:expected.get(c.id)!.pins}))})};}
   const commands:Record<string,ActionCommandPort>=Object.create(null) as Record<string,ActionCommandPort>,ports:Array<ReturnType<typeof createThreadedOsCommandPort>>=[];
   for(const c of config.commands){

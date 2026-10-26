@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "status": "Enumerated RC06 implementation and layered checks delivered; full RC06 acceptance not closed",
+  "baselineCommit": "8d1fc75e586ee05de738d04349702e47e088b619",
+  "rc05CommittedAndPushed": true,
+  "remoteTrackingMain": "8d1fc75e586ee05de738d04349702e47e088b619",
+  "rc06Committed": false,
+  "rc06Pushed": false,
+  "dailyConfigurationChanged": false,
+  "dailyDatabaseMigrated": false,
+  "defaultMode": "closed",
+  "schemaVersionUnchanged": 35,
+  "historicalMigrationsChanged": false,
+  "historicalEvidenceChanged": false,
+  "unrelatedOutputsExcluded": true,
+  "checks": {
+    "dedicatedGroups": 41,
+    "regressionGroups": 88,
+    "uniqueEnumeratedGroups": 129,
+    "strictPositiveOverlapRepeatPassed": true,
+    "serverTypecheck": "passed",
+    "localDocumentationLinks": "passed",
+    "gitDiffCheck": "passed",
+    "K16And59ScenarioExpectedTexts": "unchanged",
+    "original47OperatorLedgerRows": "unchanged"
+  },
+  "limitations": [
+    "Production engineering source-write/merge tool not delivered; owner/baseVersion/hash merge is a fixture protocol only.",
+    "Genuinely conflicting commands still fail single-shot resource reservation and retain unknown; no automatic persistent wait/retry is delivered.",
+    "Full legacy and threaded real-supplier mixed execution is not established; distinct-policy same-native contention uses deliberately seeded Session metadata.",
+    "RC04 natural double-HEAD not_observed, RC05 diagnostic timeouts/default short-slice availability, existing and new unknown reservations remain unresolved."
+  ],
+  "verificationSummary": "verification-summary.json",
+  "originalTexts": "original-text-invariance.json",
+  "operatorLedger": "ledger.json",
+  "manifestExcludesSelf": true,
+  "files": [
+    {
+      "path": "apps/server/src/execution/resources/coordinator.ts",
+      "bytes": 42119,
+      "sha256": "e9130fad09c1bce0e129460e876cb534da93f4ab41e510665a863e0642ea2414"
+    },
+    {
+      "path": "apps/server/src/threaded/productionCommands.ts",
+      "bytes": 17190,
+      "sha256": "aeb9c3844080fef33d35fcc524d824e3aace883753b14c349e2752909c4ccb7b"
+    },
+    {
+      "path": "docs/architecture/threaded-commands-hold-production-v1.md",
+      "bytes": 13039,
+      "sha256": "93ed8a0d78f912935817079a6de8d4f9fe27c5afbdbc5c324d7e0f6ac9925611"
+    },
+    {
+      "path": "docs/architecture/threaded-concurrency-workspace-acceptance-v1.md",
+      "bytes": 7129,
+      "sha256": "f1ed2d2d69411898a8f73c2a564031c62505e71c4e872fcaba4a294559143637"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "bytes": 22364,
+      "sha256": "9368f79b013437b50a4143bd3a068d31d430d12a7f596a8d7eea4e7612bdae6c"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 86639,
+      "sha256": "04f760bf3b011264da0efa682536eeab0e322bcf9c5edd4abf769e0d8f0ae21d"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 48019,
+      "sha256": "d60fc6a3a0a4ddf668241f31b3a4ef38fa84654689e9ca9defb6a9cf900cad4c"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 38466,
+      "sha256": "98661b7860f95cc3380fb429b55106083180b640bd3a4528efadf773b700ab6d"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 22607,
+      "sha256": "83a513a16d3461671c9a1025aa064b6ab4620b84b308d03bbe96a743e98e1f85"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/concurrency.json",
+      "bytes": 104388,
+      "sha256": "b670e141945d2c209de266632484f2026379537ab750fbe3fe427d2a41cf8f99"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/docs-links.txt",
+      "bytes": 132,
+      "sha256": "c76e746a84a18be406bb440f2c2d949c722e58756c9d7b63cf0130646d257367"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/ledger.json",
+      "bytes": 2657,
+      "sha256": "e053429ec7400975ba5c5bb933708a031afbb1ee38e81e5899e59a3ec72eb75e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-injected-cancel-third.json",
+      "bytes": 56557,
+      "sha256": "14e2010c2016f0700ab7a448d43ea532b0e51c5f1b4be6d8e9b7bb1369811eaf"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-injected-final.json",
+      "bytes": 163176,
+      "sha256": "d32a8b75c6f615ff2b9bda9429ace04ba0fef858a607f191a70c5aff42da8644"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-injected-first.json",
+      "bytes": 79127,
+      "sha256": "ab9b2f82eab6216550a5fe1548fca44f6bdb5b507700fdfe4fcd2345c2e3aeaa"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-injected-second.json",
+      "bytes": 132124,
+      "sha256": "c85da70e668f6a54bda779c255c281ac49515c9340a87351f089f4b4167ad0e4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-injected-strict-overlap.json",
+      "bytes": 36203,
+      "sha256": "df56b8ba9697807f530ea7e1711d79f59db6c55f0450a6fe5b5a4bf548b0a11e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+      "bytes": 163854,
+      "sha256": "8008fa39acd18907c954ae845273f7bfb748d49f580c67a887e6c3c4427d43bf"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-live-positive-overlap.json",
+      "bytes": 1325,
+      "sha256": "cac17b5a7b4d75b97405773fc25c521f2996e5155b7530fef6801a7809da76c4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/native.json",
+      "bytes": 21297,
+      "sha256": "3fd791967cd3bae402c69fe399957b558b89d8a535c30326520b4b3129b61f45"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/original-text-invariance.json",
+      "bytes": 14600,
+      "sha256": "79430f3aee9c36de54e167b80935c51912b1b9a80aad65a2e1e80c20a4cfb1c6"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/backend-runtime-first-failure.json",
+      "bytes": 1499,
+      "sha256": "dfcca39b5d73028f1640ea913b96282d0aa9ba2a012666bc04c2d1d453a14a7f"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/backend-runtime-first-stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/backend-runtime-retry.json",
+      "bytes": 2192,
+      "sha256": "0dc29636a9b2be282defa97a66314c7d6bd423789a00abada386a7fb251d66af"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/legacy-resources.json",
+      "bytes": 2023,
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/production-commands.json",
+      "bytes": 2251,
+      "sha256": "d637eeb2873317e958b5a1c6893d06abff8dc07175ccde7f571271275fac7a9b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/production.json",
+      "bytes": 4151,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/queue.json",
+      "bytes": 1491,
+      "sha256": "1ac6db98fba5f799608b2d94501248ca1082d8371d2626b768d15037ab0dc203"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/rc03-command-admission.json",
+      "bytes": 1003,
+      "sha256": "4397b36b3712cbad01072aa3aa4d8ba3f2ce095f96a611f36b9aa8f0f8a0b5a8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/rc03-production.json",
+      "bytes": 909,
+      "sha256": "1e2a863d54752b92244dfe6448888a045da6bbcf13bb02b91b588938e641115b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/resource-integration.json",
+      "bytes": 1101,
+      "sha256": "f7e97418309c984e421e605ff0c33a3f4b0f1feeac2a0ae03b1a17673c6dc913"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/regressions/resources.txt",
+      "bytes": 2333,
+      "sha256": "dfba4df665e7ab4766e5721b88f28d53aaebd5d0803811de25e7780b5e5d79eb"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/server-typecheck.txt",
+      "bytes": 98,
+      "sha256": "fa38638964bf6c604728c0c8d5f9feb19f76b6cf867d4923e44e6cf9e8e9352c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/verification-summary.json",
+      "bytes": 4230,
+      "sha256": "8ce9c349e4f0500af1714591dcf5a7c512a597e443a077e6d2e92921ee7f95e2"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/workspace-development-findings.json",
+      "bytes": 2099,
+      "sha256": "940d3bf55bc1c348f77a922927f0ced8ac1101a08943742be166c550b321a067"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/workspace.json",
+      "bytes": 11452,
+      "sha256": "34d40c0a56299bd903a81e1b1983de1ca53d74de8e4c011e513be892d954783a"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc06-concurrency-2026-10-24.md",
+      "bytes": 12792,
+      "sha256": "b4811d807d6487cddf1b57dc1d6d6a638d86d826c1f262ef711dc76e15272512"
+    },
+    {
+      "path": "package.json",
+      "bytes": 27825,
+      "sha256": "c9ca865b74b0b403e6b4aa8bd480b0d7df662ebae990716e9dc5e9389e071453"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc06MainGuard.mjs",
+      "bytes": 10272,
+      "sha256": "f9acc2ed3e69694bcd23bde9f1cd95f3aefa18f4248fb4bfd3b1453e03057039"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc06ProductionWorkspace.mjs",
+      "bytes": 17545,
+      "sha256": "262133450b4d839f29e71187213d5e9f71c20c1c4ba34a8ba451fa6a8a719d0e"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc06ResourceWorker.mjs",
+      "bytes": 3997,
+      "sha256": "d4445d8dfa918463a3de21c8d6ff5b8311c2bc54db30622bb8c281cf0c7c2bd5"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc06WorkspaceWorker.mjs",
+      "bytes": 4209,
+      "sha256": "5c675557066154e760b577096d41b705cf155f4b8dc2dfaf7d12805a64ab78a0"
+    },
+    {
+      "path": "scripts/verify-threaded-rc06-concurrency.mjs",
+      "bytes": 31087,
+      "sha256": "bedbc1d6921399943e225ec8bb8b09871ab58ccfca7076ed423f70562c84e79d"
+    },
+    {
+      "path": "scripts/verify-threaded-rc06-main.mjs",
+      "bytes": 28347,
+      "sha256": "74f72dd0f2998d25cbe0b1502bc85bfcaac70e7f8e8be2187c4b2c690ab58726"
+    },
+    {
+      "path": "scripts/verify-threaded-rc06-native.mjs",
+      "bytes": 19223,
+      "sha256": "75004befcbf80c540e467c9649b22720dfe7f87390792ed2f8ed62d953439c74"
+    },
+    {
+      "path": "scripts/verify-threaded-rc06-workspace.mjs",
+      "bytes": 16060,
+      "sha256": "02f322b13236e303be5c1e344c38ca3a50ef573816fa3f11124d1940299c5c8a"
+    }
+  ],
+  "independentReadOnlyReview": "Passed; credential-source wording and post-edit metadata hashes corrected before delivery; no scope inflation found."
+}

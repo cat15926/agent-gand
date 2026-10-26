@@ -241,6 +241,19 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
     return list;
   }
   const lane = (request: TrustedResourceRequest) => request.threadId ? `thread:${request.threadId}` : `legacy:${request.agentId}`;
+  function nonCapacityConflict(a:TrustedResourceRequest,b:TrustedResourceRequest):boolean {
+    for(const mine of items(a))for(const theirs of items(b)){
+      if(mine.kind==='capacity'||theirs.kind==='capacity')continue;
+      const overlap=mine.kind==='workspace'&&theirs.kind==='workspace'
+        &&(mine.key.startsWith(`${theirs.key}${path.sep}`)||theirs.key.startsWith(`${mine.key}${path.sep}`));
+      if(mine.key!==theirs.key&&!overlap)continue;
+      if(mine.kind==='workspace'&&mine.access==='read'&&theirs.access==='read')continue;
+      if(mine.kind==='agent'&&mine.access==='slot'&&theirs.access==='slot'
+        &&(a.threadId!==b.threadId||!!a.threadedCommand||!!b.threadedCommand))continue;
+      return true;
+    }
+    return false;
+  }
   function canAcquire(ticket: ResourceTicket, active: ClaimRow[], pending: ResourceTicket[], policy: ResourcePolicy): boolean {
     const request = ticket.request;
     try { validateScope(request); } catch { return false; }
@@ -387,14 +400,22 @@ export function createExecutionResourceCoordinator(db: Database.Database, option
         // second execution turn. It still competes atomically for every declared
         // resource; only actual calls and top-level admission use service rounds.
         const preparationChild = ticket.request.mode === 'legacy' && ticket.request.parentClaim && ticket.request.capacity === false;
-        if (preparationChild ? !candidates.some(candidate => candidate.id === ticketId) : candidates[0]?.id !== ticketId) return null;
+        const commandPreparation=!!ticket.request.threadedCommand&&ticket.request.capacity===false;
+        if(preparationChild||commandPreparation){
+          if(!candidates.some(candidate=>candidate.id===ticketId))return null;
+          // A registered command adds independently fenced file resources, not a
+          // second model-service turn. Unrelated queued model work must not make
+          // its one-shot admission fail. Older conflicting writers/commands and
+          // every active resource/authority check still block it.
+          if(commandPreparation&&pending.some(other=>other.seq<ticket.seq&&nonCapacityConflict(ticket.request,other.request)))return null;
+        }else if(candidates[0]?.id!==ticketId)return null;
         const generation = epoch('claim:global'); const id = randomUUID(); const token = randomUUID();
         db.prepare(`INSERT INTO execution_resource_claims(id,ticket_id,owner_nonce,generation,fencing_token,state,expires_at,created_at)
           VALUES(?,?,?,?,?,'reserved',?,?)`).run(id, ticketId, options.ownerNonce, generation, token, now()+leaseMs, now());
         for (const item of items(ticket.request)) db.prepare(`INSERT INTO execution_resource_claim_items(claim_id,resource_key,kind,access,generation)
           VALUES(?,?,?,?,?)`).run(id, item.key, item.kind, item.access, epoch(item.key));
         db.prepare("UPDATE execution_resource_tickets SET status='active' WHERE id=? AND status='waiting'").run(ticketId);
-        if (!preparationChild) db.prepare(`INSERT INTO execution_resource_fairness(owner_id,lane,last_served) VALUES(?,?,?)
+        if (!preparationChild&&!commandPreparation) db.prepare(`INSERT INTO execution_resource_fairness(owner_id,lane,last_served) VALUES(?,?,?)
           ON CONFLICT(owner_id,lane) DO UPDATE SET last_served=excluded.last_served`).run(owner, lane(ticket.request), generation);
         return identityFrom(claimRow(id)!);
       }).immediate();

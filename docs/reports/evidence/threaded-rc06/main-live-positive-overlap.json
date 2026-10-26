@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "source": "main-live-first.json",
+  "method": "Independently recompute positive send-to-headers intervals from retained actual transport timestamps; no new supplier call",
+  "evidence": [
+    {
+      "label": "two actual transports have both reached generation headers",
+      "intervals": [
+        {
+          "requestId": "cfb8faff-32e9-4ba4-a0ec-fc9ee448903e",
+          "networkStartedAt": 1792773356176,
+          "headersAt": 1792773358344,
+          "networkEndedAt": null
+        },
+        {
+          "requestId": "59375a8c-067e-4a92-b591-9baa0d31eb86",
+          "networkStartedAt": 1792773356179,
+          "headersAt": 1792773357364,
+          "networkEndedAt": null
+        }
+      ],
+      "positiveOverlapMs": 1185
+    },
+    {
+      "label": "same Agent two real requests completed independently",
+      "intervals": [
+        {
+          "requestId": "cfb8faff-32e9-4ba4-a0ec-fc9ee448903e",
+          "networkStartedAt": 1792773356176,
+          "headersAt": 1792773358344,
+          "networkEndedAt": 1792773359006
+        },
+        {
+          "requestId": "59375a8c-067e-4a92-b591-9baa0d31eb86",
+          "networkStartedAt": 1792773356179,
+          "headersAt": 1792773357364,
+          "networkEndedAt": 1792773358689
+        }
+      ],
+      "positiveOverlapMs": 1185
+    }
+  ]
+}

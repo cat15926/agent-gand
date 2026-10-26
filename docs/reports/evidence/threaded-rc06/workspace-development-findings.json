@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-24",
+  "scope": "isolated acceptance development; not daily deployment",
+  "findings": [
+    {
+      "code": "RC06_REGISTERED_COMMAND_FAIRNESS_HEAD_BLOCK",
+      "status": "fixed and regression passed",
+      "trigger": "A and B task Invocations queued by one manager; A current model Invocation starts a registered capacity:false OS command while earlier queued B remains eligible",
+      "observed": "A command complete lease tryAcquire returned null because B was first global fairness candidate; OS reservation transaction rolled back; action command persisted unknown with no OS intent; B later launched normally",
+      "verification": "Same reproduction under native ps authorization; B had process_registered/launch_authorized/native_started while A had no OS row",
+      "realModelCalls": 0,
+      "externalNetworkCalls": 0,
+      "fix": "Registered capacity:false command acquires its complete canAcquire set outside model service-round head selection, while older overlapping valid eligible pending requests still block; command does not advance model fairness",
+      "finalEvidence": "/tmp/threaded-rc06-workspace.json",
+      "finalObserved": "Same manager queues A and B; both real registered commands remain started concurrently and independently reconcile/release"
+    },
+    {
+      "code": "RC06_NATIVE_PS_SANDBOX_LIMIT",
+      "status": "environment limitation confirmed",
+      "observed": "sandbox could not verify guardian process identity; same isolated native suite under authorized escalation successfully launched B command",
+      "productionGuardChanged": false
+    },
+    {
+      "code": "RC06_INITIAL_WINDOW_HYPOTHESIS_CORRECTED",
+      "status": "diagnosis corrected",
+      "detail": "Initial five-second timing hypothesis was rejected after the same failure at thirty seconds; safe coordinator forwarding probes and authorized native ps isolated command fairness head selection as the cause. The final fixture retains a permitted 30-second settle delay solely to observe native overlap; no production default or guard was changed."
+    }
+  ]
+}

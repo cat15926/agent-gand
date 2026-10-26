@@ -1,0 +1,527 @@
+{
+  "ok": true,
+  "stage": "RC06",
+  "date": "2026-10-23T16:24:33.900Z",
+  "groups": 6,
+  "checks": [
+    "Actual SDK guardians run concurrently; stopping A reaps only A POSIX group, B request/scope/resources remain active and A publishes no output",
+    "A process exit is verified but its aborted possible-send request, resource claim and Invocation remain unknown without a fabricated terminal or usage settlement",
+    "B completes after A cancellation with exactly its own output and a verified actual SDK checkpoint; B resources release only after quiescence/terminal commit",
+    "B independently resumes its confirmed native identity after the sibling cancellation; its second terminal/output/anchor occur once",
+    "Two independent SQLite worker PIDs race distinct policy rows sharing a canonical native key: only one claim exists and the successor starts after release",
+    "A late old-claim release/finally from a separate process is idempotent and cannot release or alter the new native slot generation"
+  ],
+  "failures": [],
+  "evidence": [
+    {
+      "id": "cancel-a-b-still-active",
+      "active": {
+        "processes": [
+          {
+            "token": "baa8c35a-0a36-4e16-b186-aa040ce926b1",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "host": "ruhonglindeAir",
+            "pid": 23776,
+            "state": "registered"
+          },
+          {
+            "token": "f4e75b07-4783-4ca2-8468-ead5d430bcb3",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "host": "ruhonglindeAir",
+            "pid": 23777,
+            "state": "registered"
+          }
+        ],
+        "requests": [
+          {
+            "id": "4761c243-8a3e-48aa-a1f1-2d3e0b05b179",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "state": "sending",
+            "backend": "claude-sdk",
+            "delivered": 0
+          },
+          {
+            "id": "c44ec709-6c34-4e34-82b7-861518e50d53",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "state": "sending",
+            "backend": "claude-sdk",
+            "delivered": 0
+          }
+        ],
+        "claims": [
+          {
+            "id": "6ac0001b-bcc2-4c3d-8019-b265d6a67e79",
+            "generation": 1,
+            "state": "started"
+          },
+          {
+            "id": "d8af9284-eb1e-4f3f-ae5a-61372bd71870",
+            "generation": 2,
+            "state": "started"
+          }
+        ],
+        "sessions": [
+          {
+            "id": "e53ab98b-8d2e-4c86-acb5-6051331c10ed",
+            "version": 1,
+            "native_id": "35ce78b2-c100-4462-8e29-e08c329466bb",
+            "resource_key": "native-session:283a0a404fdf929235bfdacf1f3804c9b83c7cf5243a74d55b7508ee1ef951ab",
+            "state": "ready"
+          },
+          {
+            "id": "8fe38526-fd73-4dfd-a153-39dcfa16c39c",
+            "version": 1,
+            "native_id": "af837760-ac1f-40c3-a4c8-c4fd7ca7c096",
+            "resource_key": "native-session:9437efa34bc86d8f3799bc84b833770f3bbc1ec86318e73db807d3da8870ceaf",
+            "state": "ready"
+          }
+        ],
+        "terminals": [],
+        "anchors": [],
+        "invocations": [
+          {
+            "id": "e5dee1a8-ff8c-4abd-a84a-391c6a6d5bd4",
+            "agent_id": "sdk-member",
+            "status": "running"
+          },
+          {
+            "id": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+            "agent_id": "sdk-other",
+            "status": "running"
+          }
+        ],
+        "outputs": []
+      },
+      "afterA": {
+        "processes": [
+          {
+            "token": "baa8c35a-0a36-4e16-b186-aa040ce926b1",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "host": "ruhonglindeAir",
+            "pid": 23776,
+            "state": "verified_stopped"
+          },
+          {
+            "token": "f4e75b07-4783-4ca2-8468-ead5d430bcb3",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "host": "ruhonglindeAir",
+            "pid": 23777,
+            "state": "registered"
+          }
+        ],
+        "requests": [
+          {
+            "id": "4761c243-8a3e-48aa-a1f1-2d3e0b05b179",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "state": "unknown",
+            "backend": "claude-sdk",
+            "delivered": 0
+          },
+          {
+            "id": "c44ec709-6c34-4e34-82b7-861518e50d53",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "state": "sending",
+            "backend": "claude-sdk",
+            "delivered": 0
+          }
+        ],
+        "claims": [
+          {
+            "id": "6ac0001b-bcc2-4c3d-8019-b265d6a67e79",
+            "generation": 1,
+            "state": "unknown"
+          },
+          {
+            "id": "d8af9284-eb1e-4f3f-ae5a-61372bd71870",
+            "generation": 2,
+            "state": "started"
+          }
+        ],
+        "sessions": [
+          {
+            "id": "e53ab98b-8d2e-4c86-acb5-6051331c10ed",
+            "version": 1,
+            "native_id": "35ce78b2-c100-4462-8e29-e08c329466bb",
+            "resource_key": "native-session:283a0a404fdf929235bfdacf1f3804c9b83c7cf5243a74d55b7508ee1ef951ab",
+            "state": "ready"
+          },
+          {
+            "id": "8fe38526-fd73-4dfd-a153-39dcfa16c39c",
+            "version": 1,
+            "native_id": "af837760-ac1f-40c3-a4c8-c4fd7ca7c096",
+            "resource_key": "native-session:9437efa34bc86d8f3799bc84b833770f3bbc1ec86318e73db807d3da8870ceaf",
+            "state": "ready"
+          }
+        ],
+        "terminals": [],
+        "anchors": [],
+        "invocations": [
+          {
+            "id": "e5dee1a8-ff8c-4abd-a84a-391c6a6d5bd4",
+            "agent_id": "sdk-member",
+            "status": "unknown"
+          },
+          {
+            "id": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+            "agent_id": "sdk-other",
+            "status": "running"
+          }
+        ],
+        "outputs": []
+      },
+      "resultA": {
+        "invocationId": "e5dee1a8-ff8c-4abd-a84a-391c6a6d5bd4",
+        "runId": "b03c41c4-832b-4cfc-85fa-c4a5d3a489b4",
+        "status": "unknown"
+      },
+      "calls": [
+        {
+          "sequence": 1,
+          "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+          "agent_id": "sdk-member",
+          "stream": true,
+          "aborted": true
+        },
+        {
+          "sequence": 2,
+          "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+          "agent_id": "sdk-other",
+          "stream": true,
+          "aborted": false
+        }
+      ],
+      "aGroupStopped": true,
+      "bGroupAlive": true
+    },
+    {
+      "id": "b-completed-and-resumed",
+      "resultB": {
+        "invocationId": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+        "runId": "9fa65fea-bd35-44c8-b3c3-e2c152a8d449",
+        "status": "completed",
+        "terminal": true,
+        "resourceReleasePending": false
+      },
+      "resumeResult": {
+        "invocationId": "083dd1f7-d488-409a-9c95-7c6b5ced34b6",
+        "runId": "39eee8ed-f9b4-421d-adbb-00096d7a86d3",
+        "status": "completed",
+        "terminal": true,
+        "resourceReleasePending": false
+      },
+      "after": {
+        "processes": [
+          {
+            "token": "baa8c35a-0a36-4e16-b186-aa040ce926b1",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "host": "ruhonglindeAir",
+            "pid": 23776,
+            "state": "verified_stopped"
+          },
+          {
+            "token": "f4e75b07-4783-4ca2-8468-ead5d430bcb3",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "host": "ruhonglindeAir",
+            "pid": 23777,
+            "state": "verified_stopped"
+          },
+          {
+            "token": "8246d9fc-e884-4036-a975-86cc6cc421e5",
+            "binding_id": "9f54e408-d1a8-4f9a-a023-e881d6e55245",
+            "host": "ruhonglindeAir",
+            "pid": 23871,
+            "state": "verified_stopped"
+          }
+        ],
+        "requests": [
+          {
+            "id": "4761c243-8a3e-48aa-a1f1-2d3e0b05b179",
+            "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+            "state": "unknown",
+            "backend": "claude-sdk",
+            "delivered": 0
+          },
+          {
+            "id": "c44ec709-6c34-4e34-82b7-861518e50d53",
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "state": "complete",
+            "backend": "claude-sdk",
+            "delivered": 1
+          },
+          {
+            "id": "e7eebe28-b241-4612-9a77-dc3ff72b467d",
+            "binding_id": "9f54e408-d1a8-4f9a-a023-e881d6e55245",
+            "state": "complete",
+            "backend": "claude-sdk",
+            "delivered": 1
+          }
+        ],
+        "claims": [
+          {
+            "id": "6ac0001b-bcc2-4c3d-8019-b265d6a67e79",
+            "generation": 1,
+            "state": "unknown"
+          },
+          {
+            "id": "d8af9284-eb1e-4f3f-ae5a-61372bd71870",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "d116468a-9d04-4136-a7ba-45919b2ea6fa",
+            "generation": 3,
+            "state": "released"
+          }
+        ],
+        "sessions": [
+          {
+            "id": "e53ab98b-8d2e-4c86-acb5-6051331c10ed",
+            "version": 1,
+            "native_id": "35ce78b2-c100-4462-8e29-e08c329466bb",
+            "resource_key": "native-session:283a0a404fdf929235bfdacf1f3804c9b83c7cf5243a74d55b7508ee1ef951ab",
+            "state": "ready"
+          },
+          {
+            "id": "8fe38526-fd73-4dfd-a153-39dcfa16c39c",
+            "version": 1,
+            "native_id": "af837760-ac1f-40c3-a4c8-c4fd7ca7c096",
+            "resource_key": "native-session:9437efa34bc86d8f3799bc84b833770f3bbc1ec86318e73db807d3da8870ceaf",
+            "state": "ready"
+          }
+        ],
+        "terminals": [
+          {
+            "invocation_id": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+            "status": "completed"
+          },
+          {
+            "invocation_id": "083dd1f7-d488-409a-9c95-7c6b5ced34b6",
+            "status": "completed"
+          }
+        ],
+        "anchors": [
+          {
+            "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+            "record": "{\"id\":\"70cb25e7-48d6-40d7-812c-8ee1a1141614\",\"ownerId\":\"75731b23-9046-4f46-a16e-3f067c69992d\",\"threadId\":\"13f075c8-9bb1-406a-a18c-12055e069593\",\"agentId\":\"sdk-other\",\"manifestId\":\"b31f79ea-d95c-4ab3-9851-02afd0580276\",\"payloadHash\":\"f4458f724666e0f7f9e941d62cc28d36aff026b95579483993633d044712dec5\",\"session\":{\"id\":\"8fe38526-fd73-4dfd-a153-39dcfa16c39c\",\"version\":1,\"nativeId\":\"af837760-ac1f-40c3-a4c8-c4fd7ca7c096\",\"resourceKey\":\"native-session:9437efa34bc86d8f3799bc84b833770f3bbc1ec86318e73db807d3da8870ceaf\"},\"boundaryVersion\":1,\"policyHash\":\"ab5c6d557074c4398a962c29753aa6a9d51d548b752d57331357b2fba3d3b175\",\"sourceMessageIds\":[\"6910d772-8147-44ff-9add-568d984781e6\",\"7f19a1a2-0441-42a8-9420-3140a1d14fbf\"],\"evidence\":{\"reference\":\"threaded-backend-native:43b0683e-963d-4f77-835d-4d513ee0aa95\",\"nativeId\":\"af837760-ac1f-40c3-a4c8-c4fd7ca7c096\",\"backendVersion\":\"0.3.288\",\"requestReceiptId\":\"c44ec709-6c34-4e34-82b7-861518e50d53\",\"terminalRecordUuid\":\"88588389-b9d2-49d0-84ce-fc0b22fcf51f\",\"resumeToken\":\"b5d4d23d-9157-4f69-abd4-104466b289a3\",\"inputUserUuid\":\"3faf07a4-5182-4ac1-9d05-7346d18fe95b\"},\"createdAt\":\"2026-10-23T16:24:32.016Z\"}"
+          },
+          {
+            "binding_id": "9f54e408-d1a8-4f9a-a023-e881d6e55245",
+            "record": "{\"id\":\"e2d5dabc-e7a7-45aa-af6a-a26740bfab25\",\"ownerId\":\"75731b23-9046-4f46-a16e-3f067c69992d\",\"threadId\":\"13f075c8-9bb1-406a-a18c-12055e069593\",\"agentId\":\"sdk-other\",\"manifestId\":\"e1a31b43-4782-4054-a21f-4675a458b7a8\",\"payloadHash\":\"456f983bfb2449867c77212106d4ccb5dfbe3574d8c493a2cb4a3b860f8b4059\",\"session\":{\"id\":\"8fe38526-fd73-4dfd-a153-39dcfa16c39c\",\"version\":1,\"nativeId\":\"af837760-ac1f-40c3-a4c8-c4fd7ca7c096\",\"resourceKey\":\"native-session:9437efa34bc86d8f3799bc84b833770f3bbc1ec86318e73db807d3da8870ceaf\"},\"boundaryVersion\":1,\"policyHash\":\"ab5c6d557074c4398a962c29753aa6a9d51d548b752d57331357b2fba3d3b175\",\"sourceMessageIds\":[\"6910d772-8147-44ff-9add-568d984781e6\",\"7f19a1a2-0441-42a8-9420-3140a1d14fbf\",\"ae22e467-52a5-46eb-b16f-242361ec43fb\",\"f8e18cda-863c-4185-9ae3-451a021cb750\"],\"evidence\":{\"reference\":\"threaded-backend-native:66f0183b-89ee-4649-9518-92dd5f1aa711\",\"nativeId\":\"af837760-ac1f-40c3-a4c8-c4fd7ca7c096\",\"backendVersion\":\"0.3.288\",\"requestReceiptId\":\"e7eebe28-b241-4612-9a77-dc3ff72b467d\",\"terminalRecordUuid\":\"ecddfea5-2621-4457-a07b-5b18b85846a8\",\"resumeToken\":\"de6be922-6ea1-4826-b550-b0e848532afa\",\"inputUserUuid\":\"ce827556-221e-4930-b754-cf8ccb9c3126\"},\"createdAt\":\"2026-10-23T16:24:33.571Z\"}"
+          }
+        ],
+        "invocations": [
+          {
+            "id": "e5dee1a8-ff8c-4abd-a84a-391c6a6d5bd4",
+            "agent_id": "sdk-member",
+            "status": "unknown"
+          },
+          {
+            "id": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+            "agent_id": "sdk-other",
+            "status": "completed"
+          },
+          {
+            "id": "083dd1f7-d488-409a-9c95-7c6b5ced34b6",
+            "agent_id": "sdk-other",
+            "status": "completed"
+          }
+        ],
+        "outputs": [
+          {
+            "invocation_id": "60fbf912-fbe3-40a8-971e-b3787ae98da4",
+            "content": "RC06_NATIVE_ACK"
+          },
+          {
+            "invocation_id": "083dd1f7-d488-409a-9c95-7c6b5ced34b6",
+            "content": "RC06_NATIVE_ACK"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "sequence": 1,
+          "binding_id": "c65327cb-8a29-4da6-bc25-2f5db5efafb3",
+          "agent_id": "sdk-member",
+          "stream": true,
+          "aborted": true
+        },
+        {
+          "sequence": 2,
+          "binding_id": "63de7d53-b274-4029-87b7-f9dce2fb50fa",
+          "agent_id": "sdk-other",
+          "stream": true,
+          "aborted": false
+        },
+        {
+          "sequence": 3,
+          "binding_id": "9f54e408-d1a8-4f9a-a023-e881d6e55245",
+          "agent_id": "sdk-other",
+          "stream": true,
+          "aborted": false
+        }
+      ]
+    },
+    {
+      "id": "different-policy-shared-native",
+      "workerPids": [
+        23896,
+        23897
+      ],
+      "nativeId": "f4703a42-a1e2-4b2f-8350-faac7700905a",
+      "resourceKey": "native-session:3c4bed8dfdb1aa3aac13fa9d7a4508c2eb9d9c1375ba3745a8d2f73e99be2b73",
+      "raced": [
+        {
+          "claimId": "64ae7301-c8ae-4a4e-8eb1-d5504b38ea62",
+          "generation": 1,
+          "fencingToken": "28eeab91-ff6c-4b25-9f3b-e8008e5e9d5b",
+          "claimOwner": "rc06:ee37bea9-31a7-4a64-bac0-ac9ffe776689",
+          "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+          "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+          "invocationId": "b3a4ae59-323d-4870-bce8-a59a85bf3763",
+          "runId": "1aa23f82-518d-441a-bb60-66f897d168f8",
+          "attemptId": "f517bf26-e4db-486f-a68d-fbd3c96bf76a",
+          "agentId": "sdk-member"
+        },
+        null
+      ],
+      "oldClaim": {
+        "claimId": "64ae7301-c8ae-4a4e-8eb1-d5504b38ea62",
+        "generation": 1,
+        "fencingToken": "28eeab91-ff6c-4b25-9f3b-e8008e5e9d5b",
+        "claimOwner": "rc06:ee37bea9-31a7-4a64-bac0-ac9ffe776689",
+        "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+        "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+        "invocationId": "b3a4ae59-323d-4870-bce8-a59a85bf3763",
+        "runId": "1aa23f82-518d-441a-bb60-66f897d168f8",
+        "attemptId": "f517bf26-e4db-486f-a68d-fbd3c96bf76a",
+        "agentId": "sdk-member"
+      },
+      "oldProof": {
+        "schemaVersion": 1,
+        "id": "cd3c9677-f87e-4b87-adad-4c1883fbdd73",
+        "attemptId": "f517bf26-e4db-486f-a68d-fbd3c96bf76a",
+        "claimId": "64ae7301-c8ae-4a4e-8eb1-d5504b38ea62",
+        "generation": 1,
+        "fencingToken": "28eeab91-ff6c-4b25-9f3b-e8008e5e9d5b",
+        "reason": "not_started",
+        "sideEffects": "none"
+      },
+      "successorBefore": {
+        "identity": {
+          "claimId": "423f6ef0-6ccc-4d8b-9bd0-af720588db95",
+          "generation": 2,
+          "fencingToken": "29659be6-3c33-4341-8c8d-2306c0e89082",
+          "claimOwner": "rc06:10f5ae8b-318e-4077-8b5a-aad16846e2b1",
+          "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+          "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+          "invocationId": "d7a4a2be-3b77-42f8-aa73-4182ce02cbc4",
+          "runId": "40e5729a-059a-4d5b-9855-852f0e7e36e2",
+          "attemptId": "f0a00033-a968-442c-99ef-c32ad043b484",
+          "agentId": "sdk-other"
+        },
+        "ticketId": "da6c7549-79b2-49bf-9a8e-5d26719df06f",
+        "state": "reserved",
+        "expiresAt": 1792454401000,
+        "request": {
+          "requestKey": "6aaaa301-030e-422b-a866-9f126dbc0835",
+          "operationId": "9b4a0633-d0d6-4878-83e0-57cb21cbece6",
+          "mode": "threaded",
+          "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+          "agentId": "sdk-other",
+          "runId": "40e5729a-059a-4d5b-9855-852f0e7e36e2",
+          "attemptId": "f0a00033-a968-442c-99ef-c32ad043b484",
+          "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+          "invocationId": "d7a4a2be-3b77-42f8-aa73-4182ce02cbc4",
+          "session": {
+            "id": "different-policy-sdk-other",
+            "version": 1,
+            "nativeId": "f4703a42-a1e2-4b2f-8350-faac7700905a",
+            "resourceKey": "native-session:3c4bed8dfdb1aa3aac13fa9d7a4508c2eb9d9c1375ba3745a8d2f73e99be2b73"
+          },
+          "workspaces": [
+            {
+              "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-native-ZVZgNh",
+              "access": "read"
+            }
+          ],
+          "capacity": true
+        }
+      },
+      "successorAfterLateRelease": {
+        "identity": {
+          "claimId": "423f6ef0-6ccc-4d8b-9bd0-af720588db95",
+          "generation": 2,
+          "fencingToken": "29659be6-3c33-4341-8c8d-2306c0e89082",
+          "claimOwner": "rc06:10f5ae8b-318e-4077-8b5a-aad16846e2b1",
+          "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+          "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+          "invocationId": "d7a4a2be-3b77-42f8-aa73-4182ce02cbc4",
+          "runId": "40e5729a-059a-4d5b-9855-852f0e7e36e2",
+          "attemptId": "f0a00033-a968-442c-99ef-c32ad043b484",
+          "agentId": "sdk-other"
+        },
+        "ticketId": "da6c7549-79b2-49bf-9a8e-5d26719df06f",
+        "state": "reserved",
+        "expiresAt": 1792454401000,
+        "request": {
+          "requestKey": "6aaaa301-030e-422b-a866-9f126dbc0835",
+          "operationId": "9b4a0633-d0d6-4878-83e0-57cb21cbece6",
+          "mode": "threaded",
+          "ownerId": "70c074fe-c9d4-4432-a3d1-66340e2caf1d",
+          "agentId": "sdk-other",
+          "runId": "40e5729a-059a-4d5b-9855-852f0e7e36e2",
+          "attemptId": "f0a00033-a968-442c-99ef-c32ad043b484",
+          "threadId": "c1a87ab6-277e-4ef6-8301-9243e728c39c",
+          "invocationId": "d7a4a2be-3b77-42f8-aa73-4182ce02cbc4",
+          "session": {
+            "id": "different-policy-sdk-other",
+            "version": 1,
+            "nativeId": "f4703a42-a1e2-4b2f-8350-faac7700905a",
+            "resourceKey": "native-session:3c4bed8dfdb1aa3aac13fa9d7a4508c2eb9d9c1375ba3745a8d2f73e99be2b73"
+          },
+          "workspaces": [
+            {
+              "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-native-ZVZgNh",
+              "access": "read"
+            }
+          ],
+          "capacity": true
+        }
+      },
+      "scope": "Low-level coordinator identity resolver boundary. Deliberately seeded policy records; does not claim production allows duplicate Session preparation."
+    }
+  ],
+  "cleanup": [
+    {
+      "pid": 23776,
+      "stopped": true
+    },
+    {
+      "pid": 23777,
+      "stopped": true
+    },
+    {
+      "pid": 23871,
+      "stopped": true
+    }
+  ],
+  "actualSdkVersion": "0.3.288",
+  "actualGuardianAndSdkCli": true,
+  "transport": "injected synthetic responses",
+  "realSupplierCalls": 0,
+  "realModelTokens": 0,
+  "dailyDatabaseRead": false,
+  "dailyConfigurationChanged": false,
+  "credentialsRead": false,
+  "actualIndexEntry": false,
+  "isolatedWorkerBypass": true,
+  "targetActivityAllowanceMs": 10000,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "deniedRealNetwork": 0,
+  "limitations": [
+    "Factory composition uses the explicit isolated execution bypass, not index.ts or a daily deployment.",
+    "Native processes/SDK checkpoints/cancellation are actual; supplier HTTP and review bodies are synthetic.",
+    "An aborted possible-send request remains unknown if no remote receipt exists. Process exit alone never clears unknown usage or execution fences.",
+    "The duplicate native identity fixture is a deliberate low-level resolved Session test, not ordinary preparation output."
+  ]
+}

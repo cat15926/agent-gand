@@ -1,0 +1,41 @@
+{
+  "ok": false,
+  "stage": "RC06",
+  "suite": "scripts/verify-threaded-backend-runtime.mjs",
+  "execution": {
+    "node": "v22.23.1",
+    "sandboxPermissions": "use_default",
+    "runAlongsideOtherSuites": true,
+    "parallelContextReported": "run with other regression suites",
+    "sessionId": 24882,
+    "exitCode": 1,
+    "stdoutEmpty": true
+  },
+  "failure": {
+    "kind": "assertion",
+    "sourceLine": 156,
+    "actual": "unknown",
+    "expected": "completed",
+    "statement": "assert.equal(first.result.status, 'completed')",
+    "underlyingDomainCauseCaptured": false,
+    "temporaryDatabaseAlreadyCleaned": true,
+    "productionCodeFixClaimed": false
+  },
+  "analysis": {
+    "exactCause": "not established; the existing adapter collapses the executor rejection to unknown and the fixture removed its temporary DB in finally",
+    "notAttributedToPs": true,
+    "loopbackSandboxRestriction": "candidate, not a proven trace of the original rejection",
+    "independentSandboxProbe": {
+      "command": "node:net createServer.listen(0, '127.0.0.1')",
+      "result": {
+        "loopbackAllowed": false,
+        "code": "EPERM",
+        "syscall": "listen"
+      }
+    },
+    "activityCpuTiming": "No evidence isolates CPU contention or activity allowance as the first cause; not asserted",
+    "productionRegression": "Not demonstrated by this failure; preserve it alongside the single-suite escalated pass"
+  },
+  "retryEvidence": "backend-runtime-retry.json",
+  "scopeUnchanged": true
+}

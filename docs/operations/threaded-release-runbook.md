@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-23。适用 schema 35（RC03前向追加，历史v25–v34保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-24。适用 schema 35（RC03前向追加，RC06无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -54,7 +54,7 @@ release pack 是运维管理的 JSON 文件，不含 Key、Token、连接地址�
 
 成员数量为 1–8；Agent ID 仅接受字母、数字、下划线和连字符，最长 100 字符。SDK 成员只将 `backend` 改为 `claude-sdk`、`backendVersion` 改为 `0.3.288`，同时保留其精确角色/账户/模型元数据及 Anthropic Messages 协议条件。添加成员和扩大工具范围应先完成相应组合验收。
 
-模型实际可用的应用工具是 pack `applicationTools` 与该角色 `tools` 的交集，之后仍受当前 Binding、ACL、Action 和代际约束。pack 不授予额外业务批准或工作区写权限。服务器派生每个 Owner/Thread/Agent 的独立工作区和私有配置目录，连接和凭据仍从托管账户解析。
+模型实际可用的应用工具是 pack `applicationTools` 与该角色 `tools` 的交集，之后仍受当前 Binding、ACL、Action 和代际约束。pack 不授予额外业务批准或工作区写权限。服务器默认派生每个 Owner/Thread/Agent 的独立工作区和私有配置目录；显式工程注册可改变选定成员的工作区绑定，私有配置目录不随之共享，连接和凭据仍从托管账户解析。
 
 `maxOutputTokens` 范围为 1–8192，`maxInputTokens` 为 8192–250000，`maxRequests` 为 1–16；它们约束本轮后端请求，不能替代整条因果链的预算。接力、等待和修订保留根预算，未知用量继续占额，不能以设置价格或请求上限宣称供应商账单硬封顶。
 
@@ -71,7 +71,9 @@ THREADED_RELEASE_MEMBERS_FILE=/受保护的部署目录/threaded-release-pack.js
 
 `domains.github.state` 的registered只表示公开配置已加载，ready只表示本进程principal验证通过，每次PR仍需当前授权/HEAD；配置漂移、缺token、401/403或身份不符按状态拒绝。observe不会读取GitHub凭据/网络；closed拒新根但可按合法既有grant处理事实，关闭入场不等于撤销所有外部读取。详见[RC02分层报告](../reports/threaded-collaboration-rc02-github-2026-10-22.md)。本次未在日常环境设置这些配置或开放功能。
 
-如选择首批生产命令，按[命令与等待合同](../architecture/threaded-commands-hold-production-v1.md)准备受保护的公开注册JSON，通过 `THREADED_COMMAND_REGISTRATIONS_FILE` 加载。固定工程根、已grant的Thread/成员、成员workspace、专用输出cwd及完整read/write声明；目录必须已存在且规范、不交叠，模型不能选择路径。当前只读工程清单程序经过执行链和输入pin，并由父进程独立核对产物；任意shell/构建/网络命令不在首批范围。`domains.commands` 不显示私密目录内容。修改已加载注册或工程输入会阻断旧端口，不能用重命名或清理unknown绕过原claim；先保留证据并按匹配版本对账。
+如选择首批生产命令，按[命令与等待合同](../architecture/threaded-commands-hold-production-v1.md)准备受保护的公开注册JSON，通过 `THREADED_COMMAND_REGISTRATIONS_FILE` 加载。固定工程根、已grant的Thread/成员、成员workspace、专用输出cwd及完整read/write声明；目录必须已存在且规范，交叠按所选模式约束，模型不能选择路径。当前只读工程清单程序经过执行链和输入pin，并由父进程独立核对产物；任意shell/构建/网络命令不在首批范围。`domains.commands` 不显示私密目录内容。修改已加载注册或工程输入会阻断旧端口，不能用重命名或清理unknown绕过原claim；先保留证据并按匹配版本对账。
+
+RC06 可显式登记 `shared_project`：同工程登记成员全部选择该模式、workspace 精确等于工程 root；模型 Session/claim 读取整个 root，不按某命令的输入子目录缩窄。须预先创建与 root 互不为父子的外部 artifactRoot，以及每条命令的独立输出子目录；共享模式、artifactRoot/目录身份纳入映射 pin。旧 isolated 配置保持原语义。路径失效时拒绝映射，不回退到 per-agent 目录。此项只开放固定 manifest 产物，工程源写入与生产合并尚未交付，不能据示例配置启用任意写工具。
 
 v35保留旧timer额度并建立timer/command wake共享账本；旧活跃command wake因缺历史注册时间，以一次迁移时刻保守占一小时且重启不续期；升级后既有字符串timer不补造来源或SLA，无效等待显式退休。实际旧等待处置、额度回填与恢复演练应先在备份副本核验，不能只根据schema升级成功宣称业务恢复完成。本轮没有执行日常迁移或配置。
 
@@ -171,7 +173,15 @@ Thread grant 冻结 backend、backendVersion、model、角色版本、权限版�
 
 [RC05合同](../architecture/threaded-fault-recovery-acceptance-v1.md)与[报告](../reports/threaded-collaboration-rc05-fault-recovery-2026-10-23.md)提供实际index/选定供应商、timer停机与SQLite故障分层证据，不授日常启用。missed timer必须保留原fireAt/seconds及来源/SLA，畸形旧记录退休；恢复已unknown的原outcome原因与预算hash不重结算。后台lease/hold恢复tick遇操作性SQLITE存储错误只终止当前周期，记录固定任务名/错误码并等下一既有周期；启动时恢复/迁移与其他错误仍fail-fast。存储恢复前不能承诺新工作成功，恢复后不能盲重放原请求。
 
-默认1000ms片长仍可能在同步准备期间过期；本轮仅合成根通过正规Owner CAS显式选10000ms并验真实供应商。目标发布须明确选定片长和总预算，不能直接沿用验收根配置打开日常入口。SDK中途杀父后即使宿主确认guardian组已停，原持久registered/unknown及供应商未知费用仍保留，待可信事实对账。原89758未知加本轮97271未知预留全部保持；当前累计252210 token保守占额及两轮未定位真实超时详见报告，不据新成功自动释放旧项。
+默认1000ms片长仍可能在同步准备期间过期；RC05隔离验收根通过正规Owner CAS显式选10000ms并验真实供应商。目标发布须明确选定片长和总预算，不能直接沿用验收根配置打开日常入口。SDK中途杀父后即使宿主确认guardian组已停，原持久registered/unknown及供应商未知费用仍保留，待可信事实对账。原89758未知加RC05新增97271未知预留全部保持；RC05结束时累计252210 token保守占额及两轮未定位真实超时详见报告，不据新成功自动释放旧项。
+
+### RC06 并发与工程工作区补充
+
+[RC06 合同](../architecture/threaded-concurrency-workspace-acceptance-v1.md)与[报告](../reports/threaded-collaboration-rc06-concurrency-2026-10-24.md)分别保留多进程 coordinator 16组、原生SDK/注入HTTP 6组、真实本机工程/production factory 9组、实际 index 注入5组及选定真实供应商5组。原生组使用 isolated worker；不同policy同native为刻意种子Session的低层互斥测试。实际index两层无执行bypass，真实供应商完整legacy/新模式混跑未验，不能把多层证据视为所有组合都已开放。工程fixture的唯一merge owner/baseVersion协议不等于产品已提供工程源写/合并工具。
+
+注册命令补充非容量资源时不另占模型服务轮次，也不更新模型Thread公平性；无冲突模型候选领先不再单独阻塞命令。active或更早有效eligible pending 的真实非容量资源冲突仍挡。真正冲突的单次reserve仍可能保留业务command unknown并回滚OS intent/claim；没有持久等待后自动重试启动保证，不能删unknown或换键盲重放。
+
+RC06真实供应商新增5362已知token和19803未知预留；在RC05历史账本基础上累计已知70543、未知206832，共277375 token保守占额，原未知项及账本行保持。验收根显式选10000ms片长，默认1000ms不变。RC04完整真实链仍not_observed，RC05两轮未定位超时和未知费用限制继续保留。日常仍closed、未配置/迁移；本轮成功不授权日常启用、扩大工具或清除旧unknown。
 
 ## 5. 一致性备份与恢复
 

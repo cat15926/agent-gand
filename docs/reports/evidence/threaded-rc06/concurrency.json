@@ -1,0 +1,3101 @@
+{
+  "ok": true,
+  "groups": 16,
+  "checks": [
+    {
+      "id": "RC06-C01-eight-process-same-key",
+      "passed": true,
+      "elapsedMs": 346,
+      "processes": 8,
+      "oneTicket": true,
+      "oneClaim": true,
+      "capacityChargedOnce": true,
+      "winnerPid": 24976,
+      "state": {
+        "tickets": [
+          {
+            "id": "7b020c15-5149-440f-959e-8a182eb9d222",
+            "seq": 1,
+            "request_key": "c84bc018-013b-447d-8ca3-b3737efb47ee",
+            "operation_id": "dbf849ad-f31a-4e6c-9766-adc595846013",
+            "status": "released",
+            "request_hash": "cd0288b742642bb209ea531ae4b24c872b8cbff2b529c5b657a862f210e448cf"
+          }
+        ],
+        "claims": [
+          {
+            "id": "8f72df69-032e-4894-a098-3bb71fe8e1a2",
+            "ticket_id": "7b020c15-5149-440f-959e-8a182eb9d222",
+            "owner_nonce": "rc06:24976:607c51d8-6636-460a-92bb-0b6ab0e4c0dc",
+            "generation": 1,
+            "state": "released"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "8f72df69-032e-4894-a098-3bb71fe8e1a2",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "8f72df69-032e-4894-a098-3bb71fe8e1a2",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "8f72df69-032e-4894-a098-3bb71fe8e1a2",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "8f72df69-032e-4894-a098-3bb71fe8e1a2",
+            "resource_key": "capacity:thread:c986ce42-0071-41cf-9840-e278d118734f",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:c986ce42-0071-41cf-9840-e278d118734f",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C02-eight-process-conflicting-retry",
+      "passed": true,
+      "elapsedMs": 216,
+      "processes": 8,
+      "exactReplays": 4,
+      "conflicts": 4,
+      "noPartialClaims": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "6e418f3c-e04a-40c9-9510-f3f71db7f4e2",
+            "seq": 1,
+            "request_key": "c558a643-1229-4fc6-a876-550d3f451d1f",
+            "operation_id": "d0f94231-d58f-4ecb-b60a-17dc775f0b0e",
+            "status": "waiting",
+            "request_hash": "edcd3fa7dd8b3b362d2650d9407b03d14893ea5aa5c829e8496601ca9da1a136"
+          }
+        ],
+        "claims": [],
+        "items": [],
+        "fairness": [
+          {
+            "lane": "thread:a3bb2906-c0f2-49d7-9875-c0e284e2809d",
+            "last_served": 0
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C03-same-slot-fifo-and-old-finally",
+      "passed": true,
+      "elapsedMs": 284,
+      "processes": 8,
+      "earliestTicketWins": true,
+      "lateFinallyCannotReleaseSuccessor": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "8f2752ab-2074-4e20-99d2-530190249bdb",
+            "seq": 1,
+            "request_key": "1d40ffe3-7f5e-471d-a8cb-abef93b9c4ab",
+            "operation_id": "178099ae-1d6a-4cc8-8999-fe1cb727a96f",
+            "status": "released",
+            "request_hash": "7f0773b7c28130325e3c534adb6982833462ae5a8fcddaa91e26a29d13612078"
+          },
+          {
+            "id": "70f63d65-f8de-474f-af4b-ecc6bf21c9b9",
+            "seq": 2,
+            "request_key": "afe770ce-ab88-4b14-ab5e-805f080973c7",
+            "operation_id": "92905617-1496-4868-bddf-0e0000353e1b",
+            "status": "released",
+            "request_hash": "71a082e6103bf278544d07869c5497688fbd9f48d4a76e45e07de35537779727"
+          },
+          {
+            "id": "2da1314f-ed56-48c6-8987-7948df1b6077",
+            "seq": 3,
+            "request_key": "0dda549a-b7ae-448f-bc80-b5123d3f65fa",
+            "operation_id": "c4d93dfe-9e08-40ef-b500-437ea45f3df9",
+            "status": "waiting",
+            "request_hash": "d83ea05f5a4ccab25acec7d3a451c0ee3f94431b4337fc4f27d7744a463b8c1c"
+          },
+          {
+            "id": "f7b95b61-ea91-4988-92ae-3bd20da1957d",
+            "seq": 4,
+            "request_key": "ef148383-e08a-45d3-9fde-fa15229f1d00",
+            "operation_id": "7bab8edf-44e3-4161-90b7-d90d7b0fd751",
+            "status": "waiting",
+            "request_hash": "8e80588dbf02260ecac737bddb3685313f425534919574aa9a523319374bfe62"
+          },
+          {
+            "id": "2d670ad3-73a4-4ebd-8a55-892847492263",
+            "seq": 5,
+            "request_key": "64630427-6d76-47b1-9df7-27f53c4d3d34",
+            "operation_id": "d9bb73ee-3c16-46d9-b82a-b20dee03409c",
+            "status": "waiting",
+            "request_hash": "5dfc4dae96ba03e3d3f74c5278a66f3282fcee4145eb25d8aceae3d3a8f42d14"
+          },
+          {
+            "id": "2ac498e9-8282-4454-985a-5ae3c6cbbed2",
+            "seq": 6,
+            "request_key": "4a14e13e-1a5b-4811-b315-f450402689ba",
+            "operation_id": "d7dd2336-a44b-4dab-a5b0-81bcfbf0b7ff",
+            "status": "waiting",
+            "request_hash": "d02c03575bc104a47c59f8ee1ff6e1e1a6cd99ee7ce5a2bc867cab8e2f3dbdd6"
+          },
+          {
+            "id": "2cbc6005-ec78-4f1c-998e-15489b2214ff",
+            "seq": 7,
+            "request_key": "10a8e281-0fe9-47bf-bd66-e0cfd389a318",
+            "operation_id": "52f5a630-b666-49d0-a990-e9c5c3bcb270",
+            "status": "waiting",
+            "request_hash": "8ec90180c1a910ff4ab3f4c78cd531c29db998d4547ea82060a0d6abc8b02a65"
+          },
+          {
+            "id": "ecb33b02-ffa4-45d8-8e97-3d9eccceb29c",
+            "seq": 8,
+            "request_key": "985862be-7841-4743-af7c-f0835963b27e",
+            "operation_id": "b326e1f0-c142-45de-b983-134dd9ac2e51",
+            "status": "waiting",
+            "request_hash": "5c19b6c760b956e02398a662775c62118716c64bf4553ada44d097ac2cdff707"
+          }
+        ],
+        "claims": [
+          {
+            "id": "84e016a7-c779-4c14-9ec4-476ea8137e86",
+            "ticket_id": "8f2752ab-2074-4e20-99d2-530190249bdb",
+            "owner_nonce": "rc06:24976:70be1982-e1e0-4c21-8aee-7b8e452ab57d",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "f2f8dd91-68ff-4789-af0d-788fb765ba14",
+            "ticket_id": "70f63d65-f8de-474f-af4b-ecc6bf21c9b9",
+            "owner_nonce": "rc06:24977:b672b9cb-0c05-48e2-8880-44e72dadf046",
+            "generation": 2,
+            "state": "released"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "84e016a7-c779-4c14-9ec4-476ea8137e86",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "84e016a7-c779-4c14-9ec4-476ea8137e86",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "84e016a7-c779-4c14-9ec4-476ea8137e86",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "84e016a7-c779-4c14-9ec4-476ea8137e86",
+            "resource_key": "capacity:thread:f0dce0e9-acf3-464c-aef2-dfa5e72865d0",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "f2f8dd91-68ff-4789-af0d-788fb765ba14",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "f2f8dd91-68ff-4789-af0d-788fb765ba14",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "f2f8dd91-68ff-4789-af0d-788fb765ba14",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "f2f8dd91-68ff-4789-af0d-788fb765ba14",
+            "resource_key": "capacity:thread:f0dce0e9-acf3-464c-aef2-dfa5e72865d0",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:f0dce0e9-acf3-464c-aef2-dfa5e72865d0",
+            "last_served": 2
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 6,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 7,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 8,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 9,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 10,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C04-cross-thread-same-agent-capacity",
+      "passed": true,
+      "elapsedMs": 318,
+      "processes": 8,
+      "sameAgent": true,
+      "parallelThreadSlots": 3,
+      "globalAndAccountLimit": 3,
+      "releasedCapacityReused": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "459aef65-3bed-437b-b1e1-77d005a2cd98",
+            "seq": 1,
+            "request_key": "2c5c0572-2b32-43e5-b034-01fbf291ef8d",
+            "operation_id": "4a548e44-8547-4184-97bf-7c57ceb1a441",
+            "status": "released",
+            "request_hash": "ee78fb6d8e7421a00683ac4ad62007049c95aea85464aac96f075f8164e1a8ef"
+          },
+          {
+            "id": "78927b31-1312-43b6-9e24-5d7c1b062eae",
+            "seq": 2,
+            "request_key": "4982ffd0-bf58-492d-8f37-ab0cf0757281",
+            "operation_id": "bf5a6c80-bd2c-4aaf-8f7d-a5a64de09808",
+            "status": "active",
+            "request_hash": "55c35c91763b4fbb2f26f2159c43915823fbaf6882b772afd852aa45b07173d5"
+          },
+          {
+            "id": "4d3653df-4306-4351-a44c-6b0ab201557c",
+            "seq": 3,
+            "request_key": "b3689c49-d152-44c1-8a53-493b711c1006",
+            "operation_id": "406b2d73-5f97-4ddc-aafb-04712d8128b0",
+            "status": "active",
+            "request_hash": "c787b55097436df63d2bfad5fde8d3f503180062b7b207a45f03650a1d3bd804"
+          },
+          {
+            "id": "433dbe3c-4c16-4abe-afa4-795d83d59eb4",
+            "seq": 4,
+            "request_key": "e8346f4c-7338-4ec5-a207-89512e33e683",
+            "operation_id": "57187b80-8ad1-46f5-9524-911cec99fce9",
+            "status": "active",
+            "request_hash": "94bccabc6939996dd848658c502cf6116a548fc9b92d610c724b5c112b91db58"
+          },
+          {
+            "id": "8b085b3a-80d9-450a-b644-5d0cef975187",
+            "seq": 5,
+            "request_key": "db6bfffa-2ba7-433a-9e29-c1a2ec6dc8a9",
+            "operation_id": "e999cfc8-f779-4b62-840a-3272711bc1d6",
+            "status": "waiting",
+            "request_hash": "fb28bfcf53eb0d9ec256fda4ef90e8924cf47d082a3f57b9696f1268b3e18832"
+          },
+          {
+            "id": "3b8aaec0-cb42-4ef6-b67f-a7662098c515",
+            "seq": 6,
+            "request_key": "9558190f-8c52-4580-bc92-00b874b3ac87",
+            "operation_id": "9ecf8ee0-4a93-41a8-b1b3-b027dcc3e222",
+            "status": "waiting",
+            "request_hash": "9f230537ebb87676c666610a1cc7d8f4667242a6260409949c20dc7860a7faaf"
+          },
+          {
+            "id": "7e6ddbed-65ba-47f4-8d5d-c0fe86dcac48",
+            "seq": 7,
+            "request_key": "de2909a7-c846-44e4-9e1b-76c791fc46fa",
+            "operation_id": "726582cc-3495-44fd-a101-dabe073c7660",
+            "status": "waiting",
+            "request_hash": "7e35101b8e151875fbce56c94904688ed1ce605213bbd1090ed3511e564f700e"
+          },
+          {
+            "id": "73ecf32a-4805-4341-9dce-949add240611",
+            "seq": 8,
+            "request_key": "5ebc8b47-f478-4a2b-83f8-330ee2c44999",
+            "operation_id": "abd3676d-5336-4e72-aa1c-df9408714436",
+            "status": "waiting",
+            "request_hash": "eebf396bf9c2f04b7672cf3ae1dcd0c7f50bea8a4222bdcc029e571db2dd0674"
+          }
+        ],
+        "claims": [
+          {
+            "id": "7bd90371-a899-45b6-8eb1-08a29db59428",
+            "ticket_id": "459aef65-3bed-437b-b1e1-77d005a2cd98",
+            "owner_nonce": "rc06:24976:3e22824e-5a77-400c-82fe-bc9d3193251c",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "e0ad243a-f844-4f6c-aaca-cdb52597dee2",
+            "ticket_id": "78927b31-1312-43b6-9e24-5d7c1b062eae",
+            "owner_nonce": "rc06:24977:f96eb3ff-4b70-40c6-aa4c-4679ddbd0ce3",
+            "generation": 2,
+            "state": "reserved"
+          },
+          {
+            "id": "9664abdf-8595-4e15-a36c-bf8cf7b20969",
+            "ticket_id": "4d3653df-4306-4351-a44c-6b0ab201557c",
+            "owner_nonce": "rc06:24978:bfee882c-b595-427f-94b5-cfc030890110",
+            "generation": 3,
+            "state": "reserved"
+          },
+          {
+            "id": "999c25ec-358c-46a1-898c-5e2bd4aca543",
+            "ticket_id": "433dbe3c-4c16-4abe-afa4-795d83d59eb4",
+            "owner_nonce": "rc06:24979:34ba1719-be4e-4313-9cf7-7f1891bab690",
+            "generation": 4,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "7bd90371-a899-45b6-8eb1-08a29db59428",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "7bd90371-a899-45b6-8eb1-08a29db59428",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "7bd90371-a899-45b6-8eb1-08a29db59428",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "7bd90371-a899-45b6-8eb1-08a29db59428",
+            "resource_key": "capacity:thread:868e3e53-77e5-4d7a-a2c6-f37504fb686e",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "9664abdf-8595-4e15-a36c-bf8cf7b20969",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 3
+          },
+          {
+            "claim_id": "9664abdf-8595-4e15-a36c-bf8cf7b20969",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "9664abdf-8595-4e15-a36c-bf8cf7b20969",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "9664abdf-8595-4e15-a36c-bf8cf7b20969",
+            "resource_key": "capacity:thread:954bb562-c1dd-4a81-90ef-04e20e9ac290",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "999c25ec-358c-46a1-898c-5e2bd4aca543",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 4
+          },
+          {
+            "claim_id": "999c25ec-358c-46a1-898c-5e2bd4aca543",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 4
+          },
+          {
+            "claim_id": "999c25ec-358c-46a1-898c-5e2bd4aca543",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 4
+          },
+          {
+            "claim_id": "999c25ec-358c-46a1-898c-5e2bd4aca543",
+            "resource_key": "capacity:thread:c8d1bf7e-97df-4432-aefe-2ce1d77a4650",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "e0ad243a-f844-4f6c-aaca-cdb52597dee2",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "e0ad243a-f844-4f6c-aaca-cdb52597dee2",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "e0ad243a-f844-4f6c-aaca-cdb52597dee2",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "e0ad243a-f844-4f6c-aaca-cdb52597dee2",
+            "resource_key": "capacity:thread:274f2fcf-46ed-4b86-819a-3d9436815c6a",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:1e8295ac-d4c6-4093-9481-63ea839e2e1d",
+            "last_served": 0
+          },
+          {
+            "lane": "thread:274f2fcf-46ed-4b86-819a-3d9436815c6a",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:76329175-7ce9-4ac3-a382-c3ecb01a495f",
+            "last_served": 0
+          },
+          {
+            "lane": "thread:868e3e53-77e5-4d7a-a2c6-f37504fb686e",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:954bb562-c1dd-4a81-90ef-04e20e9ac290",
+            "last_served": 3
+          },
+          {
+            "lane": "thread:c799f168-1f89-4ed9-979c-1ef0989a023d",
+            "last_served": 0
+          },
+          {
+            "lane": "thread:c8d1bf7e-97df-4432-aefe-2ce1d77a4650",
+            "last_served": 4
+          },
+          {
+            "lane": "thread:fa2b0d54-f4d7-4400-9313-17af6da748e2",
+            "last_served": 0
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 6,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 7,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 8,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 9,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C05-legacy-exclusive-barrier",
+      "passed": true,
+      "elapsedMs": 697,
+      "processes": 8,
+      "olderExclusiveCannotStarve": true,
+      "newThreadCannotOvertake": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "fb0a5d67-218d-4c1f-80af-d14e5f38bd25",
+            "seq": 1,
+            "request_key": "c6626080-986d-4881-a32b-42675184c63f",
+            "operation_id": "adb9398e-ab80-4be4-8153-1401ba920fe0",
+            "status": "released",
+            "request_hash": "25a35918b6ecbda163b91ad5a70189c6b38fcb6cc7bfce5eb809aa3c76e108c5"
+          },
+          {
+            "id": "8c09aa65-1dda-475b-a4f2-014e9c8a0633",
+            "seq": 2,
+            "request_key": "525b55a0-4193-4995-96bb-6195aaf749cd",
+            "operation_id": "b3acbc75-fa51-4b32-a49e-f76ee7e26567",
+            "status": "released",
+            "request_hash": "7bd0fcf815470302f7b87c0f1c2831a0eb5b68abbc42ff649e75590f88ca7abe"
+          },
+          {
+            "id": "ba1d911c-7551-4e24-946d-03d339326a8f",
+            "seq": 3,
+            "request_key": "41896e2e-c2c6-40aa-9f64-ee4d5cfdb9ec",
+            "operation_id": "a1d3c918-f4a5-48c2-9fe9-690ecdd5c34c",
+            "status": "active",
+            "request_hash": "7c60046f51ccdbe50372b82cbf06ca5b9ea91371ee5db9c8e4ceb5f8bff76780"
+          },
+          {
+            "id": "a47a6a7a-b44f-4cbc-97e2-39146321bc8d",
+            "seq": 4,
+            "request_key": "f1f4f0e6-4a99-401d-9366-78e13018fa81",
+            "operation_id": "4277937c-722d-4d41-a934-e41be4cf9e78",
+            "status": "waiting",
+            "request_hash": "a12ceaf540668b4d6471a86f127fd599776e659f4d4d52b1bbaf13fb661c2931"
+          },
+          {
+            "id": "29ef071e-e937-4951-8db4-361a327077c0",
+            "seq": 5,
+            "request_key": "f606421d-99ec-43bf-950a-5c81e8eceb78",
+            "operation_id": "55d22d81-29c4-49ea-833f-28050109b6d6",
+            "status": "waiting",
+            "request_hash": "433bc72ebd73cdbe3c423dff2d98c48ca35a560e14c3e4100a4e3a730c77a832"
+          },
+          {
+            "id": "87f12a0e-ebbe-4600-bd7b-294cf2b36b90",
+            "seq": 6,
+            "request_key": "067131e0-e163-4c59-a842-fa45314976e2",
+            "operation_id": "18ba4556-7605-4e14-9111-d980b4d851be",
+            "status": "waiting",
+            "request_hash": "a08ab4fd3fc2fde7eb5d617b01ef922ce7350e1169f28ad516084de2b73a7882"
+          },
+          {
+            "id": "b6903d0e-2e0a-450c-8fe4-00007f683900",
+            "seq": 7,
+            "request_key": "a1d79963-3c76-427b-8d25-c4e38cc5e34b",
+            "operation_id": "cf2b8872-bc99-4a4b-81a0-cc70c63c0ec5",
+            "status": "waiting",
+            "request_hash": "13640c0544e6ecf34835b1883d7d4fb11ddac9ddac84d53053eaead7a8728c4f"
+          },
+          {
+            "id": "14d040bc-46d2-4cf4-ad39-985cf2a21d85",
+            "seq": 8,
+            "request_key": "646dc3ad-81fa-49cd-a8ac-d5938e9c32c1",
+            "operation_id": "b3412e5b-c2b3-4552-94f8-cd38ea0ebb48",
+            "status": "waiting",
+            "request_hash": "a831ef4405b4d15380aa05a5fce5c715b2c570f6a1f42b686775993a75c5f38b"
+          },
+          {
+            "id": "e59de374-b65a-47f5-98bb-ad41b81961e3",
+            "seq": 9,
+            "request_key": "28039dd9-9241-46ec-bcf7-c98b9fb2fa40",
+            "operation_id": "6db584fa-5394-48df-9bbe-58f3072ecb49",
+            "status": "waiting",
+            "request_hash": "0e62551218aa171677b5421b130940c2a5f6b8959c1222d6118763ae140de2c3"
+          }
+        ],
+        "claims": [
+          {
+            "id": "860a1acc-1e6a-42dd-b714-f5677a8fec9e",
+            "ticket_id": "fb0a5d67-218d-4c1f-80af-d14e5f38bd25",
+            "owner_nonce": "rc06:24976:0d935a09-24b7-4a5b-937b-2808410cce5e",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "72f91639-07e5-4651-8f12-77399dfe2e06",
+            "ticket_id": "8c09aa65-1dda-475b-a4f2-014e9c8a0633",
+            "owner_nonce": "rc06:24976:0d935a09-24b7-4a5b-937b-2808410cce5e",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "55aca23d-d188-476c-abc5-440aeb7a4d5d",
+            "ticket_id": "ba1d911c-7551-4e24-946d-03d339326a8f",
+            "owner_nonce": "rc06:24977:00830b7f-d573-4527-ba1d-b2997274dd8f",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "55aca23d-d188-476c-abc5-440aeb7a4d5d",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 3
+          },
+          {
+            "claim_id": "55aca23d-d188-476c-abc5-440aeb7a4d5d",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "55aca23d-d188-476c-abc5-440aeb7a4d5d",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "55aca23d-d188-476c-abc5-440aeb7a4d5d",
+            "resource_key": "capacity:thread:035c4431-87ae-4af9-b386-e97fb1240550",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "72f91639-07e5-4651-8f12-77399dfe2e06",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 2
+          },
+          {
+            "claim_id": "72f91639-07e5-4651-8f12-77399dfe2e06",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "72f91639-07e5-4651-8f12-77399dfe2e06",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "860a1acc-1e6a-42dd-b714-f5677a8fec9e",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "860a1acc-1e6a-42dd-b714-f5677a8fec9e",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "860a1acc-1e6a-42dd-b714-f5677a8fec9e",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "860a1acc-1e6a-42dd-b714-f5677a8fec9e",
+            "resource_key": "capacity:thread:3fc95fb3-fc96-4db9-8fd3-08ba6e15493a",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "legacy:a",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:035c4431-87ae-4af9-b386-e97fb1240550",
+            "last_served": 3
+          },
+          {
+            "lane": "thread:1f4a8f05-9f9e-4c4b-a2e5-d54ac187fd60",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:3fc95fb3-fc96-4db9-8fd3-08ba6e15493a",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:7547ef3a-d736-477f-9410-38442b00335d",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:a7952731-781d-4506-8a89-7c768563e36b",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:c5744af9-e982-4eee-803d-7c5e125a3a87",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:c9c7b3fc-fbbc-4d75-8616-ff42a1a09f22",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:fab93408-8630-4b1c-962a-57bd947e117d",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 6,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 7,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 8,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 9,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 10,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 11,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C06-durable-thread-fairness",
+      "passed": true,
+      "elapsedMs": 104,
+      "serviceOrder": [
+        "hot-1",
+        "B",
+        "C",
+        "hot-2"
+      ],
+      "coordinatorConnectionRebuilt": true,
+      "starvationBound": "finite five-ticket fixture only",
+      "state": {
+        "tickets": [
+          {
+            "id": "44bdd732-673b-4001-84ea-9a0f2488aa1d",
+            "seq": 1,
+            "request_key": "e91afb8f-b23d-4cbc-a101-22d9145f74ea",
+            "operation_id": "2dd75508-3211-496b-8c02-49cfdcf1193d",
+            "status": "released",
+            "request_hash": "adf2620fc4670a92c8b6bbe31df6771d62fcf40f1ff29de75827225026f4ed7d"
+          },
+          {
+            "id": "acdd0a61-9f80-4cf0-b551-aef7cbce9d09",
+            "seq": 2,
+            "request_key": "b3342182-4e71-4c09-9230-29219c68be3c",
+            "operation_id": "902f24f3-76b0-4b63-964b-b17fc1fa5899",
+            "status": "active",
+            "request_hash": "f158e5b84aaafd19f6386ce3dacc833414459d3a5c56f5ca8698a84587d43a62"
+          },
+          {
+            "id": "8ad969f1-f29f-429c-b800-eada5024d9db",
+            "seq": 3,
+            "request_key": "64856cc2-ce88-430e-a77b-9b932851304f",
+            "operation_id": "af4591aa-40c0-46bd-aecb-efa068430a3b",
+            "status": "waiting",
+            "request_hash": "ec49159d94ab795b910c8a40196ae9db6d318fb324a46ba9668ad32cfab2f63f"
+          },
+          {
+            "id": "73b5e653-68a6-41b9-b38d-fe43010cbd0f",
+            "seq": 4,
+            "request_key": "74255630-ae29-4600-9d02-54b5ee38c207",
+            "operation_id": "0e528ee5-a844-4250-8822-6f55775507fa",
+            "status": "released",
+            "request_hash": "f3d5b90c977c6c806011eaece31dccb8757c73588de214c5de2ca35aef9e367b"
+          },
+          {
+            "id": "43294b68-7049-491e-9f35-1aca397646e2",
+            "seq": 5,
+            "request_key": "f51dfcc3-f819-478b-9f61-7d1e0be65093",
+            "operation_id": "b85098d0-8416-41ee-a28f-78dfe72dbb98",
+            "status": "released",
+            "request_hash": "c5780596658fd209e2852ab4e0277cd5b0115d3447b62fd0a4b7b8fa96a9fd85"
+          }
+        ],
+        "claims": [
+          {
+            "id": "63d4a8ec-9bea-4c8e-a33e-a80be489b8af",
+            "ticket_id": "44bdd732-673b-4001-84ea-9a0f2488aa1d",
+            "owner_nonce": "rc06:24976:d2ec3734-63a4-4a22-a4dd-e03c466afc4f",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "725e1ff1-c8cc-470b-9c5e-64a41ca0f3bf",
+            "ticket_id": "73b5e653-68a6-41b9-b38d-fe43010cbd0f",
+            "owner_nonce": "rc06:24983:75fdc931-3720-4a40-a610-caf17ea5f2be",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "7e6aab0c-dc47-45c8-a647-c90cd2f82724",
+            "ticket_id": "43294b68-7049-491e-9f35-1aca397646e2",
+            "owner_nonce": "rc06:24978:8922c592-77c1-433b-8248-ec8368469485",
+            "generation": 3,
+            "state": "released"
+          },
+          {
+            "id": "8afec665-493e-4d54-bd35-366153385f3d",
+            "ticket_id": "acdd0a61-9f80-4cf0-b551-aef7cbce9d09",
+            "owner_nonce": "rc06:24977:0f4a137c-765a-4bed-bd94-f6b4cb1956d2",
+            "generation": 4,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "63d4a8ec-9bea-4c8e-a33e-a80be489b8af",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "63d4a8ec-9bea-4c8e-a33e-a80be489b8af",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "63d4a8ec-9bea-4c8e-a33e-a80be489b8af",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "63d4a8ec-9bea-4c8e-a33e-a80be489b8af",
+            "resource_key": "capacity:thread:71f417e9-9276-4a9a-b033-0cad3ab100ea",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "725e1ff1-c8cc-470b-9c5e-64a41ca0f3bf",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "725e1ff1-c8cc-470b-9c5e-64a41ca0f3bf",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "725e1ff1-c8cc-470b-9c5e-64a41ca0f3bf",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "725e1ff1-c8cc-470b-9c5e-64a41ca0f3bf",
+            "resource_key": "capacity:thread:c9e2320e-14ce-4406-a6e2-1dfcc439fd4e",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "7e6aab0c-dc47-45c8-a647-c90cd2f82724",
+            "resource_key": "agent:c",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "7e6aab0c-dc47-45c8-a647-c90cd2f82724",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "7e6aab0c-dc47-45c8-a647-c90cd2f82724",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "7e6aab0c-dc47-45c8-a647-c90cd2f82724",
+            "resource_key": "capacity:thread:407a5d89-5f10-49e4-bd7b-e127b3ecd6bf",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "8afec665-493e-4d54-bd35-366153385f3d",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "8afec665-493e-4d54-bd35-366153385f3d",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 4
+          },
+          {
+            "claim_id": "8afec665-493e-4d54-bd35-366153385f3d",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 4
+          },
+          {
+            "claim_id": "8afec665-493e-4d54-bd35-366153385f3d",
+            "resource_key": "capacity:thread:71f417e9-9276-4a9a-b033-0cad3ab100ea",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:407a5d89-5f10-49e4-bd7b-e127b3ecd6bf",
+            "last_served": 3
+          },
+          {
+            "lane": "thread:71f417e9-9276-4a9a-b033-0cad3ab100ea",
+            "last_served": 4
+          },
+          {
+            "lane": "thread:c9e2320e-14ce-4406-a6e2-1dfcc439fd4e",
+            "last_served": 2
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "policy",
+            "agent_id": ""
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 6,
+            "reason": "enqueued",
+            "agent_id": "c"
+          },
+          {
+            "seq": 7,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 8,
+            "reason": "released",
+            "agent_id": "b"
+          },
+          {
+            "seq": 9,
+            "reason": "released",
+            "agent_id": "c"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C07-same-native-resource-different-policy",
+      "passed": true,
+      "elapsedMs": 185,
+      "differentPolicyIdsSameResourceKey": true,
+      "oneNativeResourceOwner": true,
+      "lateFinallySafe": true,
+      "scope": "Actual coordinator Session metadata/fence; synthetic native ID, no SDK process or actual resume",
+      "state": {
+        "tickets": [
+          {
+            "id": "d19c4845-bd6c-45d2-ac85-df288f7fbbd9",
+            "seq": 1,
+            "request_key": "591ee696-640b-40e0-99fd-2d3734112cf4",
+            "operation_id": "7d9279e9-d5ae-4928-8698-83379ed5e82f",
+            "status": "released",
+            "request_hash": "4bbf305936c62542ef720915456903cddc1cfcffa6da940c705359bd8038f070"
+          },
+          {
+            "id": "d5412782-3696-4bfd-8918-3f464187de1e",
+            "seq": 2,
+            "request_key": "312cc2b7-6b3d-44b7-b9e4-12a291661260",
+            "operation_id": "51fe5c22-3d8e-4055-98fd-50e1369af399",
+            "status": "active",
+            "request_hash": "a40f7377dd804a932c818b8e84c89fd21e58b5f240ea8ec049f421a093ec33ba"
+          }
+        ],
+        "claims": [
+          {
+            "id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "ticket_id": "d19c4845-bd6c-45d2-ac85-df288f7fbbd9",
+            "owner_nonce": "rc06:24976:d9edde91-00e3-4662-90e7-e5adeda0e01d",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "ticket_id": "d5412782-3696-4bfd-8918-3f464187de1e",
+            "owner_nonce": "rc06:24977:a7ece665-a915-4e7d-862b-ca83c04d4d00",
+            "generation": 2,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "resource_key": "capacity:thread:daaf988d-c071-4708-b8b0-d6217e95ff7b",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3a2979e2-45af-4cd1-a1a5-cf337671a7ac",
+            "resource_key": "session:claude-sdk:fixture-account:g1:fixture-host:2e884027-ce0e-4281-9a40-8b99b816fdc5",
+            "kind": "session",
+            "access": "exclusive",
+            "generation": 2
+          },
+          {
+            "claim_id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "resource_key": "capacity:thread:0ba9f764-6db6-4a8f-90f2-1c363038d6c4",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "c0c465ca-4206-43ec-a85c-0b05e958dfce",
+            "resource_key": "session:claude-sdk:fixture-account:g1:fixture-host:2e884027-ce0e-4281-9a40-8b99b816fdc5",
+            "kind": "session",
+            "access": "exclusive",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:0ba9f764-6db6-4a8f-90f2-1c363038d6c4",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:daaf988d-c071-4708-b8b0-d6217e95ff7b",
+            "last_served": 2
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 3,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C08-cancel-waiter-A-preserves-B",
+      "passed": true,
+      "elapsedMs": 100,
+      "onlyWaitingTicketACancelled": true,
+      "BUnchangedAndExecutable": true,
+      "activeCancellationCannotFakeQuiescence": true,
+      "scope": "Resource queue cancellation; API/SDK active Invocation cancellation covered separately",
+      "state": {
+        "tickets": [
+          {
+            "id": "113f7263-5a91-43a9-9d04-6c55c82b68db",
+            "seq": 1,
+            "request_key": "69c4df8e-0d30-4c84-9557-c835610227c3",
+            "operation_id": "35730824-f5b8-4408-bbc4-5f1484102fb4",
+            "status": "released",
+            "request_hash": "26161016d82c9b0d5bf01da28642fa25ba90a24e6d8280a9b256c1408d9238d6"
+          },
+          {
+            "id": "f0e72752-1faa-4458-b582-c496a876ef66",
+            "seq": 2,
+            "request_key": "0eefb704-bd02-4171-865c-4d8c0601ed7d",
+            "operation_id": "65bdaa4a-20b8-44de-9da7-2ef7fdab18bc",
+            "status": "cancelled",
+            "request_hash": "1d65cf04c7bc04c45c6d36e31c5327ce5bc6b2c1ed1a999478fa25cd4791be4c"
+          },
+          {
+            "id": "8384889f-34bd-4446-b6c4-8a0b7c6ba48b",
+            "seq": 3,
+            "request_key": "14402e6f-90f0-4f89-b62f-d1821ec31f86",
+            "operation_id": "2903d847-62cc-4d6c-8e2d-51638b008f5f",
+            "status": "active",
+            "request_hash": "44bd355753b38452b2e04fa55b1c0d2edfe036e4798930ce3b57043bc858be17"
+          }
+        ],
+        "claims": [
+          {
+            "id": "5268c4b7-8c80-42e4-b1b2-f81392ac90a1",
+            "ticket_id": "113f7263-5a91-43a9-9d04-6c55c82b68db",
+            "owner_nonce": "rc06:24977:d1743ff1-d963-477c-9a81-dac100fdf269",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "5c937260-e510-41e4-99ca-c02ba5c5411d",
+            "ticket_id": "8384889f-34bd-4446-b6c4-8a0b7c6ba48b",
+            "owner_nonce": "rc06:24978:4498fa55-4d74-4f7f-982b-ac482eae85a1",
+            "generation": 2,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "5268c4b7-8c80-42e4-b1b2-f81392ac90a1",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "5268c4b7-8c80-42e4-b1b2-f81392ac90a1",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "5268c4b7-8c80-42e4-b1b2-f81392ac90a1",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "5268c4b7-8c80-42e4-b1b2-f81392ac90a1",
+            "resource_key": "capacity:thread:d0795b21-2c0f-43d1-8824-10ffc43b56d0",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "5c937260-e510-41e4-99ca-c02ba5c5411d",
+            "resource_key": "agent:c",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "5c937260-e510-41e4-99ca-c02ba5c5411d",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "5c937260-e510-41e4-99ca-c02ba5c5411d",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "5c937260-e510-41e4-99ca-c02ba5c5411d",
+            "resource_key": "capacity:thread:5e051576-9952-4fdc-b876-a88a6e4c41da",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:5e051576-9952-4fdc-b876-a88a6e4c41da",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:66ad9c46-3d89-45da-94d3-1c60a0bd9b4a",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:d0795b21-2c0f-43d1-8824-10ffc43b56d0",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "policy",
+            "agent_id": ""
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "enqueued",
+            "agent_id": "c"
+          },
+          {
+            "seq": 5,
+            "reason": "cancelled",
+            "agent_id": "a"
+          },
+          {
+            "seq": 6,
+            "reason": "released",
+            "agent_id": "b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C09-preparation-capacity-requeue",
+      "passed": true,
+      "elapsedMs": 83,
+      "preparationNotCharged": true,
+      "actualCallChargedOnce": true,
+      "parentWaitsForChild": true,
+      "requeueKeepsAge": true,
+      "oldFinallySafe": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "59a52692-9e81-4fdd-9824-2ff7c4cbd3be",
+            "seq": 1,
+            "request_key": "c288d07e-6a44-408b-9862-b70bd70277f1",
+            "operation_id": "999fa9af-3fe6-4c52-b276-dbc7648ca9c2",
+            "status": "active",
+            "request_hash": "3dc3ca1806d957593e0291d9ba084c8485377be1d1bd04db2309a64a52e6b31b"
+          },
+          {
+            "id": "0acf6beb-d5ec-415f-9c2e-26d7830f08a8",
+            "seq": 2,
+            "request_key": "a8aef5fd-c57c-4859-8750-6a999d3d1769",
+            "operation_id": "351bae41-b919-42a3-8576-9b351a4b1322",
+            "status": "released",
+            "request_hash": "fd52df633ad289cbec417ed7899d79a39fa45544a24701f91e8ce40828bd451c"
+          }
+        ],
+        "claims": [
+          {
+            "id": "c3d4c5a3-8dd0-47d4-9bad-a72fadd1f6a5",
+            "ticket_id": "59a52692-9e81-4fdd-9824-2ff7c4cbd3be",
+            "owner_nonce": "rc06:24976:1fca7f65-521b-4ad0-a9e5-fd48824da6c8",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "a7bddbe7-62d4-4e87-a7c7-7ea074ef58c9",
+            "ticket_id": "0acf6beb-d5ec-415f-9c2e-26d7830f08a8",
+            "owner_nonce": "rc06:24977:b5aacae9-8e0c-41fa-a409-7f9728ae0211",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "37be7547-b530-4bd9-b167-d42eead67d03",
+            "ticket_id": "59a52692-9e81-4fdd-9824-2ff7c4cbd3be",
+            "owner_nonce": "rc06:24978:01badba6-f160-4c5f-bf12-f968871c7c45",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "37be7547-b530-4bd9-b167-d42eead67d03",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 2
+          },
+          {
+            "claim_id": "a7bddbe7-62d4-4e87-a7c7-7ea074ef58c9",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "a7bddbe7-62d4-4e87-a7c7-7ea074ef58c9",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "c3d4c5a3-8dd0-47d4-9bad-a72fadd1f6a5",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "legacy:a",
+            "last_served": 3
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "policy",
+            "agent_id": ""
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 6,
+            "reason": "requeued",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C10-release-reentrant-enqueue-and-missed-cursor",
+      "passed": true,
+      "elapsedMs": 93,
+      "releaseListenerReentered": true,
+      "beforeC": "B",
+      "CEventuallyAcquired": true,
+      "noTimerScanner": true,
+      "crossConnectionMissedEventsRecovered": true,
+      "notifications": {
+        "events": [
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agentId": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agentId": "b"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agentId": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agentId": "c"
+          },
+          {
+            "seq": 6,
+            "reason": "released",
+            "agentId": "b"
+          }
+        ],
+        "acquired": {
+          "d0a46065-d400-4709-9da7-a507a8b1aa60": {
+            "claimId": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "generation": 2,
+            "fencingToken": "9d061623-58db-4fcc-8a04-adef5a26c6c8",
+            "claimOwner": "rc06:24976:d4b17877-6254-4cc5-9076-63ce5da78312",
+            "ownerId": "0683d16a-48fd-4a78-b35a-526d81d3975f",
+            "threadId": "3f94c3de-2c42-4451-a5cc-10f5fdd49db7",
+            "invocationId": "13ca2aea-532a-4409-a985-f982b69f2496",
+            "runId": "5dbe39b5-ff4f-4874-b3ac-d4f8194e0c94",
+            "attemptId": "f859fd26-e54a-40da-b50e-3c52aef7b08d",
+            "agentId": "b"
+          },
+          "3faaffcd-3b9a-4b65-a60b-7b40965eddf3": {
+            "claimId": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "generation": 3,
+            "fencingToken": "87ab8911-56a0-45df-90fc-1464df7c0ca5",
+            "claimOwner": "rc06:24976:d4b17877-6254-4cc5-9076-63ce5da78312",
+            "ownerId": "0683d16a-48fd-4a78-b35a-526d81d3975f",
+            "threadId": "2d293123-4c8b-4a0b-87f8-c54e736d7b6c",
+            "invocationId": "a9d5bde3-2343-4d8f-bc60-8ea9e38bfcc4",
+            "runId": "493e5970-50be-4522-9522-bf49fe46bbbc",
+            "attemptId": "7639106f-60eb-4b3c-8ee0-fa234f952818",
+            "agentId": "c"
+          }
+        },
+        "injectedTicket": {
+          "id": "3faaffcd-3b9a-4b65-a60b-7b40965eddf3",
+          "seq": 3,
+          "status": "waiting",
+          "eligible": true,
+          "request": {
+            "requestKey": "e6c62f02-a438-4bbf-8965-a25a923d6e62",
+            "operationId": "f9d96e0f-e9da-4f32-9377-480164d0f4ef",
+            "mode": "threaded",
+            "ownerId": "0683d16a-48fd-4a78-b35a-526d81d3975f",
+            "agentId": "c",
+            "runId": "493e5970-50be-4522-9522-bf49fe46bbbc",
+            "attemptId": "7639106f-60eb-4b3c-8ee0-fa234f952818",
+            "threadId": "2d293123-4c8b-4a0b-87f8-c54e736d7b6c",
+            "invocationId": "a9d5bde3-2343-4d8f-bc60-8ea9e38bfcc4",
+            "accountId": "account",
+            "workspaces": [],
+            "capacity": true
+          }
+        },
+        "failures": [],
+        "timerScannerCalls": 0
+      },
+      "recovered": {
+        "cursor": 6,
+        "events": [
+          {
+            "seq": 4,
+            "reason": "released",
+            "agentId": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agentId": "c"
+          },
+          {
+            "seq": 6,
+            "reason": "released",
+            "agentId": "b"
+          }
+        ],
+        "tickets": []
+      },
+      "state": {
+        "tickets": [
+          {
+            "id": "f9bd8bd8-61b4-4a9c-a636-8c87badb4125",
+            "seq": 1,
+            "request_key": "b59a4877-9476-4bf1-9aa7-87046ec6ea0f",
+            "operation_id": "d2c7bd48-6221-487b-b0ca-d93326335f7a",
+            "status": "released",
+            "request_hash": "fa425a3d249fee7a62254fc10cbf52016c20189bd2ecba2ff6f218e76c08459a"
+          },
+          {
+            "id": "d0a46065-d400-4709-9da7-a507a8b1aa60",
+            "seq": 2,
+            "request_key": "12bf1924-eafd-435c-90a6-afe24a596ebe",
+            "operation_id": "cee80ee9-b97b-46a8-bdaf-f20484b94689",
+            "status": "released",
+            "request_hash": "0add9e03750269adc7bf2d37352a8a9fcc0e17c27d3d46cd824b54de60516d75"
+          },
+          {
+            "id": "3faaffcd-3b9a-4b65-a60b-7b40965eddf3",
+            "seq": 3,
+            "request_key": "e6c62f02-a438-4bbf-8965-a25a923d6e62",
+            "operation_id": "f9d96e0f-e9da-4f32-9377-480164d0f4ef",
+            "status": "active",
+            "request_hash": "538281593c8b815cc027ec1afde93337158306343c6883d6c16340ecdac67bb6"
+          }
+        ],
+        "claims": [
+          {
+            "id": "a402002b-2b73-4284-8233-7adb57b12158",
+            "ticket_id": "f9bd8bd8-61b4-4a9c-a636-8c87badb4125",
+            "owner_nonce": "rc06:24976:d4b17877-6254-4cc5-9076-63ce5da78312",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "ticket_id": "d0a46065-d400-4709-9da7-a507a8b1aa60",
+            "owner_nonce": "rc06:24976:d4b17877-6254-4cc5-9076-63ce5da78312",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "ticket_id": "3faaffcd-3b9a-4b65-a60b-7b40965eddf3",
+            "owner_nonce": "rc06:24976:d4b17877-6254-4cc5-9076-63ce5da78312",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "resource_key": "agent:c",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 3
+          },
+          {
+            "claim_id": "0974c63b-6d75-4ba8-96b1-d08f4c330d23",
+            "resource_key": "capacity:thread:2d293123-4c8b-4a0b-87f8-c54e736d7b6c",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "6b49a1fa-2a17-4fb7-b0e2-8b76cf4b3750",
+            "resource_key": "capacity:thread:3f94c3de-2c42-4451-a5cc-10f5fdd49db7",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "a402002b-2b73-4284-8233-7adb57b12158",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "a402002b-2b73-4284-8233-7adb57b12158",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "a402002b-2b73-4284-8233-7adb57b12158",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "a402002b-2b73-4284-8233-7adb57b12158",
+            "resource_key": "capacity:thread:88feb86f-e493-4681-9381-c2dc661312c0",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:2d293123-4c8b-4a0b-87f8-c54e736d7b6c",
+            "last_served": 3
+          },
+          {
+            "lane": "thread:3f94c3de-2c42-4451-a5cc-10f5fdd49db7",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:88feb86f-e493-4681-9381-c2dc661312c0",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "policy",
+            "agent_id": ""
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "enqueued",
+            "agent_id": "c"
+          },
+          {
+            "seq": 6,
+            "reason": "released",
+            "agent_id": "b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C11-command-unrelated-model-does-not-take-second-turn",
+      "passed": true,
+      "elapsedMs": 96,
+      "unrelatedEarlierModelTicket": "e6086290-922f-47d5-991c-435deb7441d7",
+      "commandAcquired": true,
+      "noExtraModelCapacity": true,
+      "noExtraFairnessTurn": true,
+      "scope": "Synthetic registered command intent and actual persisted execution Binding; no native launch",
+      "state": {
+        "tickets": [
+          {
+            "id": "5a781f12-56de-4c00-a278-360333db304f",
+            "seq": 1,
+            "request_key": "ae9011c7-8d31-4f49-ac7b-be7c15712c8f",
+            "operation_id": "aeaded4f-ec3f-4b7b-8b53-daf95ac052a8",
+            "status": "active",
+            "request_hash": "8e1bca071822ac155b1a379637d155d83ceb07140ff0083ade0993df72e01c65"
+          },
+          {
+            "id": "e6086290-922f-47d5-991c-435deb7441d7",
+            "seq": 2,
+            "request_key": "7b060b07-932b-4b1c-891e-046ec1f73dcc",
+            "operation_id": "d14e470a-4739-4bbc-b72e-e35dd5b650a7",
+            "status": "active",
+            "request_hash": "fe39bb0ca00165e78b1e5c90def962a551574589923f849c0e018e3ffc9dfd8c"
+          },
+          {
+            "id": "240fc5bf-d954-4839-9aa6-ee3449fd9fca",
+            "seq": 3,
+            "request_key": "39cb9406-1f53-414e-817a-24a83c725711",
+            "operation_id": "b523d7bb-f8cc-41f5-b473-a17c45fb79cb",
+            "status": "active",
+            "request_hash": "543b690fdec591b83ed0cd2b0074e43716d0524b82d625e9a9341876770e99a6"
+          }
+        ],
+        "claims": [
+          {
+            "id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "ticket_id": "5a781f12-56de-4c00-a278-360333db304f",
+            "owner_nonce": "rc06:24976:fc9f27a9-d9e6-453e-a833-0721ba7070f3",
+            "generation": 1,
+            "state": "reserved"
+          },
+          {
+            "id": "52307bdf-dc69-42ad-9d10-407152b6384a",
+            "ticket_id": "240fc5bf-d954-4839-9aa6-ee3449fd9fca",
+            "owner_nonce": "rc06:24977:fd44f94e-2093-439f-81bc-01997d1a7cec",
+            "generation": 2,
+            "state": "reserved"
+          },
+          {
+            "id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "ticket_id": "e6086290-922f-47d5-991c-435deb7441d7",
+            "owner_nonce": "rc06:24978:54b3a233-fa1c-4d3d-a567-380202611604",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "resource_key": "capacity:thread:8d787c92-caf2-4654-aa8d-d0f2a1d26141",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d1b74d8-f6da-462d-a0a1-ac65218bf891",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-model/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          },
+          {
+            "claim_id": "52307bdf-dc69-42ad-9d10-407152b6384a",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "52307bdf-dc69-42ad-9d10-407152b6384a",
+            "resource_key": "command:02c4a3c8-1fd2-49cc-a6ee-4d628256f902",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "52307bdf-dc69-42ad-9d10-407152b6384a",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-model/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "52307bdf-dc69-42ad-9d10-407152b6384a",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-model/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 2
+          },
+          {
+            "claim_id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "resource_key": "capacity:thread:4f13595e-0f3d-40c2-ab94-d93269b023b5",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "a94a4a15-d22c-4ba9-9d11-c41389bf7366",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-model/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 3
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:4f13595e-0f3d-40c2-ab94-d93269b023b5",
+            "last_served": 3
+          },
+          {
+            "lane": "thread:8d787c92-caf2-4654-aa8d-d0f2a1d26141",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C12-command-respects-older-ancestor-writer",
+      "passed": true,
+      "elapsedMs": 99,
+      "olderWriterPath": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/project",
+      "commandReadPath": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/project/child",
+      "blockedBeforeAndDuringWriter": true,
+      "commandAcquiredAfterWriterRelease": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "40b5cb67-21df-4f9a-ab7e-769a90d820f7",
+            "seq": 1,
+            "request_key": "b4ef2250-7a70-41ca-bc60-a76524b35206",
+            "operation_id": "faf9c467-780b-48d0-b642-29f604d4bcdf",
+            "status": "released",
+            "request_hash": "2f88c432b0a50ddbca46a6dc2396029baf654adeec45a7e3d8c4d664b4589dd2"
+          },
+          {
+            "id": "651f0eb2-fe87-43ec-806f-3f0530fa48c3",
+            "seq": 2,
+            "request_key": "7aa3e185-44df-497a-aeb9-058a9966cd4d",
+            "operation_id": "3a0df316-22c2-4aed-894b-aa16d7ae34c1",
+            "status": "released",
+            "request_hash": "0a521a5d04905a09421f926a566fae11e7bb0a90b892cf10792a1a2a521c1286"
+          },
+          {
+            "id": "2e0331e7-43ac-4ba7-869b-74438091059e",
+            "seq": 3,
+            "request_key": "ac62b1c5-cacf-4681-8aca-fdcdfcd25db6",
+            "operation_id": "6accf128-0f4c-4b50-b8b1-31c8f46b236e",
+            "status": "active",
+            "request_hash": "55e6a26c5ef8f9f9daffdc3f5bbea4cf67098f0b74e530fdfc6f1f2ba11d06da"
+          }
+        ],
+        "claims": [
+          {
+            "id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "ticket_id": "40b5cb67-21df-4f9a-ab7e-769a90d820f7",
+            "owner_nonce": "rc06:24976:71edcabc-4f8a-4b3d-9595-1b68dd1e8846",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "ticket_id": "651f0eb2-fe87-43ec-806f-3f0530fa48c3",
+            "owner_nonce": "rc06:24977:b976419b-8fea-49fc-b0bf-b11775ac58a5",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "7e4085d1-feeb-443d-88d6-cbf8b89267b1",
+            "ticket_id": "2e0331e7-43ac-4ba7-869b-74438091059e",
+            "owner_nonce": "rc06:24978:434cfa13-4294-4952-9635-3022131527d9",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "resource_key": "capacity:thread:b72e0896-e1d9-4906-8c4f-adf4f537258a",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "68e2cda5-5750-4408-8587-4c003b74b16f",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/project/child",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          },
+          {
+            "claim_id": "7e4085d1-feeb-443d-88d6-cbf8b89267b1",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "7e4085d1-feeb-443d-88d6-cbf8b89267b1",
+            "resource_key": "command:99d9c49f-29bf-4b81-abcb-b2a86683663a",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "7e4085d1-feeb-443d-88d6-cbf8b89267b1",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "7e4085d1-feeb-443d-88d6-cbf8b89267b1",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/project/child",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 2
+          },
+          {
+            "claim_id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "resource_key": "capacity:thread:ac3073e1-bc89-4102-9139-3ceef4e43ad3",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "96b04f48-11d0-4029-b219-ff96e0b26789",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-ancestor/project",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:ac3073e1-bc89-4102-9139-3ceef4e43ad3",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:b72e0896-e1d9-4906-8c4f-adf4f537258a",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "released",
+            "agent_id": "b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C13-command-respects-older-descendant-writer",
+      "passed": true,
+      "elapsedMs": 83,
+      "olderWriterPath": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/project/child",
+      "commandReadPath": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/project",
+      "blockedBeforeAndDuringWriter": true,
+      "commandAcquiredAfterWriterRelease": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "98d3659e-037f-49f4-b724-eafb4f1fee31",
+            "seq": 1,
+            "request_key": "f2770663-350f-49c4-b455-db57f78cb112",
+            "operation_id": "8e66c642-7fe9-4374-b04f-80f496f2009d",
+            "status": "released",
+            "request_hash": "f3e4c3341e0ca8d12654edf78fc973472c0cd02eba552cc2e7af1c1e47d15f5a"
+          },
+          {
+            "id": "2521d045-05f3-43b9-a4e4-efdd24b6c575",
+            "seq": 2,
+            "request_key": "f59f8e8d-9acb-456e-a716-6befc6644252",
+            "operation_id": "167baaa9-ff3f-4467-bdbd-24af818a1fcb",
+            "status": "released",
+            "request_hash": "9d9a184a4d0c3a318dbb10b41eb152560c3e54f3e51ba6a5a6ca51c1dbd4e554"
+          },
+          {
+            "id": "f38ff322-ad36-4826-9c32-7b6bdb04b81d",
+            "seq": 3,
+            "request_key": "9eb47130-c85d-471e-bb79-6ad75447fc34",
+            "operation_id": "9903ec89-10a8-4f46-8109-126c2fdf2aa2",
+            "status": "active",
+            "request_hash": "c202c974aefb2aa8da289a167cea51ef44f7a6babfca5aacd81ed37d5b8e48a6"
+          }
+        ],
+        "claims": [
+          {
+            "id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "ticket_id": "98d3659e-037f-49f4-b724-eafb4f1fee31",
+            "owner_nonce": "rc06:24976:44a17792-98b8-4861-abe8-c5bdab86494f",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "ticket_id": "2521d045-05f3-43b9-a4e4-efdd24b6c575",
+            "owner_nonce": "rc06:24977:57cd8dcf-3c00-4c49-8784-71894a3add4b",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "ad9c69dd-38e5-4287-b2bb-645fc5484daf",
+            "ticket_id": "f38ff322-ad36-4826-9c32-7b6bdb04b81d",
+            "owner_nonce": "rc06:24978:ba03e2dc-6e25-48e8-ae53-274267767c95",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "resource_key": "agent:b",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "resource_key": "capacity:thread:876eade6-7891-45cf-bc01-aa7bfb20878f",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "abeb6f5a-104c-4b6e-afe7-221dbd60c017",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/project/child",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "ad9c69dd-38e5-4287-b2bb-645fc5484daf",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "ad9c69dd-38e5-4287-b2bb-645fc5484daf",
+            "resource_key": "command:7437429f-fe02-4207-88f7-3f502c07e6e6",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "ad9c69dd-38e5-4287-b2bb-645fc5484daf",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "ad9c69dd-38e5-4287-b2bb-645fc5484daf",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 2
+          },
+          {
+            "claim_id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "resource_key": "capacity:thread:18ddb8d3-2148-468e-97ac-c7e08f69ad6a",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "fd48f4a0-a594-431d-aef1-9daa34de678a",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-descendant/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:18ddb8d3-2148-468e-97ac-c7e08f69ad6a",
+            "last_served": 1
+          },
+          {
+            "lane": "thread:876eade6-7891-45cf-bc01-aa7bfb20878f",
+            "last_served": 2
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "b"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "released",
+            "agent_id": "b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C14-command-same-key-pending-cannot-overtake",
+      "passed": true,
+      "elapsedMs": 86,
+      "sameCommandResourceKey": true,
+      "olderTicketServedFirst": true,
+      "activeSameCommandExcluded": true,
+      "oldFinallySafe": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "83ae5559-86d6-453d-b33d-0245d76e9717",
+            "seq": 1,
+            "request_key": "3512dc79-3de5-420e-b25a-6e5c694843d5",
+            "operation_id": "ac753738-7ebf-4096-99e8-c4175776052a",
+            "status": "active",
+            "request_hash": "51dbdacd43cb118f1b2534901d7262b9ff2cafa1e33790c20d9ad1ba345195eb"
+          },
+          {
+            "id": "92f6cc18-2746-4f15-a21e-bb67f99c0ec0",
+            "seq": 2,
+            "request_key": "0dc9ec25-5eaf-4dd2-8012-4e81eeeaa32c",
+            "operation_id": "f920dd9b-03cc-404d-a85b-0e2886620dad",
+            "status": "released",
+            "request_hash": "56e70026f43997b624ae2c52371438409aa56ee60fffee817ef3c04e69ceeea5"
+          },
+          {
+            "id": "b4e7ee77-d4be-4b2e-a595-a4382dd2f089",
+            "seq": 3,
+            "request_key": "67e49cb1-b92b-45ad-b075-004076ec2886",
+            "operation_id": "ecd222a3-4337-4977-b997-5f782845eed1",
+            "status": "active",
+            "request_hash": "16571b0de9178e0a7c95549ee02e59035e0f5b511a4737a725b0cac83d8d5ae2"
+          }
+        ],
+        "claims": [
+          {
+            "id": "3d717e08-f386-419f-b9e3-02bc007444b2",
+            "ticket_id": "83ae5559-86d6-453d-b33d-0245d76e9717",
+            "owner_nonce": "rc06:24976:018219cd-8ae8-4e1b-8316-64077cc8b238",
+            "generation": 1,
+            "state": "reserved"
+          },
+          {
+            "id": "50999ba7-0a1b-4d51-b5f9-47a181f0fc3e",
+            "ticket_id": "92f6cc18-2746-4f15-a21e-bb67f99c0ec0",
+            "owner_nonce": "rc06:24977:fa9ce8d4-c351-4181-9e7b-17c417d796ed",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "c802c3cf-d0da-4c97-986a-73243101314b",
+            "ticket_id": "b4e7ee77-d4be-4b2e-a595-a4382dd2f089",
+            "owner_nonce": "rc06:24978:393d3250-999f-45e1-b21b-770ff6d96c17",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "3d717e08-f386-419f-b9e3-02bc007444b2",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d717e08-f386-419f-b9e3-02bc007444b2",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d717e08-f386-419f-b9e3-02bc007444b2",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "3d717e08-f386-419f-b9e3-02bc007444b2",
+            "resource_key": "capacity:thread:5a27ea21-7a78-4fc9-b825-6d9dec8f7001",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "50999ba7-0a1b-4d51-b5f9-47a181f0fc3e",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "50999ba7-0a1b-4d51-b5f9-47a181f0fc3e",
+            "resource_key": "command:5e83d149-ad0a-4287-8147-864d698604e6",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "50999ba7-0a1b-4d51-b5f9-47a181f0fc3e",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-same-key/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "50999ba7-0a1b-4d51-b5f9-47a181f0fc3e",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-same-key/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          },
+          {
+            "claim_id": "c802c3cf-d0da-4c97-986a-73243101314b",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 3
+          },
+          {
+            "claim_id": "c802c3cf-d0da-4c97-986a-73243101314b",
+            "resource_key": "command:5e83d149-ad0a-4287-8147-864d698604e6",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 2
+          },
+          {
+            "claim_id": "c802c3cf-d0da-4c97-986a-73243101314b",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-same-key/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 2
+          },
+          {
+            "claim_id": "c802c3cf-d0da-4c97-986a-73243101314b",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-same-key/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 2
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:5a27ea21-7a78-4fc9-b825-6d9dec8f7001",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C15-command-does-not-cross-legacy-exclusive",
+      "passed": true,
+      "elapsedMs": 81,
+      "olderSameAgentLegacyBarrierRetained": true,
+      "commandAcquiredOnlyAfterLegacyRelease": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "2e1c859d-e4d4-4459-a57e-d877be757c81",
+            "seq": 1,
+            "request_key": "1ab4a907-b413-400c-806f-d3901f99ed4d",
+            "operation_id": "6639a53c-20ee-474c-b974-cc662ec77d43",
+            "status": "released",
+            "request_hash": "60b24b91421e28c8fe50e7fcc3098377f769431b51c0f7f4f61958d9b95a4f14"
+          },
+          {
+            "id": "69a43db7-543f-4a77-b481-1c0926b5f219",
+            "seq": 2,
+            "request_key": "23e55dfe-47a2-4250-84c4-0aec2233ebef",
+            "operation_id": "daaf72cb-5d98-47dd-ac96-6acd83fd7310",
+            "status": "released",
+            "request_hash": "031fdbd721bf20bb51ab99675feed38954f385b1b8a83410cba64360b84074d5"
+          },
+          {
+            "id": "731fd243-456d-4bb9-94cd-453449708025",
+            "seq": 3,
+            "request_key": "f26651c6-de4f-4907-a220-d84a4c1a5f6d",
+            "operation_id": "660d9c73-4fb4-4f77-a703-39811d1fa3c4",
+            "status": "active",
+            "request_hash": "a5516b4607a21f16cc58af891a707fb92889389b6488d181217776c43a846797"
+          }
+        ],
+        "claims": [
+          {
+            "id": "1d53d72d-c66d-46f4-9ac6-b153df462140",
+            "ticket_id": "2e1c859d-e4d4-4459-a57e-d877be757c81",
+            "owner_nonce": "rc06:24976:675bbf46-2bbd-48e6-8bcf-0687602a2d11",
+            "generation": 1,
+            "state": "released"
+          },
+          {
+            "id": "86b5cea1-ec56-4757-b181-2ce0c25d8b11",
+            "ticket_id": "69a43db7-543f-4a77-b481-1c0926b5f219",
+            "owner_nonce": "rc06:24977:8307f6da-9eba-415e-91a3-9597942bcd25",
+            "generation": 2,
+            "state": "released"
+          },
+          {
+            "id": "fe1637b7-f990-48d1-8abc-62d2d53d338a",
+            "ticket_id": "731fd243-456d-4bb9-94cd-453449708025",
+            "owner_nonce": "rc06:24978:1ffc2a0d-0bc0-48b1-b2a0-8cce314ad874",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "1d53d72d-c66d-46f4-9ac6-b153df462140",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "1d53d72d-c66d-46f4-9ac6-b153df462140",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "1d53d72d-c66d-46f4-9ac6-b153df462140",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "1d53d72d-c66d-46f4-9ac6-b153df462140",
+            "resource_key": "capacity:thread:28a306e2-ac5b-49d9-a45d-e26c75e8a92b",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "86b5cea1-ec56-4757-b181-2ce0c25d8b11",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 2
+          },
+          {
+            "claim_id": "86b5cea1-ec56-4757-b181-2ce0c25d8b11",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "86b5cea1-ec56-4757-b181-2ce0c25d8b11",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 2
+          },
+          {
+            "claim_id": "fe1637b7-f990-48d1-8abc-62d2d53d338a",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 3
+          },
+          {
+            "claim_id": "fe1637b7-f990-48d1-8abc-62d2d53d338a",
+            "resource_key": "command:1feb4e40-70ff-43a5-8bd9-9fa0e524fee7",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "fe1637b7-f990-48d1-8abc-62d2d53d338a",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-legacy/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "fe1637b7-f990-48d1-8abc-62d2d53d338a",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-legacy/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "legacy:a",
+            "last_served": 2
+          },
+          {
+            "lane": "thread:28a306e2-ac5b-49d9-a45d-e26c75e8a92b",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 4,
+            "reason": "released",
+            "agent_id": "a"
+          },
+          {
+            "seq": 5,
+            "reason": "released",
+            "agent_id": "a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "RC06-C16-command-read-read-can-prepare-in-parallel",
+      "passed": true,
+      "elapsedMs": 88,
+      "parentChildReadReadShared": true,
+      "disjointOutputWritersParallel": true,
+      "noExtraCapacity": true,
+      "noExtraFairnessTurn": true,
+      "state": {
+        "tickets": [
+          {
+            "id": "551987cd-6d9a-43fb-aecf-045bc170ec20",
+            "seq": 1,
+            "request_key": "ff2f5548-ce14-4589-9a70-5d9134491523",
+            "operation_id": "26497226-160b-49c8-858f-73ba721506e7",
+            "status": "active",
+            "request_hash": "0ae0a597d7599bc18b87413cd1658247dd89353657e4c872475081651183ecd7"
+          },
+          {
+            "id": "d64c0be0-bb2d-4ba8-ac0c-c34f6e93c4f7",
+            "seq": 2,
+            "request_key": "c485537f-0244-424a-a50c-e18921fdb8a3",
+            "operation_id": "165d0a30-8ba3-49ec-8795-a14224de164d",
+            "status": "active",
+            "request_hash": "73ae9cd492f8e33af21e6e5a19542adcbe1b1fc50cd8a0ba48556c5c5ca761d9"
+          },
+          {
+            "id": "3e61847d-e6cf-4927-8f2d-a02f50663be3",
+            "seq": 3,
+            "request_key": "9bf29f77-cd5a-4585-84ff-28bede1907aa",
+            "operation_id": "4540cbe7-2a06-490f-b9f4-74d95fafd110",
+            "status": "active",
+            "request_hash": "692fcf139a251f021ae07cf12a42ce499888fa8dad9bff8aadfcfe95651c5d2e"
+          }
+        ],
+        "claims": [
+          {
+            "id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "ticket_id": "551987cd-6d9a-43fb-aecf-045bc170ec20",
+            "owner_nonce": "rc06:24976:395b5a05-0bcf-471b-8fa6-07e1ca8bbc3c",
+            "generation": 1,
+            "state": "reserved"
+          },
+          {
+            "id": "15abefa2-e47e-42ee-a1fd-c76024a2a820",
+            "ticket_id": "3e61847d-e6cf-4927-8f2d-a02f50663be3",
+            "owner_nonce": "rc06:24978:6561e033-5e75-491e-9262-22f9b855880f",
+            "generation": 2,
+            "state": "reserved"
+          },
+          {
+            "id": "04a5493c-8a50-4a3e-ad2d-27a1c5a75217",
+            "ticket_id": "d64c0be0-bb2d-4ba8-ac0c-c34f6e93c4f7",
+            "owner_nonce": "rc06:24977:288b94e4-b2eb-4ba4-ac48-b37d34afd578",
+            "generation": 3,
+            "state": "reserved"
+          }
+        ],
+        "items": [
+          {
+            "claim_id": "04a5493c-8a50-4a3e-ad2d-27a1c5a75217",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 3
+          },
+          {
+            "claim_id": "04a5493c-8a50-4a3e-ad2d-27a1c5a75217",
+            "resource_key": "command:1d27997b-83dd-49aa-a717-3c042d7ea457",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "04a5493c-8a50-4a3e-ad2d-27a1c5a75217",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-read-read/output-a",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "04a5493c-8a50-4a3e-ad2d-27a1c5a75217",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-read-read/project/child",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          },
+          {
+            "claim_id": "15abefa2-e47e-42ee-a1fd-c76024a2a820",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 2
+          },
+          {
+            "claim_id": "15abefa2-e47e-42ee-a1fd-c76024a2a820",
+            "resource_key": "command:aa90d572-7dc7-4801-a548-65c128d521c2",
+            "kind": "agent",
+            "access": "exclusive",
+            "generation": 1
+          },
+          {
+            "claim_id": "15abefa2-e47e-42ee-a1fd-c76024a2a820",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-read-read/output-b",
+            "kind": "workspace",
+            "access": "write",
+            "generation": 1
+          },
+          {
+            "claim_id": "15abefa2-e47e-42ee-a1fd-c76024a2a820",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-read-read/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 2
+          },
+          {
+            "claim_id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "resource_key": "agent:a",
+            "kind": "agent",
+            "access": "slot",
+            "generation": 1
+          },
+          {
+            "claim_id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "resource_key": "capacity:account:account",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "resource_key": "capacity:global",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "resource_key": "capacity:thread:9431956f-0f0e-40b1-b973-0ff5a471b411",
+            "kind": "capacity",
+            "access": "capacity",
+            "generation": 1
+          },
+          {
+            "claim_id": "b177cf5b-7715-42d4-8489-ffbca69829cd",
+            "resource_key": "workspace:/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc06-concurrency-Muw3Ze/command-read-read/project",
+            "kind": "workspace",
+            "access": "read",
+            "generation": 1
+          }
+        ],
+        "fairness": [
+          {
+            "lane": "thread:9431956f-0f0e-40b1-b973-0ff5a471b411",
+            "last_served": 1
+          }
+        ],
+        "availability": [
+          {
+            "seq": 1,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 2,
+            "reason": "enqueued",
+            "agent_id": "a"
+          },
+          {
+            "seq": 3,
+            "reason": "enqueued",
+            "agent_id": "a"
+          }
+        ]
+      }
+    }
+  ],
+  "failed": null,
+  "startedAt": "2026-10-23T16:30:40.121Z",
+  "completedAt": "2026-10-23T16:30:43.345Z",
+  "actualWorkerProcesses": 8,
+  "workers": [
+    {
+      "index": 0,
+      "pid": 24976,
+      "calls": 80,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 1,
+      "pid": 24977,
+      "calls": 80,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 2,
+      "pid": 24978,
+      "calls": 73,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 3,
+      "pid": 24979,
+      "calls": 52,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 4,
+      "pid": 24980,
+      "calls": 50,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 5,
+      "pid": 24981,
+      "calls": 50,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 6,
+      "pid": 24982,
+      "calls": 50,
+      "databasesOpened": 16,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    },
+    {
+      "index": 7,
+      "pid": 24983,
+      "calls": 56,
+      "databasesOpened": 17,
+      "networkCalls": 0,
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    }
+  ],
+  "networkCalls": 0,
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "remoteWrites": 0,
+  "dailyDatabaseRead": false,
+  "dailyConfigurationChanged": false,
+  "scope": "Eight actual independent Node PIDs/SQLite connections exercise the production durable coordinator with synthetic server-owned metadata; no business HTTP main process, SDK/native resume, supplier or engineering writer",
+  "limits": [
+    "finite bounded race/fairness fixtures, not a starvation proof for unbounded workloads",
+    "not_started proof only: no SDK process-stop or remote request evidence is fabricated",
+    "same-native test verifies resource locking with a synthetic native ID; actual SDK double resume requires separate acceptance"
+  ],
+  "checksSha256": "00978ed16a46c82855ede93c320131d37b5274d7cb95907a28d7a34e36692a30"
+}

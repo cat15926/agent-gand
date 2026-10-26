@@ -1,0 +1,286 @@
+{
+  "ok": true,
+  "groups": 9,
+  "checks": [
+    "RC06-W01: two real worker PIDs read the same canonical engineering project root simultaneously under separate complete SQLite read claims; no per-agent workspace substitutes the shared project",
+    "RC06-W02: parent-root readers block a real child-directory writer without partial claims; one reader stopping is insufficient; both independent process exits plus host file receipts permit the original writer ticket and exact serialized content",
+    "RC06-W03: an actual child write claim blocks a parent read while a disjoint artifact path can write in another PID; releasing the child publishes durable availability and re-admits the same original parent ticket with the updated bytes",
+    "RC06-W04: two real PIDs keep the engineering project read-only and concurrently publish distinct artifacts outside the shared root; both artifacts carry author identity, identical base version/hash and host-verified content hashes",
+    "RC06-W05: an explicitly fixture-only unique merge-owner/version protocol rejects a second author before enqueue, serializes the selected artifact under a project write claim, advances version 1→2 and rejects the other stale-base artifact without overwriting the merged result",
+    "RC06-WP01: actual production shared_project registration maps three scoped members to exactly one canonical project root and a disjoint explicit artifactRoot; twelve malformed/mixed/overlapping/input-escape configurations and foreign command authority reject",
+    "RC06-WP02: actual createThreadedProduction with bypass absent binds both operators’ Session policy/context and model claims to the entire shared project root; two real registered native commands remain started together, reading shared source and writing separate external artifacts without narrowing the model read claim",
+    "RC06-WP03: both real macOS guardian/native manifests independently settle with exact matching source hashes, distinct artifact roots, complete read/write leases, process-group stop and host side-effect receipts; no model/native capacity or actual Session is double-counted for either OS command",
+    "RC06-WP04: replacing the registered external artifact root with a symlink revokes command and shared workspace mapping; the production registry fails closed and cannot fall back to a member-specific directory"
+  ],
+  "realWorkerPids": [
+    25032,
+    25033,
+    25034,
+    25035,
+    25036,
+    25037,
+    25038,
+    25039,
+    25040
+  ],
+  "realWorkerProcesses": 9,
+  "claims": [
+    {
+      "claimId": "064317af-fb44-4383-a5be-ba7376c8442a",
+      "generation": 1,
+      "pid": 25032,
+      "state": "released",
+      "observed": [
+        {
+          "path": "shared-read-parent-write/project/src/source.txt",
+          "sha256": "0124e8580245676e6f8db25259cc1db14f65987493158dacd0b8c8071ff928c1",
+          "bytes": 15
+        }
+      ]
+    },
+    {
+      "claimId": "1c1b4c16-ef51-4eb2-a64d-3a18c59d2ca4",
+      "generation": 2,
+      "pid": 25033,
+      "state": "released",
+      "observed": [
+        {
+          "path": "shared-read-parent-write/project/src/source.txt",
+          "sha256": "0124e8580245676e6f8db25259cc1db14f65987493158dacd0b8c8071ff928c1",
+          "bytes": 15
+        }
+      ]
+    },
+    {
+      "claimId": "653f4e63-4eda-429f-bba2-cd599227096f",
+      "generation": 3,
+      "pid": 25034,
+      "state": "released",
+      "observed": [
+        {
+          "path": "shared-read-parent-write/project/src/source.txt",
+          "sha256": "b3524b4cc8fc1f78676e1f3d7a8f335ebba4d864345e8b5fbc9cc5d38a59cd68",
+          "bytes": 21
+        }
+      ]
+    },
+    {
+      "claimId": "c2a41949-9ea3-48fd-a79c-af655d4d39dd",
+      "generation": 2,
+      "pid": 25037,
+      "state": "released",
+      "observed": [
+        {
+          "path": "child-write-parent-read/artifacts/independent.txt",
+          "sha256": "5d498c747f858c12b218ae2612576dedb0c571ef223b4b860850f22c2047d0b6",
+          "bytes": 27
+        }
+      ]
+    },
+    {
+      "claimId": "341e5bbb-fc7b-4b5b-b5a6-00ff22a05bba",
+      "generation": 1,
+      "pid": 25035,
+      "state": "released",
+      "observed": [
+        {
+          "path": "child-write-parent-read/project/src/source.txt",
+          "sha256": "7e78d44d8494e55324b4e4fd439383c3aa6cead90915b74298cdfc4faa4da89f",
+          "bytes": 23
+        }
+      ]
+    },
+    {
+      "claimId": "80d23313-46d2-46bf-8522-2ed58037669a",
+      "generation": 3,
+      "pid": 25036,
+      "state": "released",
+      "observed": [
+        {
+          "path": "child-write-parent-read/project/src/source.txt",
+          "sha256": "7e78d44d8494e55324b4e4fd439383c3aa6cead90915b74298cdfc4faa4da89f",
+          "bytes": 23
+        }
+      ]
+    },
+    {
+      "claimId": "aa63bff2-3409-4d9d-9df2-af99e3e164d2",
+      "generation": 1,
+      "pid": 25038,
+      "state": "released",
+      "observed": [
+        {
+          "path": "isolated-versioned-artifacts/artifacts/author-a/candidate.json",
+          "sha256": "c88dccfc93e9150e89efed4832be3a11af7a2870533bbb4930f8160b7be2c3c8",
+          "bytes": 183
+        }
+      ]
+    },
+    {
+      "claimId": "8eb9d889-2f70-4899-92fb-702e2f12dcbc",
+      "generation": 2,
+      "pid": 25039,
+      "state": "released",
+      "observed": [
+        {
+          "path": "isolated-versioned-artifacts/artifacts/author-b/candidate.json",
+          "sha256": "23d32c1a4c6315dd914d8a6573d41e3d9cfbe8542a843d36d9a2ae644bc59e59",
+          "bytes": 186
+        }
+      ]
+    },
+    {
+      "claimId": "2c82ae97-0e85-433c-9eb7-d0ffca4e2a34",
+      "generation": 3,
+      "pid": 25040,
+      "state": "released",
+      "observed": [
+        {
+          "path": "isolated-versioned-artifacts/project/src/source.txt",
+          "sha256": "c1b0241ec46f31b183db2b0baf73fe6e9d96784aebc0e43967c5153377d0a524",
+          "bytes": 25
+        },
+        {
+          "path": "isolated-versioned-artifacts/artifacts/author-a/candidate.json",
+          "sha256": "c88dccfc93e9150e89efed4832be3a11af7a2870533bbb4930f8160b7be2c3c8",
+          "bytes": 183
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "kind": "acquired",
+      "pid": 25032,
+      "claimId": "064317af-fb44-4383-a5be-ba7376c8442a",
+      "generation": 1
+    },
+    {
+      "kind": "acquired",
+      "pid": 25033,
+      "claimId": "1c1b4c16-ef51-4eb2-a64d-3a18c59d2ca4",
+      "generation": 2
+    },
+    {
+      "kind": "acquired",
+      "pid": 25034,
+      "claimId": "653f4e63-4eda-429f-bba2-cd599227096f",
+      "generation": 3
+    },
+    {
+      "kind": "acquired",
+      "pid": 25035,
+      "claimId": "341e5bbb-fc7b-4b5b-b5a6-00ff22a05bba",
+      "generation": 1
+    },
+    {
+      "kind": "acquired",
+      "pid": 25037,
+      "claimId": "c2a41949-9ea3-48fd-a79c-af655d4d39dd",
+      "generation": 2
+    },
+    {
+      "kind": "acquired",
+      "pid": 25036,
+      "claimId": "80d23313-46d2-46bf-8522-2ed58037669a",
+      "generation": 3
+    },
+    {
+      "kind": "acquired",
+      "pid": 25038,
+      "claimId": "aa63bff2-3409-4d9d-9df2-af99e3e164d2",
+      "generation": 1
+    },
+    {
+      "kind": "acquired",
+      "pid": 25039,
+      "claimId": "8eb9d889-2f70-4899-92fb-702e2f12dcbc",
+      "generation": 2
+    },
+    {
+      "kind": "acquired",
+      "pid": 25040,
+      "claimId": "2c82ae97-0e85-433c-9eb7-d0ffca4e2a34",
+      "generation": 3
+    },
+    {
+      "kind": "fixture-merge",
+      "owner": "merge-owner",
+      "baseVersion": 1,
+      "version": 2,
+      "baseSha256": "0124e8580245676e6f8db25259cc1db14f65987493158dacd0b8c8071ff928c1",
+      "sha256": "c1b0241ec46f31b183db2b0baf73fe6e9d96784aebc0e43967c5153377d0a524"
+    }
+  ],
+  "externalNetworkCalls": 0,
+  "realModelCalls": 0,
+  "realModelTokens": 0,
+  "dailyDatabaseOpened": false,
+  "dailyProjectTouched": false,
+  "engineeringSharedProjectPath": true,
+  "productionProjectBindingVerified": true,
+  "production": {
+    "groups": 4,
+    "checks": [
+      "RC06-WP01: actual production shared_project registration maps three scoped members to exactly one canonical project root and a disjoint explicit artifactRoot; twelve malformed/mixed/overlapping/input-escape configurations and foreign command authority reject",
+      "RC06-WP02: actual createThreadedProduction with bypass absent binds both operators’ Session policy/context and model claims to the entire shared project root; two real registered native commands remain started together, reading shared source and writing separate external artifacts without narrowing the model read claim",
+      "RC06-WP03: both real macOS guardian/native manifests independently settle with exact matching source hashes, distinct artifact roots, complete read/write leases, process-group stop and host side-effect receipts; no model/native capacity or actual Session is double-counted for either OS command",
+      "RC06-WP04: replacing the registered external artifact root with a symlink revokes command and shared workspace mapping; the production registry fails closed and cannot fall back to a member-specific directory"
+    ],
+    "platform": "darwin",
+    "injectedModelRequests": 3,
+    "realNativeCommands": 2,
+    "observedConcurrentStartedNativeCommands": 2,
+    "claimFacts": [
+      {
+        "agentId": "workspace-a",
+        "workspace": "production-shared-project/project",
+        "access": "read",
+        "claimId": "81861cf8-3068-4d0d-8362-6f1c36a924f9",
+        "sessionWorkspaceMatches": true
+      },
+      {
+        "agentId": "workspace-b",
+        "workspace": "production-shared-project/project",
+        "access": "read",
+        "claimId": "28c553cd-cf3a-444a-bbfd-51514a5c9d0f",
+        "sessionWorkspaceMatches": true
+      }
+    ],
+    "commandFacts": [
+      {
+        "agentId": "workspace-a",
+        "commandId": "7abf4e0d-2b28-4071-86ca-20c38bf5c0db",
+        "guardianPid": 25041,
+        "profile": "project_manifest_v1",
+        "readPath": "production-shared-project/project/src",
+        "writePath": "production-shared-project/artifacts/workspace-a",
+        "sha256": "351094bee32a438cfb8b249034ba960fe6478cc2f60fb0f22c192be2a4e9f230",
+        "groupStopped": true,
+        "effectsReconciled": true,
+        "resourceReleased": true
+      },
+      {
+        "agentId": "workspace-b",
+        "commandId": "4110c045-328e-4b6e-b5e8-6fad401a7bb9",
+        "guardianPid": 25044,
+        "profile": "project_manifest_v1",
+        "readPath": "production-shared-project/project/src",
+        "writePath": "production-shared-project/artifacts/workspace-b",
+        "sha256": "351094bee32a438cfb8b249034ba960fe6478cc2f60fb0f22c192be2a4e9f230",
+        "groupStopped": true,
+        "effectsReconciled": true,
+        "resourceReleased": true
+      }
+    ],
+    "productionProjectBindingVerified": true,
+    "fixtureActivityAllowanceMs": 10000,
+    "productionDefaultActivityAllowanceChanged": false,
+    "realModelCalls": 0,
+    "realModelTokens": 0,
+    "productionEngineeringWriteOrMergeTool": false
+  },
+  "productionEngineeringWriteOrMergeTool": false,
+  "mergeProtocol": "explicit acceptance fixture only; unique owner/base version/hash, no crash-safe product merge workflow claimed",
+  "scope": "Real temporary local project files and independent OS processes using the durable production resource coordinator, plus the actual production factory/registered native profile with injected model transport. No per-agent path is used as evidence of shared engineering project binding."
+}

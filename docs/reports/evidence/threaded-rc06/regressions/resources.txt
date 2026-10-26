@@ -1,0 +1,20 @@
+Threaded resources passed (19 groups):
+- Q01/Q06: independent worker processes race SQLite claims; same-slot FIFO has one owner and old proof cannot release a successor
+- Q02: the same Agent acquires two different Thread slots across real SQLite connections
+- Q03: active Thread slots and legacy exclusive conflict; the oldest exclusive waiter blocks new Thread arrivals until served
+- Q03 fairness: durable last-served Thread order rotates capacity rather than letting one hot Thread drain its backlog
+- Blocked tickets consume no resource; becoming eligible preserves the original FIFO age
+- Q04: separate policy bindings that resolve to one backend/account/host/native ID cannot resume concurrently
+- Q04: Session version is rechecked at acquisition; identity reconciliation blocks effects while retaining the existing fence
+- Workspace read/write conflicts are independent resources and a blocked complete request retains no partial claim
+- Resource-set transaction failure rolls back every partial item, epoch, ticket transition and fairness update
+- Global/Thread/account defaults are 3; operation identity is unique, re-entry is not charged twice and in-use policy cannot drift
+- The independent thread capacity takes the stricter configured limit
+- The independent account capacity takes the stricter configured limit
+- The independent provider capacity takes the stricter configured limit
+- Legacy preparation and the actual call share ancestry without double-counting capacity; parent release waits for child and requeue preserves age/fence
+- Builtin preparation cannot prove quiescence while its scoped tool is running or needs attention, even through a trusted callback; ended failures and exact native proof keep their distinct handling
+- Builtin tool state is rechecked at release as well as proof creation; a tool starting in between retains the fence until it finishes
+- Policy changes reject still-reopenable legacy preparations, preserving their frozen policy and FIFO age until the old Run is terminal
+- Q06/REC03: unknown retains Agent/Session/workspace/capacity after lease expiry; durable verified proof survives restart and never releases a newer claim
+- Q05 resource subcase: release and reentrant enqueue actively drain without timer scans; another connection recovers missed notifications by durable cursor

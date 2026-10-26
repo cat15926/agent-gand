@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "groups": 11,
+  "checks": [
+    "Durable FIFO follows source Wake insertion order even when notifications arrive in reverse order.",
+    "Explicit Owner pause/resume records a new scope/epoch authorization, preserves queue age and leaves the original Wake receipt immutable.",
+    "An old resume receipt cannot authorize a later unrelated epoch change.",
+    "Stop/reopen cannot revive an unscanned old Wake; a new message has an atomic control watermark and remains admissible.",
+    "Owner resume cannot silently adopt changed permissions, role definition or account configuration.",
+    "Resource, budget, Run, Attempt and dispatch insertion faults atomically roll back the entire claim while retaining one waiting Invocation.",
+    "A persistently budget-blocked candidate does not churn eligible flags or emit self-sustaining availability events.",
+    "Nested queue writes emit only committed durable events after the outer transaction; rollback emits none.",
+    "Effect callbacks recheck source-Thread ACL snapshots after claim, even when the destination Binding remains authorized.",
+    "A budget-blocked same-slot Wake retains its age and precedes a later waiting source after Owner budget resume.",
+    "Recovery idempotently projects a durable control terminal after prior quiescence without executing or reclaiming its Wake."
+  ],
+  "scope": "T06 deterministic queue and injected fake-runtime SQLite fixtures; no production database, network or real model"
+}
