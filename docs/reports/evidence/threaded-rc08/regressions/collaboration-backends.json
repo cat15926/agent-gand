@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "groups": 4,
+  "checks": [
+    "M01/M03 anthropic-messages: model HTTP tool_use crosses the actual trusted broker, then tool_result is sent in a separately reserved request; explicit post/final retain two successors",
+    "M01/M03 openai-chat-completions: model HTTP tool_use crosses the actual trusted broker, then tool_result is sent in a separately reserved request; explicit post/final retain two successors",
+    "SDK 0.3.288 actual worker/CLI + in-process MCP + server RPC broker: injected SSE tool_use creates one platform post, actual owned process groups stop and exact native anchor persists; no external model",
+    "Native tool-read provenance: a private message deferred only because of its large attachment enters the actual SDK through read_message, is recorded in the anchor, and recursive source revocation forces a new cold native identity with no secret replay"
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "Injected provider responses; actual SDK worker/CLI and loopback MCP transport, actual host process-exit proof"
+}

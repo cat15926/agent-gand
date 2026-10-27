@@ -1,0 +1,139 @@
+{
+  "stage": "RC08",
+  "date": "2026-10-26T15:59:57.552489+00:00",
+  "status": "historical_root_cause_unresolved",
+  "sourceEvidence": [
+    {
+      "path": "docs/reports/threaded-collaboration-t08-tools-waits-2026-10-21.md",
+      "sha256": "403c037e07b9b92f4a7b118ff3e92c7d3fd515292556d30e89faf208efc65487"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t08-real-tools.json",
+      "sha256": "4dd0a8eb3c85487527d9128534e8e76661bde958279df1335a39b37fcb77da8d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t08-real-consultation.json",
+      "sha256": "df83f58667efa6b44cd76a2020e141ebdd8543e620743bca2334df6af5c247de"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t08-real-audit.json",
+      "sha256": "5093a3fc63bbed2d18812b31b0844fb29c4f5f800a5dbfb50e73bb6add99a5dd"
+    }
+  ],
+  "historicalCodeCommit": "606a8c026dc3a91e9c9216c1d146a15643054bc7",
+  "codeCaveat": "T08 commit includes post-failure diagnostics; the exact uncommitted source at the first failed run was not captured, so this commit cannot prove the original abort source.",
+  "timeline": {
+    "firstRunReportCreatedAt": "2026-10-20T15:49:21.185Z",
+    "rows": [
+      {
+        "sequence": 1,
+        "case": "API read/post/final",
+        "elapsedMs": 29799,
+        "actualRequests": 3,
+        "invocations": 1,
+        "status": "completed"
+      },
+      {
+        "sequence": 2,
+        "case": "SDK read/post/final",
+        "elapsedMs": 22830,
+        "actualRequests": 3,
+        "invocations": 1,
+        "status": "completed",
+        "nativeAnchor": true
+      },
+      {
+        "sequence": 3,
+        "case": "API caller with SDK/API peers",
+        "elapsedMs": 19902,
+        "actualRequests": 3,
+        "invocationStates": {
+          "completed": 1,
+          "cancelled": 1,
+          "queued": 1
+        },
+        "groupState": "collecting",
+        "targetStates": {
+          "cancelled": 1,
+          "pending": 1
+        },
+        "settlements": 0,
+        "callbacks": 0,
+        "sdkProcessState": "verified_stopped",
+        "nativeAnchors": 0,
+        "failure": "Assertion observed cancelled instead of completed"
+      }
+    ],
+    "timingLimit": "The report timestamp marks report construction. Case elapsed durations are recorded; exact per-case starts, invocation/request IDs and per-request timestamps were not exported. No reconstructed wall-clock timestamps are asserted.",
+    "requestAttributionLimit": "Nine requests across the first run are known; the consultation fixture had three. Exact allocation between its caller and SDK peer cannot be revalidated because the original database is unavailable."
+  },
+  "separateRerun": {
+    "reportCreatedAt": "2026-10-20T15:53:35.337Z",
+    "elapsedMs": 27861,
+    "actualRequests": 5,
+    "completedInvocations": 4,
+    "settlements": 1,
+    "callbacks": 1,
+    "targetsResponded": 2,
+    "sameOriginalRootOrFixture": false,
+    "provesOriginalFailureRecovery": false
+  },
+  "retainedTemporaryEvidence": [
+    {
+      "fixtureDirectory": "agent-gand-t07-real-xea2YI",
+      "exists": true,
+      "retainedFileCount": 0,
+      "sqlitePresent": false,
+      "sdkTranscriptPresent": false,
+      "inspection": "Filesystem entries only; no credentials, daily database, or transcript contents read"
+    },
+    {
+      "fixtureDirectory": "agent-gand-t07-real-H7gy2I",
+      "exists": true,
+      "retainedFileCount": 0,
+      "sqlitePresent": false,
+      "sdkTranscriptPresent": false,
+      "inspection": "Filesystem entries only; no credentials, daily database, or transcript contents read"
+    }
+  ],
+  "factsSupported": [
+    "The SDK peer was cancelled and did not commit a native anchor in the first consultation.",
+    "The SDK process group was recorded verified_stopped in the historical audit.",
+    "The first consultation retained one pending target and had no settlement or callback.",
+    "First run consumed 16429 newly known tokens, including the failed consultation; no new unknown token reservation was reported.",
+    "The separate consultation rerun consumed 6328 known tokens and did not repair or resume the original fixture."
+  ],
+  "factsNotSupported": [
+    "The precise original invocation, binding, request, authorization IDs or request timestamps.",
+    "Whether the original cancellation came from activity allowance expiry, lease/authority checks, explicit control, or another cause.",
+    "A claim that RC05 activity changes or RC08 diagnostics fixed the historical T08 cancellation.",
+    "A claim that the original failed consultation was recovered to settlement."
+  ],
+  "candidateMechanisms": [
+    {
+      "candidate": "Runner authority/budget checkpoint abort",
+      "basis": "T08 runner checkpoint catch aborts its signal; Claude SDK returns cancelled only when the execution signal is aborted and quiescence is proven.",
+      "classification": "code-compatible hypothesis, not observed root cause"
+    },
+    {
+      "candidate": "Lifecycle invalidation or runtime close",
+      "basis": "T08 runtime invalidation and close call abortThreadedExecution. The committed consultation fixture does not explicitly request stop before its assertion.",
+      "classification": "code-compatible hypothesis, not observed root cause"
+    }
+  ],
+  "missingDiagnostics": [
+    "First-run safe abort reason code",
+    "Invocation/binding/attempt/request/authorization timeline",
+    "Clock/allowance/lease facts at the first abort",
+    "Exact source hash of the failed uncommitted runner",
+    "Original SQLite and SDK checkpoint/transcript artifacts"
+  ],
+  "reproductionPlan": [
+    "Run actual SDK/guardian with injected transport and explicitly tagged synthetic authority/budget failure windows; persist binding/attempt/request facts and safe codes.",
+    "Check preserved individual answers, one immutable partial/settlement/callback and anti-cascade rejection through actual SDK MCP.",
+    "Keep successful new scenarios and controlled injected failures separate from the unresolved historical failure."
+  ],
+  "realSupplierCalls": 0,
+  "credentialsRead": false,
+  "dailyDatabaseRead": false
+}

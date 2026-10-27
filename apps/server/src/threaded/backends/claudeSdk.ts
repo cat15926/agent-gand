@@ -3,6 +3,9 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { hostname } from 'node:os';
 import { mkdir, realpath } from 'node:fs/promises';
 import type { InvocationExecutionPort } from '../contracts.ts';
+import { ThreadedAuthorityError } from '../contracts.ts';
+import { ThreadedBudgetError } from '../budget.ts';
+import { ResourceCoordinatorError } from '../../execution/resources/coordinator.ts';
 import { cleanEnvironment } from '../../accounts/environment.ts';
 import { rememberSecret } from '../../accounts/secrets.ts';
 import type { BackendAdapterOptions, BackendSdkProcess } from './types.ts';
@@ -25,6 +28,15 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
     const requestInput={...input,signal:AbortSignal.any([input.signal,relayController.signal])};
     let requestTail:Promise<unknown>=Promise.resolve();
     const active=new Set<Promise<void>>();let sequence=0,closed=false,terminal:Record<string,unknown>|undefined;
+    // Preserve only bounded platform codes; native stderr/provider text can contain secrets.
+    let failureReason:string|undefined;
+    const rememberFailure=(error:unknown)=>{
+      if(failureReason)return;
+      // A matching prefix in arbitrary SDK/provider text is not trusted provenance.
+      if(!(error instanceof ThreadedAuthorityError)&&!(error instanceof ThreadedBudgetError)&&!(error instanceof ResourceCoordinatorError))return;
+      const candidate=error.code;
+      if(typeof candidate==='string'&&candidate.length<=160&&/^(THREADED|RESOURCE)_[A-Z0-9_]+$/.test(candidate))failureReason=candidate;
+    };
     let checkpoint:{anchorUuid:string;inputUserUuid:string}|undefined,requestReference:string|undefined;
     let compactionBoundary=prepared.session.resume?prepared.session.compactionBoundary:undefined;
     const server=createServer((request,response)=>{
@@ -55,7 +67,8 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
           const receipt=options.evidence.getReceipt(result.evidenceReference);
           if(receipt?.delivered)requestReference=result.evidenceReference;
           response.end();
-        }catch{
+        }catch(error){
+          rememberFailure(error);
           if(!response.headersSent)response.writeHead(502,{'content-type':'application/json'});
           response.end(JSON.stringify({error:{type:'threaded_request_blocked',message:'Threaded request was not confirmed'}}));
         }
@@ -114,7 +127,7 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
           }
         },
       });
-    }catch{failure=true;}
+    }catch(error){failure=true;rememberFailure(error);}
     finally{
       if(failure)relayController.abort();
       closed=true;server.closeIdleConnections();
@@ -137,7 +150,7 @@ export function createClaudeSdkBackend(options:BackendAdapterOptions&{
         return {kind:'completed',content:terminal.result,budgetState:'unknown',quiescence:proof};
       }
       return input.signal.aborted?{kind:'cancelled',reason:'THREADED_SDK_CANCELLED',budgetState:'unknown',quiescence:proof}:
-        {kind:'failed',reason:'THREADED_SDK_FAILED',retryable:false,budgetState:'unknown',quiescence:proof};
+        {kind:'failed',reason:failureReason??'THREADED_SDK_FAILED',retryable:false,budgetState:'unknown',quiescence:proof};
     }catch{return {kind:'unknown',reason:'THREADED_SDK_QUIESCENCE_UNCONFIRMED'};}
   }};
 }

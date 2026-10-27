@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC08",
+  "date": "2026-10-27",
+  "scope": "Read-only reconciliation of exact real-provider authorization IDs from actual-index snapshots; repeated snapshots deduplicated by request ID",
+  "operatorTokenLimit": 500000,
+  "userAuthorizedTokenLimit": 10000000,
+  "originalRows": 68,
+  "addedRows": 21,
+  "originalRowsUnchanged": true,
+  "originalRowsSha256": "60157fe136d8a2f1eec247b0a669618eee45127e19ec023241452132e33d9237",
+  "baselineEvidence": "main-live-first.json#priorLedgerDigest",
+  "baselineDigestMatches": true,
+  "before": {
+    "knownTokens": 187283,
+    "unknownReserve": 206832
+  },
+  "delta": {
+    "knownTokens": 33195,
+    "unknownReserve": 0
+  },
+  "final": {
+    "knownTokens": 220478,
+    "unknownReserve": 206832
+  },
+  "conservativelyChargedTokens": 427310,
+  "remainingWithinSelectedCap": 72690,
+  "addedKnownRequests": 21,
+  "addedUnknownReservations": 0,
+  "addedRequests": [
+    {
+      "id": "19ba8598-1a35-4a0b-be56-0e72909d5fea",
+      "reserved": 11617,
+      "actual": 821,
+      "state": "known"
+    },
+    {
+      "id": "19fa005b-7849-42d2-aeb5-9e749953a7fd",
+      "reserved": 11636,
+      "actual": 863,
+      "state": "known"
+    },
+    {
+      "id": "213285f7-4188-4127-9cda-c751087b95c0",
+      "reserved": 12318,
+      "actual": 835,
+      "state": "known"
+    },
+    {
+      "id": "2cae3115-f1f1-4c81-8dd5-c2d9e22ecc1b",
+      "reserved": 12332,
+      "actual": 833,
+      "state": "known"
+    },
+    {
+      "id": "30b69552-7fee-434d-b802-b10c746a2124",
+      "reserved": 19176,
+      "actual": 2707,
+      "state": "known"
+    },
+    {
+      "id": "35f07023-bedf-4818-bb7a-19e54cfaeee7",
+      "reserved": 19154,
+      "actual": 2717,
+      "state": "known"
+    },
+    {
+      "id": "52fb16ad-60c1-4a48-a727-a960cf444c4a",
+      "reserved": 11617,
+      "actual": 830,
+      "state": "known"
+    },
+    {
+      "id": "55307d5d-3c2c-49c7-8693-d666e4c20a84",
+      "reserved": 11617,
+      "actual": 825,
+      "state": "known"
+    },
+    {
+      "id": "691925b5-2204-4ff4-84a3-8d6e3df7032b",
+      "reserved": 12286,
+      "actual": 823,
+      "state": "known"
+    },
+    {
+      "id": "7117cf10-4003-43f8-bc69-ccbf23647ba9",
+      "reserved": 14629,
+      "actual": 1953,
+      "state": "known"
+    },
+    {
+      "id": "773d5e88-c881-4251-9c26-0e8e8efea662",
+      "reserved": 16762,
+      "actual": 2612,
+      "state": "known"
+    },
+    {
+      "id": "888c8b07-6e1b-4953-a025-53c89523d675",
+      "reserved": 12286,
+      "actual": 823,
+      "state": "known"
+    },
+    {
+      "id": "ab14aa57-86b5-40aa-9ee6-9c67b190d3b2",
+      "reserved": 11617,
+      "actual": 863,
+      "state": "known"
+    },
+    {
+      "id": "bca28538-de63-4205-bed1-4fb5f6fe5852",
+      "reserved": 12286,
+      "actual": 826,
+      "state": "known"
+    },
+    {
+      "id": "c791c5ac-8ee0-45a9-bfde-c8328081051a",
+      "reserved": 19190,
+      "actual": 2678,
+      "state": "known"
+    },
+    {
+      "id": "ca772051-6c02-4f57-b356-ab94bcb30c27",
+      "reserved": 12759,
+      "actual": 1311,
+      "state": "known"
+    },
+    {
+      "id": "d776fdd9-09f3-4542-8d11-0e9112ca0f37",
+      "reserved": 19156,
+      "actual": 2688,
+      "state": "known"
+    },
+    {
+      "id": "dcdd45c3-0739-411c-98a0-12f9b3201714",
+      "reserved": 12778,
+      "actual": 1208,
+      "state": "known"
+    },
+    {
+      "id": "dd755ab8-d077-4e35-9b51-02e8145416c5",
+      "reserved": 19157,
+      "actual": 2668,
+      "state": "known"
+    },
+    {
+      "id": "e00bf315-fc6f-440b-b4df-2606782ba3f2",
+      "reserved": 16125,
+      "actual": 2340,
+      "state": "known"
+    },
+    {
+      "id": "e8ac2541-621a-4fa0-8318-34f825f4f17b",
+      "reserved": 14736,
+      "actual": 1971,
+      "state": "known"
+    }
+  ],
+  "localInjectedFaults": {
+    "count": 1,
+    "requestIds": [
+      "9dce8039-5742-4226-ba4c-51b5a122b72f"
+    ],
+    "authorizationIds": [
+      "1269d630-426a-4fd1-bd20-2bea5049607c"
+    ],
+    "supplierCalls": 0,
+    "ledgerRows": 0
+  },
+  "limitations": [
+    "Historical206832 unknown remains conservatively charged.",
+    "Injected HTTP400 is a local deterministic fault, not a provider rejection or charged request.",
+    "Known token counts are not monetary price reconciliation.",
+    "No ledger reset, refund or previous-row update performed."
+  ]
+}

@@ -224,7 +224,10 @@
     "verify:threaded-rc07-admission": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-admission.mjs",
     "verify:threaded-rc07-native": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native.mjs",
     "verify:threaded-rc07-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-main.mjs",
-    "verify:threaded-rc07-native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native-real.mjs"
+    "verify:threaded-rc07-native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native-real.mjs",
+    "verify:threaded-rc08-cooperation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-cooperation.mjs",
+    "verify:threaded-rc08-sdk": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-sdk.mjs",
+    "verify:threaded-rc08-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-main.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "stage": "RC08",
+  "date": "2026-10-27",
+  "baselineCommit": "6ca44fb0057c81dec6df0d3106572a4d9f66fb9a",
+  "newGroups": 23,
+  "regressionGroups": 84,
+  "totalUniqueGroups": 107,
+  "counting": "Unique case per evidence layer; variants, repeated runs and evidence audits excluded",
+  "layers": [
+    {
+      "evidence": "cooperation-final.json",
+      "groups": 8,
+      "status": "passed"
+    },
+    {
+      "evidence": "sdk.json",
+      "groups": 5,
+      "status": "passed"
+    },
+    {
+      "evidence": "main-injected-final.json",
+      "groups": 5,
+      "status": "passed"
+    },
+    {
+      "evidence": "main-live-first.json",
+      "groups": 5,
+      "status": "passed"
+    }
+  ],
+  "regressions": [
+    {
+      "evidence": "regressions/backends.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/collaboration-api.json",
+      "groups": 4,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/collaboration-backends.json",
+      "groups": 4,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/collaboration.json",
+      "groups": 17,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/production.json",
+      "groups": 16,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/queue.json",
+      "groups": 11,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/runtime.json",
+      "groups": 18,
+      "status": "passed"
+    }
+  ],
+  "actualProcesses": {
+    "cooperationWorkers": 18,
+    "sdkInjectedGuardians": 8,
+    "indexInjected": 7,
+    "indexReal": 7,
+    "indexRealSdkGuardians": 5,
+    "note": "Per-layer counts, not a deployment or concurrency claim."
+  },
+  "realSupplierRequests": 21,
+  "localInjectedHttp400InLiveLayer": 1,
+  "newKnownTokens": 33195,
+  "newUnknownReserve": 0,
+  "operatorLedger": "ledger.json",
+  "repeatChecksExcluded": [
+    "main-injected-first.json",
+    "main-injected-after-fix.json",
+    "cooperation-development-second.json",
+    "cooperation.json",
+    "cooperation-resume-development-pass.json",
+    "sdk-first.json"
+  ],
+  "failedEvidencePreserved": [
+    "main-injected-all-first.json",
+    "cooperation-development-first.json"
+  ],
+  "historicalDiagnosis": "history-diagnosis.json",
+  "developmentFindings": "development-findings.json",
+  "scopeLimitations": [
+    "Historical T08 SDK cancellation remains unresolved; original transient files no longer retained.",
+    "Controlled-clock timeout is a pre-paused unsent target, not a running supplier network timeout.",
+    "HTTP400 in live main layer is injected locally before supplier egress and not charged.",
+    "Lost tool receipt uses an exact same-authorized-binding broker retry, not crashed unknown replay or natural network failure.",
+    "Multi-PID races/outbox/ACK faults are factory-layer evidence, not the complete actual-index/provider cross product.",
+    "Schema35, default1000ms activity and daily closed configuration unchanged; old unknown charges and RC04-RC07 limitations retained."
+  ]
+}

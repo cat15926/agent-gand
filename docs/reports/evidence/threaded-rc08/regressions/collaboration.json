@@ -1,0 +1,3924 @@
+{
+  "ok": true,
+  "groups": 17,
+  "checks": [
+    "R01/R02: longest handles, code/quote/URL exclusion, user inline vs Agent line-start, groups/intents, preview/admission identity and durable user-request conflict",
+    "R02/R03/CTX05: serial targets become durable ordered continuations under one root; ideate freezes independent inputs and suppresses text A2A",
+    "M01/M03/B01: explicit post and identical final create distinct wake/message identities; exact tool retries return durable receipts, conflicts and late effects reject, root budget is shared",
+    "CTX02/M02: exact reads, search and seen/mention tools enforce ACL and frozen cutoff; private model/read history narrows final and tool messages instead of widening audience",
+    "M02/CTX02: authorized cross_post crosses a real Thread boundary under the same causal root; attachment range returns exact bytes/full hash and cross-Thread provenance stays reference-only",
+    "R04: same-pair short replies warn at 2/3 and block at 4; new user input and substantive tool work reset the durable streak without resetting the root budget",
+    "MM01/MM03/MM04/E01/E02: persisted 3-target consultation survives factory/SQLite rebuild with original deadline and first response; offline deadline settles partial once with exact dissent and no synthesis call; cascade and late resurrection reject",
+    "E05: caller pause preserves settlement with an explicit waiting callback; later permission drift rejects callback without widening authority or discarding original responses",
+    "E05 controls: unchanged pause/resume delivers the one frozen callback; any intervening stop permanently cancels it even after resume, preserving settlement history",
+    "W01/W03/B01: holds return before the normal final, release the execution claim, use sliding quota and same-job idempotency; replacement retires only the wake; restored timer outcomes inherit root and do not charge idle time or prove business completion",
+    "W05: a registered live source freezes its durable baseline, excludes existing matching history, and emits one private source-referenced callback only for a new matching event",
+    "W02/W06: retired request_user_input returns 410; ordinary once Decision registration is nonblocking, exact revision and authenticated origin-trigger settlement are required, retries are stable and no business approval is inferred",
+    "E06/DB01/DB02: group/target/message/Delivery/Wake/Outbox/tool-receipt insertion faults roll back together; settlement failure rolls back last response and terminal, then exact proven outcome retries with no second model request",
+    "E01/E02/E04: real recovery worker SIGKILL on a partial group, fresh worker crosses original deadline and exits32 after settlement before dispatch; receiver send-before-ACK retry repeats a hint but preserves one settlement/callback/queue identity and performs no model replay",
+    "MM02/E03: two real SQLite IPC writers released at one barrier race last verified response against deadline; one immutable settlement/callback wins, repeated recovery and late terminal cannot revive it or replay the model",
+    "K15/R04/W01: a timer callback carries the original same-pair streak, so holding/restarting does not reset language-inertia protection or count as a fresh A2A hop",
+    "W05 producer protocol: server-allowlisted GitHub path uses a live baseline; unchanged state with cosmetic updated_at does not trigger, a new head triggers exactly once; transport remains injected, no real GitHub business claim"
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "injectedHttpCalls": 41,
+  "scope": "T08 isolated SQLite, canonical runtime/context/backend/tool ports and injected transport; no daily DB or real models",
+  "generatedAt": "2026-10-26T16:06:52.158Z",
+  "faults": [
+    {
+      "table": "threaded_consultations",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_messages",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_message_control_boundaries",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_deliveries",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_wakes",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_outbox",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_consultation_targets",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_message_routes",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_tool_receipts",
+      "operation": "INSERT",
+      "phase": "group",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_consultation_targets",
+      "operation": "UPDATE",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_consultations",
+      "operation": "UPDATE",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_collaboration_callbacks",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_messages",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_callback_lineage",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_deliveries",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_wakes",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_outbox",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_collaboration_callbacks",
+      "operation": "UPDATE",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_route_completions",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    },
+    {
+      "table": "threaded_relay_events",
+      "operation": "INSERT",
+      "phase": "terminal",
+      "rolledBack": true
+    }
+  ],
+  "snapshots": [
+    {
+      "label": "E06 before group insert threaded_consultations",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_consultations",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_messages",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_messages",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_message_control_boundaries",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_message_control_boundaries",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_deliveries",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_deliveries",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_wakes",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_wakes",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_outbox",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_outbox",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_consultation_targets",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_consultation_targets",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_message_routes",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_message_routes",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before group insert threaded_tool_receipts",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after group insert threaded_tool_receipts",
+      "clock": 1793030808061,
+      "injectedRequests": 31,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_targets": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 1,
+          "sha256": "21667a3619c6efae26e28ff2d8b05318a55461f85ef197ed33fe7e13fc45ece5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "ba50a2bdf647272004624c9c00ad44386ebb3eb6900349e494d203c97ff7e1f0"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 1,
+          "sha256": "793de4b5d612b4a099bcfd51ee00f68cc9c07af5429a71a0eda1ad9901ad472d"
+        },
+        "threaded_deliveries": {
+          "rows": 1,
+          "sha256": "0fd72ff2f3be3aac0e0cb7e565b79748f24fa221041df18cb3a196f7b6679700"
+        },
+        "threaded_wakes": {
+          "rows": 1,
+          "sha256": "e7f034607bffad98f5d9b251e93698690223b701b1137cde1dfc506f8c83a256"
+        },
+        "threaded_outbox": {
+          "rows": 2,
+          "sha256": "9a035d1717f365680a7bb36c41e13f0155f9a19ab1ce94c63b17b88d59ec8964"
+        },
+        "threaded_tool_receipts": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_message_routes": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_relay_events": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "groups": [],
+      "targets": [],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal UPDATE threaded_consultation_targets",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal UPDATE threaded_consultation_targets",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal UPDATE threaded_consultations",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal UPDATE threaded_consultations",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_collaboration_callbacks",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_collaboration_callbacks",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_messages",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_messages",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_callback_lineage",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_callback_lineage",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_deliveries",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_deliveries",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_wakes",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_wakes",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_outbox",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_outbox",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal UPDATE threaded_collaboration_callbacks",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal UPDATE threaded_collaboration_callbacks",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_route_completions",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_route_completions",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 before terminal INSERT threaded_relay_events",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 after terminal INSERT threaded_relay_events",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "e674b8aeb9987a22510ad02e9c8965eccf06ff66975f0a027770981845201bc3"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "9a0b0fdae2b9110db453a04203225e9b67413092f401b62d817b00a25681a5e4"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 3,
+          "sha256": "8a8314287eb9154f11a15d656e8f4f2f1429527e55fe1e589c799df1664dacf5"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "89f18c632e9e391555fe1f19ff6aa0c1073a53f8666c058426ca8073e89892c7"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 3,
+          "sha256": "1d0f2409f2b255dd37c335bea9a315d0aa1eaddba72ff5866767631ae75a10b7"
+        },
+        "threaded_deliveries": {
+          "rows": 2,
+          "sha256": "97eac1cbe03fb33125cc71f1e1617cc335aeb49e60b0b31363d696cb45ba284a"
+        },
+        "threaded_wakes": {
+          "rows": 2,
+          "sha256": "97586b9b3cdbfb624b5b9bd223cb1e166cf11bb2a3e251ef1f75ae88f8cd88c6"
+        },
+        "threaded_outbox": {
+          "rows": 5,
+          "sha256": "1cc9461115c102de62f368a9ee428ec02923b54a7960f6208d57692bb84d1292"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 2,
+          "sha256": "aedffe0b3d0dff0a1be51aafdbc89dc7d0f3c03fccbdf70d85a996eced325473"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 1,
+          "sha256": "54266aab8e1643f8944069841f24bfe290c270aec3cdd1237ba50029c2d2a5c9"
+        },
+        "threaded_relay_events": {
+          "rows": 1,
+          "sha256": "867fa97fff2d651bc36a6b2d254bf37163cb1cd68b3a053bc1c6db07ff00d55b"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": null,
+          "status": "pending"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E06 known terminal retry committed without model replay",
+      "clock": 1793030808061,
+      "injectedRequests": 32,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "15efbabf0032fe6fb65210382098d1120b650d2c12a6b0aa8ce54b618f013604"
+        },
+        "threaded_consultation_targets": {
+          "rows": 1,
+          "sha256": "89167b8b955640405091ac5dc076dca1094f64084913435cc6601c1982781c35"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 1,
+          "sha256": "a9f47ef212429cd994fd5711a29f8d388b6aa48930a6021bc068a280a69f1dd4"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 1,
+          "sha256": "896aa8072ec1a845c0734a7b51c5ce84d501f1a485fb1500c85164f1ac49451e"
+        },
+        "threaded_messages": {
+          "rows": 5,
+          "sha256": "832d740534048a4f8ccab5e9c73331eab6d623b75247a6c36836267e04d35e00"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "0516aeea49c2d7d79b2953150080a6f0073d3d5b8ac4418db4afa44b35877791"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 5,
+          "sha256": "923b255e3c9353023a253bd76b323239c2cd6eb4bd9fd303aa57c47ca475e77c"
+        },
+        "threaded_deliveries": {
+          "rows": 3,
+          "sha256": "db639439a0007eeeb47c8e9e360829ccbed0791c9e481f6e372046629580d54c"
+        },
+        "threaded_wakes": {
+          "rows": 3,
+          "sha256": "f5903ca86c1445a85a90b5dd813cce186e680d2f563c6ff2da8c5b638c828cfa"
+        },
+        "threaded_outbox": {
+          "rows": 8,
+          "sha256": "afeacb4a229a2bb945b09ef2dbb8d2b4cbc3b6574ce0824ec374fa1f202e3669"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "63c89ba03bf341484383c3c17dfad66231543dd712d6302ac90f170883f94fe7"
+        },
+        "threaded_message_routes": {
+          "rows": 3,
+          "sha256": "9260d7c16aed713f35b8d7229460f06cde47c1dea3886a247503920b4c40d7e6"
+        },
+        "threaded_callback_lineage": {
+          "rows": 1,
+          "sha256": "937925cb06ce666a6ac915511d1993cc76a76c4efaf4ebd3df8d4c67ff5d3916"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "2722edf186431718b0faafbdb34006fe1c97654e2a4ee97838fde3ffa3df779f"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "a3a9adfa845fcc19b79d89eb788d1337f3759f8a31a15d399d16c66254f90da7"
+        }
+      },
+      "groups": [
+        {
+          "id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "deadline": 1793031288061,
+          "state": "settled",
+          "version": 2
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "agent_id": "other-member",
+          "response_message_id": "0b5c5ae0-06c7-48c2-af30-4a2fe95fe81b",
+          "status": "responded"
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "40cf16c0-41ce-4c8d-9875-b4d35932e852",
+          "source_id": "6269fb4b-f9dd-4886-9a2b-92e608aec119",
+          "state": "delivered",
+          "message_id": "a61dfc69-5e5d-4391-a1e6-01cf2bfec919",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "label": "E01 partial group before actual SIGKILL",
+      "clock": 1793030808786,
+      "injectedRequests": 34,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "04b62342c4387eaf7c89cfe7c016ea237ccf35504ebaed14c651392959ba72a1"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "b9278bb10d05f6075a0b0555cd9555f0be72cb168012f74c1785d6a15d1cf29f"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 5,
+          "sha256": "e4edca7975ea3553cadd91a78a0f6c995d54260ac87d9ffd9b7dffd1ff63c0bb"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "bee4c4c5f3f6f930b674c2a1e32f6b0eca9a44d3ea865b79e6eaee7b80b152ae"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 5,
+          "sha256": "5050fa3ddb5a63496a57f0341ead819c33ca1847f97f688907e0d03a73d520bf"
+        },
+        "threaded_deliveries": {
+          "rows": 3,
+          "sha256": "ea5d5cc386449d6407ec991f52b881521c939eb7557330d81de06ab1ee0137a7"
+        },
+        "threaded_wakes": {
+          "rows": 3,
+          "sha256": "e4d28c948e11d31c41a11af912ff9520d37a9ad29b219ace1e9b172c3f5fdf34"
+        },
+        "threaded_outbox": {
+          "rows": 8,
+          "sha256": "c6e206fc136949986fba1ef1cc4c397b3e9c8f507dc6e3cbb53d26f5fc5c0a9c"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "19f19bbc8a298026af1f4b5b134be4f9ac37f7c2bbcf28df7f128861a3ac4cd0"
+        },
+        "threaded_message_routes": {
+          "rows": 4,
+          "sha256": "0fd56be0b985be1452da1028cc6bdcac23f2a8085356460d8ba39d2f177d86f1"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "d300902d5e646cada43cbf7a619bb537753779fccbc8a90d81fc49c1162fcbe0"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "70519e78c18b68b3d6d0ece24bc1f6ae427435c7f42c4f44a2572448a20a0d92"
+        }
+      },
+      "groups": [
+        {
+          "id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "deadline": 1793030988786,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "fourth-member",
+          "response_message_id": null,
+          "status": "pending"
+        },
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "other-member",
+          "response_message_id": "4e95df6d-f94f-4784-93e4-d1c9df8ffadd",
+          "status": "responded"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E01/E02/E04 fresh worker crossed original deadline and exited32 before dispatch",
+      "clock": 1793030988787,
+      "injectedRequests": 34,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "dd2dce667fb67e4837715ddc5f17419651ebd2093759e4ecf25e3c79ae55436b"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "b29d1bd3849b8c20b792855cfab9eef12b797ad6a836257a10dadff9e4441a99"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 1,
+          "sha256": "73c9f5b482a820cf20ed58fbc77cd3dac5465dfa8afaeed5f3f468de99c1aef6"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 1,
+          "sha256": "f876bc2fce8d6f82f2e372b008b4822f6b1015229cb235d3ef1adbff02217128"
+        },
+        "threaded_messages": {
+          "rows": 6,
+          "sha256": "b39040f81cd4d17881985d3c0c76a3b5bbcc2ab5bb0b04cac5a03cc7f03323f9"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "18c184090a03059c884bb49a85eb30913ccf89abf59be66ba34620cf4a37beff"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 6,
+          "sha256": "1a64801fec4d3f4e4b5beb3edee32dff979f46dbdf174aa6602b1f4cc2ac398e"
+        },
+        "threaded_deliveries": {
+          "rows": 4,
+          "sha256": "129f8860be393467fe0130ee19203ffa5fbd94d08fd35b8c37b6439ee57bc8f1"
+        },
+        "threaded_wakes": {
+          "rows": 4,
+          "sha256": "abbce39ff9dc67b13918b80563395d231fe7ac440eca6e8d99421dcb1a5b89ae"
+        },
+        "threaded_outbox": {
+          "rows": 10,
+          "sha256": "21ca346cf50062502381a6cb1c685a4c57c1b031bc9f15d19e7ef93baa74ced2"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "19f19bbc8a298026af1f4b5b134be4f9ac37f7c2bbcf28df7f128861a3ac4cd0"
+        },
+        "threaded_message_routes": {
+          "rows": 4,
+          "sha256": "0fd56be0b985be1452da1028cc6bdcac23f2a8085356460d8ba39d2f177d86f1"
+        },
+        "threaded_callback_lineage": {
+          "rows": 1,
+          "sha256": "00f502355d15567f3f199b45e75bac7892bd1f40bb667a7a6f24953c3af343a2"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "d300902d5e646cada43cbf7a619bb537753779fccbc8a90d81fc49c1162fcbe0"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "70519e78c18b68b3d6d0ece24bc1f6ae427435c7f42c4f44a2572448a20a0d92"
+        }
+      },
+      "groups": [
+        {
+          "id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "deadline": 1793030988786,
+          "state": "settled",
+          "version": 2
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "fourth-member",
+          "response_message_id": null,
+          "status": "timeout"
+        },
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "other-member",
+          "response_message_id": "4e95df6d-f94f-4784-93e4-d1c9df8ffadd",
+          "status": "responded"
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "8f9f970e-cc82-4a73-b74d-1aefb7dbec3d",
+          "source_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "state": "delivered",
+          "message_id": "f9f5a544-9f7e-4026-b379-b2b5c36e40ee",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "label": "E04 notification sent once before consumer ACK failure",
+      "clock": 1793030988787,
+      "injectedRequests": 34,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "dd2dce667fb67e4837715ddc5f17419651ebd2093759e4ecf25e3c79ae55436b"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "b29d1bd3849b8c20b792855cfab9eef12b797ad6a836257a10dadff9e4441a99"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 1,
+          "sha256": "73c9f5b482a820cf20ed58fbc77cd3dac5465dfa8afaeed5f3f468de99c1aef6"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 1,
+          "sha256": "f876bc2fce8d6f82f2e372b008b4822f6b1015229cb235d3ef1adbff02217128"
+        },
+        "threaded_messages": {
+          "rows": 6,
+          "sha256": "b39040f81cd4d17881985d3c0c76a3b5bbcc2ab5bb0b04cac5a03cc7f03323f9"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "18c184090a03059c884bb49a85eb30913ccf89abf59be66ba34620cf4a37beff"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 6,
+          "sha256": "1a64801fec4d3f4e4b5beb3edee32dff979f46dbdf174aa6602b1f4cc2ac398e"
+        },
+        "threaded_deliveries": {
+          "rows": 4,
+          "sha256": "129f8860be393467fe0130ee19203ffa5fbd94d08fd35b8c37b6439ee57bc8f1"
+        },
+        "threaded_wakes": {
+          "rows": 4,
+          "sha256": "abbce39ff9dc67b13918b80563395d231fe7ac440eca6e8d99421dcb1a5b89ae"
+        },
+        "threaded_outbox": {
+          "rows": 10,
+          "sha256": "71f4ced88cf96c1e3bbbae071827004044a386298a830f3bf277be3ef1df6279"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "19f19bbc8a298026af1f4b5b134be4f9ac37f7c2bbcf28df7f128861a3ac4cd0"
+        },
+        "threaded_message_routes": {
+          "rows": 4,
+          "sha256": "0fd56be0b985be1452da1028cc6bdcac23f2a8085356460d8ba39d2f177d86f1"
+        },
+        "threaded_callback_lineage": {
+          "rows": 1,
+          "sha256": "00f502355d15567f3f199b45e75bac7892bd1f40bb667a7a6f24953c3af343a2"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "d300902d5e646cada43cbf7a619bb537753779fccbc8a90d81fc49c1162fcbe0"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "70519e78c18b68b3d6d0ece24bc1f6ae427435c7f42c4f44a2572448a20a0d92"
+        }
+      },
+      "groups": [
+        {
+          "id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "deadline": 1793030988786,
+          "state": "settled",
+          "version": 2
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "fourth-member",
+          "response_message_id": null,
+          "status": "timeout"
+        },
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "other-member",
+          "response_message_id": "4e95df6d-f94f-4784-93e4-d1c9df8ffadd",
+          "status": "responded"
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "8f9f970e-cc82-4a73-b74d-1aefb7dbec3d",
+          "source_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "state": "delivered",
+          "message_id": "f9f5a544-9f7e-4026-b379-b2b5c36e40ee",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "label": "E04 repeated notification but unique settlement/callback/queue; no model replay",
+      "clock": 1793031048787,
+      "injectedRequests": 34,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "dd2dce667fb67e4837715ddc5f17419651ebd2093759e4ecf25e3c79ae55436b"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "b29d1bd3849b8c20b792855cfab9eef12b797ad6a836257a10dadff9e4441a99"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 1,
+          "sha256": "73c9f5b482a820cf20ed58fbc77cd3dac5465dfa8afaeed5f3f468de99c1aef6"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 1,
+          "sha256": "f876bc2fce8d6f82f2e372b008b4822f6b1015229cb235d3ef1adbff02217128"
+        },
+        "threaded_messages": {
+          "rows": 6,
+          "sha256": "b39040f81cd4d17881985d3c0c76a3b5bbcc2ab5bb0b04cac5a03cc7f03323f9"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "18c184090a03059c884bb49a85eb30913ccf89abf59be66ba34620cf4a37beff"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 6,
+          "sha256": "1a64801fec4d3f4e4b5beb3edee32dff979f46dbdf174aa6602b1f4cc2ac398e"
+        },
+        "threaded_deliveries": {
+          "rows": 4,
+          "sha256": "129f8860be393467fe0130ee19203ffa5fbd94d08fd35b8c37b6439ee57bc8f1"
+        },
+        "threaded_wakes": {
+          "rows": 4,
+          "sha256": "abbce39ff9dc67b13918b80563395d231fe7ac440eca6e8d99421dcb1a5b89ae"
+        },
+        "threaded_outbox": {
+          "rows": 10,
+          "sha256": "e0981fb742990e770db53e011ba2b22a387fd179fe215deea452232f235f22d7"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "19f19bbc8a298026af1f4b5b134be4f9ac37f7c2bbcf28df7f128861a3ac4cd0"
+        },
+        "threaded_message_routes": {
+          "rows": 4,
+          "sha256": "0fd56be0b985be1452da1028cc6bdcac23f2a8085356460d8ba39d2f177d86f1"
+        },
+        "threaded_callback_lineage": {
+          "rows": 1,
+          "sha256": "00f502355d15567f3f199b45e75bac7892bd1f40bb667a7a6f24953c3af343a2"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "d300902d5e646cada43cbf7a619bb537753779fccbc8a90d81fc49c1162fcbe0"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "70519e78c18b68b3d6d0ece24bc1f6ae427435c7f42c4f44a2572448a20a0d92"
+        }
+      },
+      "groups": [
+        {
+          "id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "deadline": 1793030988786,
+          "state": "settled",
+          "version": 2
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "fourth-member",
+          "response_message_id": null,
+          "status": "timeout"
+        },
+        {
+          "group_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "agent_id": "other-member",
+          "response_message_id": "4e95df6d-f94f-4784-93e4-d1c9df8ffadd",
+          "status": "responded"
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "8f9f970e-cc82-4a73-b74d-1aefb7dbec3d",
+          "source_id": "52848cdd-3942-460e-a004-e5279de8538f",
+          "state": "delivered",
+          "message_id": "f9f5a544-9f7e-4026-b379-b2b5c36e40ee",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "label": "E03 before IPC barrier race",
+      "clock": 1793030809685,
+      "injectedRequests": 37,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "d276d061c54b212f333a965eed37ee4c15c8c4738781b67a59aa459f38099504"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "1d5d5f87d475f975cb8b5cd3a47199e8c866f987489ab98494d3b1c2a3f6077d"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_messages": {
+          "rows": 5,
+          "sha256": "dcfb6ed1b835ce0cb282ac8617894ac61a49375f7e114cfc6b7a6b23da08a6da"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "794f06c429c70426ce904eeb1094279aa0c9a171fe3e568db9f112938d64d251"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 5,
+          "sha256": "09c1c9ffd1496d2747b9f54dcaea36a810f4d1ecaab1ec01b36c2d7cfd3bc273"
+        },
+        "threaded_deliveries": {
+          "rows": 3,
+          "sha256": "8fcaa70522d6057d9e93ff02ba87d5e862c86b83a29be686bb72473adb836b6e"
+        },
+        "threaded_wakes": {
+          "rows": 3,
+          "sha256": "b4b69bbf57cae57900e2008b9ae3bdce5862e8edbb36435215a5904ac2243456"
+        },
+        "threaded_outbox": {
+          "rows": 8,
+          "sha256": "c67606861089dfbeef375dea787314ba339587395abd3349c084d258319b8b3f"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "07e5fd681f0bb3fa83d62e3bcba692a3ddd7ea371bb0c40788d5fd3faf1b46d0"
+        },
+        "threaded_message_routes": {
+          "rows": 4,
+          "sha256": "becbba0e4ad4a7e06ed66baba391a0908f6851287fde90a2ef045185b9924800"
+        },
+        "threaded_callback_lineage": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "threaded_route_completions": {
+          "rows": 2,
+          "sha256": "ac0ce24cf133fb3e69ca8fa8cfbc4e78c3a638f049dcdd592b3fc34e52bcca5a"
+        },
+        "threaded_relay_events": {
+          "rows": 2,
+          "sha256": "7f2ef2d6d34d17697325835a4fa04ab800c7e75e3a8e60891868241cb4bcb528"
+        }
+      },
+      "groups": [
+        {
+          "id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "deadline": 1793030989685,
+          "state": "collecting",
+          "version": 1
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "agent_id": "fourth-member",
+          "response_message_id": null,
+          "status": "pending"
+        },
+        {
+          "group_id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "agent_id": "other-member",
+          "response_message_id": "c929fa18-3399-47e1-9ead-fb216dce2da2",
+          "status": "responded"
+        }
+      ],
+      "callbacks": []
+    },
+    {
+      "label": "E03 after last-response/deadline barrier and repeated recovery",
+      "clock": 1793030989686,
+      "injectedRequests": 37,
+      "tables": {
+        "threaded_consultations": {
+          "rows": 1,
+          "sha256": "91194bb3eaf079d85241c3de9b8c41768d544f0ee00d50b5c3bdd98377e358df"
+        },
+        "threaded_consultation_targets": {
+          "rows": 2,
+          "sha256": "830d41a8c1257a47913c467dc84bef5ebdb8cd34aefdf6b8fd802a3bc0585dfe"
+        },
+        "threaded_consultation_settlements": {
+          "rows": 1,
+          "sha256": "5e25fb4e3f78e6398a24d0feffa4bc9afcb819a8967768c27208c6c28f985a4c"
+        },
+        "threaded_collaboration_callbacks": {
+          "rows": 1,
+          "sha256": "72711310c509039c0352d1fd2d4157b32fd3d9d474bc2f096db9e76557d5a4e1"
+        },
+        "threaded_messages": {
+          "rows": 7,
+          "sha256": "ced08a0737efbde8ab1d76863e1371fa6625a69ed16259eab42de28c14ac2fa6"
+        },
+        "threaded_message_sequences": {
+          "rows": 1,
+          "sha256": "bcca26e3fe9d26b354e5ebb9ec7ae87d19c9d2c1c6bcc535c46d491e68dd1981"
+        },
+        "threaded_message_control_boundaries": {
+          "rows": 7,
+          "sha256": "f95764805dd22563a69a52e2ffd7a1bf9f4476d8461c07831bfeff1564913ea4"
+        },
+        "threaded_deliveries": {
+          "rows": 4,
+          "sha256": "0897ed8b414b2207e85dd965853c820696f95ac675bfafc15ef41244d5da416b"
+        },
+        "threaded_wakes": {
+          "rows": 4,
+          "sha256": "7e266c95c3176de13f76db0ea8f9b9e9b8b6c64ce8fec4e08cb1e9a2164513a3"
+        },
+        "threaded_outbox": {
+          "rows": 11,
+          "sha256": "67e10f3f5870994c23271c48f4f98d49d1ab3add15adc0a192651979ada22c9d"
+        },
+        "threaded_tool_receipts": {
+          "rows": 1,
+          "sha256": "07e5fd681f0bb3fa83d62e3bcba692a3ddd7ea371bb0c40788d5fd3faf1b46d0"
+        },
+        "threaded_message_routes": {
+          "rows": 5,
+          "sha256": "cd4d7d3973010db7a991c508b15207d789af06af2df76cb5f2a4e2582865c236"
+        },
+        "threaded_callback_lineage": {
+          "rows": 1,
+          "sha256": "850e8b8c8579d47bc86432ae75018933df50bc88786f3350ff75c205802d4d9f"
+        },
+        "threaded_route_completions": {
+          "rows": 3,
+          "sha256": "1f2f76d2582e7364b123deac9bc554fba7cc1151d21a687d28e8771f8f75f85a"
+        },
+        "threaded_relay_events": {
+          "rows": 3,
+          "sha256": "bbe23ae3de4d44726de3b0a7e69b738d849efda8b0109d35ca782d8cbb943492"
+        }
+      },
+      "groups": [
+        {
+          "id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "deadline": 1793030989685,
+          "state": "settled",
+          "version": 2
+        }
+      ],
+      "targets": [
+        {
+          "group_id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "agent_id": "fourth-member",
+          "response_message_id": "7a1bb00c-0753-47b0-aea8-84798d89908e",
+          "status": "responded"
+        },
+        {
+          "group_id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "agent_id": "other-member",
+          "response_message_id": "c929fa18-3399-47e1-9ead-fb216dce2da2",
+          "status": "responded"
+        }
+      ],
+      "callbacks": [
+        {
+          "id": "36b6b2fe-0dca-47ae-9ebd-b4573b73133a",
+          "source_id": "e5658fcb-7079-4365-80a1-08c802893d41",
+          "state": "delivered",
+          "message_id": "c2332bee-d9f8-4693-a964-27fe0ccc76e3",
+          "reason": null
+        }
+      ]
+    }
+  ]
+}

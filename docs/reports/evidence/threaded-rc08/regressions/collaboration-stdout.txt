@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "groups": 17,
+  "checks": [
+    "R01/R02: longest handles, code/quote/URL exclusion, user inline vs Agent line-start, groups/intents, preview/admission identity and durable user-request conflict",
+    "R02/R03/CTX05: serial targets become durable ordered continuations under one root; ideate freezes independent inputs and suppresses text A2A",
+    "M01/M03/B01: explicit post and identical final create distinct wake/message identities; exact tool retries return durable receipts, conflicts and late effects reject, root budget is shared",
+    "CTX02/M02: exact reads, search and seen/mention tools enforce ACL and frozen cutoff; private model/read history narrows final and tool messages instead of widening audience",
+    "M02/CTX02: authorized cross_post crosses a real Thread boundary under the same causal root; attachment range returns exact bytes/full hash and cross-Thread provenance stays reference-only",
+    "R04: same-pair short replies warn at 2/3 and block at 4; new user input and substantive tool work reset the durable streak without resetting the root budget",
+    "MM01/MM03/MM04/E01/E02: persisted 3-target consultation survives factory/SQLite rebuild with original deadline and first response; offline deadline settles partial once with exact dissent and no synthesis call; cascade and late resurrection reject",
+    "E05: caller pause preserves settlement with an explicit waiting callback; later permission drift rejects callback without widening authority or discarding original responses",
+    "E05 controls: unchanged pause/resume delivers the one frozen callback; any intervening stop permanently cancels it even after resume, preserving settlement history",
+    "W01/W03/B01: holds return before the normal final, release the execution claim, use sliding quota and same-job idempotency; replacement retires only the wake; restored timer outcomes inherit root and do not charge idle time or prove business completion",
+    "W05: a registered live source freezes its durable baseline, excludes existing matching history, and emits one private source-referenced callback only for a new matching event",
+    "W02/W06: retired request_user_input returns 410; ordinary once Decision registration is nonblocking, exact revision and authenticated origin-trigger settlement are required, retries are stable and no business approval is inferred",
+    "E06/DB01/DB02: group/target/message/Delivery/Wake/Outbox/tool-receipt insertion faults roll back together; settlement failure rolls back last response and terminal, then exact proven outcome retries with no second model request",
+    "E01/E02/E04: real recovery worker SIGKILL on a partial group, fresh worker crosses original deadline and exits32 after settlement before dispatch; receiver send-before-ACK retry repeats a hint but preserves one settlement/callback/queue identity and performs no model replay",
+    "MM02/E03: two real SQLite IPC writers released at one barrier race last verified response against deadline; one immutable settlement/callback wins, repeated recovery and late terminal cannot revive it or replay the model",
+    "K15/R04/W01: a timer callback carries the original same-pair streak, so holding/restarting does not reset language-inertia protection or count as a fresh A2A hop",
+    "W05 producer protocol: server-allowlisted GitHub path uses a live baseline; unchanged state with cosmetic updated_at does not trigger, a new head triggers exactly once; transport remains injected, no real GitHub business claim"
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "injectedHttpCalls": 41,
+  "scope": "T08 isolated SQLite, canonical runtime/context/backend/tool ports and injected transport; no daily DB or real models"
+}

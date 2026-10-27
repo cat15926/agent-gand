@@ -41,7 +41,22 @@ export function createThreadedCollaboration(db:Database.Database,options:Collabo
   }
   function notifyCommitted() {
     options.onCommitted?.();
-    if(!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;if(!closed&&db.open&&!db.inTransaction)arm();});}
+    if(!scheduled){scheduled=true;queueMicrotask(()=>{
+      scheduled=false;
+      const repair=()=>{
+        if(closed||!db.open||db.inTransaction)return;
+        try {
+          // A resumed caller can have a settled group and no remaining timer.
+          // Recheck durable callback authority on the committed notification.
+          cooperation.recover();lastError=null;arm();
+        } catch {
+          lastError='THREADED_COLLABORATION_REPAIR_FAILED';
+          if(timer)clearTimeout(timer);
+          timer=setTimeout(repair,1000);timer.unref();
+        }
+      };
+      repair();
+    });}
   }
   let actions:ReturnType<typeof createThreadedActions>;
   let tracking:ReturnType<typeof createThreadedTracking>;

@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "groups": 14,
+  "checks": [
+    "API exact serialized context, pre-I/O reservation, real per-request usage receipt and final proof settle through the lifecycle without legacy Run handling",
+    "API tool loop reserves each HTTP separately and continues Attempt heartbeats after the initial request is settled",
+    "HTTP 400 does not hide a compatibility retry; complete rejection retains unknown billing and unknown delivery rather than leaving a sending-only receipt",
+    "Truncated stream and missing terminal confirmation retain unknown execution and cannot produce a release proof",
+    "A later actual request becoming unknown preserves the first request’s confirmed usage and keeps the Attempt fence",
+    "Usage receipts bind the exact persisted request and fencing identity; changed usage, another generation and SQL mutation are rejected",
+    "SDK local protocol relay meters every hidden HTTP request, ignores cumulative SDK result usage and records a checkpoint only with exact native identity and input receipt",
+    "SDK resume preserves the trusted prior compaction boundary when no new compact event occurs; a new compact event replaces it and cold sessions never inherit it",
+    "SDK close notification without verified owned process-group exit cannot release resources or mint an anchor",
+    "Unexpected SDK session identity reaches the server reconciliation gate before any HTTP request or continuation",
+    "A proof snapshots request/process cardinality and cannot release the same claim after another request has appeared",
+    "Failure while persisting the pre-I/O backend receipt rolls back request start and quota changes before any transport call",
+    "Concurrent hidden SDK helper requests are serialized before request admission so a single resource claim never authorizes parallel actual HTTP calls",
+    "Endpoint prefixes are preserved, cached input contributes to total-token acceptance accounting, unknown cache tariffs remain unknown and other drivers stay closed"
+  ],
+  "externalCalls": 0,
+  "realModelCalls": 0,
+  "scope": "isolated DB, injected HTTP responses, real loopback SDK relay; process-exit positives are explicitly injected protocol facts"
+}

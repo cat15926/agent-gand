@@ -1,6 +1,6 @@
 # 持续协作兼容矩阵与验收范围
 
-状态：**T01–T11 已按记录范围交付；T12 主体和所列分层验收已提交推送，整体发布验收未完成**。更新：2026-10-26。RC01/进度文档已推送 `35804a1`，RC02已推送`a871910`，RC03首批选定命令profile与hold合同已推送`ee751a3`；RC04生产跟踪分享桥接及所列隔离/进程验证已完成，真实观察已结束、not_observed，完整真实链未通过，已推送d831a70；RC05实现及所列分层验收已推送`8d1fc75`，仍有明确限制与未定位历史超时；RC06已实施并通过所列41组专验与88组相关回归，已推送`f03648e`，工程源写/merge、真实冲突command持久等待及完整真实旧新供应商混跑仍有未完项，未关闭RC06整体验收；RC07实现及所列31组分层专验/83组回归通过，变更未提交，默认窗口自然压缩、产品seal及实际index完整原生组合仍未验。代码schema保持v35，历史v25–v34不变；默认closed，日常未配置/启用、未迁移。产品名为“持续协作”，内部标识 `threaded`。
+状态：**T01–T11 已按记录范围交付；T12 主体和所列分层验收已提交推送，整体发布验收未完成**。更新：2026-10-27。RC01/进度文档已推送 `35804a1`，RC02已推送`a871910`，RC03首批选定命令profile与hold合同已推送`ee751a3`；RC04生产跟踪分享桥接及所列隔离/进程验证已完成，真实观察已结束、not_observed，完整真实链未通过，已推送d831a70；RC05实现及所列分层验收已推送`8d1fc75`，仍有明确限制与未定位历史超时；RC06已实施并通过所列41组专验与88组相关回归，已推送`f03648e`，工程源写/merge、真实冲突command持久等待及完整真实旧新供应商混跑仍有未完项，未关闭RC06整体验收；RC07实现及所列31组分层专验/83组回归通过，已推送`6ca44fb`，默认窗口自然压缩、产品seal及实际index完整原生组合仍未验；RC08实现及所列23组专验/84组回归通过，新变更未提交，原T08取消原因仍未定位且完整故障交叉组合未全验。代码schema保持v35，历史v25–v34不变；默认closed，日常未配置/启用、未迁移。产品名为“持续协作”，内部标识 `threaded`。
 
 本文件配套[实施指导](./threaded-collaboration-implementation-guide.md)，把 [Issue #16](https://github.com/cat15926/agent-gand/issues/16) 的 K01–K16、T01–T12 和 59 个原验收 ID 转为可追踪清单。用户确认的四项目标为：**核心规则不简化、平台差异显式登记、可靠性增强单独验收、高级能力逐项说明范围**。剩余实现、补验、对账与发布操作按[剩余工作计划](./threaded-collaboration-remaining-plan.md)分列；RC01–RC03已按记录范围完成，RC04本次实现及分层验收已执行，本轮真实观察已结束为not_observed，H1/H2完整真实领域退出条件未满足；其他RC/EXT不因列入计划而自动开工。
 
@@ -27,7 +27,9 @@ T12已提交推送 `b99997a`，在T11基线上追加v34、固定pack/根授权�
 
 [RC06][RC06]在已推送RC05 `8d1fc75` 上补显式共享工程只读根/外部产物与命令非容量资源公平；新增41组分层专验、88组相关回归通过。5个实际index PID使用配置供应商覆盖重试、同槽、跨Thread、SDK定向取消与容量释放；另5 PID为注入层。真实新10请求确认5362 token、1个被中断SDK未知预留19803；原47行不变，RC06结束时累计70543+206832=277375。初轮注入闸门/重叠断言问题和一次未提权backend-runtime失败均保留，单独重跑通过不冒称原根因已证实。生产工程源写/merge与真正资源冲突command的自动持久等待仍未交付；RC06整体未关闭，日常closed。
 
-[RC07][RC07]补 API 完整 envelope 准入与 input/send intent 原子写入，避免零发送的永久假曝光；SDK 本地接收 prompt 前仍记曝光。新增31组专验（context7/admission5/原生注入7/实际index注入5与真实5/受控原生注入1与真实1）及83组回归通过。实际index每层7 PID；真实SDK工厂4轮/5请求，在验收窗口显式调整后发出auto压缩事件并沿用同nativeId续接，不能替代默认窗口自然压缩或实际index原生全链证明。RC07真实11请求新确认116740、无新增unknown；原57行不变，累计187283+206832=394115。低层seal不是产品HTTP/UI，完整退出范围继续保留。
+[RC07][RC07]补 API 完整 envelope 准入与 input/send intent 原子写入，避免零发送的永久假曝光；SDK 本地接收 prompt 前仍记曝光。新增31组专验（context7/admission5/原生注入7/实际index注入5与真实5/受控原生注入1与真实1）及83组回归通过。实际index每层7 PID；真实SDK工厂4轮/5请求，在验收窗口显式调整后发出auto压缩事件并沿用同nativeId续接，不能替代默认窗口自然压缩或实际index原生全链证明。RC07真实11请求新确认116740、无新增unknown；原57行不变，RC07结束时累计187283+206832=394115。低层seal不是产品HTTP/UI，完整退出范围继续保留。
+
+[RC08][RC08]修复征询已结算且无deadline时，恢复暂停调用者却不再检查waiting callback的调度缺陷；提交后合并恢复，存储失败独立1秒重试。SDK仅保留可信平台错误类code。专验23＝独立可靠性8＋原生SDK注入5＋实际index注入5＋实际index真实5，相关回归84组通过。真实21请求新增33195已知、0未知，另1次HTTP400为本地注入；原68账本行不变。超时为暂停未发目标跨原deadline的受控时钟，丢回执为同一有效binding的broker重试；原T08首轮取消缺诊断且临时现场已不在，原因仍未定位，不能由本轮成功反推。
 
 ## 1 固定基线、分类与状态口径
 
@@ -36,7 +38,7 @@ T12已提交推送 `b99997a`，在T11基线上追加v34、固定pack/根授权�
 | Clowder | `8b373123323aacd7e2047dab94fdc15b8f7567ae`；所有 C 类源码链接固定到此提交，不表示最新版本 |
 | Issue 的 agent-gand | `996513c673498811bed894b3eecf64382e71af3f`；用于保留原迁移分析上下文 |
 | 历史本地核对版本 | `b95dc2553405268a9b807b3983fee8f9facc55fa`；保留当时分析基线，本地链接指向当前工作区 |
-| 当前实现版本 | T12代码b99997a、RC01文档35804a1、RC02 a871910已推送；[RC03][RC03]首批命令profile/hold已推送ee751a3；[RC04][RC04]已推送d831a70、真实not_observed、完整链未通过；[RC05][RC05]已推送8d1fc75、历史限制保留；[RC06][RC06]所列41组专验/88组回归通过，已推送f03648e且未整体验收关闭；[RC07][RC07]实现及所列31组专验/83组回归通过，未提交、完整组合未全验；代码schema v35；默认closed，日常未配置且未迁移 |
+| 当前实现版本 | T12代码b99997a、RC01文档35804a1、RC02 a871910已推送；[RC03][RC03]首批命令profile/hold已推送ee751a3；[RC04][RC04]已推送d831a70、真实not_observed、完整链未通过；[RC05][RC05]已推送8d1fc75、历史限制保留；[RC06][RC06]所列41组专验/88组回归通过，已推送f03648e且未整体验收关闭；[RC07][RC07]实现及所列31组专验/83组回归通过，已推送6ca44fb、完整组合未全验；[RC08][RC08]所列23组专验/84组回归通过，新变更未提交，原T08取消未定位；代码schema v35；默认closed，日常未配置且未迁移 |
 | T01 首批目标 | 普通 home Thread 的完整核心合同，包含 Action、Review/Revision、基础知识和 SOP；阶段 4 仅是中间里程碑 |
 | 首批后端与平台 | 模型 API + `claude-sdk`；macOS 首验，Linux 后续验证。API 上下文重建与 SDK 原生连续会话分别验收，其他 driver 作为扩展 |
 
@@ -59,7 +61,7 @@ T12已提交推送 `b99997a`，在T11基线上追加v34、固定pack/根授权�
 | K01 | Thread、Invocation 和 Action 分别持久化生命周期；队列清空不等于业务完成 | [C01]、[C13]、[C14] | Thread/Invocation/Action 分开持久化，Invocation 唯一执行 Run 适配；保真+适配 | T02、T03、T06、T10 | ISO05、A01–A07、UI01 | Thread/Invocation/Action独立持久化已实现 | [T10][T10] 平台任务/真实GitHub域与普通Invocation分离；[T12][T12] 发布控制与分层恢复已验，完整真实发布组合仍未通过 |
 | K02 | 消息存储、可见性、路由和模型上下文投递是四个不同步骤 | [C03]、[C04]、[C21] | Message/ACL/Delivery/Wake/Context delivery 独立事实；保真+适配 | T05、T07、T09 | CTX01–CTX05、M02、UI01 | T05–T09四类事实与独立UI/精确回执已实现 | [T08][T08]工具曝光及[T09][T09]实际UI区分保存/排队/执行/上下文/回应/业务状态通过 |
 | K03 | 有效响应完成后形成可恢复的后续 wake；不能只依赖进程内回调 | [C01]、[C02]、[C25] | 响应与后继 wake/outbox 同事务；保真+适配；征询独立增强见 E01–E05 | T05、T06、T08 | REC01、REC04–REC05、M01、MM04 | 响应及征询/等待回调wake/outbox已实现 | [T12][T12] 实际组合服务提交后崩溃、后继恢复、征询partial/deadline唯一回调通过；供应商传输注入 |
-| K04 | 同一幂等请求重试不产生第二份消息、第二次逻辑唤醒或第二次业务转移 | [C01]、[C11]、[C13]、[C25] | 按来源消息/请求身份及 Action 业务身份幂等，同键异内容冲突；保真+适配 | T05、T06、T08、T10 | DB01–DB02、M01、M03、A01 | 消息/工具/等待及Action业务身份幂等已实现 | [T10][T10] 真实双进程唯一准入、事务故障/幂等回执通过 |
+| K04 | 同一幂等请求重试不产生第二份消息、第二次逻辑唤醒或第二次业务转移 | [C01]、[C11]、[C13]、[C25] | 按来源消息/请求身份及 Action 业务身份幂等，同键异内容冲突；保真+适配 | T05、T06、T08、T10 | DB01–DB02、M01、M03、A01 | 消息/工具/等待及Action业务身份幂等已实现 | [T10][T10]领域准入/事务幂等保留；[RC08][RC08]同Binding/key跨PID回执、outbox发送/ACK之间SIGKILL均保持唯一逻辑身份；实际index/真实供应商broker丢回执精确重试不新增group/targets/wakes。自然网络丢回执和unknown崩溃自动重放不在通过范围。 |
 | K05 | 同槽启动须有原子领取和所有者代际；旧执行不能释放或提交到新执行的槽 | [Queue 同槽所有者][X01]、[C13]、[C16] | owner/generation/fencing token 控制领取、提交和释放；保真+适配 | T03、T04、T06、T10 | ISO03、Q01、Q06、REC05、A03 | 执行槽/Action代际围栏及RC03独立命令多workspace资源已实现 | [T12][T12]历史macOS独立claim/旧代际/伪造PID/IPC与owner退出证据保留；[RC03][RC03]当前注册、代际及资源复验分层结果另记，扩展平台未验 |
 | K06 | 线程级执行槽、实际原生 Session 锁、账号容量和文件资源冲突分别管理 | [Session 锁][X02]、[C19] | 统一旧独占/thread-slot/session/account/workspace claim 冲突矩阵；保真+本地混合模式适配 | T04、T07 | Q01–Q06、OS01 | 资源、Session及RC03独立命令多read/write claim已实现 | [RC06][RC06]16组协调器/6组原生/9组工作区及实际index注入5+真实5组分层通过；槽、Session、容量及文件分别计量。不同policy同native是种子Session锁竞态；完整legacy供应商混跑及工程源写/merge仍未验。 |
 | K07 | 成员会话只恢复到兼容的身份、工作区、账号、模型、工具和权限边界 | [Session 锁][X02]、[C04]、[C19] | Thread/Agent 稳定 Session 绑定、完整本地 policy 和可信 anchor；[RC01][RC01]确认上游按身份/互斥/载体守卫/连续性分层，已追链未提供可直接照搬的统一指纹；本地更严格 cold 策略为适配+增强 | T03、T07 | ISO03–ISO04、Q04、CTX06、OS01 | T07身份/权限/输入边界及锚点、RC03选定工程映射身份已实现 | [T07][T07]/[RC06][RC06]原身份、权限和工程映射证据保留；[RC07][RC07]真实SDK注入层覆盖压缩、撤来源权限、缺checkpoint及低层seal后的兼容续接/明确冷开；真实供应商在受控32k窗口同nativeId压缩续接通过。默认自然触发、产品seal与index完整原生组合仍未验。 |
@@ -69,7 +71,7 @@ T12已提交推送 `b99997a`，在T11基线上追加v34、固定pack/根授权�
 | K11 | 业务完成由服务端解析领域事实；Agent 的完成声明只形成候选 | [C07]、[C14]、[完成事实][X08] | review_delivered/task_done 真实 producer-resolver-freshness 链；保真+领域系统适配 | T10 | A02–A05、A07 | task_done/PR review_delivered及生产可选GitHub来源已接；RC04补跟踪到修订的受信分享桥接 | [T10][T10]既有真实域通过；[RC02][RC02]provider7项/8GET保留；[RC04][RC04]同Action双HEAD注入链及进程恢复通过，真实观察已结束、not_observed，H1/H2双自然HEAD完整链未通过 |
 | K12 | Review 交付、Review 通过、修改完成和再次评审是不同状态或事件 | [C13]、[C15]、[完成事实][X08] | 交付/verdict/修改/复审分开，冻结被审 revision；保真+领域政策适配 | T10、T11 | A04–A06 | 交付、verdict、逐项修订、独立复审及门禁分别持久化；RC04单Action同root链已接 | [T11][T11]真实changes_requested完成责任但blocked保留；[RC04][RC04]9组注入链覆盖旧approved失效、逐项attested/verified及不同本地reviewer复核，4组实际进程恢复；真实观察已结束、not_observed，H1/H2双自然HEAD闭环未通过 |
 | K13 | 已有外部副作用或执行结果不确定时，不盲目重放模型调用或写操作 | [C18]、[C01] | 外部执行 unknown 与副作用对账，保留 fence；保真+宿主/驱动适配 | T03、T06、T07 | REC02–REC06、OS01 | 执行unknown、可信静止/传输证据及RC03独立命令副作用verifier已实现 | [RC05][RC05]实际index/配置供应商API及SDK生成响应头后SIGKILL、拒写恢复均保留unknown且零盲重发；真实宿主停止不清除持久registered/未知费用，最终对账仍RC09。 |
-| K14 | 重启恢复以持久事实为准，缓存是投影；每条记录只有一套模式恢复器负责 | [C01]、[C18]、[领域恢复][X09] | 按 mode/origin 唯一恢复器，先外部存活再恢复投影最后派发；保真+本地共存适配 | T03、T06、T10、T12 | ISO02、ISO04、REC01–REC06、A07、OPS01 | 消息/等待/UI及task_done领域恢复已实现；RC04补生产GitHub双轮链的worker恢复 | [T12][T12]/[RC04][RC04]历史证据保留；[RC05][RC05]选定供应商发送前/可能已发/终态后、SDK中途及实际index timer停机分层已验；同步准备原unknown/hash在重复恢复保持。完整模式综合链仍RC10。 |
+| K14 | 重启恢复以持久事实为准，缓存是投影；每条记录只有一套模式恢复器负责 | [C01]、[C18]、[领域恢复][X09] | 按 mode/origin 唯一恢复器，先外部存活再恢复投影最后派发；保真+本地共存适配 | T03、T06、T10、T12 | ISO02、ISO04、REC01–REC06、A07、OPS01 | 消息/等待/UI及task_done领域恢复已实现；RC04补生产GitHub双轮链的worker恢复 | [T12][T12]/[RC04][RC04]/[RC05][RC05]原持久恢复证据与限制保留；[RC08][RC08]实际index/供应商原两答和deadline跨SIGKILL保留；暂停callback在新PID认证resume后自动恢复，存储失败无需新通知独立重试。完整模式综合链仍RC10。 |
 | K15 | 每次 wake 不重置整个因果链的预算和循环限制；费用未知与执行未知分别记录 | [C10]、[C20]；[RC01][RC01]已核验深度/循环及预算职责边界 | 持久因果链预算/循环限制；费用与执行unknown分开。本地财务/次数/活动上限为新增可靠性政策，未证明上游同参；A2A阈值保真+分类适配 | T04、T06、T08 | R04、W03、B01–B02 | 接力/等待/Action修订继承原root，RC03 timer/command wake共享hold准入已实现 | [RC05][RC05]原Invocation/Run/root替代Attempt与唯一后继、未知费用及活动分别保留；默认1秒同步长准备可用性仍有限，Owner显式10秒片与原deadline单验，未放宽其他限额。 |
 | K16 | 旧 Collaboration、自主协作及其他执行路径维持原来的契约和权限行为 | [Issue #16 §3](https://github.com/cat15926/agent-gand/issues/16)；本地[RunMode](../../packages/shared/src/run.ts)、[旧控制工具](../../apps/server/src/collaboration/controlTools.ts)、[自主入口](../../apps/server/src/collaboration/autonomousEntry.ts) | 独立 threaded 入场/执行/恢复/终态，保留旧契约；本地适配 | T02–T04、T06、T12 | ISO01–ISO05、DB03、Q03、OPS01 | 独立Thread UI/数据通道与旧模式隔离已接；生产入场关闭 | [T12][T12] 旧隔离/资源/控制/终态及真实Chrome回归通过；实际index关闭模式保持历史，完整真实模型混跑未验 |
 
@@ -125,12 +127,12 @@ E01–E06 是新增用例编号，不属于原 59 项。普通消息/wake/outbox
 
 | 增强用例 | 独立触发与必需证据 | 关联原 ID | 任务包 | 实现 / 验证 |
 | --- | --- | --- | --- | --- |
-| E01 征询持久恢复 | 已提交group/targets/deadline且仅部分回应后终止服务；恢复同一group与原deadline，保留首个有效响应，不重发已经接受的目标工作。保存重启前后DB快照、逻辑调用计数及settlement记录 | MM01、MM04、REC01、REC05 | T08 | 已实现/受控真实子进程SIGKILL、新worker恢复原group/deadline/首答，零模型重放；[T08][T08] |
-| E02 deadline持久结算 | 征询无人或部分回应，服务停机跨过deadline；可控时钟恢复只结算一次timeout/partial，保留逐目标原回答/状态；零额外“统一意见”模型调用 | MM01–MM02、MM04、REC05 | T08 | 已实现/可控时钟跨deadline唯一partial，保留逐目标原答，零合成请求；[T08][T08] |
-| E03 最后回复与超时竞争 | 并发屏障同时推进最后回复和deadline；只有一个CAS结算者和同一结果版本；重复、非目标、迟到回复不改变终态或重复回调 | MM02、REC05 | T08 | 已实现/两SQLite IPC writer屏障末答与timeout竞争一个结算，迟到不复活；[T08][T08] |
-| E04 汇总outbox崩溃窗口 | settlement已提交但outbox发送前崩溃，或发送后ACK前崩溃；恢复同一可引用汇总、同一逻辑回调wake；凭outbox状态、唯一键及目标Invocation计数证明不丢/不重结算 | MM04、REC01、REC04–REC05 | T05、T06、T08 | 已实现/结算后通知前exit32、发送后ACK前重试，唯一settlement/callback/queue；[T08][T08] |
-| E05 callbackTo授权变化 | group进行中caller被暂停、撤权或目标Thread关闭；结算事实保留，回调明确等待/拒绝/取消，不能扩大授权；恢复授权是否可继续按冻结版本合同判断 | MM04、ISO04、CTX02、W02 | T08、T12 | 已实现；[T08][T08] 暂停等待恢复、stop 后 resume 不复活；[T12][T12] 实际组合服务重启/权限变化拒绝并保留事实，供应商传输注入；完整真实发布组合仍未验 |
-| E06 增强事务失败 | group/response/settlement/outbox事务每个提交点注入失败，数据库不可写时不返回已持久成功；重试沿原幂等身份恢复，原始响应及终态不分叉。保留独立写入/派发计数 | DB01–DB02、MM02、REC06 | T05、T06、T08 | 已实现/创建9类及终态回调11类写点故障、只读库及原证明重试通过；[T08][T08] |
+| E01 征询持久恢复 | 已提交group/targets/deadline且仅部分回应后终止服务；恢复同一group与原deadline，保留首个有效响应，不重发已经接受的目标工作。保存重启前后DB快照、逻辑调用计数及settlement记录 | MM01、MM04、REC01、REC05 | T08 | [T08][T08]原证据保留；[RC08][RC08]实际index/供应商两原答后SIGKILL、新PID保留同group/原deadline/原答，已完成目标零重放；工厂层另有settlement后真SIGKILL。 |
+| E02 deadline持久结算 | 征询无人或部分回应，服务停机跨过deadline；可控时钟恢复只结算一次timeout/partial，保留逐目标原回答/状态；零额外“统一意见”模型调用 | MM01–MM02、MM04、REC05 | T08 | [T08][T08]原零回应/partial证据保留；[RC08][RC08]三目标两原答一暂停，index新PID仅在请求/原生进程静止后受控时钟越原deadline，唯一partial逐字保留。不是运行中供应商超时或实际等待3分钟。 |
+| E03 最后回复与超时竞争 | 并发屏障同时推进最后回复和deadline；只有一个CAS结算者和同一结果版本；重复、非目标、迟到回复不改变终态或重复回调 | MM02、REC05 | T08 | [T08][T08]原非目标/迟到合同保留；[RC08][RC08]三独立SQLite worker同步竞末答/原deadline，唯一结算，本轮complete胜出；迟到/恢复不复活。模型为注入，非全部index/供应商交错。 |
+| E04 汇总outbox崩溃窗口 | settlement已提交但outbox发送前崩溃，或发送后ACK前崩溃；恢复同一可引用汇总、同一逻辑回调wake；凭outbox状态、唯一键及目标Invocation计数证明不丢/不重结算 | MM04、REC01、REC04–REC05 | T05、T06、T08 | [RC08][RC08]工厂实际worker在settlement提交后SIGKILL、通知发出但ACK前SIGKILL，租约后新PID重领；可有两次物理提示，逻辑callback/message.created outbox/wake/queue唯一且零模型重放。实际index全部outbox故障交叉仍未验。 |
+| E05 callbackTo授权变化 | group进行中caller被暂停、撤权或目标Thread关闭；结算事实保留，回调明确等待/拒绝/取消，不能扩大授权；恢复授权是否可继续按冻结版本合同判断 | MM04、ISO04、CTX02、W02 | T08、T12 | [T08][T08]/[T12][T12]原关闭/stop/身份范围保留；[RC08][RC08]修复无deadline时resume回调卡住，实际index/供应商认证resume自动派发；隔离permission version撤权拒回调；独立工厂暂停期间跨Thread来源ACL撤回亦拒绝，原答/结算保留。 |
+| E06 增强事务失败 | group/response/settlement/outbox事务每个提交点注入失败，数据库不可写时不返回已持久成功；重试沿原幂等身份恢复，原始响应及终态不分叉。保留独立写入/派发计数 | DB01–DB02、MM02、REC06 | T05、T06、T08 | [T08][T08]原9+11类写点故障保留；[RC08][RC08]callback outbox拒写全表不变，原可信结果在新PID精确恢复零重放；首次callback写失败后只撤故障不补通知，1秒retry自动派发。非实际物理磁盘损坏证明。 |
 
 E项通过不能替代征询目标数、超时范围、anti-cascade等保真规则；原MM项通过也不能自动覆盖全部E项。每项报告记录seed/时钟、并发屏障、调用次数、数据库快照、实际命令、提交和结果。
 
@@ -142,7 +144,7 @@ E项通过不能替代征询目标数、超时范围、anti-cascade等保真规�
 | --- | --- | --- | --- | --- |
 | S01 普通home Thread全核心 | 纳入：K01–K16、用户/系统/Agent消息、公开和私密投递、持久唤醒、跨Thread获权接力 | 全部普通入口与ACL边界，不以固定流水线替代；实际策略逐项关联F表 | ISO、DB、Q、REC、CTX、R、M、W、A、MEM、SOP、B、UI组 / T02–T12 | T02–T12 消息/执行/工具/UI、Action、基础知识及发布控制已实现并按[T11][T11]、[T12][T12]分层验证；完整真实故障/并发组合、生产激活与 MEM01 语义子项仍未收口 |
 | S02 成员会话 | 纳入：API上下文重建和claude-sdk原生连续会话 | API与SDK分别验证；SDK cold/resume、权限变更、压缩/恢复锚点及真实Session锁；不以全冷会话代替原生连续性目标 | CTX03–CTX06、Q04、OS01 / T07、T12 | [T07][T07]/[T12][T12]原冷开/续接与静止后重启证据保留；[RC07][RC07]真实SDK的注入合成usage和工厂受控窗口真实usage分别触发auto并确认后续同nativeId；撤权/缺checkpoint/低层seal明确冷开。默认窗口自然压缩、产品seal入口和实际index完整原生组合仍未验。 |
-| S03 征询与可靠性 | 纳入：完整multi_mention行为及E项持久增强 | 上游参考限制与本地增强分栏；不能用首个赢家取消其余人的旧consult-any替代 | MM01–MM04、E01–E06 / T08 | T08已实现/参考行为与E01–E06隔离验证分别通过；真实征询首轮失败保留、新场景复验通过；[T08][T08] |
+| S03 征询与可靠性 | 纳入：完整multi_mention行为及E项持久增强 | 上游参考限制与本地增强分栏；不能用首个赢家取消其余人的旧consult-any替代 | MM01–MM04、E01–E06 / T08 | [T08][T08]原参考行为与E01–E06隔离证据保留；[RC08][RC08]23组专验分层记录原答、唯一回调、恢复与故障范围，历史取消仍未定位，真实故障交叉组合未全验 |
 | S04 等待/人类回应 | 纳入：hold、命令终态、正式tracking与ordinary ConversationDecision | 真实tracking生产者、命令权限及用户决定绑定须接通；Decision不是业务批准；不给scoped/read-only扩权 | W01–W06 / T08、T10、T12 | T08 Decision、RC02可选GitHub及[RC03][RC03]选定命令/hold合同保留；[RC04][RC04]显式跟踪分享桥接及所列隔离/进程验证已过，真实观察已结束、not_observed，两次自然HEAD唤醒仍未通过。Decision不授业务批准，在线one-shot非统一硬SLA；[RC05][RC05]所列供应商故障分层已验，仍有限制，日常未配置 |
 | S05 Action与Review/Revision | 纳入：review_delivered/task_done、责任准入/返回/替换、指定版本评审和修订闭环 | T01冻结task_done来自平台任务合法状态转换，review_delivered绑定GitHub PR当前HEAD和合法评审交付；Thread内可交付报告，发布GitHub评论/review另需授权。producer/resolver/freshness及真实领域系统必须接通，业务验收前不宣传可用；详见[设计决策](./threaded-collaboration-t01-decisions.md) | A01–A07 / T10、T11、T12 | T10/T11首版及[T12][T12]分层证据保留；[RC04][RC04]同一Action/root双HEAD注入链、独立复审和4组实际worker进程恢复通过，真实观察已结束、not_observed，H0→H1→H2两次自然HEAD完整闭环未通过；全部生产/供应商故障组合仍未验 |
 | S06 角色/SOP | 纳入：稳定成员handle、版本角色/政策、SOP CAS及attested/verified/unknown | 角色提示不等于服务端权限；SOP不自动转让执行槽或完成Action | SOP01–SOP02 / T11 | 首版已实现并验证；[T11][T11] 精确任务verifier，其他检查unknown/attested，不授执行权 |
@@ -199,11 +201,11 @@ T03/T04在REC03/Q06/OS01增加“runner抛错但子进程存活”的fixture：u
 | R04 | A/B 短回复循环、实质工具、新用户输入 | 警告、阻断和重置符合冻结策略 | T08 | K03、K10、K15；F01–F02 | 持久成员对循环/实质工具重置已实现 | [T08][T08] 第2/3警告实际入system、第4阻断，搜索/新用户重置，hold/恢复保留通过 |
 | M01 | 显式 post 后 final 再明确提及同一成员 | 两个独立可引用消息，各自有合法逻辑 wake；同一 source 的重试才去重，不跨消息按语义吞掉接力 | T05、T08 | K02–K04、K09–K10；F03 | T08协作工具及完整final文本路由已接 | [T08][T08] 两种API协议与实际SDK MCP/RPC各形成独立post/final后继（注入模型）；真实read/post成功 |
 | M02 | cross_post 无目标、越权目标、私密来源 | 拒绝非法路径；不复制私有 transcript | T05、T08 | K02–K04、K09–K10；F03 | T08 cross_post可信工具及来源边界已接 | [T08][T08] 空/越权/私密拒绝、合法跨Thread同根与引用展开通过；不复制native transcript |
-| M03 | 请求超时后重发结构化消息 | 稳定回执，逻辑交接幂等 | T05、T08 | K02–K04、K09–K10；F03 | T08工具不可变receipt已接 | [T08][T08] 精确重试/冲突/提交故障通过，实际SDK工具链路通过；真实网络丢回执故障未验 |
-| MM01 | 三成员征询，一人超时 | 逐成员状态正确，唯一 partial 汇总 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08持久逐目标状态/结算已实现 | [T08][T08] 三目标一首答+超时唯一partial通过；真实双目标成功复验通过 |
-| MM02 | 重复回复、非目标回复、迟到回复、最后回复与超时竞争 | 仅一个结算者，终态不复活 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08首答/终态不可变已实现 | [T08][T08] 真实双SQLite writer屏障竞争、迟到/重扫不复活通过；模型响应为注入 |
-| MM03 | 被询问成员继续发同类征询 | anti-cascade 生效，未制造下游级联 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08 anti-cascade及来源链检查已实现 | [T08][T08] 被询问者再征询拒绝通过；不用赢家取消其他成员 |
-| MM04 | 征询中服务重启 | 按本项目持久化增强合同恢复，不丢 group 状态 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08持久恢复/唯一回调已实现 | [T12][T12] 实际组合服务SIGKILL后原partial/deadline唯一结算/回调、权限变化拒绝，通过；供应商传输注入，T08取消风险保留 |
+| M03 | 请求超时后重发结构化消息 | 稳定回执，逻辑交接幂等 | T05、T08 | K02–K04、K09–K10；F03 | T08工具不可变receipt已接 | [T08][T08]原重试/冲突/提交故障保留；[RC08][RC08]真实index/供应商链上在可信broker扣留已提交回执，同一仍有效Binding/key精确重试；group/target/tool receipt/wake/outbox不新增。自然公网丢回执和崩溃unknown自动重放未验。 |
+| MM01 | 三成员征询，一人超时 | 逐成员状态正确，唯一 partial 汇总 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08持久逐目标状态/结算已实现 | [RC08][RC08]实际index注入/真实供应商三目标两原答一暂停，SIGKILL恢复后受控时钟越原deadline，逐状态/原文精确、唯一partial/callback；超时目标尚未请求供应商。另本地HTTP400一失败+真实SDK同伴回答通过，不使用赢家取消。 |
+| MM02 | 重复回复、非目标回复、迟到回复、最后回复与超时竞争 | 仅一个结算者，终态不复活 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08首答/终态不可变已实现 | [T08][T08]原重复/非目标范围保留；[RC08][RC08]三PID末答/deadline竞唯一结算、迟到/重扫不复活；actual index过期目标resume不新增请求。工厂并发是注入层，不提升为全部实模竞态组合。 |
+| MM03 | 被询问成员继续发同类征询 | anti-cascade 生效，未制造下游级联 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08 anti-cascade及来源链检查已实现 | [RC08][RC08]实际SDK/MCP注入层拒被询问成员再征询，并保留原答；独立工厂原答转发来源链上的间接cascade亦拒绝，零下游group。不是只看当前消息origin，无赢家取消。 |
+| MM04 | 征询中服务重启 | 按本项目持久化增强合同恢复，不丢 group 状态 | T08 | K03–K04、K10、K14；F04–F05、E01–E06 | T08持久恢复/唯一回调已实现 | [RC08][RC08]实际index注入及真实供应商7PID分层覆盖原group/原deadline/两原答重启、waiting callback重启后认证resume自动派发及撤权拒绝。原T08取消未定位，工厂outbox故障不冒称完整index/provider交叉已验。 |
 | W01 | 等待外部条件或人类回应后重启 | 不占执行槽，按持久条件恢复，无重复提醒 | T08、T10、T12 | K04–K05、K07、K10、K14–K15；F06–F08 | timer/tracking/Decision及RC03生产命令/hold、RC04跟踪分享恢复已实现 | [T12][T12]历史及[RC03][RC03]所列等待证据保留；[RC04][RC04]4组实际worker恢复/7组分享ACL通过，真实观察已结束、not_observed，H1/H2双自然HEAD链未通过，[RC05][RC05]所列供应商故障分层已验，仍有限制；日常未注册 |
 | W02 | 用户答复旧问题、错误版本或无权对象 | 不解除当前合法等待，不产生扩大授权 | T08、T10 | K04–K05、K07、K10、K14–K15；F06–F08 | T08问题修订/回应来源/操作身份已实现 | [T08][T08] 旧/错误版本/错origin trigger拒绝、认证user回应同根及settle后丢回执重试通过 |
 | W03 | 同槽第四次 hold、同 job 重试、替换旧 hold | 滑动额度正确；重试不二次扣额；退休 wake 不被误当命令已停止 | T08、T10、T12 | K04–K05、K07、K10、K14–K15；F06–F08 | RC03 timer/command wake共享滑动额度、稳定job幂等及原子替换已实现 | [RC03][RC03]共享3次/小时、重复commandId不重复扣额与原子故障4组通过；等待退休不证明命令停止，独立进程/资源核验另记 |
@@ -222,7 +224,7 @@ T03/T04在REC03/Q06/OS01增加“runner抛错但子进程存活”的fixture：u
 | SOP01 | 两成员同时更新 SOP 版本 | 一个成功，另一个收到版本冲突 | T11 | K05、K10–K12；F11、S06 | expectedVersion CAS及不可变历史已实现 | [T11][T11] 两实际IPC成员同版本竞争唯一胜者，另一方明确409版本冲突 |
 | SOP02 | 自报 check、切换 stage 或 baton 文字 | 不自动变为 verified、执行所有权或业务完成 | T11 | K05、K10–K12；F11、S06 | 告示状态和精确task_done核验分离 | [T11][T11] 自述/未知谓词/错任务证据拒绝verified；stage/baton不转让Action或资源；失效事实重投影unknown |
 | B01 | 重试、接力、修订、替换跨多个 Invocation | 因果链预算持续计算，没有每次重置 | T04、T06、T12 | K13–K15；P04 | 接力/等待/Action返回替换及Review修订继承原root | [T12][T12] 关闭入场后普通后继/Decision回应、队列排空继承同root；Review修订同根回归通过，预算不重置 |
-| B02 | 重复费用回调、未知 token/cost、取消后已知消耗 | 精确幂等结算；未知按政策保留占额 | T04、T06、T12 | K13–K15；P04 | T06 预留结算与 T07 可信实际请求 usage 已实现 | [T12][T12]当时累计153094原行保留；[RC05][RC05]新增已知1845/未知预留97271，当时65181+187029=252210；[RC06][RC06]后70543+206832=277375；[RC07][RC07]新增116740已知/0未知，当前187283+206832=394115，原57行及全部历史未知不变。执行成功但价格未知仍占额；SDK已停不等于供应商最终对账完成。 |
+| B02 | 重复费用回调、未知 token/cost、取消后已知消耗 | 精确幂等结算；未知按政策保留占额 | T04、T06、T12 | K13–K15；P04 | T06 预留结算与 T07 可信实际请求 usage 已实现 | [T12][T12]当时累计153094原行保留；[RC05][RC05]新增已知1845/未知预留97271，当时65181+187029=252210；[RC06][RC06]后70543+206832=277375；[RC07][RC07]新增116740已知/0未知，当时187283+206832=394115；[RC08][RC08]新增33195已知/0未知，当前220478+206832=427310，原68行及全部历史未知不变。执行成功但价格未知仍占额；SDK已停不等于供应商最终对账完成。 |
 | UI01 | 刷新、重连、服务重启 | 持久快照恢复正确，无重复消息和假完成 | T09、T12 | K01–K03、K14；P07 | T09授权同步及T12固定名单创建/运维控件已接 | [T12][T12] 实际Chrome5组含真实隔离服务重启、observe整库hash不变、关闭入场/派发分离；1注入模型，无生产启用 |
 | OPS01 | 关闭新入场、排空、回滚 | 已接收工作可处理或明确暂停；新数据保留 | T12 | K13–K16；P10 | 独立入场/派发、冻结根/pack、只读排空、迁移/兼容恢复已实现 | [T12][T12] release7/production16/Chrome5/迁移17通过；threaded_only排空不授整库回退；未做日常小流量激活/日常库回退 |
 | OS01 | 实际支持平台上取消、断 IPC、主进程崩溃 | 进程身份与终止有证据；不误杀其他进程 | T07、T12 | K05–K07、K13–K14；P05–P06、S10–S11 | macOS受信端口及RC03首批选定生产profile、独立读写资源/宿主副作用核验已实现 | [T12][T12]/[RC03][RC03]取消/IPC/owner退出历史证据保留；[RC05][RC05]实际index/供应商mid-flight保留unknown；[RC06][RC06]双实际SDK定向取消与双native manifest独立停止/副作用核验分层通过。完整平台×driver×故障矩阵及其他OS未全验。 |
@@ -304,3 +306,4 @@ C01–C25来自Issue固定提交索引，保留其定位；X项是Issue补充入
 
 [RC06]: ../reports/threaded-collaboration-rc06-concurrency-2026-10-24.md "RC06多PID、原生、工程工作区、实际主入口与供应商并发分层证据及未完范围"
 [RC07]: ../reports/threaded-collaboration-rc07-context-2026-10-26.md "RC07上下文准入、精确投递、冻结输入和原生压缩分层证据与未验范围"
+[RC08]: ../reports/threaded-collaboration-rc08-consultation-2026-10-27.md "RC08持久征询、回调恢复与安全诊断分层验收；历史取消原因未定位"

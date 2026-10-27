@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-26。适用 schema 35（RC03前向追加，RC06/RC07无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-27。适用 schema 35（RC03前向追加，RC06/RC07/RC08无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -192,6 +192,16 @@ RC06真实供应商新增5362已知token和19803未知预留；在RC05历史账�
 SDK 压缩现在记录 auto/manual/unknown 及实际提供的 token/耗时元数据，平台仅存保守获权来源和 boundary，不公开私有摘要。RC07 的真实供应商工厂在第3轮起显式采用32k测试窗口后观察到auto与同nativeId续接；该参数不是日常发布配置，默认窗口自然压缩和实际index完整原生组合仍未验。低层seal没有产品HTTP/UI入口；撤权、seal或缺checkpoint后不能恢复兼容锚点时须冷开，不能绕过ACL复用旧摘要。
 
 RC07新增11个真实请求全部已知，确认116,740 token、未知新增0；累计确认187,283、未知206,832，保守占额394,115，选择的累计500,000门禁余105,885。原57行和全部历史unknown未变，详见报告账本；RC06段的277,375为当时快照。未修改默认1000ms活动片、schema35或日常closed状态。RC04、RC05、RC06原未完项和RC09对账要求仍保留，本记录不授权日常启用或生产迁移。
+
+### RC08 征询回调恢复与诊断补充
+
+[RC08 合同](../architecture/threaded-consultation-acceptance-v1.md)及[报告](../reports/threaded-collaboration-rc08-consultation-2026-10-27.md)登记23组专验、84组回归。征询已settled后，调用者的waiting callback仍是一份持久责任；认证resume提交后须重新核对冻结身份/来源ACL和控制，不能仅等待已不存在的deadline计时器。新实现合并通知恢复，持久写失败留诊断并独立1秒重试；不得手工复制回调、更换幂等key或重发原目标模型。仍失权时拒绝；observe及已调用close()的协作实例不执行恢复，配置模式closed仍可按合法既有grant处理事实。
+
+SDK failed outcome现在仅保留可信Authority/Budget/Resource错误类的受限code，原生/provider原异常和伪造前缀不进入持久原因。原T08首次cancelled没有可追溯原因且临时现场文件已不在，仍未定位；预算到期的受控复现不能当作原历史根因。处理unknown仍需可信请求/进程事实，不因诊断更清楚就退款或释放资源。
+
+实际index/供应商验收包括原答重启、partial、暂停后自动回调、隔离权限变化拒绝及broker精确重试。测试超时目标预先暂停且未发送供应商，越deadline使用仅在请求/进程静止后推进的隔离时钟；HTTP400是本地故障，丢回执是同一有效binding上的broker模拟。多PID outbox/ACK故障主要在工厂层，不外推全部生产组合。
+
+RC08新增21真实请求确认33,195 token，新增unknown为0；当前累计确认220,478、未知206,832、保守占额427,310，选择的累计500,000门禁余72,690。原68行不变；RC07段394,115是当时快照。默认1000ms活动片、schema35、日常closed及原RC04–RC07限制保持；RC09对账和后续综合发布独立实施。
 
 ## 5. 一致性备份与恢复
 

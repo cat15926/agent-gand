@@ -1,0 +1,42 @@
+{
+  "stage": "RC08",
+  "date": "2026-10-27",
+  "baselineCommit": "6ca44fb0057c81dec6df0d3106572a4d9f66fb9a",
+  "productionDefect": {
+    "file": "apps/server/src/threaded/collaboration.ts",
+    "beforeSha256": "fd5c481dd76ca2cd663d61c13f56d90518aeda2a3c73992bc3d589c9b3c69ede",
+    "beforeEvidence": "main-injected-all-first.json",
+    "beforeEvidenceSha256": "7ec262c94fb2747e3b3a39a9fc8c8124952279cdbea0adb3b403adb0ea4315b8",
+    "failedCase": "callback_pause",
+    "error": "RC08_COMPLETION_TIMEOUT",
+    "observed": "Two initial scenarios passed; callback_pause acknowledged authenticated member resume after actual index restart, but immutable settlement remained with waiting callback and no caller invocation until the 180s acceptance deadline. Running test source awaits a successful resume HTTP response before entering that wait.",
+    "mechanism": "notifyCommitted only armed future group/wait deadlines. Once all groups were settled and no timer remained, resuming a paused caller did not recheck its waiting callback.",
+    "fix": "Committed notifications coalesce a microtask that recovers persistent cooperation facts before arming deadlines. Storage failure records diagnostics and independently retries after 1s even without another notification/deadline.",
+    "afterEvidence": [
+      "main-injected-after-fix.json",
+      "main-injected-final.json",
+      "cooperation-final.json"
+    ],
+    "scope": "Newly reproduced callback scheduling defect; not evidence of the historical T08 SDK cancellation cause."
+  },
+  "diagnosticEnhancement": {
+    "file": "apps/server/src/threaded/backends/claudeSdk.ts",
+    "change": "Persist only bounded codes from trusted Authority/Budget/Resource error classes on failed SDK outcomes. Unknown raw native/provider errors and forged prefixed strings/objects retain generic failure. Runner cancellation signal retains precedence.",
+    "evidence": "sdk.json",
+    "historicalFailureStillUnresolved": true
+  },
+  "fixtureDevelopment": {
+    "cooperationFirstFailure": "Cross-thread source fixture omitted a required authorized member. Production ACL correctly denied it; fixture membership corrected.",
+    "guardDirectorySetup": "Two regression shell redirections initially raced directory creation and did not execute tests; after creating the directory both checks ran successfully.",
+    "duplicatesExcluded": [
+      "main-injected-first.json",
+      "main-injected-after-fix.json",
+      "cooperation.json",
+      "cooperation-development-second.json",
+      "cooperation-resume-development-pass.json",
+      "sdk-first.json"
+    ]
+  },
+  "realSupplierCallsInDevelopment": 0,
+  "historicalEvidenceChanged": false
+}

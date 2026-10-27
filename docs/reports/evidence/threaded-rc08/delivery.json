@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-27",
+  "status": "RC08 implementation and enumerated layered checks complete; original T08 cancellation unresolved and actual-index/provider fault cross product incomplete",
+  "baselineCommit": "6ca44fb0057c81dec6df0d3106572a4d9f66fb9a",
+  "rc07CommittedAndPushed": true,
+  "remoteMainVerified": "6ca44fb0057c81dec6df0d3106572a4d9f66fb9a",
+  "rc08Committed": false,
+  "rc08Pushed": false,
+  "dailyConfigurationChanged": false,
+  "dailyDatabaseMigrated": false,
+  "defaultMode": "closed",
+  "schemaVersionUnchanged": 35,
+  "historicalMigrationsChanged": false,
+  "historicalEvidenceChanged": false,
+  "unrelatedOutputsExcluded": true,
+  "checks": {
+    "dedicatedGroups": 23,
+    "regressionGroups": 84,
+    "uniqueEnumeratedGroups": 107,
+    "serverTypecheck": "passed",
+    "localDocumentationLinks": "passed",
+    "gitDiffCheck": "passed",
+    "K16And59ScenarioExpectedTexts": "unchanged",
+    "E01E06OriginalNonStatusCells": "unchanged",
+    "original68OperatorLedgerRows": "unchanged",
+    "allEvidenceJson": "valid"
+  },
+  "verificationSummary": "verification-summary.json",
+  "originalTexts": "original-text-invariance.json",
+  "operatorLedger": "ledger.json",
+  "developmentFindings": "development-findings.json",
+  "manifestExcludesSelf": true,
+  "files": [
+    {
+      "path": "apps/server/src/threaded/backends/claudeSdk.ts",
+      "bytes": 11264,
+      "sha256": "7387c539baa00bb3f96b58fc053f8e29e45f82b2875d222f0809f204e44f6e65"
+    },
+    {
+      "path": "apps/server/src/threaded/collaboration.ts",
+      "bytes": 8317,
+      "sha256": "d1e16f667118885925163a410bca07b7f7b706ae650a90a2df5f447e23c41d6d"
+    },
+    {
+      "path": "docs/architecture/threaded-consultation-acceptance-v1.md",
+      "bytes": 14187,
+      "sha256": "54ee2fa241a23dc17d084f2ab8a0dffacae46ee132b417458155237c249cba17"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "bytes": 26025,
+      "sha256": "4ba437051d27f75b7e1bc69c89fe27dfad6a66471271c1459022ab3bd13a3920"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 91925,
+      "sha256": "5fa0f51d3162b5f31d6f5bf78bbc74fb9fb93849b0eb1bac9c74e4f3a20949ed"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 53844,
+      "sha256": "f7d6a9f7f02351087438e7622b8c618e82a6a8e7af4e0cfe0cf80515a520f5d1"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 48314,
+      "sha256": "acb9746cb2c6456aff920f231d8c9e0f19c99898ebcf482c887941f92062873f"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 28966,
+      "sha256": "329baf40a2201e38ccf030ed07523200fc5de432b675aa2356cfd0179016e752"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/cooperation-development-first.json",
+      "bytes": 252344,
+      "sha256": "5ed1ba1e31869f1d30bc5b6640cfaec215afee03c462be6798ae3827cfebf893"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/cooperation-development-second.json",
+      "bytes": 322503,
+      "sha256": "e923721d996303ada3e61c6ed12bf72a5fb073f43310180911c5f278e7eb32e5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/cooperation-final.json",
+      "bytes": 401879,
+      "sha256": "984ef0ca2d4443a64d4896f19329e671c247a67de8d6f9a6b963de488cac4ef3"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/cooperation-resume-development-pass.json",
+      "bytes": 374531,
+      "sha256": "209d9bd8763761e3a02ea1d9abca7da582358a767be761017cc1ed122be1d4f5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/cooperation.json",
+      "bytes": 353748,
+      "sha256": "cb6f8162a6e34bf219dd8eceb332664b74347add92f82041d44231a52ab3337c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/development-findings.json",
+      "bytes": 2674,
+      "sha256": "833d24a379a6f626d04c0f6d9ecb4522f4648402a346c8ae453d9f13cc52008f"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/docs-check.txt",
+      "bytes": 132,
+      "sha256": "c76e746a84a18be406bb440f2c2d949c722e58756c9d7b63cf0130646d257367"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/history-diagnosis.json",
+      "bytes": 6117,
+      "sha256": "414a75a9665e8c5fc1259c6bcdf162c69e2156a9354daec05d6833085412d975"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/ledger.json",
+      "bytes": 4326,
+      "sha256": "adebd33bfd2c5df8673b5ce352d6032f2c7ca7f725a0d12a2f147339c31bc0e9"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/main-injected-after-fix.json",
+      "bytes": 760905,
+      "sha256": "112885f0748eef313129dc54ea8129202421740207603504d1b8921f93266619"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/main-injected-all-first.json",
+      "bytes": 581259,
+      "sha256": "7ec262c94fb2747e3b3a39a9fc8c8124952279cdbea0adb3b403adb0ea4315b8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/main-injected-final.json",
+      "bytes": 760905,
+      "sha256": "b82cb509b0c8e43c123307dbcb35f764782532bbf692e236dda7488eb4bf5703"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/main-injected-first.json",
+      "bytes": 93744,
+      "sha256": "f9279cf78e60b314425f2199af778b3c88b1f016fecf1f7b47a40b00e3042113"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/main-live-first.json",
+      "bytes": 776569,
+      "sha256": "f3503969a0d80dda1733e4010467fd7296abd3a24b2828c2db4d7450420631a2"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/original-text-invariance.json",
+      "bytes": 14573,
+      "sha256": "1cded3edea8ea5ec001a8aabe6f971d7f8fa01805abd8a3163d30753b600003a"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/backends.json",
+      "bytes": 2214,
+      "sha256": "725f85f58c43444f9aecf1c822014bdf8257e2a49ead49be6dc49ebc248d6182"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/collaboration-api.json",
+      "bytes": 880,
+      "sha256": "47887b83709e502bda8e669815e291f99b852058bc8c70aa9da5b430fc98b296"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/collaboration-backends.json",
+      "bytes": 1081,
+      "sha256": "2f14c91105bd123a1d8e00039bb756403500ee2c09e3bc5089cd750d149f1e74"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/collaboration-stdout.txt",
+      "bytes": 3747,
+      "sha256": "3104f0a868a1acc6e55ab1a753217314fee3307f2d68bb16c4491dbcfb98fa49"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/collaboration.json",
+      "bytes": 141500,
+      "sha256": "2a0b94c31a77132d425b54ffe57986569e4900b76df0d434b83a360ac817ddb3"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/production-stdout.txt",
+      "bytes": 4151,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/production.json",
+      "bytes": 4151,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/queue.json",
+      "bytes": 1491,
+      "sha256": "1ac6db98fba5f799608b2d94501248ca1082d8371d2626b768d15037ab0dc203"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/regressions/runtime.json",
+      "bytes": 3351,
+      "sha256": "c2e357d7367c88d367cbdc42c726091b5168b1cdb46d9fe02a27cb97f3c53b91"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/sdk-first.json",
+      "bytes": 91552,
+      "sha256": "44205b970ab8ccd9d96ff9eb08c599f446737789f0ddeabdc3fe19ff7c7f9bba"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/sdk.json",
+      "bytes": 103917,
+      "sha256": "e467b4e3a7ba924dd937b862beeb594ca928bad126d2a510daf45e48435c74cf"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/server-typecheck.txt",
+      "bytes": 98,
+      "sha256": "fa38638964bf6c604728c0c8d5f9feb19f76b6cf867d4923e44e6cf9e8e9352c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/verification-summary.json",
+      "bytes": 3060,
+      "sha256": "92febea7161a8a0da23eadb1a8099d236849011b9af8cdac0d4dad1fb6b520e1"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc08-consultation-2026-10-27.md",
+      "bytes": 12165,
+      "sha256": "03c0b0099bd15fdbb473c0d33b0318aa214390816988e9426885ddcf8b0e589c"
+    },
+    {
+      "path": "package.json",
+      "bytes": 28951,
+      "sha256": "8377bd8075295f889e042ef8beff44afa6af86d3ebd57f4ba610d8ff84e55d16"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc08CooperationWorker.mjs",
+      "bytes": 5549,
+      "sha256": "41f7a2a603b3be26928a22cb464644d213a4732bd1d6dbae5f7d91cac2faeef4"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc08MainGuard.mjs",
+      "bytes": 17459,
+      "sha256": "36345c013c2f1ed720fa6720266daede345fe799a35bdc6a709a138c4b2c2edd"
+    },
+    {
+      "path": "scripts/verify-threaded-rc08-cooperation.mjs",
+      "bytes": 23069,
+      "sha256": "88d07e20d2754e1bff63a924fdb6f3ba64581cd5c27378132e50fb3fb920c464"
+    },
+    {
+      "path": "scripts/verify-threaded-rc08-main.mjs",
+      "bytes": 30218,
+      "sha256": "ca1bcab27dda1f0eab6d033a5044c8adfc86cb8ce1664911596376c1ed6ca54b"
+    },
+    {
+      "path": "scripts/verify-threaded-rc08-sdk.mjs",
+      "bytes": 17800,
+      "sha256": "0479b70e47ba48917b3b3cac3c85a670fcdef16ce99014b97b730d6c2a6547f9"
+    }
+  ],
+  "limitations": [
+    "Historical T08 SDK cancellation remains unresolved; old temp directories are empty and reports omit a trusted reason and exact invocation/request IDs.",
+    "Local HTTP400 before supplier egress, controlled clock on a paused unsent target and broker-held receipt are explicit injections, not natural supplier/network faults.",
+    "Multi-PID races and outbox/ACK faults are factory-layer evidence; actual-index/provider complete combinations remain unverified.",
+    "RC04 not_observed, RC05 historical timeout and activity allowance, RC06 source-write/merge/resource wait/mixing, RC07 default-window compaction/product seal/index native limitations remain.",
+    "No daily deployment, schema migration or runtime activation; historical unknown reservations remain."
+  ],
+  "independentReadOnlyReview": "Production callback notification/retry and trusted SDK error classes reviewed; actual live group/outbox/callback uniqueness and original-response provenance checked; original68 ledger rows independently verified unchanged; no blocking issue. Document scope wording corrected.",
+  "taskFileCountExcludingSelf": 43
+}

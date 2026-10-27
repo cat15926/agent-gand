@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "groups": 4,
+  "checks": [
+    "R01/R02 HTTP: owner session/CSRF and versioned routing-policy CAS, shared preview with critique prompt tag and default multi-target independent strategy",
+    "Production closed/observe/execute all refuse new work; isolated admitted HTTP routing persists one stable canonical receipt and preview-identical decision, with no executor or forged identity",
+    "W02/W06 HTTP: safe Owner wait projection, authenticated exact-revision canonical answer, CSRF/closed gate, and original causal-root budget inheritance",
+    "Lost HTTP answer receipt retries remain stable even after the Agent settles; stale new answers cannot settle another question or grant business approval"
+  ],
+  "realModelCalls": 0,
+  "externalNetworkCalls": 0,
+  "scope": "Fastify injection, real access bridge/runtime/canonical messages and injected provider"
+}

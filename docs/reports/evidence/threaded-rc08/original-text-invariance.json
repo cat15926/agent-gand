@@ -1,0 +1,386 @@
+{
+  "ok": true,
+  "date": "2026-10-27",
+  "scope": "Original K01-K16 and 59 scenario/expected cells; evidence/status may evolve",
+  "baselineCommit": "6ca44fb0057c81dec6df0d3106572a4d9f66fb9a",
+  "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+  "coreCount": 16,
+  "scenarioCount": 59,
+  "originalTextsUnchanged": true,
+  "baselineCanonicalSha256": "7c0b897370f11707c6204bbf954a1ba0e6efd9df76863815750af55eb63e952e",
+  "currentCanonicalSha256": "7c0b897370f11707c6204bbf954a1ba0e6efd9df76863815750af55eb63e952e",
+  "canonicalEncoding": "UTF-8 JSON, recursively sorted object keys, unescaped Unicode, compact separators; array order retained",
+  "extractionMethod": "Independent section2/section7 table parsing from git HEAD and current file, padding trimmed; also compare RC07 payload. E01-E06 non-status cells separately remain equal.",
+  "reliabilityE01E06OriginalNonStatusCellsUnchanged": true,
+  "previousEvidence": {
+    "path": "docs/reports/evidence/threaded-rc07/original-text-invariance.json",
+    "payloadAlsoIdentical": true,
+    "canonicalSha256": "7c0b897370f11707c6204bbf954a1ba0e6efd9df76863815750af55eb63e952e"
+  },
+  "currentFileSha256": "5fa0f51d3162b5f31d6f5bf78bbc74fb9fb93849b0eb1bac9c74e4f3a20949ed",
+  "payload": {
+    "coreContracts": [
+      {
+        "id": "K01",
+        "contract": "Thread、Invocation 和 Action 分别持久化生命周期；队列清空不等于业务完成"
+      },
+      {
+        "id": "K02",
+        "contract": "消息存储、可见性、路由和模型上下文投递是四个不同步骤"
+      },
+      {
+        "id": "K03",
+        "contract": "有效响应完成后形成可恢复的后续 wake；不能只依赖进程内回调"
+      },
+      {
+        "id": "K04",
+        "contract": "同一幂等请求重试不产生第二份消息、第二次逻辑唤醒或第二次业务转移"
+      },
+      {
+        "id": "K05",
+        "contract": "同槽启动须有原子领取和所有者代际；旧执行不能释放或提交到新执行的槽"
+      },
+      {
+        "id": "K06",
+        "contract": "线程级执行槽、实际原生 Session 锁、账号容量和文件资源冲突分别管理"
+      },
+      {
+        "id": "K07",
+        "contract": "成员会话只恢复到兼容的身份、工作区、账号、模型、工具和权限边界"
+      },
+      {
+        "id": "K08",
+        "contract": "可读取的公共消息按成员游标和预算组装；不能共享其他成员私有模型 transcript"
+      },
+      {
+        "id": "K09",
+        "contract": "私密信息及其摘要、附件和衍生上下文保持授权边界；收件人不等于可见受众"
+      },
+      {
+        "id": "K10",
+        "contract": "普通消息接力不自动创建必须完成的业务 Action；业务交接使用结构化身份与责任"
+      },
+      {
+        "id": "K11",
+        "contract": "业务完成由服务端解析领域事实；Agent 的完成声明只形成候选"
+      },
+      {
+        "id": "K12",
+        "contract": "Review 交付、Review 通过、修改完成和再次评审是不同状态或事件"
+      },
+      {
+        "id": "K13",
+        "contract": "已有外部副作用或执行结果不确定时，不盲目重放模型调用或写操作"
+      },
+      {
+        "id": "K14",
+        "contract": "重启恢复以持久事实为准，缓存是投影；每条记录只有一套模式恢复器负责"
+      },
+      {
+        "id": "K15",
+        "contract": "每次 wake 不重置整个因果链的预算和循环限制；费用未知与执行未知分别记录"
+      },
+      {
+        "id": "K16",
+        "contract": "旧 Collaboration、自主协作及其他执行路径维持原来的契约和权限行为"
+      }
+    ],
+    "acceptanceScenarios": [
+      {
+        "id": "ISO01",
+        "scenario": "新模式关闭；提交旧协作、自主和其他模式任务",
+        "expected": "原有入口、权限、完成及恢复契约维持"
+      },
+      {
+        "id": "ISO02",
+        "scenario": "新 Invocation 出现在混合历史数据库",
+        "expected": "旧 dispatcher、finalizer 和恢复器不接管"
+      },
+      {
+        "id": "ISO03",
+        "scenario": "客户端伪造 mode、actor、Attempt 或 generation",
+        "expected": "服务端拒绝，未发生外部执行"
+      },
+      {
+        "id": "ISO04",
+        "scenario": "审批期间重启后批准、通用暂停/停止、账号撤销",
+        "expected": "新模式正确恢复或失权；Run 与 Invocation 一致，不能绕旧入口留下可继续的 wake"
+      },
+      {
+        "id": "ISO05",
+        "scenario": "新 Invocation 成功或失败，与终态事务故障竞争",
+        "expected": "Run、Invocation、响应与 outbox 原子一致；无需伪造旧完成输入"
+      },
+      {
+        "id": "DB01",
+        "scenario": "同一请求并发提交两次",
+        "expected": "一个消息和一组逻辑工作，回执一致"
+      },
+      {
+        "id": "DB02",
+        "scenario": "相同幂等键改内容、目标或 ACL",
+        "expected": "明确冲突，无第二份意图"
+      },
+      {
+        "id": "DB03",
+        "scenario": "旧数据库升级、重复启动、未知新 schema",
+        "expected": "迁移幂等；不兼容程序明确拒绝写入"
+      },
+      {
+        "id": "Q01",
+        "scenario": "同 Thread 同 Agent 两个 wake 同时领取",
+        "expected": "一个有效执行所有者，其余按策略等待"
+      },
+      {
+        "id": "Q02",
+        "scenario": "同 Agent 两个 Thread",
+        "expected": "可在约束允许时并行，不被旧全局 FIFO 悄悄串行"
+      },
+      {
+        "id": "Q03",
+        "scenario": "旧独占与新线程调用竞争",
+        "expected": "互斥矩阵成立，等待的旧独占不饥饿"
+      },
+      {
+        "id": "Q04",
+        "scenario": "不同线程误指向相同原生 Session",
+        "expected": "Session 锁阻止双 resume"
+      },
+      {
+        "id": "Q05",
+        "scenario": "drain 运行中再入队、容量刚释放时入队",
+        "expected": "无丢唤醒；正常调度不依赖长周期扫描"
+      },
+      {
+        "id": "Q06",
+        "scenario": "A/B 并行，只取消 A；旧 A 的 finally 晚到",
+        "expected": "B 继续；旧 A 不能释放新 A 的槽"
+      },
+      {
+        "id": "REC01",
+        "scenario": "消息提交后通知前崩溃",
+        "expected": "重启恢复同一逻辑 wake"
+      },
+      {
+        "id": "REC02",
+        "scenario": "领取后、明确未发请求时崩溃",
+        "expected": "合法重试；没有重复外部调用"
+      },
+      {
+        "id": "REC03",
+        "scenario": "请求可能已发、回执未落库",
+        "expected": "unknown 保留，不能盲重放和释放未知预算"
+      },
+      {
+        "id": "REC04",
+        "scenario": "响应和后继已提交后崩溃",
+        "expected": "只修复投影/通知，不重新调用模型"
+      },
+      {
+        "id": "REC05",
+        "scenario": "重复恢复扫描和回调重放",
+        "expected": "不重复写终态、通知、用量或业务完成"
+      },
+      {
+        "id": "REC06",
+        "scenario": "数据库不可写",
+        "expected": "停止承诺新工作成功，内存不冒充持久状态"
+      },
+      {
+        "id": "CTX01",
+        "scenario": "公共、whisper、草稿和私有工具结果混合",
+        "expected": "其他成员只能看到获权已发布内容"
+      },
+      {
+        "id": "CTX02",
+        "scenario": "精确 messageId、附件和搜索展开读取私密内容",
+        "expected": "所有入口都执行同一授权边界"
+      },
+      {
+        "id": "CTX03",
+        "scenario": "输入超预算、过滤造成序号空洞、游标写失败",
+        "expected": "不漏投；未见内容不记成已暴露"
+      },
+      {
+        "id": "CTX04",
+        "scenario": "delivery、seen、mention ACK 分别变化",
+        "expected": "三者互不冒充，也不自动完成 Action"
+      },
+      {
+        "id": "CTX05",
+        "scenario": "同波并行 A 先回答，B 后开始消费输入",
+        "expected": "独立思考输入边界固定，不吸收 A 本波答案"
+      },
+      {
+        "id": "CTX06",
+        "scenario": "原生压缩、seal、权限收缩后继续",
+        "expected": "兼容恢复或明确冷开，摘要来源与 ACL 可查"
+      },
+      {
+        "id": "R01",
+        "scenario": "用户点名、正文提及、代码围栏、前缀重叠 handle",
+        "expected": "路由与 preview 一致，未误启动其他成员"
+      },
+      {
+        "id": "R02",
+        "scenario": "多目标、ideate、execute、critique及不同入口",
+        "expected": "符合对应入口政策，而非简单全局串并行开关"
+      },
+      {
+        "id": "R03",
+        "scenario": "流式半截 @、完整行首 @、parallel 文本 @",
+        "expected": "只在合格提交边界触发允许的后继"
+      },
+      {
+        "id": "R04",
+        "scenario": "A/B 短回复循环、实质工具、新用户输入",
+        "expected": "警告、阻断和重置符合冻结策略"
+      },
+      {
+        "id": "M01",
+        "scenario": "显式 post 后 final 再明确提及同一成员",
+        "expected": "两个独立可引用消息，各自有合法逻辑 wake；同一 source 的重试才去重，不跨消息按语义吞掉接力"
+      },
+      {
+        "id": "M02",
+        "scenario": "cross_post 无目标、越权目标、私密来源",
+        "expected": "拒绝非法路径；不复制私有 transcript"
+      },
+      {
+        "id": "M03",
+        "scenario": "请求超时后重发结构化消息",
+        "expected": "稳定回执，逻辑交接幂等"
+      },
+      {
+        "id": "MM01",
+        "scenario": "三成员征询，一人超时",
+        "expected": "逐成员状态正确，唯一 partial 汇总"
+      },
+      {
+        "id": "MM02",
+        "scenario": "重复回复、非目标回复、迟到回复、最后回复与超时竞争",
+        "expected": "仅一个结算者，终态不复活"
+      },
+      {
+        "id": "MM03",
+        "scenario": "被询问成员继续发同类征询",
+        "expected": "anti-cascade 生效，未制造下游级联"
+      },
+      {
+        "id": "MM04",
+        "scenario": "征询中服务重启",
+        "expected": "按本项目持久化增强合同恢复，不丢 group 状态"
+      },
+      {
+        "id": "W01",
+        "scenario": "等待外部条件或人类回应后重启",
+        "expected": "不占执行槽，按持久条件恢复，无重复提醒"
+      },
+      {
+        "id": "W02",
+        "scenario": "用户答复旧问题、错误版本或无权对象",
+        "expected": "不解除当前合法等待，不产生扩大授权"
+      },
+      {
+        "id": "W03",
+        "scenario": "同槽第四次 hold、同 job 重试、替换旧 hold",
+        "expected": "滑动额度正确；重试不二次扣额；退休 wake 不被误当命令已停止"
+      },
+      {
+        "id": "W04",
+        "scenario": "持有旧 Action generation 的命令等待完成",
+        "expected": "不能唤醒新 holder 或提交旧责任结果"
+      },
+      {
+        "id": "W05",
+        "scenario": "注册 PR 跟踪时已有旧事件，之后出现匹配新事件",
+        "expected": "旧事件仅作 baseline；新事件形成幂等 wake"
+      },
+      {
+        "id": "W06",
+        "scenario": "调用退役 request_user_input 或普通 ConversationDecision",
+        "expected": "退役行为明确；非阻塞决定不会被误当业务审批"
+      },
+      {
+        "id": "A01",
+        "scenario": "同业务身份两个 single successor 并发申请",
+        "expected": "仅一个获权；另一个明确等待或复用"
+      },
+      {
+        "id": "A02",
+        "scenario": "文本 done、伪造 Evidence、未注册完成谓词",
+        "expected": "不能完成 Action"
+      },
+      {
+        "id": "A03",
+        "scenario": "completion 与 replace 竞争、旧 holder 回调晚到",
+        "expected": "只有合法代际提交，历史留存"
+      },
+      {
+        "id": "A04",
+        "scenario": "新 PR HEAD 到来；旧评审为 approved",
+        "expected": "旧结果不能满足新版本验收"
+      },
+      {
+        "id": "A05",
+        "scenario": "review_delivered 成立但 verdict 为 changes_requested",
+        "expected": "评审责任完成，批准门禁未通过"
+      },
+      {
+        "id": "A06",
+        "scenario": "修订者自报 findings 全部解决",
+        "expected": "不自行覆盖独立评审结论；新版本另行验证"
+      },
+      {
+        "id": "A07",
+        "scenario": "return 通知丢失、获批派发未完成、task_done 投影中断",
+        "expected": "领域恢复器幂等补齐"
+      },
+      {
+        "id": "MEM01",
+        "scenario": "anchor、近期事件、语义检索与会话展开",
+        "expected": "可回到权威来源；过期与替代状态可见"
+      },
+      {
+        "id": "MEM02",
+        "scenario": "模型传入任意私有 collection 或他人游标",
+        "expected": "服务端限制访问，不能自授权"
+      },
+      {
+        "id": "SOP01",
+        "scenario": "两成员同时更新 SOP 版本",
+        "expected": "一个成功，另一个收到版本冲突"
+      },
+      {
+        "id": "SOP02",
+        "scenario": "自报 check、切换 stage 或 baton 文字",
+        "expected": "不自动变为 verified、执行所有权或业务完成"
+      },
+      {
+        "id": "B01",
+        "scenario": "重试、接力、修订、替换跨多个 Invocation",
+        "expected": "因果链预算持续计算，没有每次重置"
+      },
+      {
+        "id": "B02",
+        "scenario": "重复费用回调、未知 token/cost、取消后已知消耗",
+        "expected": "精确幂等结算；未知按政策保留占额"
+      },
+      {
+        "id": "UI01",
+        "scenario": "刷新、重连、服务重启",
+        "expected": "持久快照恢复正确，无重复消息和假完成"
+      },
+      {
+        "id": "OPS01",
+        "scenario": "关闭新入场、排空、回滚",
+        "expected": "已接收工作可处理或明确暂停；新数据保留"
+      },
+      {
+        "id": "OS01",
+        "scenario": "实际支持平台上取消、断 IPC、主进程崩溃",
+        "expected": "进程身份与终止有证据；不误杀其他进程"
+      }
+    ]
+  }
+}
