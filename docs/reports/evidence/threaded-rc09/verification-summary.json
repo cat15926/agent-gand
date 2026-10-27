@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "stage": "RC09",
+  "date": "2026-10-27",
+  "baselineCommit": "52d3cc36e4c502feb532e2ac3c7a24d993fc1bba",
+  "newGroups": 24,
+  "regressionGroups": 101,
+  "totalUniqueGroups": 125,
+  "counting": "Unique case per evidence layer; variants, repeated runs, typecheck and independent read-only audit excluded",
+  "layers": [
+    {
+      "evidence": "recovery.json",
+      "groups": 9,
+      "status": "passed"
+    },
+    {
+      "evidence": "budget.json",
+      "groups": 9,
+      "status": "passed"
+    },
+    {
+      "evidence": "main-final.json",
+      "groups": 6,
+      "status": "passed"
+    }
+  ],
+  "regressions": [
+    {
+      "evidence": "regressions/backend-runtime.json",
+      "groups": 7,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/backends.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/budget.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/context.json",
+      "groups": 14,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/production.json",
+      "groups": 16,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/queue.json",
+      "groups": 11,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/release.json",
+      "groups": 7,
+      "status": "passed"
+    },
+    {
+      "evidence": "regressions/runtime.json",
+      "groups": 18,
+      "status": "passed"
+    }
+  ],
+  "actualProcesses": {
+    "recoveryWorkers": 16,
+    "factoryLocalGroups": 4,
+    "budgetLocalChild": 1,
+    "indexPids": 12,
+    "indexSdkGuardians": 2,
+    "note": "Per-layer counts, not all native SDK or concurrent deployment"
+  },
+  "injectedHttp": {
+    "recovery": 0,
+    "budget": 10,
+    "actualIndex": 6
+  },
+  "realSupplierRequests": 0,
+  "newKnownTokens": 0,
+  "newUnknownReserve": 0,
+  "historicalLedger": "history-ledger-audit.json",
+  "historicalUnknownResolved": false,
+  "knownTokens": 220478,
+  "unknownReservedTokens": 206832,
+  "conservativeTokens": 427310,
+  "unknownRequests": 12,
+  "exactRequestBindingMappings": 9,
+  "missingRequestIdentityBridges": 3,
+  "repeatChecksExcluded": [
+    "main-development-first.json",
+    "main-first.json"
+  ],
+  "failedDevelopmentEvidencePreserved": [
+    "recovery-development-first.json",
+    "recovery-development-second.json",
+    "budget-first.json",
+    "budget-second.json",
+    "budget-third.json"
+  ],
+  "scopeLimitations": [
+    "Historical unknown requests have no trustworthy complete usage/charge proof; no historical refund/replay/mutation.",
+    "9 request/binding mappings do not prove 9 complete claim/generation chains.",
+    "Registered without original close remains unresolved; current PID absence is not a recovered close proof.",
+    "Injected actual-index model usage is not supplier billing; no billing-import endpoint or durable guardian exit protocol is added.",
+    "Owner external operator ledger is audited separately; recovery never invokes its hook.",
+    "Schema35, default1000ms activity and daily closed unchanged; RC04-RC08 limitations retained."
+  ]
+}

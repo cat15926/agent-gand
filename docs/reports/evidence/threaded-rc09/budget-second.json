@@ -1,0 +1,76 @@
+{
+  "status": "failed",
+  "checkCount": 6,
+  "checks": [
+    {
+      "id": "RB01",
+      "description": "Production receipt verifier plus canonical persisted binding rejects every modified identity, invented receipt and changed usage without ledger writes.",
+      "identityVariants": 12,
+      "trueVerifier": "verifyThreadedBackendUsage"
+    },
+    {
+      "id": "RB02",
+      "description": "Known output with unknown price keeps the full cost reservation; same-key replay is stable, conflicting replay and fabricated zero price are rejected, and usage reconciliation publishes nothing.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 7,
+        "costMicrousd": 1000,
+        "activityMs": 144,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB03",
+      "description": "A complete transport receipt may prove request completion without any usage; both reservations remain, the immutable receipt cannot be rewritten and reconciliation cannot invent zero.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 159,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB04",
+      "description": "A real SQLite reconciliation-insert fault preserves the complete transport receipt and atomically rolls back usage/spans; exact receipt repair settles once without replay or terminal publication.",
+      "beforeLedgerSha256": "cbe221ca00f09f39b1f832248a28b7279a12dfb187ada43d8fc35e81cfb1d53f",
+      "repairedLedgerSha256": "4bac42df82d32088b78ed1c5c90ae13234caad4c06dc552e66cea159c8f460c2",
+      "originalInvocationStatus": "failed"
+    },
+    {
+      "id": "RB05",
+      "description": "Operator-style exact usage reconciliation is atomic with its idempotency receipt; failure leaves no partial update and successful replay remains a ledger-only action."
+    },
+    {
+      "id": "RB06",
+      "description": "An actually exited local fixture child with a verified-stopped receipt cannot clear an unresolved remote request; production quiescence rejects, reservations and unknown claim survive factory rebuild, and no replay occurs.",
+      "localChildPid": 47216,
+      "requestUsageBeforeRestart": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 175,
+        "activityReservedMs": 899,
+        "unknownRequests": 1
+      },
+      "scope": "A real short-lived Node child supplies the local stop fact; this is not a Claude SDK process test."
+    }
+  ],
+  "injectedHttpCalls": 7,
+  "realSupplierHttpCalls": 0,
+  "blockedNetworkCalls": 0,
+  "scope": "Isolated SQLite; production budget, lifecycle, backend receipt verifiers and resource coordinator; injected HTTP; one actual short-lived local Node process. Factory rebuild is not OS-process restart.",
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n",
+    "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:169:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-27",
+  "status": "RC09 implementation, historical read-only audit and enumerated layered checks complete; 12 historical unknown reservations retained with explicit disposition",
+  "baselineCommit": "52d3cc36e4c502feb532e2ac3c7a24d993fc1bba",
+  "rc08CommittedAndPushed": true,
+  "remoteMainVerified": "52d3cc36e4c502feb532e2ac3c7a24d993fc1bba",
+  "rc09Committed": false,
+  "rc09Pushed": false,
+  "dailyConfigurationChanged": false,
+  "dailyDatabaseMigrated": false,
+  "defaultMode": "closed",
+  "schemaVersionUnchanged": 35,
+  "historicalMigrationsChanged": false,
+  "historicalEvidenceChanged": false,
+  "unrelatedOutputsExcluded": true,
+  "checks": {
+    "dedicatedGroups": 24,
+    "regressionGroups": 101,
+    "uniqueEnumeratedGroups": 125,
+    "serverTypecheck": "passed",
+    "localDocumentationLinks": "passed",
+    "gitDiffCheck": "passed",
+    "K16And59ScenarioExpectedTexts": "unchanged",
+    "E01E06OriginalNonStatusCells": "unchanged",
+    "original89OperatorLedgerRows": "unchanged",
+    "historicalUnknownResolved": false,
+    "allEvidenceJson": "valid"
+  },
+  "verificationSummary": "verification-summary.json",
+  "originalTexts": "original-text-invariance.json",
+  "operatorLedgerAudit": "history-ledger-audit.json",
+  "manifestExcludesSelf": true,
+  "files": [
+    {
+      "path": "apps/server/src/threaded/backendRecovery.ts",
+      "bytes": 6179,
+      "sha256": "04794ec1f0d502305375ab89cd3bb7757cf3f15d34eabd43b612a9065e1943af"
+    },
+    {
+      "path": "apps/server/src/threaded/backendRuntime.ts",
+      "bytes": 18626,
+      "sha256": "dbb3dd0c3443a3e04748b83a1b2f206fa3580da27169ce03f24bf061499b03ad"
+    },
+    {
+      "path": "apps/server/src/threaded/production.ts",
+      "bytes": 10188,
+      "sha256": "e1827086b7199f3eeb83ba789923ec3998ddfa9765de0940b96917d299b148d2"
+    },
+    {
+      "path": "docs/architecture/threaded-reconciliation-acceptance-v1.md",
+      "bytes": 10532,
+      "sha256": "111e45d9a1be91942c8bbfa6ad7548cae1c86a7d9d242577399c87c6217b7648"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "bytes": 27999,
+      "sha256": "c7d4cbe4d7d62ce2cd04c0be33aa1ae6b6da7aa43892d2554de0a2c1bb553984"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 93236,
+      "sha256": "a7d5581796b5f8880618a9200091a1b17706e0565fcb24d8ff4a20ab7db8c5e4"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 56619,
+      "sha256": "c5ede02fd6eca9192a9f0d264a30e62881918acc97b4518c60453097842af094"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 51816,
+      "sha256": "b8a44b27b2f23c8f1f2464145243aa2ae6574c70e347deff13ad035b0a7f991d"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 31952,
+      "sha256": "4d4f6534645754cf21eeff4875c2544f717a7b0826a7f1b4d42cabb70a123cf8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/budget-development-findings.json",
+      "bytes": 1460,
+      "sha256": "620a13350a60d71f28cc477f33fdcd1adcb09c6d0660f63971db7da82add03f0"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/budget-first.json",
+      "bytes": 1382,
+      "sha256": "04b4d5995cd1eb8e67955c99efa07b12cff3e471d1dfb59ac28e316df368ef86"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/budget-second.json",
+      "bytes": 3548,
+      "sha256": "dee4b3ab0d0753a0d4a3bc1c98244f1c0900bdbbc295cfbd24c7939526dc1cf4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/budget-third.json",
+      "bytes": 13862,
+      "sha256": "f93c5299ee8622342a5edbb9c7422714f801bf4b2f687744525ea398a8588388"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/budget.json",
+      "bytes": 4670,
+      "sha256": "0be44f0c22ac8aacb923f250b10288d0b645cac0e0dc15c26743af6f7b08631c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/development-findings.json",
+      "bytes": 1813,
+      "sha256": "94e69c1a407989416a1ea2f2d4a25fcae6bbc5b8bf17542d9934d0cd9412b407"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/docs-check.txt",
+      "bytes": 132,
+      "sha256": "c76e746a84a18be406bb440f2c2d949c722e58756c9d7b63cf0130646d257367"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/history-ledger-audit.json",
+      "bytes": 76773,
+      "sha256": "af29709605bec405bc536b91b1c63d0732e4148b34be017612f03ea0f446799b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/main-development-first.json",
+      "bytes": 20529,
+      "sha256": "b06f90058f041f908acf90061cea82ff9fa478c00deeab0cd42643ab63ffff64"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/main-final.json",
+      "bytes": 122208,
+      "sha256": "47064f0b1e185c4206e3648a676f04f03ec9d758ec494e5f28cc32868d26a3e2"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/main-first.json",
+      "bytes": 102231,
+      "sha256": "b13061228cd8bb56a2bb5f24e1f878e513ca796374d5e6c6513e32aab5cdf376"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/original-text-invariance.json",
+      "bytes": 14322,
+      "sha256": "101a4be6e7cdf23b17768181542706057da6e095ff497734e2c17fe3f33d40e6"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/recovery-development-first.json",
+      "bytes": 12092,
+      "sha256": "469b0fd739951615c2b05f8ad7919987826fdc87a0d7982a300c981d77d41891"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/recovery-development-second.json",
+      "bytes": 2765,
+      "sha256": "3f625a834fc5f8aa57078fd0acae2a1068e9255f47e4c9196552f2cb4edbd186"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/recovery.json",
+      "bytes": 19382,
+      "sha256": "bcfba3f190cbf27dfa8df68c1d9c76b1aa0edd1979eb1b4f41a52511c6fe6bac"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/backend-runtime.json",
+      "bytes": 1407,
+      "sha256": "47bc01d8c8a67942902e158a758bcd02ac97de6d9989b1146f7e31656081cc92"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/backends.json",
+      "bytes": 2214,
+      "sha256": "725f85f58c43444f9aecf1c822014bdf8257e2a49ead49be6dc49ebc248d6182"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/budget.json",
+      "bytes": 2614,
+      "sha256": "a2dba2e54457dc69a59630ba6d1a23627e9dfae2fda732ce4e85391d6511196e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/context.json",
+      "bytes": 2177,
+      "sha256": "26cb4d16e237c674987344aa17ce69dc138865200732606176c33916530696e7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/production-stdout.txt",
+      "bytes": 4151,
+      "sha256": "a2179ebe5b3e39d8c88e2314bd3a3eacd3d4d3ed0c7db71173642f0024ffc7a5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/production.json",
+      "bytes": 4151,
+      "sha256": "a2179ebe5b3e39d8c88e2314bd3a3eacd3d4d3ed0c7db71173642f0024ffc7a5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/queue.json",
+      "bytes": 1491,
+      "sha256": "1ac6db98fba5f799608b2d94501248ca1082d8371d2626b768d15037ab0dc203"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/release.json",
+      "bytes": 1832,
+      "sha256": "628a3f193c3dfe2e14cc1d0329fcb5562df4d3e92835bf5813199d676f87d041"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/regressions/runtime.json",
+      "bytes": 3351,
+      "sha256": "c2e357d7367c88d367cbdc42c726091b5168b1cdb46d9fe02a27cb97f3c53b91"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/server-typecheck.txt",
+      "bytes": 98,
+      "sha256": "fa38638964bf6c604728c0c8d5f9feb19f76b6cf867d4923e44e6cf9e8e9352c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc09/verification-summary.json",
+      "bytes": 3124,
+      "sha256": "63dff2d9ce220d42cf35dad14a2bac484fc95157f5bf760dda0bca3f621a69ca"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc09-reconciliation-2026-10-27.md",
+      "bytes": 9801,
+      "sha256": "0e9dc11ff8c77c9de7668ee43838832993eea4f091492bd5ac6610f39bb29868"
+    },
+    {
+      "path": "package.json",
+      "bytes": 29451,
+      "sha256": "267ae7ae793033969483ec8b0e215b15b47e5d2de740e30fca6b3dd2d07c8024"
+    },
+    {
+      "path": "scripts/audit-threaded-rc09-history.mjs",
+      "bytes": 16416,
+      "sha256": "656880ce1367d4d567826dbc774ae65f2e0a7245e932dda4a3961d769b534382"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc09MainGuard.mjs",
+      "bytes": 6611,
+      "sha256": "edca7c43d9b3e68628d1e7ecd401417bac16616f345efe7655a6ccabff4b3844"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc09RecoveryWorker.mjs",
+      "bytes": 1537,
+      "sha256": "5e101f7150ad309194fb35ad2f7a147f8029ae0ec10e12dfeb14fa1da68b4979"
+    },
+    {
+      "path": "scripts/verify-threaded-rc09-budget.mjs",
+      "bytes": 17822,
+      "sha256": "e891c120aa4902b5ad82778134233c443e2ab4841177d283da4bcbfe64e160e3"
+    },
+    {
+      "path": "scripts/verify-threaded-rc09-main.mjs",
+      "bytes": 13741,
+      "sha256": "dd69e690146c5ad3494bdf8ad2345d2037e4f7bbab49d36b59092420b16288bc"
+    },
+    {
+      "path": "scripts/verify-threaded-rc09-recovery.mjs",
+      "bytes": 18145,
+      "sha256": "ce10b33ff434e8475dc5bce25e384925fb5b60af007aa44cff646241325d4378"
+    }
+  ],
+  "taskFileCountExcludingSelf": 43,
+  "limitations": [
+    "Historical unknown requests have no trustworthy complete usage/charge proof; no historical refund/replay/mutation.",
+    "9 request/binding mappings do not prove 9 complete claim/generation chains.",
+    "Registered without original close remains unresolved; current PID absence is not a recovered close proof.",
+    "Injected actual-index model usage is not supplier billing; no billing-import endpoint or durable guardian exit protocol is added.",
+    "Owner external operator ledger is audited separately; recovery never invokes its hook.",
+    "Schema35, default1000ms activity and daily closed unchanged; RC04-RC08 limitations retained."
+  ],
+  "independentReadOnlyReview": "Production recovery, baseline/actual-index exact identity, historical 13 source hashes/22 observations and original 89 ledger rows independently reviewed; no blocking issue. Cross-document review corrected factory observe wording; observe evidence belongs to actual index.",
+  "developmentFindings": "development-findings.json"
+}

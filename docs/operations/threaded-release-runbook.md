@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-27。适用 schema 35（RC03前向追加，RC06/RC07/RC08无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-27。适用 schema 35（RC03前向追加，RC06/RC07/RC08/RC09无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -202,6 +202,17 @@ SDK failed outcome现在仅保留可信Authority/Budget/Resource错误类的受�
 实际index/供应商验收包括原答重启、partial、暂停后自动回调、隔离权限变化拒绝及broker精确重试。测试超时目标预先暂停且未发送供应商，越deadline使用仅在请求/进程静止后推进的隔离时钟；HTTP400是本地故障，丢回执是同一有效binding上的broker模拟。多PID outbox/ACK故障主要在工厂层，不外推全部生产组合。
 
 RC08新增21真实请求确认33,195 token，新增unknown为0；当前累计确认220,478、未知206,832、保守占额427,310，选择的累计500,000门禁余72,690。原68行不变；RC07段394,115是当时快照。默认1000ms活动片、schema35、日常closed及原RC04–RC07限制保持；RC09对账和后续综合发布独立实施。
+
+
+### RC09 可信回执恢复与历史对账
+
+[RC09合同](../architecture/threaded-reconciliation-acceptance-v1.md)和[报告](../reports/threaded-collaboration-rc09-reconciliation-2026-10-27.md)登记24组专验与101组回归。启动恢复可依据原complete不可变回执，按原binding/authorization幂等补记预算；输出token、费用、进程、Invocation与资源分别处理。缺价格继续预留，不能以本地停止、HTTP200或新一轮成功填零。该恢复不回调独立operator账本hook，外部验收账本须单独精确对账。
+
+原close回调已持久为closed、同宿主且当前进程组无活成员时，才可补verified_stopped；registered缺原close、异宿主、检查失败或组仍活跃均保留。该补记不证明远端请求结束、不发布旧正文，也不释放claim。observe不执行修复；closed即使无pack也可修可信原账本，新入场继续拒绝。持久冲突或写失败须保留现场并修复证据/存储后重试，不能删receipt、改key、换generation或盲重发。
+
+历史共享账本89行：77known、12reserved，确认220478＋未知206832＝保守427310 token，所选累计50万门禁余72690。RC09只读审计原行/文件哈希不变，新增真实请求/已知/未知均0；12笔中9笔有request/binding桥接，3笔缺失，均不具备完整可信用量/费用结算证据。原claim/generation/副作用证据缺失仍逐项保留。可在已存在的原账本上运行 `pnpm audit:threaded-rc09-history` 生成固定RC08快照审计；该脚本不适用于把后续新增行默认为同一快照，也不执行结算。
+
+恢复这些历史责任前，应取得原请求身份、可信供应商用量/费用及独立宿主/副作用证明；查不到事实继续unknown并阻断原责任自动重放，不用新Thread或新账号抹除旧占额。RC04–RC08限制、RC10综合验收和RC11–RC12发布前提继续保留。本轮未在日常库执行这些操作。
 
 ## 5. 一致性备份与恢复
 

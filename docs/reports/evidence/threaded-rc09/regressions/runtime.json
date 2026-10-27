@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "groups": 18,
+  "checks": [
+    "Q01/DB01: two real SQLite IPC workers map the same Wake once, claim exactly one Invocation/Run/Attempt/resource, execute once and cannot claim its settled source again",
+    "Distinct same-text user sources remain independent Wake/Invocation/Run/root identities and preserve same-slot FIFO",
+    "Q05: durable enqueue reenters the final empty drain scan and still runs immediately with repair polling disabled",
+    "Q05: work queued during active execution and synchronously during resource release drains without a repair timer or lost wake, retaining FIFO",
+    "REC02: real worker exits after durable preparation but before start; trusted not-started recovery retries a new Attempt in the same Invocation/Run/root and performs exactly one external fake call",
+    "REC03: a real worker exits after persisted start/possible request; repeated recovery and TTL retain unknown resource/budget fences without a second Attempt or model request",
+    "Pause retains authorized messages and queued Wakes without resources or Runs; Owner resume restores their original FIFO age and executes each once",
+    "Closed Thread, departed member and revoked account each stop previously queued work before any Run, Attempt, resource claim or external call",
+    "REC06/ISO05: trigger failure at every response/output/terminal/projection/Delivery/Wake/Outbox/queue write rolls back all durable facts; same result retry commits once with inherited root and no second model execution",
+    "REC06: every claim/epoch/budget reservation/Run/binding/Attempt/dispatch write fails atomically; retry claims the original Wake once with no partial capacity or prior external execution",
+    "REC04/REC05: real process exit after atomic response/terminal/budget COMMIT but before release/notification only replays durable cleanup and outbox; no second result, Attempt or model request",
+    "B01 integrated: budget-blocked tickets retain FIFO age and consume no resource/Run/request reservation; Owner restores versioned original roots without minting replacement allowance",
+    "Q06: cancelling parallel Invocation A discards its late completed body/successor while B retains its exact resource/budget authority and commits normally",
+    "REC06: read-only SQLite refuses response/terminal/budget success and retains the quiescent claim; writable retry commits the existing result without another external call",
+    "M01/B01: actual explicit post plus committed final with identical text create two independent addressed successor Invocations; all three executions settle against one original root without resetting request/token/cost counters",
+    "Q05 injected runtime composition: with execution enabled, autoStart false and repair polling off, paused input persists only a Wake; committed Owner resume actively runs it once without manual scan or wakeup",
+    "B01/Q05 composition: committed runtime root revisions and Owner-window decisions each actively unblock execution with no repair timer/manual hint, preserving queue age and the original root",
+    "Rollback safety: real control and persisted account-revocation changes rolled back by an outer transaction cannot abort the barrier-held active executor or alter its authority; the same call later completes"
+  ],
+  "networkCalls": 0,
+  "realModelCalls": 0
+}

@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-27",
+  "baselineReceiptGap": {
+    "evidence": "recovery.json",
+    "check": "RC09-REC-01",
+    "baseline": "52d3cc3",
+    "sourceSha256": "9d3f35661a9a24fa0f18f2682c758ec8dab6520006e4b5b74b91b7b3b9707c55",
+    "transform": "Only relative static import specifiers rewritten to absolute repository paths; original implementation otherwise unchanged.",
+    "result": "Original complete receipt does not repair budget. New exact-receipt recovery converges once across two worker PIDs."
+  },
+  "preservedRuns": [
+    {
+      "evidence": "recovery-development-first.json",
+      "result": "5 groups passed then local stopped-group assertion failed",
+      "diagnosis": "Sandbox process inspection unavailable; separate ps probe returned EPERM. Production conservatively retained closed. Subsequent test allowed read-only local process inspection."
+    },
+    {
+      "evidence": "recovery-development-second.json",
+      "result": "0 groups; worker import SQLITE_BUSY",
+      "diagnosis": "Concurrent test workers imported an unrelated shared unused singleton SQLite DB. Fixture now selects unused DB per PID and waits for all workers before cleanup."
+    },
+    {
+      "evidence": "budget-development-findings.json",
+      "result": "Test table name and ledger-only scope corrections; detailed failed runs retained"
+    },
+    {
+      "evidence": "main-development-first.json",
+      "result": "1 API group passed; excluded repeat"
+    },
+    {
+      "evidence": "main-first.json",
+      "result": "5 groups passed; final adds closed-no-pack as sixth group"
+    }
+  ],
+  "counting": "Only recovery9+budget9+main-final6 count as 24 dedicated groups. Historical audit and repeated/development runs do not add groups.",
+  "historicalFailuresUnchanged": true,
+  "historicalUnknownResolved": false
+}

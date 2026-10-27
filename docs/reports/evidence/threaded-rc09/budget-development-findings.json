@@ -1,0 +1,31 @@
+{
+  "status": "recorded",
+  "productionChangesRequired": false,
+  "finalEvidence": "budget.json",
+  "finalGroups": 9,
+  "finalInjectedHttpCalls": 10,
+  "realSupplierHttpCalls": 0,
+  "developmentRuns": [
+    {
+      "file": "budget-first.json",
+      "groupsPassed": 1,
+      "cause": "Test snapshot referenced nonexistent threaded_queue; corrected to actual threaded_queue_claims. No production failure."
+    },
+    {
+      "file": "budget-second.json",
+      "groupsPassed": 6,
+      "cause": "RB07 added an unrelated successor execution expectation while original pending delivery intent remained unrepaired. Successor claimed generation 2 but failed before new HTTP. The final RB07 scope deliberately asserts only late ledger reconciliation while successor holds capacity."
+    },
+    {
+      "file": "budget-third.json",
+      "groupsPassed": 6,
+      "cause": "Diagnostic repeat of the preceding RB07 fixture scope failure; preserved detailed original/successor states. Not counted as a new production failure."
+    }
+  ],
+  "scopeNotes": [
+    "Final RB07 does not claim delivery repair or successor execution completion.",
+    "RB06 uses an actual short-lived Node child; it does not claim actual Claude SDK execution.",
+    "Production receipt verification and resource coordinator are used; no always-true verifier or fake resource port.",
+    "No daily database, supplier HTTP, configured credentials or shared operator token ledger accessed."
+  ]
+}

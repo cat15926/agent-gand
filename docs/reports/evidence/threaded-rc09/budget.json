@@ -1,0 +1,108 @@
+{
+  "status": "passed",
+  "checkCount": 9,
+  "checks": [
+    {
+      "id": "RB01",
+      "description": "Production receipt verifier plus canonical persisted binding rejects every modified identity, invented receipt and changed usage without ledger writes.",
+      "identityVariants": 12,
+      "trueVerifier": "verifyThreadedBackendUsage"
+    },
+    {
+      "id": "RB02",
+      "description": "Known output with unknown price keeps the full cost reservation; same-key replay is stable, conflicting replay and fabricated zero price are rejected, and usage reconciliation publishes nothing.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 7,
+        "costMicrousd": 1000,
+        "activityMs": 142,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB03",
+      "description": "A complete transport receipt may prove request completion without any usage; both reservations remain, the immutable receipt cannot be rewritten and reconciliation cannot invent zero.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 168,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB04",
+      "description": "A real SQLite reconciliation-insert fault preserves the complete transport receipt and atomically rolls back usage/spans; exact receipt repair settles once without replay or terminal publication.",
+      "beforeLedgerSha256": "79821d87c3f9845df8e7135191fb9659d638116c5a4021e05e1bb1e9cc1e6dc7",
+      "repairedLedgerSha256": "f9d8c125306027408beaab960d4880f49ab9ff7e8a276581902e1161d0765e00",
+      "originalInvocationStatus": "failed"
+    },
+    {
+      "id": "RB05",
+      "description": "Operator-style exact usage reconciliation is atomic with its idempotency receipt; failure leaves no partial update and successful replay remains a ledger-only action."
+    },
+    {
+      "id": "RB06",
+      "description": "An actually exited local fixture child with a verified-stopped receipt cannot clear an unresolved remote request; production quiescence rejects, reservations and unknown claim survive factory rebuild, and no replay occurs.",
+      "localChildPid": 47730,
+      "requestUsageBeforeRestart": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 180,
+        "activityReservedMs": 897,
+        "unknownRequests": 1
+      },
+      "scope": "A real short-lived Node child supplies the local stop fact; this is not a Claude SDK process test."
+    },
+    {
+      "id": "RB07",
+      "description": "A late exact original receipt can settle the retired binding ledger while its successor holds capacity; it cannot restore old authority, alter the successor, publish old output or add a request.",
+      "oldGeneration": 1,
+      "successorGeneration": 2,
+      "oldClaimId": "766fbfb1-47fd-41ba-a686-0caa876b91c0",
+      "successorClaimId": "f5813393-6cd4-401a-bbe6-f8a5f405922c",
+      "scope": "Successor is acquired but deliberately not executed. Repairing the earlier pending delivery intent is a separate recovery responsibility."
+    },
+    {
+      "id": "RB08",
+      "description": "Rolling past the Owner 24-hour window expires known usage from that window while unresolved cost remains reserved; the causal-root ledger retains its original known output.",
+      "ownerWindowUsage": {
+        "invocations": 0,
+        "attempts": 0,
+        "actualRequests": 0,
+        "outputTokens": 0,
+        "costMicrousd": 1000,
+        "activityMs": 0,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB09",
+      "description": "Two actual injected provider requests in one Attempt have distinct authorizations; even identical binding identity cannot apply one receipt to the other, while root usage counts one Invocation and two requests.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 2,
+        "outputTokens": 18,
+        "costMicrousd": 68,
+        "activityMs": 283,
+        "activityReservedMs": 0,
+        "unknownRequests": 0
+      }
+    }
+  ],
+  "injectedHttpCalls": 10,
+  "realSupplierHttpCalls": 0,
+  "blockedNetworkCalls": 0,
+  "scope": "Isolated SQLite; production budget, lifecycle, backend receipt verifiers and resource coordinator; injected HTTP; one actual short-lived local Node process. Factory rebuild is not OS-process restart."
+}

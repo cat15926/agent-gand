@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "groups": 14,
+  "checks": [
+    "Root is derived from the durable authored user message; defaults freeze once and a restart/config change cannot reset or replace them",
+    "Admission reserves once before I/O with exact claim identity; Run/Attempt are not additional charges and stale or changed replays cannot mint a second request",
+    "A fault after reservation and Attempt preparation rolls back request, attempt/invocation charges and Run in the same transaction",
+    "Root output/cost caps, per-request output cap and unknown-price policy reject before any second Attempt or actual request is admitted",
+    "Explicit unknown-price reserve is charged; a quiescent completed Invocation can release execution resources while unknown token/cost dimensions remain reserved",
+    "Known output does not free unknown cost; verified exact-request reconciliation is idempotent and rejects changed values, untrusted receipts and free-by-assertion claims",
+    "Execution unknown retains an open activity interval through time/restart boundaries; trusted quiescent final reconciliation preserves its unknown audit and cannot overwrite an existing known final",
+    "Two real request identities in one Attempt reserve/settle separately without double-counting Invocation, Run or overlapping tool activity; the second unknown cost stays charged",
+    "Attempt settlement aggregates every actual request: one unknown sibling forbids automatic retry, and verified quiescence refunds all unused reservations while retaining started unknown usage",
+    "Confirmed not-started refunds only unused request quota; safe retry keeps its root and Run, counts Attempts once, and requires a versioned Owner decision to exceed the frozen two-Attempt default",
+    "Nested model/tool spans use the per-Attempt union; concurrent Attempts add their durations, while a later idle/hold interval adds no activity",
+    "Absolute deadlines bound activity allowances; expired work cannot silently renew, and recovery retains both monetary/token reservations and ongoing unknown execution time",
+    "Default owner 24-hour usage is durable; explicit versioned window caps apply across roots, and unresolved dimensions do not become free when their request ages out",
+    "Agent relay and cross-post inherit the original root across Threads; depth derives from the persistent parent Invocation and the frozen A2A limit cannot be reset by another message"
+  ],
+  "networkCalls": 0,
+  "realModelCalls": 0,
+  "scope": "T06 pure durable budget accounting, trusted fake resource/usage receipts; no supplier billing guarantee"
+}

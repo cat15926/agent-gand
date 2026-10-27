@@ -1,0 +1,340 @@
+{
+  "status": "failed",
+  "groups": 5,
+  "checks": [
+    {
+      "id": "RC09-REC-01",
+      "description": "Two new PIDs race to repair the original complete receipt once; repeated recovery retains original outcome, request, binding, resource fence and all message/output facts.",
+      "workerResults": [
+        {
+          "contextRepaired": 0,
+          "requestUsageRepaired": 1,
+          "processStopsRepaired": 0
+        },
+        {
+          "contextRepaired": 0,
+          "requestUsageRepaired": 0,
+          "processStopsRepaired": 0
+        }
+      ],
+      "budget": {
+        "id": "20be6d35-1125-4ef6-aa71-e1add19fb287",
+        "root_id": "ca6974f2-f9aa-420b-bf2e-d469a5080850",
+        "owner_id": "eab87a49-b377-4639-92e1-76e039f25fb8",
+        "thread_id": "b0ae4b81-10e0-4dcc-a5ba-8957fbcf6d79",
+        "invocation_id": "02c6e38f-2ac3-46a9-9cda-15ac8c399000",
+        "attempt_id": "aa6b8587-910b-4b6c-8f70-472e83df60d4",
+        "request_key": "queue:da1c6fa2-5876-4dc5-bc7b-a051322eefd8:aa6b8587-910b-4b6c-8f70-472e83df60d4",
+        "request_hash": "cbd03b67c9a2ebd7b64516c765b52352a88411478e4151167a0c33367d8f31f5",
+        "policy_version": 1,
+        "claim_id": "97a3d700-c1d7-44d2-a68e-61237ac56702",
+        "generation": 1,
+        "fencing_token": "f0898b64-db7c-4ef8-829b-acf507b43030",
+        "claim_owner": "t07:ca86ff68-7962-40d1-9144-8668bb0169c2",
+        "reserved_output": 256,
+        "reserved_cost": 1000,
+        "pricing_reference": "fixture-only",
+        "known_output": 7,
+        "known_cost": 18,
+        "execution_state": "quiescent",
+        "usage_state": "settled",
+        "outcome_hash": null,
+        "outcome_kind": null,
+        "evidence_reference": "threaded-backend-request:07c469fa-26f1-4792-8024-60003830e49d",
+        "created_at": 1793077040721,
+        "started_at": 1793077040734,
+        "settled_at": 1793077040918
+      },
+      "beforeAfterImmutableHash": "f8271f24db47b1e4d5ae5b598d245edf38f13b42ca1220ca5e62690055b4e494"
+    },
+    {
+      "id": "RC09-REC-02",
+      "description": "Output and cost reconcile independently; missing dimensions keep their original reservation, including complete transport receipts with neither dimension known.",
+      "cases": [
+        {
+          "name": "token-only",
+          "budget": {
+            "id": "e6771454-98e6-4418-9bda-4d01f3661a96",
+            "root_id": "dd8afd37-e550-4644-a77d-40b5042b731c",
+            "owner_id": "9c34c1cb-8ae3-4a32-88b2-8d3bfb48f78c",
+            "thread_id": "aef5d718-99ac-4522-a559-dac54106de60",
+            "invocation_id": "866eaada-d06b-4d52-b29b-91534f3a10f0",
+            "attempt_id": "3a64e082-8cb5-401d-9eb4-654221c5faeb",
+            "request_key": "queue:b45b7789-2316-4da7-960e-043b1adff011:3a64e082-8cb5-401d-9eb4-654221c5faeb",
+            "request_hash": "72039efc5f257bad6f1a70c3748bd01fb14ffe2928cbd346e9d971f82b8ee73d",
+            "policy_version": 1,
+            "claim_id": "c5f7952f-c45d-41a6-9c17-1c913af9ad6a",
+            "generation": 1,
+            "fencing_token": "d97b8499-f03c-4040-8c53-6c59b63c7952",
+            "claim_owner": "t07:4301cd37-170a-4b58-a0ae-210f919b85fe",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:645992ba-ee28-4efe-a295-392f9b8dd696",
+            "created_at": 1793077041112,
+            "started_at": 1793077041121,
+            "settled_at": 1793077041223
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 7,
+            "costMicrousd": 1000,
+            "activityMs": 109,
+            "activityReservedMs": 893,
+            "unknownRequests": 1
+          }
+        },
+        {
+          "name": "cost-only",
+          "budget": {
+            "id": "52b99a16-8cbe-40db-8a2d-b27dcd93a8dc",
+            "root_id": "bf1bfac6-8b07-4039-b5c5-df522705593d",
+            "owner_id": "4667c3c4-26e7-4e2e-8e0b-97325eeeccda",
+            "thread_id": "63bf3773-7156-4be4-8e24-0454268e48e4",
+            "invocation_id": "b95ef9b1-52c8-4b80-ba73-ea4966a7d51b",
+            "attempt_id": "20b866f4-2407-475b-a516-f7679a7f360d",
+            "request_key": "queue:10efce41-5efd-44c8-982d-a888e5053ef2:20b866f4-2407-475b-a516-f7679a7f360d",
+            "request_hash": "71dc5d9a85a5d694e0d3efda8e1d8a0743d4bd69e9648a330a71161eb98cdcae",
+            "policy_version": 1,
+            "claim_id": "9f94f1d9-0bc5-44a4-9916-3bd5d7d63884",
+            "generation": 1,
+            "fencing_token": "171a9432-929e-4828-9347-0cec891b06c2",
+            "claim_owner": "t07:e8851888-16ad-448a-b41e-f03771970563",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": null,
+            "known_cost": 18,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:0beac076-abdb-4df9-af70-5ec53292767b",
+            "created_at": 1793077041300,
+            "started_at": 1793077041313,
+            "settled_at": 1793077041413
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 256,
+            "costMicrousd": 18,
+            "activityMs": 108,
+            "activityReservedMs": 895,
+            "unknownRequests": 1
+          }
+        },
+        {
+          "name": "neither-known",
+          "budget": {
+            "id": "7d52f2f0-a12b-44a8-ae45-a9847c8032c3",
+            "root_id": "2776506a-6564-4e08-812e-9c1b4b753709",
+            "owner_id": "325aee48-ff28-428c-b49c-f528aed1ae8c",
+            "thread_id": "5d187804-03b2-41e2-a9f4-65537569f0b6",
+            "invocation_id": "91b3cf62-254c-490e-8619-5149a5f020ae",
+            "attempt_id": "76fc158e-df4a-43b6-a101-e8050ffbe168",
+            "request_key": "queue:dc1e1036-75b3-4208-aa4d-8b0a604d8c11:76fc158e-df4a-43b6-a101-e8050ffbe168",
+            "request_hash": "29e3548ab4a576aeeece2d988bd41f4b0002805e70346d815dda0272e49608bd",
+            "policy_version": 1,
+            "claim_id": "089ad62c-a234-47da-9552-8ec775c3e386",
+            "generation": 1,
+            "fencing_token": "9b5351e1-492d-4d72-bae7-899b078a8213",
+            "claim_owner": "t07:3aab908c-d1ff-453c-b3e7-3c445d0c6e83",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:d428265c-5ba2-4833-8f2a-37d3dff108d7",
+            "created_at": 1793077041497,
+            "started_at": 1793077041508,
+            "settled_at": 1793077041625
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 256,
+            "costMicrousd": 1000,
+            "activityMs": 125,
+            "activityReservedMs": 878,
+            "unknownRequests": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "RC09-REC-03",
+      "description": "A reconciliation INSERT fault rolls back usage, activity-span closure and receipt key together; removing the fault permits one exact repair from a new PID.",
+      "injectedFailure": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_reconciliation_failure"
+      },
+      "rollbackHash": "4f499719bb062198da429ea804ae81ff6bc8a5ea46acedd7b85cfdab3a97186b",
+      "repaired": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "id": "RC09-REC-04",
+      "description": "Another binding/generation/fence/owner/Attempt/Invocation and changed usage are rejected; an existing contradictory known amount is retained as a conflict with no partial write.",
+      "rejectedBindingVariants": 6,
+      "conflict": {
+        "error": "THREADED_BUDGET_SETTLEMENT_CONFLICT",
+        "message": "THREADED_BUDGET_SETTLEMENT_CONFLICT"
+      }
+    },
+    {
+      "id": "RC09-REC-05",
+      "description": "Interrupted sending becomes unknown without inventing a receipt; repeated recovery keeps token/cost/activity reservations and the resource fence, with no transport replay."
+    }
+  ],
+  "workers": [
+    {
+      "pid": 47115,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47117,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47120,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47121,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47122,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47123,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47124,
+      "exitCode": 0,
+      "result": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_reconciliation_failure"
+      }
+    },
+    {
+      "pid": 47125,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47126,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47127,
+      "exitCode": 0,
+      "result": {
+        "error": "THREADED_BUDGET_SETTLEMENT_CONFLICT",
+        "message": "THREADED_BUDGET_SETTLEMENT_CONFLICT"
+      }
+    },
+    {
+      "pid": 47128,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47129,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47131,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    }
+  ],
+  "workerCount": 13,
+  "actualLocalProcessGroups": [
+    47130
+  ],
+  "realProviderRequests": 0,
+  "injectedHttpRequests": 0,
+  "networkCalls": 0,
+  "scope": "Isolated SQLite, manually persisted transport evidence through the production writer, independent recovery PIDs, and actual local process groups. No SDK process/actual index/supplier execution is claimed in this layer.",
+  "historicalLedgerTouched": false,
+  "dailyDatabaseTouched": false,
+  "schemaVersion": 35,
+  "failure": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n\n0 !== 1\n",
+    "stack": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 1\n\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-recovery.mjs:141:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "groups": 14,
+  "checks": [
+    "Published ACL, private audience and draft boundaries filter actual payload; original attachment bytes and base64 overhead are hashed and estimated.",
+    "Native incremental delivery supplements a budget hole below a higher delivery cursor; explicit seen never suppresses input injection.",
+    "Delivery, seen and mention acknowledgement have independent exact facts and never complete the Invocation or an Action.",
+    "Unverified ACK is rejected; unknown sends retain a replay barrier and do not advance delivery; trusted not-sent reconciliation permits one new intent.",
+    "A later-starting member uses the frozen wave inputMaxSeq and cannot absorb an earlier member post from the same wave.",
+    "An oversized Wake source is explicitly blocked without truncation, send intent or exposure facts.",
+    "A cursor write fault rolls back receipt, per-message delivery and cursor facts atomically; immutable manifests cannot be rewritten.",
+    "Late verified transport evidence preserves historical exposure after revocation but cannot authorize another input or execution.",
+    "The send boundary rechecks recursive cross-Thread source ACL even when the destination Binding itself remains valid.",
+    "API reconstructed context still includes authorized prior delivery and seen history; wrong Session versions and forged member bindings are rejected.",
+    "Manifest request identity is exact and immutable; outer rollback and read-only database errors never manufacture committed manifests.",
+    "A native Session that already saw a later sequence cannot serve an older resumed Wake merely by filtering the new prompt; cold preparation is required.",
+    "Multiple verified transport receipts audit one logical input monotonically: later unknown cannot erase delivery or duplicate message exposure facts.",
+    "Pending send repair accepts verified historical evidence after terminal resource release without reopening the Invocation or authorizing another send."
+  ],
+  "scope": "T07 context contract fixtures only; isolated SQLite, injected trusted evidence, no provider, business database or native transcript"
+}

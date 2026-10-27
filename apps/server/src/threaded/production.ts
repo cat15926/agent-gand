@@ -111,6 +111,8 @@ export function createThreadedProduction(db:Database.Database,options:{
     async shutdown(timeoutMs=15_000){commands?.close();return runtime.shutdown(timeoutMs);},
     messageAdmission(){if(!settings)rejectThreadedAdmission();if(mode()==='observe')throw new ThreadedReleaseError('THREADED_RELEASE_OBSERVE_ONLY',403);},
     recover(){if(mode()==='observe')return {observed:true,plan:release.snapshot(ownerId)};
-      const result=runtime.recover();return {...result,...recoverThreadedBackendFacts(db,runtime.authority)};},
+      const result=runtime.recover();
+      // The configured backend runtime already repairs these facts; do not discard its counts.
+      return settings?result:{...result,...recoverThreadedBackendFacts(db,runtime.authority)};},
   };
 }

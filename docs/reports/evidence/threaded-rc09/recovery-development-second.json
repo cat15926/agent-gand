@@ -1,0 +1,20 @@
+{
+  "status": "failed",
+  "groups": 0,
+  "checks": [],
+  "workers": [],
+  "workerCount": 0,
+  "actualLocalProcessGroups": [],
+  "realProviderRequests": 0,
+  "injectedHttpRequests": 0,
+  "networkCalls": 0,
+  "scope": "Isolated SQLite, manually persisted transport evidence through the production writer, independent recovery PIDs, and actual local process groups. No SDK process/actual index/supplier execution is claimed in this layer.",
+  "historicalLedgerTouched": false,
+  "dailyDatabaseTouched": false,
+  "schemaVersion": 35,
+  "failure": {
+    "name": "Error",
+    "message": "RECOVERY_WORKER 1/null: \n/Users/ruhonglin/lhz/agent-gand/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/methods/pragma.js:11\n\treturn simple ? stmt.pluck().get() : stmt.all();\n\t                                          ^\nSqliteError: database is locked\n    at Database.pragma (/Users/ruhonglin/lhz/agent-gand/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/methods/pragma.js:11:44)\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/apps/server/src/db/database.ts:17:4)\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)\n    at async <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/fixtures/threadedRc09RecoveryWorker.mjs:10:41) {\n  code: 'SQLITE_BUSY'\n}\n\nNode.js v22.23.1\n",
+    "stack": "Error: RECOVERY_WORKER 1/null: \n/Users/ruhonglin/lhz/agent-gand/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/methods/pragma.js:11\n\treturn simple ? stmt.pluck().get() : stmt.all();\n\t                                          ^\nSqliteError: database is locked\n    at Database.pragma (/Users/ruhonglin/lhz/agent-gand/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/methods/pragma.js:11:44)\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/apps/server/src/db/database.ts:17:4)\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)\n    at async <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/fixtures/threadedRc09RecoveryWorker.mjs:10:41) {\n  code: 'SQLITE_BUSY'\n}\n\nNode.js v22.23.1\n\n    at ChildProcess.<anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-recovery.mjs:52:86)\n    at Object.onceWrapper (node:events:634:26)\n    at ChildProcess.emit (node:events:519:28)\n    at ChildProcess._handle.onexit (node:internal/child_process:293:12)"
+  }
+}

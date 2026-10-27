@@ -227,7 +227,11 @@
     "verify:threaded-rc07-native-real": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc07-native-real.mjs",
     "verify:threaded-rc08-cooperation": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-cooperation.mjs",
     "verify:threaded-rc08-sdk": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-sdk.mjs",
-    "verify:threaded-rc08-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-main.mjs"
+    "verify:threaded-rc08-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc08-main.mjs",
+    "verify:threaded-rc09-recovery": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc09-recovery.mjs",
+    "verify:threaded-rc09-budget": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc09-budget.mjs",
+    "verify:threaded-rc09-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc09-main.mjs",
+    "audit:threaded-rc09-history": "node scripts/audit-threaded-rc09-history.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

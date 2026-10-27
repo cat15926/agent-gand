@@ -1,0 +1,21 @@
+{
+  "status": "failed",
+  "checkCount": 1,
+  "checks": [
+    {
+      "id": "RB01",
+      "description": "Production receipt verifier plus canonical persisted binding rejects every modified identity, invented receipt and changed usage without ledger writes.",
+      "identityVariants": 12,
+      "trueVerifier": "verifyThreadedBackendUsage"
+    }
+  ],
+  "injectedHttpCalls": 2,
+  "realSupplierHttpCalls": 0,
+  "blockedNetworkCalls": 0,
+  "scope": "Isolated SQLite; production budget, lifecycle, backend receipt verifiers and resource coordinator; injected HTTP; one actual short-lived local Node process. Factory rebuild is not OS-process restart.",
+  "failure": {
+    "name": "SqliteError",
+    "message": "no such table: threaded_queue",
+    "stack": "SqliteError: no such table: threaded_queue\n    at Database.prepare (/Users/ruhonglin/lhz/agent-gand/node_modules/.pnpm/better-sqlite3@12.11.1/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)\n    at rows (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:21:33)\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:24:75)\n    at Array.map (<anonymous>)\n    at effects (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:24:54)\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:78:34)"
+  }
+}

@@ -255,7 +255,7 @@ export function createThreadedBackendRuntime(db: Database.Database, options: {
   if (options.autoStart !== false) runtime.wakeup();
   function recover() {
     const result = runtime.recover();
-    return { ...result, ...recoverThreadedBackendFacts(db, authority) };
+    return { ...result, ...recoverThreadedBackendFacts(db, authority, { budget: runtime.budget, now: options.now }) };
   }
   return { ...runtime, recover, context, sessionContext, backendEvidence: evidence };
 }

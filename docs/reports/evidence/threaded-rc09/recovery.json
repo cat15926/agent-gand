@@ -1,0 +1,535 @@
+{
+  "status": "passed",
+  "groups": 9,
+  "checks": [
+    {
+      "id": "RC09-REC-01",
+      "description": "Two new PIDs race to repair the original complete receipt once; repeated recovery retains original outcome, request, binding, resource fence and all message/output facts.",
+      "baseline": {
+        "ref": "52d3cc3",
+        "sourcePath": "apps/server/src/threaded/backendRecovery.ts",
+        "sourceSha256": "9d3f35661a9a24fa0f18f2682c758ec8dab6520006e4b5b74b91b7b3b9707c55",
+        "importedSourceSha256": "d2835e2907acd7c1b783a55728781c1918225cc514ee75c12a26edf1a527cb14",
+        "transformation": "Only relative static import specifiers rewritten to absolute repository paths; original implementation otherwise unchanged.",
+        "result": {
+          "contextRepaired": 0
+        },
+        "unrepairedBudget": {
+          "id": "b15268be-f231-4c23-92f1-1a519449ef13",
+          "root_id": "eb1e7bf9-ff85-4c7a-80b0-904e4b03d80c",
+          "owner_id": "f1689c61-30af-4b9f-aa4d-6e4a4633d307",
+          "thread_id": "4d480c11-8940-4ae6-a566-d60755e8f53d",
+          "invocation_id": "2e325310-3897-4092-a23e-3d4dd96b9aa0",
+          "attempt_id": "fc042f0e-2885-4799-9856-1cd809945b9d",
+          "request_key": "queue:0a2ec4b1-cbfe-4886-b0e4-14218d3eb02f:fc042f0e-2885-4799-9856-1cd809945b9d",
+          "request_hash": "a1dcabed4042006c3a7a04bb619780a9fc5a709af9af00705b985a2c88ebe515",
+          "policy_version": 1,
+          "claim_id": "082aea2b-ddde-45be-9f4e-032aa0cf1108",
+          "generation": 1,
+          "fencing_token": "b1fde618-7311-4f55-aae5-fd5c054788b0",
+          "claim_owner": "t07:f35ad7fc-fa8b-4a1c-80ca-804d72f8a139",
+          "reserved_output": 256,
+          "reserved_cost": 1000,
+          "pricing_reference": "fixture-only",
+          "known_output": null,
+          "known_cost": null,
+          "execution_state": "unknown",
+          "usage_state": "unknown",
+          "outcome_hash": null,
+          "outcome_kind": null,
+          "evidence_reference": null,
+          "created_at": 1793077140217,
+          "started_at": 1793077140227,
+          "settled_at": null
+        },
+        "beforeAfterBudgetHash": "14091b699aabfe8deb8c3d30c0326a5e121d9257a9bf7bf33d65c916ce18fff7"
+      },
+      "workerResults": [
+        {
+          "contextRepaired": 0,
+          "requestUsageRepaired": 0,
+          "processStopsRepaired": 0
+        },
+        {
+          "contextRepaired": 0,
+          "requestUsageRepaired": 1,
+          "processStopsRepaired": 0
+        }
+      ],
+      "budget": {
+        "id": "b15268be-f231-4c23-92f1-1a519449ef13",
+        "root_id": "eb1e7bf9-ff85-4c7a-80b0-904e4b03d80c",
+        "owner_id": "f1689c61-30af-4b9f-aa4d-6e4a4633d307",
+        "thread_id": "4d480c11-8940-4ae6-a566-d60755e8f53d",
+        "invocation_id": "2e325310-3897-4092-a23e-3d4dd96b9aa0",
+        "attempt_id": "fc042f0e-2885-4799-9856-1cd809945b9d",
+        "request_key": "queue:0a2ec4b1-cbfe-4886-b0e4-14218d3eb02f:fc042f0e-2885-4799-9856-1cd809945b9d",
+        "request_hash": "a1dcabed4042006c3a7a04bb619780a9fc5a709af9af00705b985a2c88ebe515",
+        "policy_version": 1,
+        "claim_id": "082aea2b-ddde-45be-9f4e-032aa0cf1108",
+        "generation": 1,
+        "fencing_token": "b1fde618-7311-4f55-aae5-fd5c054788b0",
+        "claim_owner": "t07:f35ad7fc-fa8b-4a1c-80ca-804d72f8a139",
+        "reserved_output": 256,
+        "reserved_cost": 1000,
+        "pricing_reference": "fixture-only",
+        "known_output": 7,
+        "known_cost": 18,
+        "execution_state": "quiescent",
+        "usage_state": "settled",
+        "outcome_hash": null,
+        "outcome_kind": null,
+        "evidence_reference": "threaded-backend-request:823c3828-9a75-4cb4-a374-9c1175fbac5c",
+        "created_at": 1793077140217,
+        "started_at": 1793077140227,
+        "settled_at": 1793077140511
+      },
+      "beforeAfterImmutableHash": "91c453e8934e0d8a35371fb737a84de9d37aa7ffec19fbe2c8cfc95f95d3461c"
+    },
+    {
+      "id": "RC09-REC-02",
+      "description": "Output and cost reconcile independently; missing dimensions keep their original reservation, including complete transport receipts with neither dimension known.",
+      "cases": [
+        {
+          "name": "token-only",
+          "budget": {
+            "id": "7504973f-e4a1-42df-9701-bca41dce8e9d",
+            "root_id": "af3b034a-374b-4bad-9505-9aac7a105827",
+            "owner_id": "c1b3d6be-72e1-4a2e-a3ea-e5ba11f51f3b",
+            "thread_id": "b987cfaa-825f-4ee1-b748-3a1b34553324",
+            "invocation_id": "bb33c3ff-4eca-4d3d-9373-f3a187b622ba",
+            "attempt_id": "6434710d-7f64-4c34-819b-38026d432264",
+            "request_key": "queue:79b82b88-456d-4f0d-a130-f79bab38a4e8:6434710d-7f64-4c34-819b-38026d432264",
+            "request_hash": "bd7cf953ca8ab5aa2a2630c373b8a6673e6ebe11d5c6d7bb059bfd41a28e80a8",
+            "policy_version": 1,
+            "claim_id": "55677397-08dc-4d7c-be3e-2bf77ce1f8ad",
+            "generation": 1,
+            "fencing_token": "34b3da98-0284-4610-8e48-a6ef870b57bf",
+            "claim_owner": "t07:e954a6c5-9359-46d2-95e5-104b894e9b73",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:7535bfdd-16cf-4d85-90a7-40ee8c8069dd",
+            "created_at": 1793077140750,
+            "started_at": 1793077140759,
+            "settled_at": 1793077140919
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 7,
+            "costMicrousd": 1000,
+            "activityMs": 170,
+            "activityReservedMs": 832,
+            "unknownRequests": 1
+          }
+        },
+        {
+          "name": "cost-only",
+          "budget": {
+            "id": "d4be80f3-17d4-4ca4-9323-1f3a56857d93",
+            "root_id": "7b93791b-71ca-4187-8bd5-950e5409b53e",
+            "owner_id": "3ff10de9-13ab-4e7e-8dbe-e3544c0d7638",
+            "thread_id": "28878e47-6baa-4f9f-a8f4-2340d73a5e16",
+            "invocation_id": "f8e22051-e8a0-44ca-8967-10d237d34500",
+            "attempt_id": "a537775a-fab7-4d98-b618-de76bb77ef90",
+            "request_key": "queue:d3f479bf-6b13-4ca0-854d-246e3376cb25:a537775a-fab7-4d98-b618-de76bb77ef90",
+            "request_hash": "f1efaafe06c6b100609098b906d903def2b09f9e44d538a077db587d94c33ec9",
+            "policy_version": 1,
+            "claim_id": "312ca31e-8cee-4abd-97bb-6bfb147ed3ca",
+            "generation": 1,
+            "fencing_token": "d3fb8c84-1136-4d00-b5df-d59c97386636",
+            "claim_owner": "t07:6d8b21e2-9601-4a3b-9269-94465252a9d4",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": null,
+            "known_cost": 18,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:a0e89219-757a-4684-adb7-04d05bd23bfc",
+            "created_at": 1793077140997,
+            "started_at": 1793077141006,
+            "settled_at": 1793077141191
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 256,
+            "costMicrousd": 18,
+            "activityMs": 195,
+            "activityReservedMs": 807,
+            "unknownRequests": 1
+          }
+        },
+        {
+          "name": "neither-known",
+          "budget": {
+            "id": "c4aedd2d-4127-4530-95af-88b98c0800f2",
+            "root_id": "84fb30ec-f75d-4a8e-a281-82bdfc2a9724",
+            "owner_id": "87581d95-da54-4310-a0aa-c2d903ad8882",
+            "thread_id": "ffa5b7ca-d85a-4e6c-8fc5-a94565f729a0",
+            "invocation_id": "643e3f0e-02b8-4737-9acd-2b5c0920df42",
+            "attempt_id": "ecea6fca-ad17-48ec-aa43-80cc867160a2",
+            "request_key": "queue:51699cef-8868-46f9-91f0-abb8fa20a87e:ecea6fca-ad17-48ec-aa43-80cc867160a2",
+            "request_hash": "b97e8b66aa40f2c954835ecf5ecf2097a4b71232a547bc0b52109e5ddb034952",
+            "policy_version": 1,
+            "claim_id": "715e0160-18b3-4fdd-962b-8d04c7a73d97",
+            "generation": 1,
+            "fencing_token": "5e4e5864-b315-4ab1-aafd-8ef347853725",
+            "claim_owner": "t07:720f0057-6411-4ab1-9c78-c38275d28fd2",
+            "reserved_output": 256,
+            "reserved_cost": 1000,
+            "pricing_reference": "fixture-only",
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:43f2f8f8-4829-4046-b718-c28000c18c56",
+            "created_at": 1793077141275,
+            "started_at": 1793077141287,
+            "settled_at": 1793077141447
+          },
+          "usage": {
+            "invocations": 1,
+            "attempts": 1,
+            "actualRequests": 1,
+            "outputTokens": 256,
+            "costMicrousd": 1000,
+            "activityMs": 170,
+            "activityReservedMs": 832,
+            "unknownRequests": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "RC09-REC-03",
+      "description": "A reconciliation INSERT fault rolls back usage, activity-span closure and receipt key together; removing the fault permits one exact repair from a new PID.",
+      "injectedFailure": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_reconciliation_failure"
+      },
+      "rollbackHash": "e8b798f3b1790194ebe841dbab4304d02e2fcd3566f5e6f735948e66566e506c",
+      "repaired": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "id": "RC09-REC-04",
+      "description": "Another binding/generation/fence/owner/Attempt/Invocation and changed usage are rejected; an existing contradictory known amount is retained as a conflict with no partial write.",
+      "rejectedBindingVariants": 6,
+      "conflict": {
+        "error": "THREADED_BUDGET_SETTLEMENT_CONFLICT",
+        "message": "THREADED_BUDGET_SETTLEMENT_CONFLICT"
+      }
+    },
+    {
+      "id": "RC09-REC-05",
+      "description": "Interrupted sending becomes unknown without inventing a receipt; repeated recovery keeps token/cost/activity reservations and the resource fence, with no transport replay."
+    },
+    {
+      "id": "RC09-REC-06",
+      "description": "A real detached local process group is killed and its trusted close fact is persisted; a different PID verifies only local stopped state, preserving unknown request, budget and claim.",
+      "localProcessPid": 47798,
+      "process": {
+        "token": "481dafe6-ac37-4f5c-a9b0-a6600be3ed1e",
+        "binding_id": "4c17e647-66cf-49ca-a07d-b6d856d766b5",
+        "host": "ruhonglindeAir",
+        "pid": 47798,
+        "state": "verified_stopped",
+        "created_at": 1793077142752,
+        "stopped_at": 1793077142913
+      },
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 1
+      },
+      "sdkGuardian": false
+    },
+    {
+      "id": "RC09-REC-07",
+      "description": "A live local group, foreign host, missing original close fact and inspection failure all retain their prior process states; foreign/registered records never invoke the local probe.",
+      "cases": [
+        {
+          "token": "8d5bf904-7b0b-476a-8f7b-842cc3f20392",
+          "binding_id": "2dce3492-a229-45bc-a33e-7b16326fe1a9",
+          "host": "ruhonglindeAir",
+          "pid": 47810,
+          "state": "closed",
+          "created_at": 1793077143212,
+          "stopped_at": 1793077143212
+        },
+        {
+          "token": "b753c40e-788a-40d9-8818-82e42ab5e76f",
+          "binding_id": "2dce3492-a229-45bc-a33e-7b16326fe1a9",
+          "host": "rc09-other-host.invalid",
+          "pid": 47811,
+          "state": "closed",
+          "created_at": 1793077143212,
+          "stopped_at": 1793077143212
+        },
+        {
+          "token": "f159b0b6-6af1-488b-944e-eb8003a6ccac",
+          "binding_id": "2dce3492-a229-45bc-a33e-7b16326fe1a9",
+          "host": "ruhonglindeAir",
+          "pid": 47811,
+          "state": "registered",
+          "created_at": 1793077143212,
+          "stopped_at": null
+        },
+        {
+          "token": "2dc8f280-cbf5-4b0d-9fc8-4e7938976ca7",
+          "binding_id": "2dce3492-a229-45bc-a33e-7b16326fe1a9",
+          "host": "ruhonglindeAir",
+          "pid": 47811,
+          "state": "closed",
+          "created_at": 1793077143212,
+          "stopped_at": 1793077143212
+        }
+      ],
+      "inspectedPids": [
+        47810,
+        47811
+      ],
+      "sdkGuardian": false
+    },
+    {
+      "id": "RC09-REC-08",
+      "description": "A process-stop write fault does not claim persistence; a new PID retries after repair, and recovery called within a transaction refuses before any process inspection.",
+      "injectedFailure": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_stop_write_failure"
+      }
+    },
+    {
+      "id": "RC09-REC-09",
+      "description": "Backend runtime recovery exposes the repair count and does not invoke the separate operator-ledger hook; absent prices remain unknown and the cumulative external ledger requires independent reconciliation.",
+      "result": {
+        "lifecycle": [
+          {
+            "invocationId": "8fbdff7c-b260-4123-842c-a833f30659c8",
+            "runId": "36942e88-2827-4b89-9158-fdc096ea470b",
+            "status": "unknown",
+            "action": "await_reconciliation",
+            "reason": "PROCESS_RESTART_UNKNOWN"
+          }
+        ],
+        "budget": {
+          "unknownRequests": 0
+        },
+        "queue": [
+          {
+            "queueId": "6dbacf2f-4652-457d-bc2e-e02f21abddae",
+            "invocationId": "8fbdff7c-b260-4123-842c-a833f30659c8",
+            "dispatch": {
+              "id": "35d023cd-cfb5-42bf-8171-0c7a0acf4aac",
+              "queueId": "6dbacf2f-4652-457d-bc2e-e02f21abddae",
+              "generation": 1,
+              "workerId": "rc09-recovery",
+              "ownerNonce": "6d3b2e02-0075-49d8-af67-96a04fa17c02",
+              "fencingToken": "b13919bf-bc1e-4fc8-86d4-2dc46234baf5",
+              "attemptId": "ca2d868c-ed0f-4144-a17e-fde07064bef9",
+              "bindingId": "463cc33c-3291-443e-ba35-6bd47d2fb667",
+              "budgetAuthorizationId": "01125bbc-45d4-466b-bacd-87696c85a917",
+              "phase": "unknown",
+              "leaseExpiresAt": "2026-10-27T04:59:18.747Z"
+            },
+            "binding": {
+              "schemaVersion": 1,
+              "origin": "threaded_invocation_attempt",
+              "id": "463cc33c-3291-443e-ba35-6bd47d2fb667",
+              "ownerId": "e059769c-59e4-4d96-b6af-c33f31d020a5",
+              "threadId": "e606010f-f090-4dac-bd42-b4d433c65ab8",
+              "agentId": "api-member",
+              "invocationId": "8fbdff7c-b260-4123-842c-a833f30659c8",
+              "runId": "36942e88-2827-4b89-9158-fdc096ea470b",
+              "attemptId": "ca2d868c-ed0f-4144-a17e-fde07064bef9",
+              "authorityEpoch": 1,
+              "claimId": "7626c487-d75d-40ed-ab80-2ba637e6671c",
+              "generation": 1,
+              "fencingToken": "7b380dcc-2000-4914-a8da-27ce5d49f774"
+            },
+            "action": "unknown"
+          }
+        ],
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      },
+      "operatorHookCalls": 0
+    }
+  ],
+  "workers": [
+    {
+      "pid": 47775,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47776,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47778,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47781,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47782,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47791,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47792,
+      "exitCode": 0,
+      "result": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_reconciliation_failure"
+      }
+    },
+    {
+      "pid": 47793,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 1,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47794,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47795,
+      "exitCode": 0,
+      "result": {
+        "error": "THREADED_BUDGET_SETTLEMENT_CONFLICT",
+        "message": "THREADED_BUDGET_SETTLEMENT_CONFLICT"
+      }
+    },
+    {
+      "pid": 47796,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47797,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47799,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 1
+      }
+    },
+    {
+      "pid": 47809,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 0
+      }
+    },
+    {
+      "pid": 47822,
+      "exitCode": 0,
+      "result": {
+        "error": "SQLITE_CONSTRAINT_TRIGGER",
+        "message": "rc09_stop_write_failure"
+      }
+    },
+    {
+      "pid": 47832,
+      "exitCode": 0,
+      "result": {
+        "contextRepaired": 0,
+        "requestUsageRepaired": 0,
+        "processStopsRepaired": 1
+      }
+    }
+  ],
+  "workerCount": 16,
+  "actualLocalProcessGroups": [
+    47798,
+    47810,
+    47811,
+    47821
+  ],
+  "realProviderRequests": 0,
+  "injectedHttpRequests": 0,
+  "networkCalls": 0,
+  "scope": "Isolated SQLite, manually persisted transport evidence through the production writer, independent recovery PIDs, and actual local process groups. No SDK process/actual index/supplier execution is claimed in this layer.",
+  "historicalLedgerTouched": false,
+  "dailyDatabaseTouched": false,
+  "schemaVersion": 35
+}

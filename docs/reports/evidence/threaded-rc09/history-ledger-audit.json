@@ -1,0 +1,1944 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC09",
+  "auditedAt": "2026-10-27T04:58:02.939Z",
+  "scope": "Read-only historical accounting audit through RC08; no supplier calls and no historical settlement",
+  "auditPassed": true,
+  "historicalUnknownResolved": false,
+  "ledger": {
+    "path": "/tmp/agent-gand-t07-authorized-token-ledger.sqlite",
+    "readonly": true,
+    "queryOnly": true,
+    "rows": 89,
+    "knownRequests": 77,
+    "unknownRequests": 12,
+    "knownTokens": 220478,
+    "unknownReserve": 206832,
+    "conservativeTokens": 427310,
+    "operatorTokenLimit": 500000,
+    "userAuthorizedTokenLimit": 10000000,
+    "remainingWithinSelectedCap": 72690,
+    "logicalRowsSha256": "95c83752f2627f354326163883088b084e6b9a3b35150a525191c34f299c68b5",
+    "databaseBytesSha256": "a9dd1e368b39b668b0845df7df0bdcb3fa540dd3201ec00361341e96dd12f340",
+    "logicalRowsUnchanged": true,
+    "databaseBytesUnchanged": true
+  },
+  "archivedLedgerChain": [
+    {
+      "stage": "RC08",
+      "retainedRows": 68,
+      "removedExactAdditionIds": 21,
+      "originalRowsSha256": "60157fe136d8a2f1eec247b0a669618eee45127e19ec023241452132e33d9237",
+      "matchesArchivedBaseline": true
+    },
+    {
+      "stage": "RC07",
+      "retainedRows": 57,
+      "removedExactAdditionIds": 11,
+      "originalRowsSha256": "589ca4b0862ee991ab521d4e1762edf5a3750eda507d8752ea6b08611c9e10b8",
+      "matchesArchivedBaseline": true
+    },
+    {
+      "stage": "RC06",
+      "retainedRows": 47,
+      "removedExactAdditionIds": 10,
+      "originalRowsSha256": "0268fcc484f524fa7c718d9073c4dec9ee05d20dc522b4098be0001fb003adc0",
+      "matchesArchivedBaseline": true
+    },
+    {
+      "stage": "RC05",
+      "retainedRows": 33,
+      "removedExactAdditionIds": 14,
+      "originalRowsSha256": "cdad66212245419ac47c086a9afd1e0b02e69f73a34f3de88dff80287f57a30a",
+      "matchesArchivedBaseline": true
+    }
+  ],
+  "unknownByOrigin": {
+    "preRC05": {
+      "rows": 4,
+      "knownRequests": 0,
+      "unknownRequests": 4,
+      "knownTokens": 0,
+      "unknownReserve": 89758
+    },
+    "RC05": {
+      "rows": 7,
+      "knownRequests": 0,
+      "unknownRequests": 7,
+      "knownTokens": 0,
+      "unknownReserve": 97271
+    },
+    "RC06": {
+      "rows": 1,
+      "knownRequests": 0,
+      "unknownRequests": 1,
+      "knownTokens": 0,
+      "unknownReserve": 19803
+    }
+  },
+  "exactMappedRequests": 9,
+  "missingRequestIdentityBridges": 3,
+  "safeTokenSettlementsAvailable": 0,
+  "safeMonetarySettlementsAvailable": 0,
+  "unresolved": [
+    {
+      "authorizationId": "0a662bd1-f011-4859-9017-1bedab6cbf06",
+      "ledgerState": "reserved",
+      "reservedTokens": 26041,
+      "actualTokens": null,
+      "origin": "Pre-RC05 retained-row set; individual run not assigned without an ID bridge",
+      "mappingStatus": "missing request/binding identity bridge",
+      "identityObservations": [],
+      "archivedObservations": [],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original authorization-to-request/binding identity bridge",
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Original execution and side-effect identities"
+        ]
+      }
+    },
+    {
+      "authorizationId": "0fa3eebb-5478-4bc2-a9a4-53f5be02975e",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+          "bindingId": "a62b90e2-132e-43f6-a1b8-fff37eddf0c3",
+          "attemptId": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+          "invocationId": "6aaab2d5-d2f4-43d7-872e-90a1b5571ecc",
+          "causalRootId": "929c2dda-c6a6-4779-b7e4-44693446a485",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 2,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[5]",
+          "label": "api possible-send retained unknown; no replay",
+          "request": {
+            "id": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+            "authorization_id": "0fa3eebb-5478-4bc2-a9a4-53f5be02975e",
+            "binding_id": "a62b90e2-132e-43f6-a1b8-fff37eddf0c3",
+            "attempt_id": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+            "bindingId": "a62b90e2-132e-43f6-a1b8-fff37eddf0c3",
+            "attemptId": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+            "invocationId": "6aaab2d5-d2f4-43d7-872e-90a1b5571ecc",
+            "causalRootId": "929c2dda-c6a6-4779-b7e4-44693446a485",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "285a9e59-93d1-434b-81b0-5c873fb98687",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[6]",
+          "label": "api possible-send retained unknown; no replay; rescan after dispatch reopened",
+          "request": {
+            "id": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+            "authorization_id": "0fa3eebb-5478-4bc2-a9a4-53f5be02975e",
+            "binding_id": "a62b90e2-132e-43f6-a1b8-fff37eddf0c3",
+            "attempt_id": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+            "bindingId": "a62b90e2-132e-43f6-a1b8-fff37eddf0c3",
+            "attemptId": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+            "invocationId": "6aaab2d5-d2f4-43d7-872e-90a1b5571ecc",
+            "causalRootId": "929c2dda-c6a6-4779-b7e4-44693446a485",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "b03ede0f-d96c-43a9-b6ec-a356e0078dcb",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "285a9e59-93d1-434b-81b0-5c873fb98687",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[4]",
+          "boundary": {
+            "requestId": "9d1d6b02-82c6-43f4-9fe2-cc54e6038c6f",
+            "authorizationId": "0fa3eebb-5478-4bc2-a9a4-53f5be02975e",
+            "backend": "api",
+            "headersReceived": true,
+            "status": 200
+          },
+          "nativeProcesses": []
+        }
+      ],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "18269946-304b-4f96-a6c6-6c120c8026c0",
+      "ledgerState": "reserved",
+      "reservedTokens": 24707,
+      "actualTokens": null,
+      "origin": "Pre-RC05 retained-row set; individual run not assigned without an ID bridge",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "90b29064-df9f-49d8-8905-4e66145ba893",
+          "bindingId": "ee10e879-5543-4922-9d22-82042182c98e",
+          "attemptId": "179b9a9d-4fd6-4396-8bd4-652888218bf9",
+          "invocationId": "e2ae5228-ecd1-4d2d-90ff-a05d26137441",
+          "causalRootId": null,
+          "queueGeneration": null,
+          "invocationAuthorityEpoch": null,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-t12-service-recovery/real-production-sdk-only-2026-10-21T14-29-22-514Z-23b3eb69.json",
+          "pointer": "$.failures[0].facts",
+          "label": null,
+          "request": {
+            "id": "90b29064-df9f-49d8-8905-4e66145ba893",
+            "authorization_id": "18269946-304b-4f96-a6c6-6c120c8026c0",
+            "binding_id": "ee10e879-5543-4922-9d22-82042182c98e",
+            "backend": "claude-sdk",
+            "model": "glm-5.3",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null,
+            "cost_microusd": null
+          },
+          "identity": {
+            "requestId": "90b29064-df9f-49d8-8905-4e66145ba893",
+            "bindingId": "ee10e879-5543-4922-9d22-82042182c98e",
+            "attemptId": "179b9a9d-4fd6-4396-8bd4-652888218bf9",
+            "invocationId": "e2ae5228-ecd1-4d2d-90ff-a05d26137441",
+            "causalRootId": null,
+            "queueGeneration": null,
+            "invocationAuthorityEpoch": null,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "THREADED_SDK_QUIESCENCE_UNCONFIRMED",
+            "attempt": {
+              "id": "179b9a9d-4fd6-4396-8bd4-652888218bf9",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "THREADED_SDK_QUIESCENCE_UNCONFIRMED",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            },
+            "claimState": null
+          },
+          "processes": [
+            {
+              "token": "58c66b71-5293-4e56-8f6b-0ddea11e66ee",
+              "host": "ruhonglindeAir",
+              "pid": 90270,
+              "state": "verified_stopped",
+              "created_at": 1792592963459,
+              "stopped_at": 1792592972859,
+              "groupStoppedAtInspection": true
+            }
+          ],
+          "unjoinedClaimSnapshots": [],
+          "transport": [
+            {
+              "sequence": 1,
+              "method": "POST",
+              "endpointHost": "open.bigmodel.cn",
+              "pathname": "/api/anthropic/v1/messages",
+              "status": 200,
+              "state": "body_error",
+              "bodyBytes": 21580,
+              "signalAborted": true
+            }
+          ],
+          "externalEffects": {
+            "durableToolReceiptCount": 0,
+            "unresolvedCommands": 0,
+            "unresolvedActions": 0
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "3afbd4bc-53f8-4aeb-9670-2e5f6bc04529",
+      "ledgerState": "reserved",
+      "reservedTokens": 19763,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "b15a5122-3fdb-4859-83c3-80f627894319",
+          "bindingId": "8bf1a333-248f-401a-a2af-9b7fa879aae4",
+          "attemptId": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+          "invocationId": "289834f5-7ccf-4a66-bed2-43b77b889554",
+          "causalRootId": "6c1a7e8e-1107-4da0-80b0-deff018ce7c9",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 2,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[8]",
+          "label": "sdk possible-send retained unknown; no replay",
+          "request": {
+            "id": "b15a5122-3fdb-4859-83c3-80f627894319",
+            "authorization_id": "3afbd4bc-53f8-4aeb-9670-2e5f6bc04529",
+            "binding_id": "8bf1a333-248f-401a-a2af-9b7fa879aae4",
+            "attempt_id": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+            "backend": "claude-sdk",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "b15a5122-3fdb-4859-83c3-80f627894319",
+            "bindingId": "8bf1a333-248f-401a-a2af-9b7fa879aae4",
+            "attemptId": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+            "invocationId": "289834f5-7ccf-4a66-bed2-43b77b889554",
+            "causalRootId": "6c1a7e8e-1107-4da0-80b0-deff018ce7c9",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [
+            {
+              "token": "da29d211-f862-4b98-8087-a5e3aa7b1e4d",
+              "host": "ruhonglindeAir",
+              "pid": 15246,
+              "state": "registered"
+            }
+          ],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "50d0cfdb-8573-43b3-ab8b-81fb198ef848",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[9]",
+          "label": "sdk possible-send retained unknown; no replay; rescan after dispatch reopened",
+          "request": {
+            "id": "b15a5122-3fdb-4859-83c3-80f627894319",
+            "authorization_id": "3afbd4bc-53f8-4aeb-9670-2e5f6bc04529",
+            "binding_id": "8bf1a333-248f-401a-a2af-9b7fa879aae4",
+            "attempt_id": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+            "backend": "claude-sdk",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "b15a5122-3fdb-4859-83c3-80f627894319",
+            "bindingId": "8bf1a333-248f-401a-a2af-9b7fa879aae4",
+            "attemptId": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+            "invocationId": "289834f5-7ccf-4a66-bed2-43b77b889554",
+            "causalRootId": "6c1a7e8e-1107-4da0-80b0-deff018ce7c9",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "b05397d8-04e1-4b75-ab81-f5b67f46157c",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [
+            {
+              "token": "da29d211-f862-4b98-8087-a5e3aa7b1e4d",
+              "host": "ruhonglindeAir",
+              "pid": 15246,
+              "state": "registered"
+            }
+          ],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "50d0cfdb-8573-43b3-ab8b-81fb198ef848",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[7]",
+          "boundary": {
+            "requestId": "b15a5122-3fdb-4859-83c3-80f627894319",
+            "authorizationId": "3afbd4bc-53f8-4aeb-9670-2e5f6bc04529",
+            "backend": "claude-sdk",
+            "headersReceived": true,
+            "status": 200
+          },
+          "nativeProcesses": [
+            {
+              "token": "da29d211-f862-4b98-8087-a5e3aa7b1e4d",
+              "host": "ruhonglindeAir",
+              "pid": 15246,
+              "state": "registered",
+              "groupStopped": true
+            }
+          ]
+        }
+      ],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "5769d162-deaf-4ac8-8745-1fe013be3595",
+      "ledgerState": "reserved",
+      "reservedTokens": 19505,
+      "actualTokens": null,
+      "origin": "Pre-RC05 retained-row set; individual run not assigned without an ID bridge",
+      "mappingStatus": "missing request/binding identity bridge",
+      "identityObservations": [],
+      "archivedObservations": [],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original authorization-to-request/binding identity bridge",
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Original execution and side-effect identities"
+        ]
+      }
+    },
+    {
+      "authorizationId": "6e019ea5-b6c0-4c1e-8394-68efe727b649",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "ee7e944c-f903-47a2-8f4d-d91797e39262",
+          "bindingId": "e03a4104-b22e-4732-963f-8837d2310680",
+          "attemptId": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+          "invocationId": "b5e1f41c-e9b0-44d5-851a-586bdd7e3eb1",
+          "causalRootId": "cb59772e-78c3-4cd3-a422-ed35eeab9455",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 1,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-extended-second.json",
+          "pointer": "$.failures[0].facts",
+          "label": null,
+          "request": {
+            "id": "ee7e944c-f903-47a2-8f4d-d91797e39262",
+            "authorization_id": "6e019ea5-b6c0-4c1e-8394-68efe727b649",
+            "binding_id": "e03a4104-b22e-4732-963f-8837d2310680",
+            "attempt_id": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "ee7e944c-f903-47a2-8f4d-d91797e39262",
+            "bindingId": "e03a4104-b22e-4732-963f-8837d2310680",
+            "attemptId": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+            "invocationId": "b5e1f41c-e9b0-44d5-851a-586bdd7e3eb1",
+            "causalRootId": "cb59772e-78c3-4cd3-a422-ed35eeab9455",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "d5d51667-5f6b-4ac9-a11c-e3a576580b3f",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-extended-second.json",
+          "pointer": "$.evidence[0]",
+          "label": "generation headers received before actual index receipt I/O fault",
+          "request": {
+            "id": "ee7e944c-f903-47a2-8f4d-d91797e39262",
+            "authorization_id": "6e019ea5-b6c0-4c1e-8394-68efe727b649",
+            "binding_id": "e03a4104-b22e-4732-963f-8837d2310680",
+            "attempt_id": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "ee7e944c-f903-47a2-8f4d-d91797e39262",
+            "bindingId": "e03a4104-b22e-4732-963f-8837d2310680",
+            "attemptId": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+            "invocationId": "b5e1f41c-e9b0-44d5-851a-586bdd7e3eb1",
+            "causalRootId": "cb59772e-78c3-4cd3-a422-ed35eeab9455",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "946c53fb-59b8-4bc5-a7d1-6093da9c12db",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "d5d51667-5f6b-4ac9-a11c-e3a576580b3f",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "76de0837-8d83-4379-8d28-2e2ae4ac6256",
+      "ledgerState": "reserved",
+      "reservedTokens": 19505,
+      "actualTokens": null,
+      "origin": "Pre-RC05 retained-row set; individual run not assigned without an ID bridge",
+      "mappingStatus": "missing request/binding identity bridge",
+      "identityObservations": [],
+      "archivedObservations": [],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original authorization-to-request/binding identity bridge",
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Original execution and side-effect identities"
+        ]
+      }
+    },
+    {
+      "authorizationId": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+          "bindingId": "fecb064c-8005-4920-885d-8d6de0a5727c",
+          "attemptId": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+          "invocationId": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+          "causalRootId": "6cbba463-1ea3-4363-bddc-41367c19a756",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 1,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-extended.json",
+          "pointer": "$.failures[0].facts",
+          "label": null,
+          "request": {
+            "id": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "authorization_id": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+            "binding_id": "fecb064c-8005-4920-885d-8d6de0a5727c",
+            "attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "bindingId": "fecb064c-8005-4920-885d-8d6de0a5727c",
+            "attemptId": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "invocationId": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+            "causalRootId": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "b10da65c-16f5-4a8c-9490-79458f9c7219",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-extended.json",
+          "pointer": "$.evidence[0]",
+          "label": "generation headers received before actual index receipt I/O fault",
+          "request": {
+            "id": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "authorization_id": "9c39e13f-e57b-4df7-b863-10624f7c9bd9",
+            "binding_id": "fecb064c-8005-4920-885d-8d6de0a5727c",
+            "attempt_id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "6035dfdb-0166-4782-91f0-ee4d7864babc",
+            "bindingId": "fecb064c-8005-4920-885d-8d6de0a5727c",
+            "attemptId": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+            "invocationId": "ca2dbfd2-c27f-401c-b908-a7fbef68fa8f",
+            "causalRootId": "6cbba463-1ea3-4363-bddc-41367c19a756",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "8a97bf49-0783-45d4-85e3-0efca2cc2f4e",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "b10da65c-16f5-4a8c-9490-79458f9c7219",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+          "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+          "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+          "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+          "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 1,
+          "claimId": null,
+          "claimGeneration": null
+        },
+        {
+          "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+          "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+          "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+          "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+          "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 2,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-receipt-io-after-fix.json",
+          "pointer": "$.evidence[0]",
+          "label": "generation headers received before actual index receipt I/O fault",
+          "request": {
+            "id": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "authorization_id": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+            "binding_id": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attempt_id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+            "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "a9bf81a4-a401-48f6-b651-6cf8c243bea4",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-receipt-io-after-fix.json",
+          "pointer": "$.evidence[1]",
+          "label": "receipt and unknown persistence denied by real SQLite READONLY; no false terminal",
+          "request": {
+            "id": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "authorization_id": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+            "binding_id": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attempt_id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+            "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "a9bf81a4-a401-48f6-b651-6cf8c243bea4",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-receipt-io-after-fix.json",
+          "pointer": "$.evidence[2]",
+          "label": "receipt I/O failure after a real generation request recovers unknown without replay",
+          "request": {
+            "id": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "authorization_id": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+            "binding_id": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attempt_id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+            "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "a9bf81a4-a401-48f6-b651-6cf8c243bea4",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-receipt-io-after-fix.json",
+          "pointer": "$.evidence[3]",
+          "label": "receipt I/O failure after a real generation request recovers unknown without replay; rescan after dispatch reopened",
+          "request": {
+            "id": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "authorization_id": "a9698342-fc3a-46d1-8158-0e035a3e5098",
+            "binding_id": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attempt_id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "3dbd10e9-1ff5-476c-a57b-9a97be7b2451",
+            "bindingId": "ccbe170f-9ddc-4d24-9257-a8697d392747",
+            "attemptId": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+            "invocationId": "daf9b479-193e-40d0-8e04-2b9f495c7e4f",
+            "causalRootId": "3a09fb7d-c860-4811-8b3e-b2240dd938cb",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "71c165fd-22e8-448d-9713-32cdc1ea0ad2",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "a9bf81a4-a401-48f6-b651-6cf8c243bea4",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+      "ledgerState": "reserved",
+      "reservedTokens": 19803,
+      "actualTokens": null,
+      "origin": "RC06 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+          "bindingId": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+          "attemptId": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+          "invocationId": "e3e9131e-633d-499d-a568-82d5cf373267",
+          "causalRootId": "aa6ec34e-d782-4307-9588-fbec8fb1573f",
+          "queueGeneration": null,
+          "invocationAuthorityEpoch": null,
+          "claimId": "8e18647c-3bf5-4d1d-bdf9-a30fcc984583",
+          "claimGeneration": 1
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+          "pointer": "$.evidence[8]",
+          "label": "two actual SDK guardians awaiting only their own generation barriers",
+          "request": {
+            "id": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "authorization_id": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+            "attempt_id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocation_id": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "backend": "claude-sdk",
+            "state": "sending",
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "bindingId": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+            "attemptId": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocationId": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "causalRootId": "aa6ec34e-d782-4307-9588-fbec8fb1573f",
+            "queueGeneration": null,
+            "invocationAuthorityEpoch": null,
+            "claimId": "8e18647c-3bf5-4d1d-bdf9-a30fcc984583",
+            "claimGeneration": 1
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+              "status": "running",
+              "execution_stage": "started",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null
+            },
+            "claimState": "started"
+          },
+          "processes": [
+            {
+              "token": "04d0890b-a93f-4392-8210-b59c6a68d316",
+              "binding_id": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+              "host": "ruhonglindeAir",
+              "pid": 26201,
+              "state": "registered"
+            }
+          ],
+          "unjoinedClaimSnapshots": [],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+          "pointer": "$.evidence[9]",
+          "label": "both SDK generation requests reached supplier headers before cancelling only A",
+          "request": {
+            "id": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "authorization_id": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+            "attempt_id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocation_id": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "backend": "claude-sdk",
+            "state": "sending",
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "bindingId": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+            "attemptId": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocationId": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "causalRootId": "aa6ec34e-d782-4307-9588-fbec8fb1573f",
+            "queueGeneration": null,
+            "invocationAuthorityEpoch": null,
+            "claimId": "8e18647c-3bf5-4d1d-bdf9-a30fcc984583",
+            "claimGeneration": 1
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+              "status": "running",
+              "execution_stage": "started",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null
+            },
+            "claimState": "started"
+          },
+          "processes": [
+            {
+              "token": "04d0890b-a93f-4392-8210-b59c6a68d316",
+              "binding_id": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+              "host": "ruhonglindeAir",
+              "pid": 26201,
+              "state": "registered"
+            }
+          ],
+          "unjoinedClaimSnapshots": [],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+          "pointer": "$.evidence[10].facts",
+          "label": null,
+          "request": {
+            "id": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "authorization_id": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+            "attempt_id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocation_id": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "backend": "claude-sdk",
+            "state": "unknown",
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "bindingId": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+            "attemptId": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocationId": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "causalRootId": "aa6ec34e-d782-4307-9588-fbec8fb1573f",
+            "queueGeneration": null,
+            "invocationAuthorityEpoch": null,
+            "claimId": "8e18647c-3bf5-4d1d-bdf9-a30fcc984583",
+            "claimGeneration": 1
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "THREADED_SDK_QUIESCENCE_UNCONFIRMED",
+            "attempt": {
+              "id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            },
+            "claimState": "unknown"
+          },
+          "processes": [
+            {
+              "token": "04d0890b-a93f-4392-8210-b59c6a68d316",
+              "binding_id": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+              "host": "ruhonglindeAir",
+              "pid": 26201,
+              "state": "verified_stopped"
+            }
+          ],
+          "unjoinedClaimSnapshots": [],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+          "pointer": "$.evidence[11]",
+          "label": "cancel A retains its unknown fence; B completes with stopped native process and no replay",
+          "request": {
+            "id": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "authorization_id": "c7fb88e3-dbe5-478a-afca-f56715080fb0",
+            "attempt_id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocation_id": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "backend": "claude-sdk",
+            "state": "unknown",
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "58153dd5-e86e-49cb-9c07-2638be1cdc46",
+            "bindingId": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+            "attemptId": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+            "invocationId": "e3e9131e-633d-499d-a568-82d5cf373267",
+            "causalRootId": "aa6ec34e-d782-4307-9588-fbec8fb1573f",
+            "queueGeneration": null,
+            "invocationAuthorityEpoch": null,
+            "claimId": "8e18647c-3bf5-4d1d-bdf9-a30fcc984583",
+            "claimGeneration": 1
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "THREADED_SDK_QUIESCENCE_UNCONFIRMED",
+            "attempt": {
+              "id": "82b706c7-e97d-4381-b0fe-aeb52b5698dd",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN"
+            },
+            "claimState": "unknown"
+          },
+          "processes": [
+            {
+              "token": "04d0890b-a93f-4392-8210-b59c6a68d316",
+              "binding_id": "478c98da-54b2-42c3-a44c-ea2b6a9efdd1",
+              "host": "ruhonglindeAir",
+              "pid": 26201,
+              "state": "verified_stopped"
+            }
+          ],
+          "unjoinedClaimSnapshots": [],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "cbae4fe5-4c6c-4720-a6a9-40cb51ad8c75",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+          "bindingId": "0956a228-17c4-430e-8e43-59158f13ad0e",
+          "attemptId": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+          "invocationId": "2b079ae2-fea9-4703-8a74-916ebf705f43",
+          "causalRootId": "d960d354-3512-443a-8311-80a3e182e9e6",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 1,
+          "claimId": null,
+          "claimGeneration": null
+        },
+        {
+          "requestId": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+          "bindingId": "0956a228-17c4-430e-8e43-59158f13ad0e",
+          "attemptId": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+          "invocationId": "2b079ae2-fea9-4703-8a74-916ebf705f43",
+          "causalRootId": "d960d354-3512-443a-8311-80a3e182e9e6",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 2,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[10]",
+          "label": "actual request active at lifecycle approval fault hook",
+          "request": {
+            "id": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "authorization_id": "cbae4fe5-4c6c-4720-a6a9-40cb51ad8c75",
+            "binding_id": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attempt_id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "bindingId": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attemptId": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "invocationId": "2b079ae2-fea9-4703-8a74-916ebf705f43",
+            "causalRootId": "d960d354-3512-443a-8311-80a3e182e9e6",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "c23264d1-26ca-46d9-9d2e-e4bd252eb1bf",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[11]",
+          "label": "old approval expired; reauthenticated approval cannot revive interrupted driver",
+          "request": {
+            "id": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "authorization_id": "cbae4fe5-4c6c-4720-a6a9-40cb51ad8c75",
+            "binding_id": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attempt_id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "bindingId": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attemptId": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "invocationId": "2b079ae2-fea9-4703-8a74-916ebf705f43",
+            "causalRootId": "d960d354-3512-443a-8311-80a3e182e9e6",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "c23264d1-26ca-46d9-9d2e-e4bd252eb1bf",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[12]",
+          "label": "old approval expired; reauthenticated approval cannot revive interrupted driver; rescan after dispatch reopened",
+          "request": {
+            "id": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "authorization_id": "cbae4fe5-4c6c-4720-a6a9-40cb51ad8c75",
+            "binding_id": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attempt_id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "fd0a73c5-a7dc-49a5-8f28-38e025de250b",
+            "bindingId": "0956a228-17c4-430e-8e43-59158f13ad0e",
+            "attemptId": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+            "invocationId": "2b079ae2-fea9-4703-8a74-916ebf705f43",
+            "causalRootId": "d960d354-3512-443a-8311-80a3e182e9e6",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "PROCESS_RESTART_UNKNOWN",
+            "attempt": {
+              "id": "c08c79ee-e715-4d48-b6db-b1c88435bf14",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "PROCESS_RESTART",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "c23264d1-26ca-46d9-9d2e-e4bd252eb1bf",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    },
+    {
+      "authorizationId": "e314062b-e1ed-44ee-a816-cd2e67bd74a4",
+      "ledgerState": "reserved",
+      "reservedTokens": 12918,
+      "actualTokens": null,
+      "origin": "RC05 exact added-request set",
+      "mappingStatus": "exact archived request identity",
+      "identityObservations": [
+        {
+          "requestId": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+          "bindingId": "f8af98d8-cb05-4a64-979d-2653a75de523",
+          "attemptId": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+          "invocationId": "6972c06f-0379-4f3c-8d9d-89eadc86926d",
+          "causalRootId": "4dfeb6a1-ff75-4011-9b3f-46914e4c5800",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 1,
+          "claimId": null,
+          "claimGeneration": null
+        },
+        {
+          "requestId": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+          "bindingId": "f8af98d8-cb05-4a64-979d-2653a75de523",
+          "attemptId": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+          "invocationId": "6972c06f-0379-4f3c-8d9d-89eadc86926d",
+          "causalRootId": "4dfeb6a1-ff75-4011-9b3f-46914e4c5800",
+          "queueGeneration": 1,
+          "invocationAuthorityEpoch": 2,
+          "claimId": null,
+          "claimGeneration": null
+        }
+      ],
+      "archivedObservations": [
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[13]",
+          "label": "actual request active before account revocation",
+          "request": {
+            "id": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+            "authorization_id": "e314062b-e1ed-44ee-a816-cd2e67bd74a4",
+            "binding_id": "f8af98d8-cb05-4a64-979d-2653a75de523",
+            "attempt_id": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+            "backend": "api",
+            "state": "sending",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+            "bindingId": "f8af98d8-cb05-4a64-979d-2653a75de523",
+            "attemptId": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+            "invocationId": "6972c06f-0379-4f3c-8d9d-89eadc86926d",
+            "causalRootId": "4dfeb6a1-ff75-4011-9b3f-46914e4c5800",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 1,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "running",
+            "reason": null,
+            "attempt": {
+              "id": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+              "status": "running",
+              "execution_stage": "started",
+              "execution_reason": null,
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "claimed",
+              "reason": null,
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "68a74cc0-74c0-49b8-aec5-58e7b5b007a0",
+              "state": "started"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        },
+        {
+          "source": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+          "pointer": "$.evidence[14]",
+          "label": "account disabled in isolated DB survives restart; no driver/output authority",
+          "request": {
+            "id": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+            "authorization_id": "e314062b-e1ed-44ee-a816-cd2e67bd74a4",
+            "binding_id": "f8af98d8-cb05-4a64-979d-2653a75de523",
+            "attempt_id": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+            "backend": "api",
+            "state": "unknown",
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null
+          },
+          "identity": {
+            "requestId": "6f8f5e14-b246-4bd5-98dc-0c9e1008b2c2",
+            "bindingId": "f8af98d8-cb05-4a64-979d-2653a75de523",
+            "attemptId": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+            "invocationId": "6972c06f-0379-4f3c-8d9d-89eadc86926d",
+            "causalRootId": "4dfeb6a1-ff75-4011-9b3f-46914e4c5800",
+            "queueGeneration": 1,
+            "invocationAuthorityEpoch": 2,
+            "claimId": null,
+            "claimGeneration": null
+          },
+          "execution": {
+            "invocationStatus": "unknown",
+            "reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+            "attempt": {
+              "id": "3bf42308-ebf7-40ab-a284-7f2085fd68f5",
+              "status": "unknown",
+              "execution_stage": "unknown",
+              "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+              "resource_release_state": null
+            },
+            "queue": {
+              "state": "unknown",
+              "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+              "authorization_version": 1,
+              "generation": 1
+            },
+            "claimState": null
+          },
+          "processes": [],
+          "unjoinedClaimSnapshots": [
+            {
+              "id": "68a74cc0-74c0-49b8-aec5-58e7b5b007a0",
+              "state": "unknown"
+            }
+          ],
+          "transport": [],
+          "externalEffects": {
+            "durableToolReceiptCount": null,
+            "unresolvedCommands": null,
+            "unresolvedActions": null
+          }
+        }
+      ],
+      "hostObservations": [],
+      "reconciliation": {
+        "tokenUsage": "unknown; retain full reservation",
+        "monetaryCost": "unknown; no per-request price/charge receipt",
+        "providerRequestId": "not present in the selected archived evidence",
+        "replay": "prohibited while original execution/effects remain unknown",
+        "release": "no automatic refund, claim release or Invocation completion from a stopped PID or HTTP 200",
+        "requiredEvidence": [
+          "Original provider request correlation and complete trusted usage/charge receipt",
+          "Exact original binding/claim generation and trusted quiescence/effect proof before any resource mutation"
+        ]
+      }
+    }
+  ],
+  "aggregateOnlyHistory": [
+    {
+      "source": "docs/reports/evidence/threaded-t07-real-sdk.json",
+      "unknownDelta": 19505,
+      "individualAuthorizationId": null
+    },
+    {
+      "source": "docs/reports/evidence/threaded-t07-real-sdk-reopen.json",
+      "unknownDelta": 19505,
+      "individualAuthorizationId": null
+    },
+    {
+      "source": "docs/reports/evidence/threaded-t12-service-recovery/real-production.json",
+      "unknownDelta": 26041,
+      "individualAuthorizationId": null
+    }
+  ],
+  "missingIdentitySearch": {
+    "root": "docs/reports/evidence",
+    "excluded": [
+      "threaded-rc09"
+    ],
+    "jsonFilesRead": 178,
+    "exactIdMatches": []
+  },
+  "retainedIsolation": {
+    "source": "T12 SDK diagnostic failedIsolationRoot",
+    "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-t12-production-real-Sxxkcv",
+    "exists": true,
+    "metadataOnly": true,
+    "databaseFileCount": 0,
+    "nativeOrCredentialFilesRead": 0
+  },
+  "conclusions": [
+    "T07 two 19505 reservations and T12 first 26041 are aggregate corroboration only; value or insertion order is not an identity bridge.",
+    "T12 diagnostic 18269946 and RC06 c7fb88e3 include archived durable verified_stopped processes; their requests and resource/execution facts remain unknown.",
+    "RC05 3afbd4bc has a same-event exact guardian token/host/PID groupStopped observation, while the archived durable process still says registered. This audit does not mutate it.",
+    "RC05 two extended timeouts retain their exact request identities and unknown reservations; subsequent passing tests do not establish their original cause.",
+    "HTTP headers and process quiescence cannot supply final token or monetary facts. Budget costMicrousd reservations are not provider invoices.",
+    "No global assertion that external side effects are absent: available receipts/command/action snapshots are scoped and incomplete; no replay or synthetic zero-effect proof is created.",
+    "Historical inventory can pass while all 12 reservations remain unknown. Retain/pause original work; resume requires separate trusted original identity and domain facts."
+  ],
+  "sources": [
+    {
+      "path": "docs/reports/evidence/threaded-t07-real-sdk.json",
+      "sha256": "c03dfbeba5764ad095b8b6e76db24b613965786987d7cbfdc0b61a69936dea42"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t07-real-sdk-reopen.json",
+      "sha256": "50e68c6f0c2e7e6ec04be0978569c056061f3b6f573c8271b2f41863f6f711b2"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t12-service-recovery/real-production.json",
+      "sha256": "a32606032ca47c0d64041404cba669336fa17ab6fa04cb1ac57c9e947d093bc5"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-t12-service-recovery/real-production-sdk-only-2026-10-21T14-29-22-514Z-23b3eb69.json",
+      "sha256": "0739fcc22b930907be5fdaf2d1856f377c167b9c068d61eab46423c8d3321549"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc05/main-live-second.json",
+      "sha256": "375a99c95bc655e42d984d3993b3b79a7ee1ff2e8e4853f0e7748cad4e1fe7e7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc05/main-live-extended.json",
+      "sha256": "7c874532a6a648342d8c561cc6441c4b2de65bb405b9cecb23d5f90b8aba9256"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc05/main-live-extended-second.json",
+      "sha256": "04d47e79cc22bd8ea32bd3ad82552e2e561bb782e78c121c8e46806c9a1d3a0c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc05/main-live-receipt-io-after-fix.json",
+      "sha256": "77eba341e3eb81fecbae61be733b86bd6f2bac89df8525e448af38c08db4aebd"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/main-live-first.json",
+      "sha256": "8008fa39acd18907c954ae845273f7bfb748d49f580c67a887e6c3c4427d43bf"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc05/ledger.json",
+      "sha256": "08722beeafc4e584659f9fd4c3654ca4f54f75fa7098b9de816f46e0cb315296"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc06/ledger.json",
+      "sha256": "e053429ec7400975ba5c5bb933708a031afbb1ee38e81e5899e59a3ec72eb75e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc07/ledger.json",
+      "sha256": "14d493683fd872a88c08d7ea799f8ad689d433cf34b15ede66c55fbe49fa760c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc08/ledger.json",
+      "sha256": "adebd33bfd2c5df8673b5ce352d6032f2c7ca7f725a0d12a2f147339c31bc0e9"
+    }
+  ],
+  "actions": {
+    "supplierCalls": 0,
+    "credentialsRead": false,
+    "dailyDatabaseRead": false,
+    "ledgerWrites": 0,
+    "historicalEvidenceWrites": 0,
+    "processSignals": 0,
+    "resourceReleases": 0,
+    "usageRefunds": 0,
+    "executionReplays": 0
+  }
+}

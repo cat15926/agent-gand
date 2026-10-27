@@ -1,0 +1,2916 @@
+{
+  "ok": true,
+  "stage": "RC09",
+  "date": "2026-10-27T04:59:26.671Z",
+  "groups": 6,
+  "checks": [
+    {
+      "id": "api-receipt",
+      "passed": true,
+      "elapsedMs": 1846
+    },
+    {
+      "id": "sdk-receipt",
+      "passed": true,
+      "elapsedMs": 3240
+    },
+    {
+      "id": "sdk-closed",
+      "passed": true,
+      "elapsedMs": 2935
+    },
+    {
+      "id": "unknown-request",
+      "passed": true,
+      "elapsedMs": 1298
+    },
+    {
+      "id": "observe",
+      "passed": true,
+      "elapsedMs": 1530
+    },
+    {
+      "id": "closed-no-pack",
+      "passed": true,
+      "elapsedMs": 1433
+    }
+  ],
+  "failures": [],
+  "actualMainIndex": true,
+  "entry": "apps/server/src/index.ts",
+  "actualPids": [
+    {
+      "name": "api-receipt",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 47861
+    },
+    {
+      "name": "api-receipt",
+      "restore": true,
+      "mode": "execute",
+      "configured": true,
+      "pid": 47882
+    },
+    {
+      "name": "sdk-receipt",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 47901
+    },
+    {
+      "name": "sdk-receipt",
+      "restore": true,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48025
+    },
+    {
+      "name": "sdk-closed",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48044
+    },
+    {
+      "name": "sdk-closed",
+      "restore": true,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48097
+    },
+    {
+      "name": "unknown-request",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48125
+    },
+    {
+      "name": "unknown-request",
+      "restore": true,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48135
+    },
+    {
+      "name": "observe",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48154
+    },
+    {
+      "name": "observe",
+      "restore": true,
+      "mode": "observe",
+      "configured": true,
+      "pid": 48170
+    },
+    {
+      "name": "closed-no-pack",
+      "restore": false,
+      "mode": "execute",
+      "configured": true,
+      "pid": 48189
+    },
+    {
+      "name": "closed-no-pack",
+      "restore": true,
+      "mode": "closed",
+      "configured": false,
+      "pid": 48199
+    }
+  ],
+  "actualSdk": "0.3.288",
+  "realSupplierRequests": 0,
+  "syntheticCredentialsOnly": true,
+  "isolatedExecutionBypass": false,
+  "cleanup": [
+    {
+      "token": "207e9fd9-d2d1-4385-b053-a0382b3438fd",
+      "binding_id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+      "host": "ruhonglindeAir",
+      "pid": 47919,
+      "state": "registered",
+      "created_at": 1793077157014,
+      "stopped_at": null,
+      "groupStopped": true,
+      "scope": "same-run observer only; does not update durable process rows or prove provider completion"
+    },
+    {
+      "token": "f43f0d52-d66f-4c27-9346-f8fdd52d17ef",
+      "binding_id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+      "host": "ruhonglindeAir",
+      "pid": 48054,
+      "state": "closed",
+      "created_at": 1793077160234,
+      "stopped_at": 1793077161616,
+      "groupStopped": true,
+      "scope": "same-run observer only; does not update durable process rows or prove provider completion"
+    }
+  ],
+  "evidence": [
+    {
+      "name": "api-receipt",
+      "phase": "fault-window",
+      "point": "after complete receipt before budget settlement",
+      "snapshot": {
+        "pid": 47861,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "authorizationId": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "bindingId": "a7e8ab48-f974-4261-980f-d839f511ca0c",
+            "attemptId": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "backend": "api",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "status": "running",
+            "current_attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "causal_root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "a7e8ab48-f974-4261-980f-d839f511ca0c",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "agent_id": "rc09-api",
+            "run_id": "ed348381-a365-4edb-b3fa-641775c0992a",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "claim_owner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:15.206Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "binding_id": "a7e8ab48-f974-4261-980f-d839f511ca0c",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "e75c6964-013f-4464-b62d-b8d8ffa125cb",
+            "payload_hash": "0cffd874bea52b48fb94535791e4684f5470c7af6a6594112e2e80ee7b08d5ae",
+            "request_hash": "6558bcb8419f6f0556882ba4720a5594a4beede90fd1c26bb11f4df68a81c4b2",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077155344,
+            "settled_at": 1793077155371
+          }
+        ],
+        "budget": [
+          {
+            "id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "request_key": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "request_hash": "a6f5e4550285dfec82bd75b5b9c1d823cf92e89755afab52b03c189ba1b79aa9",
+            "policy_version": 2,
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "claim_owner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "started",
+            "usage_state": "reserved",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": null,
+            "created_at": 1793077155203,
+            "started_at": 1793077155328,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "c53b5892-39a9-4b37-a278-405b3b4891f2",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "operation_key": "attempt-runtime:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "kind": "tool",
+            "started_at": 1793077155233,
+            "observed_at": 1793077155247,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "6f02c062-d69a-4427-8355-644212b53ba0",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "operation_key": "model:c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "kind": "model",
+            "started_at": 1793077155329,
+            "observed_at": 1793077155329,
+            "ended_at": null,
+            "state": "active"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+              "generation": 1,
+              "fencingToken": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+              "claimOwner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+              "ownerId": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+              "threadId": "6714c141-716c-4da6-bc82-9c228bd8c046",
+              "invocationId": "f938d734-701e-4751-b724-3729f2d43f12",
+              "runId": "ed348381-a365-4edb-b3fa-641775c0992a",
+              "attemptId": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "2a1e9387-63ae-4efb-ad14-28adc4b9780e",
+            "state": "started",
+            "expiresAt": 1793077170247,
+            "request": {
+              "requestKey": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "operationId": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "mode": "threaded",
+              "ownerId": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+              "agentId": "rc09-api",
+              "runId": "ed348381-a365-4edb-b3fa-641775c0992a",
+              "attemptId": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "threadId": "6714c141-716c-4da6-bc82-9c228bd8c046",
+              "invocationId": "f938d734-701e-4751-b724-3729f2d43f12",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "39e975bc-7ad7-4e29-a5fa-285811da37b5",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/api-receipt/sandbox/threaded/22f750e8-04b7-4c19-8976-41276d98f8fd/6714c141-716c-4da6-bc82-9c228bd8c046/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "97c1704d-bdd4-464d-917b-6f66f75747af",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "api-receipt",
+      "phase": "automatic-startup-recovery",
+      "snapshot": {
+        "pid": 47882,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "status": "unknown",
+            "current_attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "causal_root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "recovery_reason": "PROCESS_RESTART_UNKNOWN"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "PROCESS_RESTART",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "a7e8ab48-f974-4261-980f-d839f511ca0c",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "agent_id": "rc09-api",
+            "run_id": "ed348381-a365-4edb-b3fa-641775c0992a",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "claim_owner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:15.206Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "binding_id": "a7e8ab48-f974-4261-980f-d839f511ca0c",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "e75c6964-013f-4464-b62d-b8d8ffa125cb",
+            "payload_hash": "0cffd874bea52b48fb94535791e4684f5470c7af6a6594112e2e80ee7b08d5ae",
+            "request_hash": "6558bcb8419f6f0556882ba4720a5594a4beede90fd1c26bb11f4df68a81c4b2",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077155344,
+            "settled_at": 1793077155371
+          }
+        ],
+        "budget": [
+          {
+            "id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "thread_id": "6714c141-716c-4da6-bc82-9c228bd8c046",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "request_key": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "request_hash": "a6f5e4550285dfec82bd75b5b9c1d823cf92e89755afab52b03c189ba1b79aa9",
+            "policy_version": 2,
+            "claim_id": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+            "generation": 1,
+            "fencing_token": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+            "claim_owner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "created_at": 1793077155203,
+            "started_at": 1793077155328,
+            "settled_at": 1793077156096
+          }
+        ],
+        "reconciliations": [
+          {
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "request_id": "request:threaded-backend-request:871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "request_hash": "eb656ec506d3f5ff38d013e57fa2e03b35996eeebc3db65f7e53024fa5e81f4f",
+            "evidence_reference": "threaded-backend-request:871c9cca-c9a1-4b0e-bd70-79f0db747121",
+            "created_at": 1793077156096
+          }
+        ],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "c53b5892-39a9-4b37-a278-405b3b4891f2",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "operation_key": "attempt-runtime:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "kind": "tool",
+            "started_at": 1793077155233,
+            "observed_at": 1793077156093,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "6f02c062-d69a-4427-8355-644212b53ba0",
+            "root_id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "owner_id": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+            "attempt_id": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+            "authorization_id": "c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "operation_key": "model:c4433fec-b737-42c6-8bcc-cf4e60a25b2f",
+            "kind": "model",
+            "started_at": 1793077155329,
+            "observed_at": 1793077156096,
+            "ended_at": 1793077156096,
+            "state": "closed"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "3dc5471a-88b6-43bc-85a1-24fb7452c809",
+              "generation": 1,
+              "fencingToken": "0341bda5-aaf2-4a00-9d41-60b0f4998bfa",
+              "claimOwner": "789ad266-eb9b-4f84-8aaf-4440d25fceca",
+              "ownerId": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+              "threadId": "6714c141-716c-4da6-bc82-9c228bd8c046",
+              "invocationId": "f938d734-701e-4751-b724-3729f2d43f12",
+              "runId": "ed348381-a365-4edb-b3fa-641775c0992a",
+              "attemptId": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "2a1e9387-63ae-4efb-ad14-28adc4b9780e",
+            "state": "unknown",
+            "expiresAt": 1793077170247,
+            "request": {
+              "requestKey": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "operationId": "queue:97c1704d-bdd4-464d-917b-6f66f75747af:12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "mode": "threaded",
+              "ownerId": "22f750e8-04b7-4c19-8976-41276d98f8fd",
+              "agentId": "rc09-api",
+              "runId": "ed348381-a365-4edb-b3fa-641775c0992a",
+              "attemptId": "12e2375f-bbf7-4d7c-a53c-2d946ebe8fe5",
+              "threadId": "6714c141-716c-4da6-bc82-9c228bd8c046",
+              "invocationId": "f938d734-701e-4751-b724-3729f2d43f12",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "39e975bc-7ad7-4e29-a5fa-285811da37b5",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/api-receipt/sandbox/threaded/22f750e8-04b7-4c19-8976-41276d98f8fd/6714c141-716c-4da6-bc82-9c228bd8c046/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "97c1704d-bdd4-464d-917b-6f66f75747af",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "f938d734-701e-4751-b724-3729f2d43f12"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "c935f82c-42e9-4234-a715-ec817a3185e7",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "sdk-receipt",
+      "phase": "fault-window",
+      "point": "after complete receipt before budget settlement",
+      "snapshot": {
+        "pid": 47901,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "authorizationId": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "bindingId": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "attemptId": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "backend": "claude-sdk",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "status": "running",
+            "current_attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "causal_root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "agent_id": "rc09-sdk",
+            "run_id": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "claim_owner": "ff162ad8-e039-40e4-8368-00e654b47582",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "073e6dbedfcfb0eff4dce2cb47df01118facb6f725b116da7bdf567eaa62e5a1",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:16.862Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "binding_id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "backend": "claude-sdk",
+            "request_key": "sdk:1",
+            "manifest_id": "f35a5686-9631-4db6-ae85-8bcbcfe80e12",
+            "payload_hash": "9ee5d4d73227d8c7a77ab56ff3a489da71a34b04ca5f2b36a48da8f86a98bddc",
+            "request_hash": "d4292d616f557551348c84e6de5e1ad13faeb107f03d93346b3ed96f080c40fc",
+            "native_id": "98538ad0-b3a9-40aa-ab8f-4926a2929493",
+            "session_version": 1,
+            "backend_version": "0.3.288",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077158105,
+            "settled_at": 1793077158171
+          }
+        ],
+        "budget": [
+          {
+            "id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "request_key": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "request_hash": "c26d85db8ec2c643ebe045d1793d1df64a1b07661260cb8bafed694395d150b4",
+            "policy_version": 2,
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "claim_owner": "ff162ad8-e039-40e4-8368-00e654b47582",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "started",
+            "usage_state": "reserved",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": null,
+            "created_at": 1793077156859,
+            "started_at": 1793077158096,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "ef75db1b-0836-4317-9073-843b2cabe3c8",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "operation_key": "attempt-runtime:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "kind": "tool",
+            "started_at": 1793077156886,
+            "observed_at": 1793077156898,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "4a33af27-0408-45d5-bd88-34202668198e",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "operation_key": "model:538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "kind": "model",
+            "started_at": 1793077158096,
+            "observed_at": 1793077158096,
+            "ended_at": null,
+            "state": "active"
+          }
+        ],
+        "processes": [
+          {
+            "token": "207e9fd9-d2d1-4385-b053-a0382b3438fd",
+            "binding_id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "host": "ruhonglindeAir",
+            "pid": 47919,
+            "state": "registered",
+            "created_at": 1793077157014,
+            "stopped_at": null
+          }
+        ],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+              "generation": 1,
+              "fencingToken": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+              "claimOwner": "ff162ad8-e039-40e4-8368-00e654b47582",
+              "ownerId": "4376e734-60fb-4954-b830-712bbdf3f15c",
+              "threadId": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+              "invocationId": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+              "runId": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+              "attemptId": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "agentId": "rc09-sdk"
+            },
+            "ticketId": "9902f9f7-6749-48ad-bc04-446676916107",
+            "state": "started",
+            "expiresAt": 1793077171898,
+            "request": {
+              "requestKey": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "operationId": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "mode": "threaded",
+              "ownerId": "4376e734-60fb-4954-b830-712bbdf3f15c",
+              "agentId": "rc09-sdk",
+              "runId": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+              "attemptId": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "threadId": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+              "invocationId": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "claude-sdk",
+              "session": {
+                "id": "c3c0a2dd-46b1-402e-96a6-e58043d0d430",
+                "version": 1,
+                "nativeId": "98538ad0-b3a9-40aa-ab8f-4926a2929493",
+                "resourceKey": "native-session:af1c7112288e36c0b06e0eb57da9d9057138909dfafc5f107bfb7df83095dd57"
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/sdk-receipt/sandbox/threaded/4376e734-60fb-4954-b830-712bbdf3f15c/906db814-0d3c-4d81-b5bf-171196a3cc85/rc09-sdk",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "68f26745-f7b6-4944-838d-7f98510bf1ed",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "sdk-receipt",
+      "phase": "automatic-startup-recovery",
+      "snapshot": {
+        "pid": 48025,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "status": "unknown",
+            "current_attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "causal_root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "recovery_reason": "PROCESS_RESTART_UNKNOWN"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "PROCESS_RESTART",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "agent_id": "rc09-sdk",
+            "run_id": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "claim_owner": "ff162ad8-e039-40e4-8368-00e654b47582",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "073e6dbedfcfb0eff4dce2cb47df01118facb6f725b116da7bdf567eaa62e5a1",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:16.862Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "binding_id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "backend": "claude-sdk",
+            "request_key": "sdk:1",
+            "manifest_id": "f35a5686-9631-4db6-ae85-8bcbcfe80e12",
+            "payload_hash": "9ee5d4d73227d8c7a77ab56ff3a489da71a34b04ca5f2b36a48da8f86a98bddc",
+            "request_hash": "d4292d616f557551348c84e6de5e1ad13faeb107f03d93346b3ed96f080c40fc",
+            "native_id": "98538ad0-b3a9-40aa-ab8f-4926a2929493",
+            "session_version": 1,
+            "backend_version": "0.3.288",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077158105,
+            "settled_at": 1793077158171
+          }
+        ],
+        "budget": [
+          {
+            "id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "thread_id": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "request_key": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "request_hash": "c26d85db8ec2c643ebe045d1793d1df64a1b07661260cb8bafed694395d150b4",
+            "policy_version": 2,
+            "claim_id": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+            "generation": 1,
+            "fencing_token": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+            "claim_owner": "ff162ad8-e039-40e4-8368-00e654b47582",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "created_at": 1793077156859,
+            "started_at": 1793077158096,
+            "settled_at": 1793077159295
+          }
+        ],
+        "reconciliations": [
+          {
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "request_id": "request:threaded-backend-request:671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "request_hash": "0096c428740fe79d4ec4f04bff69e02912c33cf7a69983dbe30d6b6d2e4f29bf",
+            "evidence_reference": "threaded-backend-request:671df4d8-2eb8-4b37-97f0-54be25f679c1",
+            "created_at": 1793077159296
+          }
+        ],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "ef75db1b-0836-4317-9073-843b2cabe3c8",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "operation_key": "attempt-runtime:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "kind": "tool",
+            "started_at": 1793077156886,
+            "observed_at": 1793077159293,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "4a33af27-0408-45d5-bd88-34202668198e",
+            "root_id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "owner_id": "4376e734-60fb-4954-b830-712bbdf3f15c",
+            "attempt_id": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+            "authorization_id": "538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "operation_key": "model:538bbacc-3fe2-4040-ae75-2ffddf09f8b3",
+            "kind": "model",
+            "started_at": 1793077158096,
+            "observed_at": 1793077159295,
+            "ended_at": 1793077159295,
+            "state": "closed"
+          }
+        ],
+        "processes": [
+          {
+            "token": "207e9fd9-d2d1-4385-b053-a0382b3438fd",
+            "binding_id": "da6f08dd-5d3c-4b8e-854f-46f9d19303fc",
+            "host": "ruhonglindeAir",
+            "pid": 47919,
+            "state": "registered",
+            "created_at": 1793077157014,
+            "stopped_at": null
+          }
+        ],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "fb0a3bc0-8f7f-4a61-8b39-3641b2d27921",
+              "generation": 1,
+              "fencingToken": "29183de6-133f-45d7-81d2-d7d7df2421f3",
+              "claimOwner": "ff162ad8-e039-40e4-8368-00e654b47582",
+              "ownerId": "4376e734-60fb-4954-b830-712bbdf3f15c",
+              "threadId": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+              "invocationId": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+              "runId": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+              "attemptId": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "agentId": "rc09-sdk"
+            },
+            "ticketId": "9902f9f7-6749-48ad-bc04-446676916107",
+            "state": "unknown",
+            "expiresAt": 1793077171898,
+            "request": {
+              "requestKey": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "operationId": "queue:68f26745-f7b6-4944-838d-7f98510bf1ed:dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "mode": "threaded",
+              "ownerId": "4376e734-60fb-4954-b830-712bbdf3f15c",
+              "agentId": "rc09-sdk",
+              "runId": "15b3db2f-6a7f-4263-ab60-f3801df86435",
+              "attemptId": "dfe78ae7-3151-469f-8b0b-8c71bc46a187",
+              "threadId": "906db814-0d3c-4d81-b5bf-171196a3cc85",
+              "invocationId": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "claude-sdk",
+              "session": {
+                "id": "c3c0a2dd-46b1-402e-96a6-e58043d0d430",
+                "version": 1,
+                "nativeId": "98538ad0-b3a9-40aa-ab8f-4926a2929493",
+                "resourceKey": "native-session:af1c7112288e36c0b06e0eb57da9d9057138909dfafc5f107bfb7df83095dd57"
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/sdk-receipt/sandbox/threaded/4376e734-60fb-4954-b830-712bbdf3f15c/906db814-0d3c-4d81-b5bf-171196a3cc85/rc09-sdk",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "68f26745-f7b6-4944-838d-7f98510bf1ed",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "8d8e0233-af4c-47f7-ad9e-47b46e1abe6e"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "c85d2f11-adea-4421-a027-4e5b15ddf376",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "sdk-closed",
+      "phase": "fault-window",
+      "point": "after trusted close before stopped confirmation",
+      "snapshot": {
+        "pid": 48044,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "a9140169-8343-4501-b0b3-2c4068485b14",
+            "authorizationId": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "bindingId": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "attemptId": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "backend": "claude-sdk",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "status": "running",
+            "current_attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "causal_root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "agent_id": "rc09-sdk",
+            "run_id": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "claim_owner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "073e6dbedfcfb0eff4dce2cb47df01118facb6f725b116da7bdf567eaa62e5a1",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:20.098Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "a9140169-8343-4501-b0b3-2c4068485b14",
+            "binding_id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "backend": "claude-sdk",
+            "request_key": "sdk:1",
+            "manifest_id": "f631b445-5882-4367-9887-80978607760f",
+            "payload_hash": "c1512d9b22618e6b7860b5c6e4fbcab6c4a4a61da67b4ddf51f7ad48086f6fc4",
+            "request_hash": "a588340161d20462c2a9ddd866d011324a8b8ef3a6588139e3baed80af1c57ea",
+            "native_id": "30db7d39-d1c1-431c-b422-bf260bd94b8d",
+            "session_version": 1,
+            "backend_version": "0.3.288",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077160917,
+            "settled_at": 1793077160941
+          }
+        ],
+        "budget": [
+          {
+            "id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "request_key": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "request_hash": "ccb51bdb671bdc43cbd7f1810d093975255b04ce1b70ca91ae40f9e931679339",
+            "policy_version": 2,
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "claim_owner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "created_at": 1793077160095,
+            "started_at": 1793077160909,
+            "settled_at": 1793077160941
+          }
+        ],
+        "reconciliations": [
+          {
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "request_id": "request:threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "request_hash": "26c0b7bc630d9216ee810d518ce1d68f74a20f9c00fe5a1d15198c1635cc60f3",
+            "evidence_reference": "threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "created_at": 1793077160941
+          }
+        ],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "4544c1d8-af83-4f68-b539-e3550ee6bf8f",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "operation_key": "attempt-runtime:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "kind": "tool",
+            "started_at": 1793077160120,
+            "observed_at": 1793077160131,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "089f3120-87e5-446c-a05e-05f7fffbfc81",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "operation_key": "model:6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "kind": "model",
+            "started_at": 1793077160909,
+            "observed_at": 1793077160941,
+            "ended_at": 1793077160941,
+            "state": "closed"
+          }
+        ],
+        "processes": [
+          {
+            "token": "f43f0d52-d66f-4c27-9346-f8fdd52d17ef",
+            "binding_id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "host": "ruhonglindeAir",
+            "pid": 48054,
+            "state": "closed",
+            "created_at": 1793077160234,
+            "stopped_at": 1793077161616
+          }
+        ],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+              "generation": 1,
+              "fencingToken": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+              "claimOwner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+              "ownerId": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+              "threadId": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+              "invocationId": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+              "runId": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+              "attemptId": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "agentId": "rc09-sdk"
+            },
+            "ticketId": "afa1ffc1-e6b6-4de6-a734-4d89d02a38f5",
+            "state": "started",
+            "expiresAt": 1793077175131,
+            "request": {
+              "requestKey": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "operationId": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "mode": "threaded",
+              "ownerId": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+              "agentId": "rc09-sdk",
+              "runId": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+              "attemptId": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "threadId": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+              "invocationId": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "claude-sdk",
+              "session": {
+                "id": "279c132d-dae2-4dc4-8d0b-ff95bcfe0fa5",
+                "version": 1,
+                "nativeId": "30db7d39-d1c1-431c-b422-bf260bd94b8d",
+                "resourceKey": "native-session:919270e438d9e28549c1345aa0b78bddb2b1326ca7ad6cf6fd1596c9ab09abe0"
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/sdk-closed/sandbox/threaded/cc9dc0da-80a5-454e-9c7c-e27415c548eb/4b6348dc-0749-44ae-944b-04bfc18d2dc5/rc09-sdk",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "6732692f-98ef-4184-8498-ee7b7df9e182",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "sdk-closed",
+      "phase": "automatic-startup-recovery",
+      "snapshot": {
+        "pid": 48097,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "status": "unknown",
+            "current_attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "causal_root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "recovery_reason": "PROCESS_RESTART_UNKNOWN"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "PROCESS_RESTART",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "agent_id": "rc09-sdk",
+            "run_id": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "claim_owner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "073e6dbedfcfb0eff4dce2cb47df01118facb6f725b116da7bdf567eaa62e5a1",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:20.098Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "a9140169-8343-4501-b0b3-2c4068485b14",
+            "binding_id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "backend": "claude-sdk",
+            "request_key": "sdk:1",
+            "manifest_id": "f631b445-5882-4367-9887-80978607760f",
+            "payload_hash": "c1512d9b22618e6b7860b5c6e4fbcab6c4a4a61da67b4ddf51f7ad48086f6fc4",
+            "request_hash": "a588340161d20462c2a9ddd866d011324a8b8ef3a6588139e3baed80af1c57ea",
+            "native_id": "30db7d39-d1c1-431c-b422-bf260bd94b8d",
+            "session_version": 1,
+            "backend_version": "0.3.288",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077160917,
+            "settled_at": 1793077160941
+          }
+        ],
+        "budget": [
+          {
+            "id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "thread_id": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "request_key": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "request_hash": "ccb51bdb671bdc43cbd7f1810d093975255b04ce1b70ca91ae40f9e931679339",
+            "policy_version": 2,
+            "claim_id": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+            "generation": 1,
+            "fencing_token": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+            "claim_owner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "created_at": 1793077160095,
+            "started_at": 1793077160909,
+            "settled_at": 1793077160941
+          }
+        ],
+        "reconciliations": [
+          {
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "request_id": "request:threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "request_hash": "26c0b7bc630d9216ee810d518ce1d68f74a20f9c00fe5a1d15198c1635cc60f3",
+            "evidence_reference": "threaded-backend-request:a9140169-8343-4501-b0b3-2c4068485b14",
+            "created_at": 1793077160941
+          }
+        ],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "4544c1d8-af83-4f68-b539-e3550ee6bf8f",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "operation_key": "attempt-runtime:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "kind": "tool",
+            "started_at": 1793077160120,
+            "observed_at": 1793077162231,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "089f3120-87e5-446c-a05e-05f7fffbfc81",
+            "root_id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "owner_id": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+            "attempt_id": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+            "authorization_id": "6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "operation_key": "model:6ed0486f-ee04-4023-a31c-c0839e78ee3a",
+            "kind": "model",
+            "started_at": 1793077160909,
+            "observed_at": 1793077160941,
+            "ended_at": 1793077160941,
+            "state": "closed"
+          }
+        ],
+        "processes": [
+          {
+            "token": "f43f0d52-d66f-4c27-9346-f8fdd52d17ef",
+            "binding_id": "a0d6db3c-807d-4f06-9416-95d4e84e5957",
+            "host": "ruhonglindeAir",
+            "pid": 48054,
+            "state": "verified_stopped",
+            "created_at": 1793077160234,
+            "stopped_at": 1793077162247
+          }
+        ],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "7eefb0b9-a259-408f-bca8-ddc7f19bb661",
+              "generation": 1,
+              "fencingToken": "daf421fe-6ecb-429e-a563-ff6380251e0f",
+              "claimOwner": "210b9c29-65af-4a82-b0de-30a3f402699f",
+              "ownerId": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+              "threadId": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+              "invocationId": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+              "runId": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+              "attemptId": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "agentId": "rc09-sdk"
+            },
+            "ticketId": "afa1ffc1-e6b6-4de6-a734-4d89d02a38f5",
+            "state": "unknown",
+            "expiresAt": 1793077175131,
+            "request": {
+              "requestKey": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "operationId": "queue:6732692f-98ef-4184-8498-ee7b7df9e182:59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "mode": "threaded",
+              "ownerId": "cc9dc0da-80a5-454e-9c7c-e27415c548eb",
+              "agentId": "rc09-sdk",
+              "runId": "92ee9aae-6318-412b-a161-e5a6228b3a10",
+              "attemptId": "59abc5c8-fb5d-408d-924f-38f6d46fb690",
+              "threadId": "4b6348dc-0749-44ae-944b-04bfc18d2dc5",
+              "invocationId": "323b9c6f-97fb-4008-af1f-c277901cc95f",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "claude-sdk",
+              "session": {
+                "id": "279c132d-dae2-4dc4-8d0b-ff95bcfe0fa5",
+                "version": 1,
+                "nativeId": "30db7d39-d1c1-431c-b422-bf260bd94b8d",
+                "resourceKey": "native-session:919270e438d9e28549c1345aa0b78bddb2b1326ca7ad6cf6fd1596c9ab09abe0"
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/sdk-closed/sandbox/threaded/cc9dc0da-80a5-454e-9c7c-e27415c548eb/4b6348dc-0749-44ae-944b-04bfc18d2dc5/rc09-sdk",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "6732692f-98ef-4184-8498-ee7b7df9e182",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "323b9c6f-97fb-4008-af1f-c277901cc95f"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "bff55bb8-1884-4739-922b-eb3610598eda",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "unknown-request",
+      "phase": "before",
+      "snapshot": {
+        "pid": 48125,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "24bcd325-fce5-4738-89bd-9be92dfbd1cc",
+            "authorizationId": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "bindingId": "8a98ebed-85ba-48b2-8219-6c05431e0a8e",
+            "attemptId": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "backend": "api",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "status": "unknown",
+            "current_attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "causal_root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "recovery_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "8a98ebed-85ba-48b2-8219-6c05431e0a8e",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "agent_id": "rc09-api",
+            "run_id": "67cf7d68-6903-44d1-9952-e329832390f8",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "claim_owner": "6c46f823-f371-461e-a397-db34e513bba9",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:22.926Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "24bcd325-fce5-4738-89bd-9be92dfbd1cc",
+            "binding_id": "8a98ebed-85ba-48b2-8219-6c05431e0a8e",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "33b6d89f-851d-478d-9176-6ce94d23f681",
+            "payload_hash": "e1399c6cebe4c20db8a07739b7aaf941e8c15ef0abf37d5bfbfe09281f85f820",
+            "request_hash": "ab32c4702810c346e1ff5fffb70eee049b25d790c8eb740a1004b89c9dc79b22",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "unknown",
+            "payload_included": 1,
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null,
+            "cost_microusd": null,
+            "response_id": null,
+            "created_at": 1793077163041,
+            "settled_at": 1793077163060
+          }
+        ],
+        "budget": [
+          {
+            "id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "request_key": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+            "request_hash": "74c0a87c7e85421c629d5b82cb840c7b66564b7a50e71281ac0e7f0fd188c71b",
+            "policy_version": 2,
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "claim_owner": "6c46f823-f371-461e-a397-db34e513bba9",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "unknown",
+            "usage_state": "unknown",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "outcome_kind": "unknown",
+            "evidence_reference": null,
+            "created_at": 1793077162923,
+            "started_at": 1793077163026,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [
+          {
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "kind": "unknown",
+            "record": "{\"kind\":\"unknown\",\"reason\":\"THREADED_API_QUIESCENCE_UNCONFIRMED\"}",
+            "created_at": 1793077163062
+          }
+        ],
+        "activity": [
+          {
+            "id": "bf3f5a42-4399-4356-8a0a-da83b47e60c7",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "operation_key": "attempt-runtime:29ed69be-84dc-450a-9614-cf774e2c7890",
+            "kind": "tool",
+            "started_at": 1793077162948,
+            "observed_at": 1793077163060,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "2099a191-8b26-4b11-8b6a-7b544b1e0d1e",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "operation_key": "model:0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "kind": "model",
+            "started_at": 1793077163026,
+            "observed_at": 1793077163060,
+            "ended_at": null,
+            "state": "unknown"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+              "generation": 1,
+              "fencingToken": "7944b94b-6c35-4938-b084-692b8c66b866",
+              "claimOwner": "6c46f823-f371-461e-a397-db34e513bba9",
+              "ownerId": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+              "threadId": "69603704-5320-423f-865f-d7d7ccbf7523",
+              "invocationId": "40854fa0-008e-4b65-bf84-f50e026ca551",
+              "runId": "67cf7d68-6903-44d1-9952-e329832390f8",
+              "attemptId": "29ed69be-84dc-450a-9614-cf774e2c7890",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "29e17a5b-6448-47d6-bdfe-0d7152f3230b",
+            "state": "unknown",
+            "expiresAt": 1793077177959,
+            "request": {
+              "requestKey": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+              "operationId": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+              "mode": "threaded",
+              "ownerId": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+              "agentId": "rc09-api",
+              "runId": "67cf7d68-6903-44d1-9952-e329832390f8",
+              "attemptId": "29ed69be-84dc-450a-9614-cf774e2c7890",
+              "threadId": "69603704-5320-423f-865f-d7d7ccbf7523",
+              "invocationId": "40854fa0-008e-4b65-bf84-f50e026ca551",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "b7068b18-6866-421c-b972-cbd94d6398bb",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/unknown-request/sandbox/threaded/e1056697-3832-48ee-b714-d3bfcdd4ea25/69603704-5320-423f-865f-d7d7ccbf7523/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "fe449eb5-5b61-456a-ba5e-de2fa8d08bcb",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "unknown-request",
+      "phase": "after",
+      "snapshot": {
+        "pid": 48135,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "status": "unknown",
+            "current_attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "causal_root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "recovery_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "THREADED_API_QUIESCENCE_UNCONFIRMED",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "8a98ebed-85ba-48b2-8219-6c05431e0a8e",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "agent_id": "rc09-api",
+            "run_id": "67cf7d68-6903-44d1-9952-e329832390f8",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "claim_owner": "6c46f823-f371-461e-a397-db34e513bba9",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:22.926Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "24bcd325-fce5-4738-89bd-9be92dfbd1cc",
+            "binding_id": "8a98ebed-85ba-48b2-8219-6c05431e0a8e",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "33b6d89f-851d-478d-9176-6ce94d23f681",
+            "payload_hash": "e1399c6cebe4c20db8a07739b7aaf941e8c15ef0abf37d5bfbfe09281f85f820",
+            "request_hash": "ab32c4702810c346e1ff5fffb70eee049b25d790c8eb740a1004b89c9dc79b22",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "unknown",
+            "payload_included": 1,
+            "delivered": 0,
+            "input_tokens": null,
+            "output_tokens": null,
+            "cost_microusd": null,
+            "response_id": null,
+            "created_at": 1793077163041,
+            "settled_at": 1793077163060
+          }
+        ],
+        "budget": [
+          {
+            "id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "thread_id": "69603704-5320-423f-865f-d7d7ccbf7523",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "request_key": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+            "request_hash": "74c0a87c7e85421c629d5b82cb840c7b66564b7a50e71281ac0e7f0fd188c71b",
+            "policy_version": 2,
+            "claim_id": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+            "generation": 1,
+            "fencing_token": "7944b94b-6c35-4938-b084-692b8c66b866",
+            "claim_owner": "6c46f823-f371-461e-a397-db34e513bba9",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "unknown",
+            "usage_state": "unknown",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "outcome_kind": "unknown",
+            "evidence_reference": null,
+            "created_at": 1793077162923,
+            "started_at": 1793077163026,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [
+          {
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "outcome_hash": "162da04733c390667c4c7f6578e1583673b6d906771b73eafc0d8b6322ed33a1",
+            "kind": "unknown",
+            "record": "{\"kind\":\"unknown\",\"reason\":\"THREADED_API_QUIESCENCE_UNCONFIRMED\"}",
+            "created_at": 1793077163062
+          }
+        ],
+        "activity": [
+          {
+            "id": "bf3f5a42-4399-4356-8a0a-da83b47e60c7",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "operation_key": "attempt-runtime:29ed69be-84dc-450a-9614-cf774e2c7890",
+            "kind": "tool",
+            "started_at": 1793077162948,
+            "observed_at": 1793077163060,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "2099a191-8b26-4b11-8b6a-7b544b1e0d1e",
+            "root_id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "owner_id": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+            "attempt_id": "29ed69be-84dc-450a-9614-cf774e2c7890",
+            "authorization_id": "0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "operation_key": "model:0faabff2-6f1a-47e4-903f-58e07b5e8a2b",
+            "kind": "model",
+            "started_at": 1793077163026,
+            "observed_at": 1793077163060,
+            "ended_at": null,
+            "state": "unknown"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "3edc6d1f-f610-459b-bf98-e396417d8e9f",
+              "generation": 1,
+              "fencingToken": "7944b94b-6c35-4938-b084-692b8c66b866",
+              "claimOwner": "6c46f823-f371-461e-a397-db34e513bba9",
+              "ownerId": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+              "threadId": "69603704-5320-423f-865f-d7d7ccbf7523",
+              "invocationId": "40854fa0-008e-4b65-bf84-f50e026ca551",
+              "runId": "67cf7d68-6903-44d1-9952-e329832390f8",
+              "attemptId": "29ed69be-84dc-450a-9614-cf774e2c7890",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "29e17a5b-6448-47d6-bdfe-0d7152f3230b",
+            "state": "unknown",
+            "expiresAt": 1793077177959,
+            "request": {
+              "requestKey": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+              "operationId": "queue:fe449eb5-5b61-456a-ba5e-de2fa8d08bcb:29ed69be-84dc-450a-9614-cf774e2c7890",
+              "mode": "threaded",
+              "ownerId": "e1056697-3832-48ee-b714-d3bfcdd4ea25",
+              "agentId": "rc09-api",
+              "runId": "67cf7d68-6903-44d1-9952-e329832390f8",
+              "attemptId": "29ed69be-84dc-450a-9614-cf774e2c7890",
+              "threadId": "69603704-5320-423f-865f-d7d7ccbf7523",
+              "invocationId": "40854fa0-008e-4b65-bf84-f50e026ca551",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "b7068b18-6866-421c-b972-cbd94d6398bb",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/unknown-request/sandbox/threaded/e1056697-3832-48ee-b714-d3bfcdd4ea25/69603704-5320-423f-865f-d7d7ccbf7523/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "fe449eb5-5b61-456a-ba5e-de2fa8d08bcb",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "40854fa0-008e-4b65-bf84-f50e026ca551"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "3a95e709-5c23-4983-a72a-231cdcffa24c",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "observe",
+      "phase": "before",
+      "point": "after complete receipt before budget settlement",
+      "snapshot": {
+        "pid": 48154,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "182687b6-389e-46a6-b356-225e55c85e3e",
+            "authorizationId": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "bindingId": "32280040-bfc4-4414-9c02-244daf3acc84",
+            "attemptId": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "backend": "api",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "status": "running",
+            "current_attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "causal_root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "32280040-bfc4-4414-9c02-244daf3acc84",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "agent_id": "rc09-api",
+            "run_id": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "claim_owner": "72fef625-902c-4b29-b136-f57f05638ab6",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:24.282Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "182687b6-389e-46a6-b356-225e55c85e3e",
+            "binding_id": "32280040-bfc4-4414-9c02-244daf3acc84",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "0a73794f-ca9b-404e-beac-4a64b7c87952",
+            "payload_hash": "ff17526fa8f21fc2b8e966da95442cfa1d892a122b874963d39b0bb2d2398446",
+            "request_hash": "453ca0d7bb86c3e8183d0fffc68dfca3c3820e7ec9253e73525e1ac22a974d13",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077164420,
+            "settled_at": 1793077164447
+          }
+        ],
+        "budget": [
+          {
+            "id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "request_key": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "request_hash": "c2ae4cc599987f1bdcf24d8e82af92487c074889e42a8c5cbbdd0c5bff79ddc4",
+            "policy_version": 2,
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "claim_owner": "72fef625-902c-4b29-b136-f57f05638ab6",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "started",
+            "usage_state": "reserved",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": null,
+            "created_at": 1793077164278,
+            "started_at": 1793077164403,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "46b2f824-1efd-424a-82f5-afac4f09bcd7",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "operation_key": "attempt-runtime:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "kind": "tool",
+            "started_at": 1793077164308,
+            "observed_at": 1793077164320,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "408f32c4-6700-45e5-9929-ec38441399ea",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "operation_key": "model:a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "kind": "model",
+            "started_at": 1793077164403,
+            "observed_at": 1793077164403,
+            "ended_at": null,
+            "state": "active"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "855499a1-17b0-4d95-9c72-38452e80864b",
+              "generation": 1,
+              "fencingToken": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+              "claimOwner": "72fef625-902c-4b29-b136-f57f05638ab6",
+              "ownerId": "3401f387-e5bf-4239-8d16-59444b398406",
+              "threadId": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+              "invocationId": "ed5b2259-07f3-4235-857b-6853969fdffd",
+              "runId": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+              "attemptId": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "303f6fd3-1f7a-47ed-9a82-340416e97efd",
+            "state": "started",
+            "expiresAt": 1793077179321,
+            "request": {
+              "requestKey": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "operationId": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "mode": "threaded",
+              "ownerId": "3401f387-e5bf-4239-8d16-59444b398406",
+              "agentId": "rc09-api",
+              "runId": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+              "attemptId": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "threadId": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+              "invocationId": "ed5b2259-07f3-4235-857b-6853969fdffd",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "4cac54e6-1c78-45a9-95f1-c19d72f7261d",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/observe/sandbox/threaded/3401f387-e5bf-4239-8d16-59444b398406/48ad90b5-5c1f-4098-8da3-8bb9f439f676/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "587713e6-fc04-4946-b776-757fec314aa7",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "9479b701-11ef-4697-9702-7df80b578311",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "observe",
+      "phase": "after",
+      "snapshot": {
+        "pid": 48170,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "status": "running",
+            "current_attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "causal_root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "32280040-bfc4-4414-9c02-244daf3acc84",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "agent_id": "rc09-api",
+            "run_id": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "claim_owner": "72fef625-902c-4b29-b136-f57f05638ab6",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:24.282Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "182687b6-389e-46a6-b356-225e55c85e3e",
+            "binding_id": "32280040-bfc4-4414-9c02-244daf3acc84",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "0a73794f-ca9b-404e-beac-4a64b7c87952",
+            "payload_hash": "ff17526fa8f21fc2b8e966da95442cfa1d892a122b874963d39b0bb2d2398446",
+            "request_hash": "453ca0d7bb86c3e8183d0fffc68dfca3c3820e7ec9253e73525e1ac22a974d13",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077164420,
+            "settled_at": 1793077164447
+          }
+        ],
+        "budget": [
+          {
+            "id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "thread_id": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "request_key": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "request_hash": "c2ae4cc599987f1bdcf24d8e82af92487c074889e42a8c5cbbdd0c5bff79ddc4",
+            "policy_version": 2,
+            "claim_id": "855499a1-17b0-4d95-9c72-38452e80864b",
+            "generation": 1,
+            "fencing_token": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+            "claim_owner": "72fef625-902c-4b29-b136-f57f05638ab6",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "started",
+            "usage_state": "reserved",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": null,
+            "created_at": 1793077164278,
+            "started_at": 1793077164403,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "46b2f824-1efd-424a-82f5-afac4f09bcd7",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "operation_key": "attempt-runtime:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "kind": "tool",
+            "started_at": 1793077164308,
+            "observed_at": 1793077164320,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "408f32c4-6700-45e5-9929-ec38441399ea",
+            "root_id": "9479b701-11ef-4697-9702-7df80b578311",
+            "owner_id": "3401f387-e5bf-4239-8d16-59444b398406",
+            "attempt_id": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+            "authorization_id": "a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "operation_key": "model:a460fe23-cd4c-4937-8ceb-22ee7d6116d3",
+            "kind": "model",
+            "started_at": 1793077164403,
+            "observed_at": 1793077164403,
+            "ended_at": null,
+            "state": "active"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "855499a1-17b0-4d95-9c72-38452e80864b",
+              "generation": 1,
+              "fencingToken": "a8d22d4b-0aa6-4679-bbde-187c6eda3797",
+              "claimOwner": "72fef625-902c-4b29-b136-f57f05638ab6",
+              "ownerId": "3401f387-e5bf-4239-8d16-59444b398406",
+              "threadId": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+              "invocationId": "ed5b2259-07f3-4235-857b-6853969fdffd",
+              "runId": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+              "attemptId": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "303f6fd3-1f7a-47ed-9a82-340416e97efd",
+            "state": "started",
+            "expiresAt": 1793077179321,
+            "request": {
+              "requestKey": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "operationId": "queue:587713e6-fc04-4946-b776-757fec314aa7:1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "mode": "threaded",
+              "ownerId": "3401f387-e5bf-4239-8d16-59444b398406",
+              "agentId": "rc09-api",
+              "runId": "602827fe-066a-47ee-abf6-6dd7bc05606a",
+              "attemptId": "1cd0f070-22b0-44e2-9ab3-14d6a29f348e",
+              "threadId": "48ad90b5-5c1f-4098-8da3-8bb9f439f676",
+              "invocationId": "ed5b2259-07f3-4235-857b-6853969fdffd",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "4cac54e6-1c78-45a9-95f1-c19d72f7261d",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/observe/sandbox/threaded/3401f387-e5bf-4239-8d16-59444b398406/48ad90b5-5c1f-4098-8da3-8bb9f439f676/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "587713e6-fc04-4946-b776-757fec314aa7",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "ed5b2259-07f3-4235-857b-6853969fdffd"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "9479b701-11ef-4697-9702-7df80b578311",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "closed-no-pack",
+      "phase": "before",
+      "point": "after complete receipt before budget settlement",
+      "snapshot": {
+        "pid": 48189,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [
+          {
+            "requestId": "619a6285-7973-4927-94b2-ced8168ec4a4",
+            "authorizationId": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "bindingId": "683aaa06-df62-49ef-bec1-030c17cc0dab",
+            "attemptId": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "backend": "api",
+            "pathname": "/v1/messages",
+            "realSupplier": false
+          }
+        ],
+        "invocations": [
+          {
+            "id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "status": "running",
+            "current_attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "causal_root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "recovery_reason": null
+          }
+        ],
+        "attempts": [
+          {
+            "id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "status": "running",
+            "execution_stage": "started",
+            "execution_reason": null,
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "683aaa06-df62-49ef-bec1-030c17cc0dab",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "agent_id": "rc09-api",
+            "run_id": "ae3c02e3-4728-416d-83ce-47356281e825",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "claim_owner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:25.808Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "619a6285-7973-4927-94b2-ced8168ec4a4",
+            "binding_id": "683aaa06-df62-49ef-bec1-030c17cc0dab",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "324c3c79-6ea1-4eba-9029-6e99df4bad40",
+            "payload_hash": "2c66f1df0e3819c63357cce1aacd53cce2e094cb5b2f338252d6f587f0a9813b",
+            "request_hash": "5caaf9d20a449aafcfea0bedda58bfe6a92b90b79dd360388295e3dbd926680a",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077165927,
+            "settled_at": 1793077165952
+          }
+        ],
+        "budget": [
+          {
+            "id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "request_key": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+            "request_hash": "0276a2b010b6320c21444c7dbed69e8c23a653d1765c0aec64f8d162ecca7576",
+            "policy_version": 2,
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "claim_owner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": null,
+            "known_cost": null,
+            "execution_state": "started",
+            "usage_state": "reserved",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": null,
+            "created_at": 1793077165805,
+            "started_at": 1793077165913,
+            "settled_at": null
+          }
+        ],
+        "reconciliations": [],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "8debaf8c-1e65-40e6-a678-1d2139bab42b",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "operation_key": "attempt-runtime:651abe55-7829-47bb-abc7-590797a59b6d",
+            "kind": "tool",
+            "started_at": 1793077165830,
+            "observed_at": 1793077165841,
+            "ended_at": null,
+            "state": "active"
+          },
+          {
+            "id": "e7c1c40e-aa8e-4531-9d4c-d6d5f7758cd5",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "operation_key": "model:f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "kind": "model",
+            "started_at": 1793077165913,
+            "observed_at": 1793077165913,
+            "ended_at": null,
+            "state": "active"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+              "generation": 1,
+              "fencingToken": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+              "claimOwner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+              "ownerId": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+              "threadId": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+              "invocationId": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+              "runId": "ae3c02e3-4728-416d-83ce-47356281e825",
+              "attemptId": "651abe55-7829-47bb-abc7-590797a59b6d",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "1227434f-3c5f-421f-8c78-569da50ad798",
+            "state": "started",
+            "expiresAt": 1793077180841,
+            "request": {
+              "requestKey": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+              "operationId": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+              "mode": "threaded",
+              "ownerId": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+              "agentId": "rc09-api",
+              "runId": "ae3c02e3-4728-416d-83ce-47356281e825",
+              "attemptId": "651abe55-7829-47bb-abc7-590797a59b6d",
+              "threadId": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+              "invocationId": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "cbe35bd5-9ee1-41b5-9e72-0cc853a68485",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/closed-no-pack/sandbox/threaded/6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec/fdbec307-767a-4be9-ad5a-f742cf01f6e9/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "fc945916-ae92-4c84-800a-f12129aceec1",
+            "state": "claimed",
+            "reason": null,
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    },
+    {
+      "name": "closed-no-pack",
+      "phase": "after",
+      "snapshot": {
+        "pid": 48199,
+        "actualMainIndex": true,
+        "isolatedExecutionBypass": false,
+        "deniedEgress": 0,
+        "effects": [],
+        "invocations": [
+          {
+            "id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "status": "unknown",
+            "current_attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "causal_root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "recovery_reason": "PROCESS_RESTART_UNKNOWN"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "status": "unknown",
+            "execution_stage": "unknown",
+            "execution_reason": "PROCESS_RESTART",
+            "outcome_record": null,
+            "resource_release_state": null
+          }
+        ],
+        "bindings": [
+          {
+            "id": "683aaa06-df62-49ef-bec1-030c17cc0dab",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "agent_id": "rc09-api",
+            "run_id": "ae3c02e3-4728-416d-83ce-47356281e825",
+            "authority_epoch": 1,
+            "thread_authority_epoch": 1,
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "claim_owner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "member_version": 1,
+            "role_version": 1,
+            "permission_version": 1,
+            "member_account_version": 1,
+            "agent_version": 1,
+            "agent_definition_hash": "57328e0b60244c36603d0ed47feba2d43975a07b9b2d87007db46f2f9663fddf",
+            "account_id": "rc09-synthetic-account",
+            "account_config_version": 1,
+            "account_credential_version": 1,
+            "account_identity_generation": null,
+            "created_at": "2026-10-27T04:59:25.808Z"
+          }
+        ],
+        "requests": [
+          {
+            "id": "619a6285-7973-4927-94b2-ced8168ec4a4",
+            "binding_id": "683aaa06-df62-49ef-bec1-030c17cc0dab",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "backend": "api",
+            "request_key": "api:1",
+            "manifest_id": "324c3c79-6ea1-4eba-9029-6e99df4bad40",
+            "payload_hash": "2c66f1df0e3819c63357cce1aacd53cce2e094cb5b2f338252d6f587f0a9813b",
+            "request_hash": "5caaf9d20a449aafcfea0bedda58bfe6a92b90b79dd360388295e3dbd926680a",
+            "native_id": null,
+            "session_version": 1,
+            "backend_version": "threaded-http-v1",
+            "model": "fixture-model",
+            "state": "complete",
+            "payload_included": 1,
+            "delivered": 1,
+            "input_tokens": 20,
+            "output_tokens": 7,
+            "cost_microusd": null,
+            "response_id": "rc09-injected-response",
+            "created_at": 1793077165927,
+            "settled_at": 1793077165952
+          }
+        ],
+        "budget": [
+          {
+            "id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "thread_id": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "request_key": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+            "request_hash": "0276a2b010b6320c21444c7dbed69e8c23a653d1765c0aec64f8d162ecca7576",
+            "policy_version": 2,
+            "claim_id": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+            "generation": 1,
+            "fencing_token": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+            "claim_owner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+            "reserved_output": 256,
+            "reserved_cost": 1000000,
+            "pricing_reference": null,
+            "known_output": 7,
+            "known_cost": null,
+            "execution_state": "quiescent",
+            "usage_state": "unknown",
+            "outcome_hash": null,
+            "outcome_kind": null,
+            "evidence_reference": "threaded-backend-request:619a6285-7973-4927-94b2-ced8168ec4a4",
+            "created_at": 1793077165805,
+            "started_at": 1793077165913,
+            "settled_at": 1793077166500
+          }
+        ],
+        "reconciliations": [
+          {
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "request_id": "request:threaded-backend-request:619a6285-7973-4927-94b2-ced8168ec4a4",
+            "request_hash": "a502a68b2be171d61bce21f15f0e7d1c992a0541ace81f8431ebed12d1f0970d",
+            "evidence_reference": "threaded-backend-request:619a6285-7973-4927-94b2-ced8168ec4a4",
+            "created_at": 1793077166500
+          }
+        ],
+        "outcomes": [],
+        "activity": [
+          {
+            "id": "8debaf8c-1e65-40e6-a678-1d2139bab42b",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "operation_key": "attempt-runtime:651abe55-7829-47bb-abc7-590797a59b6d",
+            "kind": "tool",
+            "started_at": 1793077165830,
+            "observed_at": 1793077166498,
+            "ended_at": null,
+            "state": "unknown"
+          },
+          {
+            "id": "e7c1c40e-aa8e-4531-9d4c-d6d5f7758cd5",
+            "root_id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "owner_id": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+            "attempt_id": "651abe55-7829-47bb-abc7-590797a59b6d",
+            "authorization_id": "f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "operation_key": "model:f8c6751c-33c8-4658-9d43-ed09287482b5",
+            "kind": "model",
+            "started_at": 1793077165913,
+            "observed_at": 1793077166500,
+            "ended_at": 1793077166500,
+            "state": "closed"
+          }
+        ],
+        "processes": [],
+        "quiescence": [],
+        "claims": [
+          {
+            "identity": {
+              "claimId": "4230c69f-d519-4a14-9a75-08aca43cc9c5",
+              "generation": 1,
+              "fencingToken": "90ea1873-7d80-46c6-9b34-fab4936b5d23",
+              "claimOwner": "6c1f4cc4-c92e-4748-b916-c768adec19b9",
+              "ownerId": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+              "threadId": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+              "invocationId": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+              "runId": "ae3c02e3-4728-416d-83ce-47356281e825",
+              "attemptId": "651abe55-7829-47bb-abc7-590797a59b6d",
+              "agentId": "rc09-api"
+            },
+            "ticketId": "1227434f-3c5f-421f-8c78-569da50ad798",
+            "state": "unknown",
+            "expiresAt": 1793077180841,
+            "request": {
+              "requestKey": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+              "operationId": "queue:fc945916-ae92-4c84-800a-f12129aceec1:651abe55-7829-47bb-abc7-590797a59b6d",
+              "mode": "threaded",
+              "ownerId": "6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec",
+              "agentId": "rc09-api",
+              "runId": "ae3c02e3-4728-416d-83ce-47356281e825",
+              "attemptId": "651abe55-7829-47bb-abc7-590797a59b6d",
+              "threadId": "fdbec307-767a-4be9-ad5a-f742cf01f6e9",
+              "invocationId": "8fb3651b-3595-4de3-8bee-89c595b3f945",
+              "accountId": "rc09-synthetic-account",
+              "providerKey": "anthropic",
+              "session": {
+                "id": "cbe35bd5-9ee1-41b5-9e72-0cc853a68485",
+                "version": 1,
+                "nativeId": null,
+                "resourceKey": null
+              },
+              "workspaces": [
+                {
+                  "path": "/private/var/folders/p2/q04bljrx3zn0l1jpfn32thn00000gn/T/agent-gand-rc09-main-jZnF8Q/closed-no-pack/sandbox/threaded/6e3d8c87-d530-4ddf-b477-99f2a9b2a7ec/fdbec307-767a-4be9-ad5a-f742cf01f6e9/rc09-api",
+                  "access": "read"
+                }
+              ],
+              "capacity": true
+            }
+          }
+        ],
+        "queue": [
+          {
+            "id": "fc945916-ae92-4c84-800a-f12129aceec1",
+            "state": "unknown",
+            "reason": "THREADED_QUEUE_EXECUTION_UNKNOWN",
+            "invocation_id": "8fb3651b-3595-4de3-8bee-89c595b3f945"
+          }
+        ],
+        "terminals": [],
+        "outputs": [],
+        "messages": [
+          {
+            "id": "3f765f73-6278-491f-80c1-40a64046c528",
+            "origin": "user",
+            "body": "Reply RC09_ACK without tools."
+          }
+        ],
+        "foreignKeys": []
+      }
+    }
+  ],
+  "limitations": [
+    "Injected HTTP supplies model usage; no supplier billing reconciliation is claimed.",
+    "SIGSTOP pins the exact failure window, then parent SIGKILLs actual index; no injected production recovery facts.",
+    "Registered SDK row deliberately remains unresolved even when same-run process observer confirms group absence.",
+    "Local process stopped and known output tokens never imply known price, a final Invocation or permission to publish/replay."
+  ]
+}

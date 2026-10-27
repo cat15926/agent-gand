@@ -1,0 +1,76 @@
+{
+  "status": "failed",
+  "checkCount": 6,
+  "checks": [
+    {
+      "id": "RB01",
+      "description": "Production receipt verifier plus canonical persisted binding rejects every modified identity, invented receipt and changed usage without ledger writes.",
+      "identityVariants": 12,
+      "trueVerifier": "verifyThreadedBackendUsage"
+    },
+    {
+      "id": "RB02",
+      "description": "Known output with unknown price keeps the full cost reservation; same-key replay is stable, conflicting replay and fabricated zero price are rejected, and usage reconciliation publishes nothing.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 7,
+        "costMicrousd": 1000,
+        "activityMs": 144,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB03",
+      "description": "A complete transport receipt may prove request completion without any usage; both reservations remain, the immutable receipt cannot be rewritten and reconciliation cannot invent zero.",
+      "budgetUsage": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 155,
+        "activityReservedMs": 0,
+        "unknownRequests": 1
+      }
+    },
+    {
+      "id": "RB04",
+      "description": "A real SQLite reconciliation-insert fault preserves the complete transport receipt and atomically rolls back usage/spans; exact receipt repair settles once without replay or terminal publication.",
+      "beforeLedgerSha256": "3752a3a749c907f5d1914eb91a73d89d9d45e0d959ba455e8078de1cc1801941",
+      "repairedLedgerSha256": "57c448ef8938b648fd0e00ffbd9146c4e52b3e3c27ea42896260092412b1d043",
+      "originalInvocationStatus": "failed"
+    },
+    {
+      "id": "RB05",
+      "description": "Operator-style exact usage reconciliation is atomic with its idempotency receipt; failure leaves no partial update and successful replay remains a ledger-only action."
+    },
+    {
+      "id": "RB06",
+      "description": "An actually exited local fixture child with a verified-stopped receipt cannot clear an unresolved remote request; production quiescence rejects, reservations and unknown claim survive factory rebuild, and no replay occurs.",
+      "localChildPid": 47239,
+      "requestUsageBeforeRestart": {
+        "invocations": 1,
+        "attempts": 1,
+        "actualRequests": 1,
+        "outputTokens": 256,
+        "costMicrousd": 1000,
+        "activityMs": 167,
+        "activityReservedMs": 906,
+        "unknownRequests": 1
+      },
+      "scope": "A real short-lived Node child supplies the local stop fact; this is not a Claude SDK process test."
+    }
+  ],
+  "injectedHttpCalls": 7,
+  "realSupplierHttpCalls": 0,
+  "blockedNetworkCalls": 0,
+  "scope": "Isolated SQLite; production budget, lifecycle, backend receipt verifiers and resource coordinator; injected HTTP; one actual short-lived local Node process. Factory rebuild is not OS-process restart.",
+  "failure": {
+    "name": "AssertionError",
+    "message": "{\"successorResult\":{\"invocationId\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"runId\":\"3aa71351-1eee-43ad-880d-e16b93018339\",\"status\":\"failed\",\"terminal\":true,\"resourceReleasePending\":false},\"attempts\":[{\"id\":\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"invocation_id\":\"6f51399a-4fa8-4c14-ae1b-da21fe87c69b\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"agent_id\":\"api-member\",\"schema_version\":1,\"attempt_no\":1,\"version\":3,\"generation\":1,\"authority_epoch\":1,\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"status\":\"failed\",\"execution_stage\":\"quiescent\",\"created_at\":\"2026-10-27T04:58:00.104Z\",\"updated_at\":\"2026-10-27T04:58:00.252Z\",\"claim_id\":\"d4239eaf-358b-47ae-8c03-d95e9c92705a\",\"fencing_token\":\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\",\"execution_reason\":\"THREADED_API_FAILED\",\"outcome_record\":\"{\\\"outcomeDigest\\\":\\\"c9d84beb65085ef821ed95bd224cc8f67d349fba5ed61393082ff59e65967179\\\",\\\"quiescence\\\":{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"5206b127-4961-49d2-8851-8a63a2292833\\\",\\\"attemptId\\\":\\\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\\\",\\\"claimId\\\":\\\"d4239eaf-358b-47ae-8c03-d95e9c92705a\\\",\\\"generation\\\":1,\\\"fencingToken\\\":\\\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\\\",\\\"reason\\\":\\\"process_exited\\\",\\\"sideEffects\\\":\\\"reconciled\\\"},\\\"budgetState\\\":\\\"unknown\\\",\\\"retryPermitted\\\":false}\",\"resource_release_state\":\"released\"},{\"id\":\"cb94e282-4568-4d4f-9ce7-2027f7569488\",\"invocation_id\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"agent_id\":\"api-member\",\"schema_version\":1,\"attempt_no\":1,\"version\":3,\"generation\":2,\"authority_epoch\":1,\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"status\":\"failed\",\"execution_stage\":\"quiescent\",\"created_at\":\"2026-10-27T04:58:00.259Z\",\"updated_at\":\"2026-10-27T04:58:00.383Z\",\"claim_id\":\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\",\"fencing_token\":\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\",\"execution_reason\":\"THREADED_API_FAILED\",\"outcome_record\":\"{\\\"outcomeDigest\\\":\\\"010da45b248127303ce1236ce1c6b34d9190b0f2f9a1a296e1092e1c9bf5e726\\\",\\\"quiescence\\\":{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"f8368795-13d4-45a1-8d81-64c65a7adc4f\\\",\\\"attemptId\\\":\\\"cb94e282-4568-4d4f-9ce7-2027f7569488\\\",\\\"claimId\\\":\\\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\\\",\\\"generation\\\":2,\\\"fencingToken\\\":\\\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\\\",\\\"reason\\\":\\\"process_exited\\\",\\\"sideEffects\\\":\\\"reconciled\\\"},\\\"budgetState\\\":\\\"settled\\\",\\\"retryPermitted\\\":false}\",\"resource_release_state\":\"released\"}],\"requests\":[{\"id\":\"8ec9741e-46a7-40aa-9f45-4b78ef36061d\",\"root_id\":\"629c2d2d-da5f-4633-8924-8ded9c4a89a8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"invocation_id\":\"6f51399a-4fa8-4c14-ae1b-da21fe87c69b\",\"attempt_id\":\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"request_key\":\"queue:91d3edd0-14ef-41af-ae34-912d014dcb39:1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"request_hash\":\"e2321c16742922e0d1722a3a68e936a2d182041cdcf430fa78647e02f7f6bd27\",\"policy_version\":1,\"claim_id\":\"d4239eaf-358b-47ae-8c03-d95e9c92705a\",\"generation\":1,\"fencing_token\":\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\",\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"reserved_output\":256,\"reserved_cost\":1000,\"pricing_reference\":\"fixture-only\",\"known_output\":7,\"known_cost\":27,\"execution_state\":\"quiescent\",\"usage_state\":\"settled\",\"outcome_hash\":\"c9d84beb65085ef821ed95bd224cc8f67d349fba5ed61393082ff59e65967179\",\"outcome_kind\":\"failed\",\"evidence_reference\":\"threaded-backend-request:21f5985f-9f8d-4a66-ad1e-1d0320d3e62d\",\"created_at\":1793077080103,\"started_at\":1793077080215,\"settled_at\":1793077080264},{\"id\":\"573aabca-d836-4c2f-9415-fb6a0819d286\",\"root_id\":\"400c2c8e-3bb3-4329-80c5-8b02cb030c94\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"invocation_id\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"attempt_id\":\"cb94e282-4568-4d4f-9ce7-2027f7569488\",\"request_key\":\"queue:faceaaca-c689-4efd-843d-b5bdad88d376:cb94e282-4568-4d4f-9ce7-2027f7569488\",\"request_hash\":\"01b47e4ee64531cba38740f21252ad7f190379d062064e21578bf4ad9052cd40\",\"policy_version\":1,\"claim_id\":\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\",\"generation\":2,\"fencing_token\":\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\",\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"reserved_output\":256,\"reserved_cost\":1000,\"pricing_reference\":\"fixture-only\",\"known_output\":0,\"known_cost\":0,\"execution_state\":\"not_started\",\"usage_state\":\"settled\",\"outcome_hash\":\"010da45b248127303ce1236ce1c6b34d9190b0f2f9a1a296e1092e1c9bf5e726\",\"outcome_kind\":\"failed\",\"evidence_reference\":null,\"created_at\":1793077080259,\"started_at\":null,\"settled_at\":1793077080380}]}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n",
+    "stack": "AssertionError [ERR_ASSERTION]: {\"successorResult\":{\"invocationId\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"runId\":\"3aa71351-1eee-43ad-880d-e16b93018339\",\"status\":\"failed\",\"terminal\":true,\"resourceReleasePending\":false},\"attempts\":[{\"id\":\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"invocation_id\":\"6f51399a-4fa8-4c14-ae1b-da21fe87c69b\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"agent_id\":\"api-member\",\"schema_version\":1,\"attempt_no\":1,\"version\":3,\"generation\":1,\"authority_epoch\":1,\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"status\":\"failed\",\"execution_stage\":\"quiescent\",\"created_at\":\"2026-10-27T04:58:00.104Z\",\"updated_at\":\"2026-10-27T04:58:00.252Z\",\"claim_id\":\"d4239eaf-358b-47ae-8c03-d95e9c92705a\",\"fencing_token\":\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\",\"execution_reason\":\"THREADED_API_FAILED\",\"outcome_record\":\"{\\\"outcomeDigest\\\":\\\"c9d84beb65085ef821ed95bd224cc8f67d349fba5ed61393082ff59e65967179\\\",\\\"quiescence\\\":{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"5206b127-4961-49d2-8851-8a63a2292833\\\",\\\"attemptId\\\":\\\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\\\",\\\"claimId\\\":\\\"d4239eaf-358b-47ae-8c03-d95e9c92705a\\\",\\\"generation\\\":1,\\\"fencingToken\\\":\\\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\\\",\\\"reason\\\":\\\"process_exited\\\",\\\"sideEffects\\\":\\\"reconciled\\\"},\\\"budgetState\\\":\\\"unknown\\\",\\\"retryPermitted\\\":false}\",\"resource_release_state\":\"released\"},{\"id\":\"cb94e282-4568-4d4f-9ce7-2027f7569488\",\"invocation_id\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"agent_id\":\"api-member\",\"schema_version\":1,\"attempt_no\":1,\"version\":3,\"generation\":2,\"authority_epoch\":1,\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"status\":\"failed\",\"execution_stage\":\"quiescent\",\"created_at\":\"2026-10-27T04:58:00.259Z\",\"updated_at\":\"2026-10-27T04:58:00.383Z\",\"claim_id\":\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\",\"fencing_token\":\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\",\"execution_reason\":\"THREADED_API_FAILED\",\"outcome_record\":\"{\\\"outcomeDigest\\\":\\\"010da45b248127303ce1236ce1c6b34d9190b0f2f9a1a296e1092e1c9bf5e726\\\",\\\"quiescence\\\":{\\\"schemaVersion\\\":1,\\\"id\\\":\\\"f8368795-13d4-45a1-8d81-64c65a7adc4f\\\",\\\"attemptId\\\":\\\"cb94e282-4568-4d4f-9ce7-2027f7569488\\\",\\\"claimId\\\":\\\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\\\",\\\"generation\\\":2,\\\"fencingToken\\\":\\\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\\\",\\\"reason\\\":\\\"process_exited\\\",\\\"sideEffects\\\":\\\"reconciled\\\"},\\\"budgetState\\\":\\\"settled\\\",\\\"retryPermitted\\\":false}\",\"resource_release_state\":\"released\"}],\"requests\":[{\"id\":\"8ec9741e-46a7-40aa-9f45-4b78ef36061d\",\"root_id\":\"629c2d2d-da5f-4633-8924-8ded9c4a89a8\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"invocation_id\":\"6f51399a-4fa8-4c14-ae1b-da21fe87c69b\",\"attempt_id\":\"1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"request_key\":\"queue:91d3edd0-14ef-41af-ae34-912d014dcb39:1949e385-197d-48ec-a0ed-f8cb9cec0b44\",\"request_hash\":\"e2321c16742922e0d1722a3a68e936a2d182041cdcf430fa78647e02f7f6bd27\",\"policy_version\":1,\"claim_id\":\"d4239eaf-358b-47ae-8c03-d95e9c92705a\",\"generation\":1,\"fencing_token\":\"c30d9c0d-0c3e-47b7-a117-2387d5f94e17\",\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"reserved_output\":256,\"reserved_cost\":1000,\"pricing_reference\":\"fixture-only\",\"known_output\":7,\"known_cost\":27,\"execution_state\":\"quiescent\",\"usage_state\":\"settled\",\"outcome_hash\":\"c9d84beb65085ef821ed95bd224cc8f67d349fba5ed61393082ff59e65967179\",\"outcome_kind\":\"failed\",\"evidence_reference\":\"threaded-backend-request:21f5985f-9f8d-4a66-ad1e-1d0320d3e62d\",\"created_at\":1793077080103,\"started_at\":1793077080215,\"settled_at\":1793077080264},{\"id\":\"573aabca-d836-4c2f-9415-fb6a0819d286\",\"root_id\":\"400c2c8e-3bb3-4329-80c5-8b02cb030c94\",\"owner_id\":\"1885f3e9-30db-4bb6-b65a-6c3e7c5913e5\",\"thread_id\":\"cce54d38-7079-43ea-83f7-1b78f61ed3d8\",\"invocation_id\":\"2ffb8fb3-6bc5-47bd-a3f5-489005b9cb6b\",\"attempt_id\":\"cb94e282-4568-4d4f-9ce7-2027f7569488\",\"request_key\":\"queue:faceaaca-c689-4efd-843d-b5bdad88d376:cb94e282-4568-4d4f-9ce7-2027f7569488\",\"request_hash\":\"01b47e4ee64531cba38740f21252ad7f190379d062064e21578bf4ad9052cd40\",\"policy_version\":1,\"claim_id\":\"87589c87-aa96-4f31-b2e5-15c9fa5c8c73\",\"generation\":2,\"fencing_token\":\"c3cf2d15-616c-408c-9365-c2fc81e13ef4\",\"claim_owner\":\"t07:fedc32e9-55e0-4b0d-8772-5e35a5f59199\",\"reserved_output\":256,\"reserved_cost\":1000,\"pricing_reference\":\"fixture-only\",\"known_output\":0,\"known_cost\":0,\"execution_state\":\"not_started\",\"usage_state\":\"settled\",\"outcome_hash\":\"010da45b248127303ce1236ce1c6b34d9190b0f2f9a1a296e1092e1c9bf5e726\",\"outcome_kind\":\"failed\",\"evidence_reference\":null,\"created_at\":1793077080259,\"started_at\":null,\"settled_at\":1793077080380}]}\n+ actual - expected\n\n+ 'failed'\n- 'completed'\n\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc09-budget.mjs:170:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)"
+  }
+}

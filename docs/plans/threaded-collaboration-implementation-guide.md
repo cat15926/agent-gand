@@ -1,6 +1,6 @@
 # 持续协作模式实施指导
 
-状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-27（Asia/Shanghai）。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同已推送 `ee751a3`；RC04实现和所列隔离验收已推送 `d831a70`，真实观察609秒/71 GET后为not_observed、完整真实链未通过；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时；RC06已实施且所列分层41组通过，尚未整体验收关闭，已推送`f03648e`。RC07实现及所列分层验收完成，默认窗口自然压缩/产品seal及实际index完整原生组合仍未验，尚未整体验收关闭，已推送`6ca44fb`。RC08实现及所列分层验收完成，原T08取消仍未定位，真实故障组合限制保留，当前RC08变更未提交。代码schema保持v35，日常仍closed、未配置/迁移；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
+状态：**实施中**（T01–T11 已交付；T12 接线及所列分层验收完成，真实组合/发布条件未全部通过）。用户已确认产品命名与验收目标；新模式日常生产保持默认关闭，启用需固定发布清单及持久授权。更新：2026-10-27（Asia/Shanghai）。RC01/进度文档已推送 `35804a1`，RC02已推送 `a871910`；RC03生产命令/等待合同已推送 `ee751a3`；RC04实现和所列隔离验收已推送 `d831a70`，真实观察609秒/71 GET后为not_observed、完整真实链未通过；RC05实现及所列分层验收已推送 `8d1fc75`，仍有明确限制/未定位历史超时；RC06已实施且所列分层41组通过，尚未整体验收关闭，已推送`f03648e`。RC07实现及所列分层验收完成，默认窗口自然压缩/产品seal及实际index完整原生组合仍未验，尚未整体验收关闭，已推送`6ca44fb`。RC08实现及所列分层验收完成，原T08取消仍未定位，真实故障组合限制保留，已推送`52d3cc3`。RC09实现及所列分层验收完成，历史只读盘点已完成；原12项未知预留继续保留，当前RC09变更未提交。代码schema保持v35，日常仍closed、未配置/迁移；剩余工作见[计划表](threaded-collaboration-remaining-plan.md)。
 
 来源：[Issue #16 持续线程协作模式](https://github.com/cat15926/agent-gand/issues/16)，正文更新于 2026-10-19 21:17:35（Asia/Shanghai），提取时无评论。原 Issue 的 K01–K16 合同、T01–T12 任务包和验收 ID 继续有效；本文不改变其语义。
 
@@ -145,6 +145,8 @@ exclusive claim 和 thread-slot claim 必须在同一原子竞争机制中看到
 RC07 的补验范围与新边界见[上下文验收合同](../architecture/threaded-context-acceptance-v1.md)：区分来源消息超限与完整 HTTP envelope 超限，核验序号空洞、同波冻结、游标写失败修复、压缩来源和权限收缩。API 仅在完整请求通过准入后记录可能曝光；SDK 在本地 prompt 交付前记录可能曝光。两者不能用“0 fetch”统一推断未曝光。实际 SDK 的合成用量触发、可信低层 seal 与真实供应商行为分层记证；所列分层已通过，受控窗口真实供应商压缩另有证据，默认窗口自然压缩仍未验。
 
 RC08 的征询诊断与故障补验遵循[征询验收合同](../architecture/threaded-consultation-acceptance-v1.md)：保留 T08 首轮 SDK cancelled 未定位事实，按原始现场、可复现当前缺陷和新场景成功分别记证。完整 multi_mention 规则与 M03 精确幂等保持不变，E01–E06 持久恢复增强独立验收；真实供应商、实际 index 入口、受控时钟和注入故障不互相代替。本轮实现及所列分层验收完成，结果见[RC08报告](../reports/threaded-collaboration-rc08-consultation-2026-10-27.md)；历史取消仍未定位，未覆盖的真实组合继续保留。
+
+RC09 的历史事实与预算/进程恢复遵循[对账验收合同](../architecture/threaded-reconciliation-acceptance-v1.md)：不可变 complete receipt、用量、价格、宿主停止、资源静止与业务终态分别验收；没有可信原事实则继续 unknown，不以重启、PID 消失或新成功请求释放旧预留。
 
 恢复顺序为：schema/策略 → 外部进程与未知副作用 → 资源与 Session → Invocation/响应/投递/wake/outbox → 等待/征询/Action → 内存投影 → 新派发。每条记录只有一个模式恢复器负责。
 
@@ -315,9 +317,13 @@ RC06相关回归88组通过：resources19、resource integration8、queue11、ba
 
 生产工程注册新增显式 `shared_project`：成员workspace绑定同一完整canonical工程根并持有read claim，输出写入工程外显式、分离的 `artifactRoot` 子目录；原 `isolated` 注册继续兼容。命令独立补充文件资源，不重复占模型容量或公平服务轮次；更早的真实冲突写者、同command资源及旧exclusive继续优先，read/read可共享。**生产工程源文件写作/merge工具尚未交付**；唯一merge owner及baseVersion只在fixture协议验收，不代表生产已能合并。真正资源冲突时command单次reserve失败仍可进入unknown，尚无自动持久资源等待重试；legacy与threaded的真实供应商混跑尚未验收，均作为RC06未完缺口保留。代码schema仍v35，日常closed、未配置/迁移，不自动启动其他任务。
 
-RC08 实现及所列分层验收完成；原T08取消仍未定位，真实故障组合限制保留，当前变更未提交，见[征询验收合同](../architecture/threaded-consultation-acceptance-v1.md)及[RC08报告](../reports/threaded-collaboration-rc08-consultation-2026-10-27.md)。修复征询已结算且callback处于waiting、已无deadline时，resume仅重装timer而不恢复回调的缺口；合并提交通知后先recover再arm，存储失败保留独立1秒重试，observe及已调用close()的协作实例不执行恢复。SDK仅保留可信Authority/Budget/Resource错误类的白名单平台码，拒绝原始错误文本及伪前缀。原历史报告缺少取消原因与准确运行身份，保留临时目录已无SQLite或原生记录，本轮诊断不能补造原始原因，也不宣称修复了历史取消。
+RC08 实现及所列分层验收完成；原T08取消仍未定位，真实故障组合限制保留，已推送`52d3cc3`，见[征询验收合同](../architecture/threaded-consultation-acceptance-v1.md)及[RC08报告](../reports/threaded-collaboration-rc08-consultation-2026-10-27.md)。修复征询已结算且callback处于waiting、已无deadline时，resume仅重装timer而不恢复回调的缺口；合并提交通知后先recover再arm，存储失败保留独立1秒重试，observe及已调用close()的协作实例不执行恢复。SDK仅保留可信Authority/Budget/Resource错误类的白名单平台码，拒绝原始错误文本及伪前缀。原历史报告缺少取消原因与准确运行身份，保留临时目录已无SQLite或原生记录，本轮诊断不能补造原始原因，也不宣称修复了历史取消。
 
-23组专验＝协作/持久恢复8＋实际SDK注入5＋实际index注入5＋实际index真实5；相关84组＝collaboration17＋collaboration API4＋collaboration backends4＋backends14＋queue11＋runtime18＋production16，合计107组通过。协作层18个worker PID、19次注入HTTP；SDK层8个guardian PID、42次注入HTTP；实际index注入与真实两层各7个PID。实际入口覆盖部分目标失败、三目标部分答复后的超时重启、暂停回调恢复后自动派发、失权拒绝及同一有效Binding的工具回执精确重试。T08首轮cancelled仍未定位；多PID末答竞争和outbox故障属于低层factory验收，未与实际index/真实供应商做全交叉。受控时钟跨原deadline、broker扣留已提交工具结果和本地HTTP400均显式注入，不代表自然供应商取消、真实网络丢回执或真实经过3分钟等待。RC08新增21次真实HTTP，另1次本地HTTP400未发往供应商；新增确认33,195 token、unknown为0。原68行账本未改，当前累计确认220,478＋历史未知206,832＝保守占额427,310，累计50万门禁余72,690；历史unknown不自动释放。日常closed、schema35及既有RC04–RC07未完边界不变，不自动开始RC09。
+23组专验＝协作/持久恢复8＋实际SDK注入5＋实际index注入5＋实际index真实5；相关84组＝collaboration17＋collaboration API4＋collaboration backends4＋backends14＋queue11＋runtime18＋production16，合计107组通过。协作层18个worker PID、19次注入HTTP；SDK层8个guardian PID、42次注入HTTP；实际index注入与真实两层各7个PID。实际入口覆盖部分目标失败、三目标部分答复后的超时重启、暂停回调恢复后自动派发、失权拒绝及同一有效Binding的工具回执精确重试。T08首轮cancelled仍未定位；多PID末答竞争和outbox故障属于低层factory验收，未与实际index/真实供应商做全交叉。受控时钟跨原deadline、broker扣留已提交工具结果和本地HTTP400均显式注入，不代表自然供应商取消、真实网络丢回执或真实经过3分钟等待。RC08新增21次真实HTTP，另1次本地HTTP400未发往供应商；新增确认33,195 token、unknown为0。原68行账本未改，当前累计确认220,478＋历史未知206,832＝保守占额427,310，累计50万门禁余72,690；历史unknown不自动释放。日常closed、schema35及既有RC04–RC07未完边界不变，本轮按用户指令实施RC09。
+
+RC09 以已推送 RC08 `52d3cc3` 为基线，实现及所列分层验收完成，历史12项未知仍未收敛且逐项保留处置已登记，当前 RC09 变更未提交，见[对账验收合同](../architecture/threaded-reconciliation-acceptance-v1.md)及[RC09报告](../reports/threaded-collaboration-rc09-reconciliation-2026-10-27.md)。本轮处理完整不可变 backend receipt 已提交、后续 budget.settleRequest 未持久成功的恢复窗口，按原 Binding/authorization 幂等补记已存在的可信事实；输出用量、货币费用、进程停止、资源围栏和业务终态分别核验。SDK 仅在原 closed、同宿主且 ps 确认原进程组停止时补记 verified_stopped；registered 缺少原 close 继续保留。修复不重放、不发布旧正文、不自动释放 claim，也不补调 onRequestSettled 改写外部账本；observe 不修复写入。新增24组＝factory恢复9＋预算专项9＋实际index6，相关101组＝backend-runtime7＋backends14＋budget14＋context14＋production16＋queue11＋release7＋runtime18，合计125组通过。factory层16个独立worker PID、4个本地进程组、0次HTTP；预算层10次注入HTTP、1个短命Node进程（非SDK）；实际index层12个PID、2个实际SDK guardian、6次注入HTTP。主入口额外覆盖closed且无发布pack仍修复原账务事实、同时不开放新任务；observe零修复。历史只读盘点不另计验收组，所有层真实供应商请求为0。
+
+[历史只读盘点](../reports/evidence/threaded-rc09/history-ledger-audit.json)已经核对原 89 行：77 known、12 reserved；9 项精确映射原 request/Binding，3 项缺少身份桥接，0 项具有可安全转 known 或退款的完整可信事实。逐轮原 68/57/47/33 行摘要保持一致，本轮 0 次真实供应商请求，未修改共享账本：确认 220,478＋未知预留 206,832＝保守累计 427,310 token，所选累计 50 万门禁余 72,690。不能按金额/先后配对原请求，不能由 SDK 停止推断费用已知。历史项的处置为保留原预留/状态，不恢复未知执行；后续恢复须补齐原身份、可信回执和各域事实。T08 原取消与 RC04–RC08 未完边界继续保留，schema 35、日常 closed 且未配置/迁移，不自动开始 RC10 或发布。
 
 后续文档遵循 [文档中心](../README.md) 的职责划分：实施状态继续放 `plans/`，已经生效的协议放 `architecture/`，实际命令和证据放 `reports/`，运维流程放 `operations/`；不另建混合职责的文档目录。
 
