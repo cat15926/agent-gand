@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "kind": "isolated-matching-backup-restore-rehearsal",
+  "generatedAt": "2026-10-27T16:06:59.532Z",
+  "applicationRevision": "ffcbbcad429a1526fb27e7fdfe9952eaba7d8833",
+  "result": "passed",
+  "checksPassed": 7,
+  "checks": [
+    {
+      "id": "RC11-RESTORE-01",
+      "result": "passed",
+      "summary": "Frozen a871910 v34 schema with committed WAL, real grant/root/ingress, synthetic encrypted account/identity and explicit unresolved execution/usage/Action rows passes integrity and account audit"
+    },
+    {
+      "id": "RC11-RESTORE-02",
+      "result": "passed",
+      "summary": "Production backupAccounts SQLite backup API includes committed WAL and checksums matching synthetic account key/private identity/roles; separately verified native Session, workspace, artifacts and deployment metadata"
+    },
+    {
+      "id": "RC11-RESTORE-03",
+      "result": "passed",
+      "summary": "Corrupted backup and mismatched synthetic master key rejected; verified whole matching bundle restored at the original isolated absolute paths with no newer WAL/SHM and exact all-table equality"
+    },
+    {
+      "id": "RC11-RESTORE-04",
+      "result": "passed",
+      "summary": "Forward v35 migration on restored v34 bundle preserves all prior rows and v25-v34 migration facts; injected registration failure rolls back, successful retry and repeated migration are stable"
+    },
+    {
+      "id": "RC11-RESTORE-05",
+      "result": "passed",
+      "summary": "Actual frozen RC02 v34 compatibility/migration functions reject restored v35 before schema or data mutation; this is the compatibility gate, not an old full service launch"
+    },
+    {
+      "id": "RC11-RESTORE-06",
+      "result": "passed",
+      "summary": "Historical whole-bundle restore only after independently preserving post-upgrade v35 database/unknowns/workspace/artifacts; new rows are retained in their matching bundle, not falsely merged into the historical snapshot"
+    },
+    {
+      "id": "RC11-RESTORE-07",
+      "result": "passed",
+      "summary": "Matching current v35 bundle reopens with exact current data, both generations of unknown usage and Action responsibility retained, admission/dispatch closed, zero provider requests and no executor attached"
+    }
+  ],
+  "details": {
+    "historicalSourceCompatibility": {
+      "revision": "a8719103312d468e539c9810506a59674c1ca5c2",
+      "unchangedFragmentCount": 17,
+      "comparedTo": "Current repository bytes; orchestrationMigrations catalog is excluded because v35 is appended there"
+    },
+    "originalUnknown": {
+      "rootId": "718e1fac-46a2-4923-8211-dd1a5c524ebb",
+      "authorizationId": "pre-upgrade-authorization",
+      "backendRequestId": "pre-upgrade-backend-request",
+      "actionId": "pre-upgrade-action",
+      "unknownRequests": 1,
+      "retainedOutputTokens": 777,
+      "retainedCostMicrousd": 12345
+    },
+    "original": {
+      "schema": 34,
+      "digest": "10af18f97a0d7cd1935caebc9060ea9897406172bcaacbc39e10ed5a3ee2acb2",
+      "tableCount": 238,
+      "migration25To34Digest": "9f18e0bfb56869122f7bb5588719ca365669425a6e85b458628dff1708ab4027",
+      "walBytes": 6690912
+    },
+    "baselineBundle": {
+      "directory": "temporary/v34-baseline",
+      "databaseDigest": "10af18f97a0d7cd1935caebc9060ea9897406172bcaacbc39e10ed5a3ee2acb2",
+      "supplementDigest": "faac4845d222b0560501d2613dbc8fab6db3cefce2dbe4319cc6b2328f5d892b",
+      "accountManifestDigest": "c8b3b6f7242e32fe1f49052d5dfe5d105f9ad57731fdc827477f34c18490f2a2"
+    },
+    "migration": {
+      "from": 34,
+      "to": 35,
+      "beforeDigest": "10af18f97a0d7cd1935caebc9060ea9897406172bcaacbc39e10ed5a3ee2acb2",
+      "afterDigest": "da2ef6537095389e3c0f38e097099e20ab2d09876579207a14037d1327d46ac3",
+      "preservedVersions": [
+        25,
+        34
+      ],
+      "transactionFaultRolledBack": true
+    },
+    "oldWorker": {
+      "revision": "a8719103312d468e539c9810506a59674c1ca5c2",
+      "maxSupportedSchema": 34,
+      "rejectedSchema": 35,
+      "rowDigest": "da2ef6537095389e3c0f38e097099e20ab2d09876579207a14037d1327d46ac3",
+      "totalChangesDelta": 0,
+      "sourceHashes": [
+        {
+          "path": "apps/server/src/db/orchestrationMigrations.ts",
+          "sha256": "b42561134bf52d9a91f607e859cb33c80dab8fe83a3d6d5184c0167127ecf674"
+        },
+        {
+          "path": "apps/server/src/db/threadedMigration.ts",
+          "sha256": "14ff92f60b57f921dcb8f4fd6b2c27dc1279a2316c8e49b52394742907a1197f"
+        },
+        {
+          "path": "apps/server/src/db/threadedExecutionMigration.ts",
+          "sha256": "6ba5e8174db14d779aa4f1e777bfb05e9b0381ae0bfda943fc92cff906de367f"
+        },
+        {
+          "path": "apps/server/src/db/executionResourcesMigration.ts",
+          "sha256": "b7192b586cb7fa892adb019dabb270cba7bac53a1720f6ad227a50ca941ddbfc"
+        },
+        {
+          "path": "apps/server/src/db/threadedMessagingMigration.ts",
+          "sha256": "7c10d80c07af4d26f741205e8ac3608f348f745cf2f6f0ccc718f7b8e40704e8"
+        },
+        {
+          "path": "apps/server/src/db/threadedSchedulingMigration.ts",
+          "sha256": "a1e19671d1bbe41854039c5b4b29a1323db78fbd97f65cbb3ebf40e649c7b537"
+        },
+        {
+          "path": "apps/server/src/db/threadedBudgetSchema.ts",
+          "sha256": "be02a8c1171a3f579b00cce7b716e0b5af8b9769493d99c61f53aa60eaa2ff0c"
+        },
+        {
+          "path": "apps/server/src/db/threadedContextMigration.ts",
+          "sha256": "ebdd252b81d45c3aa776f6d702607a03e68958146592d3015d95acdc7fde0dd9"
+        },
+        {
+          "path": "apps/server/src/db/threadedSessionContextSchema.ts",
+          "sha256": "f4711b7fbc0c8f000c86009558911b9c2c7faec98b949fe5d0b84d8c0909d3f5"
+        },
+        {
+          "path": "apps/server/src/db/threadedBackendSchema.ts",
+          "sha256": "62a134efb6f73ba37ad888f1649358a4b183d9fb3329c2230e1c3ba8f4e6192b"
+        },
+        {
+          "path": "apps/server/src/db/threadedCollaborationMigration.ts",
+          "sha256": "3aaced694a86d75f4941fea897760ea1eee71ea825e0b456376e303f0063f120"
+        },
+        {
+          "path": "apps/server/src/db/threadedActionMigration.ts",
+          "sha256": "194817d14842c07c3f6258a7195bfd9fabf658c2402bda65b0fa1a1ff34a95ec"
+        },
+        {
+          "path": "apps/server/src/db/threadedWorkflowMigration.ts",
+          "sha256": "7d2a75c895da9ab2fd45d4c502b6ebf8d2d730a9b22b9b758f3b68823f1137be"
+        },
+        {
+          "path": "apps/server/src/db/threadedReviewSchema.ts",
+          "sha256": "6ecc0f5e4129025af45d63ca66749c88b047fb3d7a357d56c952a13115875939"
+        },
+        {
+          "path": "apps/server/src/db/threadedSopSchema.ts",
+          "sha256": "6c83c3f00c34838f8b33cd35aced366b28dcaa0f0a3236cc1d0af0d0e926b9ff"
+        },
+        {
+          "path": "apps/server/src/db/threadedKnowledgeSchema.ts",
+          "sha256": "b07601883aa208ae0b0bb9c8262a4aeee8b7819a0de8979598dab3276bd970b2"
+        },
+        {
+          "path": "apps/server/src/db/threadedOperationsMigration.ts",
+          "sha256": "a33433fe587ddb6d576a0dd360a7407c00ce17d6f7081447df4cce99f6fef379"
+        },
+        {
+          "path": "apps/server/src/db/threadedReleaseSchema.ts",
+          "sha256": "8757b99490376275582fcef1b3237f595240565f7ac1ffeb433295d3c096c1bc"
+        }
+      ]
+    },
+    "newUnknown": {
+      "rootId": "1b13069c-28f6-4599-a6d8-1efe692506bf",
+      "authorizationId": "post-upgrade-authorization",
+      "backendRequestId": "post-upgrade-backend-request",
+      "actionId": "post-upgrade-action",
+      "unknownRequests": 1,
+      "retainedOutputTokens": 777,
+      "retainedCostMicrousd": 12345
+    },
+    "currentBundle": {
+      "directory": "temporary/v35-preserved-increment",
+      "databaseDigest": "04525b2cd01c2f22897c0a2edba85d4b32bf0aeb71b9eec83256a295eafce4b9",
+      "supplementDigest": "539e265f4f46f0798aac200449a599dd318e7d7f729de0e364eb0e4e63043ad0",
+      "accountManifestDigest": "a6aab710bd71fd63a3d54275132bef68a211c15552588ad584b77483370afc04"
+    },
+    "finalUnknown": [
+      {
+        "id": "post-upgrade-authorization",
+        "root_id": "1b13069c-28f6-4599-a6d8-1efe692506bf",
+        "execution_state": "unknown",
+        "usage_state": "unknown",
+        "reserved_output": 777,
+        "reserved_cost": 12345,
+        "known_output": null,
+        "known_cost": null
+      },
+      {
+        "id": "pre-upgrade-authorization",
+        "root_id": "718e1fac-46a2-4923-8211-dd1a5c524ebb",
+        "execution_state": "unknown",
+        "usage_state": "unknown",
+        "reserved_output": 777,
+        "reserved_cost": 12345,
+        "known_output": null,
+        "known_cost": null
+      }
+    ],
+    "final": {
+      "schema": 35,
+      "digest": "04525b2cd01c2f22897c0a2edba85d4b32bf0aeb71b9eec83256a295eafce4b9",
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "admissionOpen": false,
+      "dispatchOpen": false,
+      "unresolvedRequestCount": 2,
+      "unknownOutputReserve": 1554,
+      "unknownCostReserveMicrousd": 24690
+    }
+  },
+  "isolation": {
+    "dailyDatabaseRead": false,
+    "dailyDatabaseMigrated": false,
+    "configuredCredentialsRead": false,
+    "syntheticCredentialOnly": true,
+    "providerRequests": 0,
+    "spawnedNativeProcesses": 0,
+    "executorAttached": false,
+    "temporaryFilesRemoved": true
+  },
+  "limitations": [
+    "No target deployment selected or migrated; production RC11 exit remains blocked by RC10 and actual target readiness.",
+    "Historical unknowns are synthetic SQL fixture rows; this rehearsal tests preservation, not provider reconciliation or execution recovery.",
+    "Supplement copies synthetic native/working files only; it is not proof of real native session resumption or a complete production source/dependency archive.",
+    "Historical restore does not undo external effects; post-snapshot increments remain separately retained until an operator resolves them.",
+    "The frozen v34 compatibility gate was executed in isolation; no old full service was launched."
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "readOnly": true,
+  "providerRequests": 0,
+  "credentialMaterialRead": false,
+  "messageBodyReads": 0,
+  "preparationPassed": false,
+  "targetReleaseReady": false,
+  "wholeDatabaseRollbackReady": false,
+  "findings": [
+    {
+      "code": "PATH_MISSING",
+      "field": "managedWorkspaces"
+    },
+    {
+      "code": "PATH_MISSING",
+      "field": "codexHome"
+    },
+    {
+      "code": "PATH_MISSING",
+      "field": "claudeHome"
+    },
+    {
+      "code": "DATABASE_METADATA_UNAVAILABLE"
+    }
+  ],
+  "releaseBlockers": [
+    {
+      "code": "RELEASE_PACK_NOT_SELECTED"
+    },
+    {
+      "code": "KEY_AND_ENCRYPTED_CONTENT_MATCH_UNVERIFIED"
+    },
+    {
+      "code": "NATIVE_SESSION_WORKSPACE_MATCH_UNVERIFIED"
+    },
+    {
+      "code": "RC10_RELEASE_GATE_BLOCKED"
+    },
+    {
+      "code": "MATCHED_COMPONENT_BACKUP_AND_RESTORE_UNVERIFIED"
+    },
+    {
+      "code": "TARGET_FORWARD_MIGRATION_AND_OLD_WORKER_REJECTION_UNVERIFIED"
+    },
+    {
+      "code": "TARGET_CLOSED_AND_OBSERVE_REHEARSAL_UNVERIFIED"
+    },
+    {
+      "code": "INDEPENDENT_OPERATION_REVIEW_REQUIRED"
+    }
+  ],
+  "targetId": "repository-default-candidate",
+  "mode": "closed",
+  "paths": {
+    "database": {
+      "path": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/agent-gand.sqlite",
+      "kind": "file",
+      "bytes": 43147264,
+      "mode": 420,
+      "uid": 501,
+      "device": 16777231,
+      "inode": 3948277
+    },
+    "private": {
+      "path": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/private",
+      "kind": "directory",
+      "mode": 448,
+      "uid": 501,
+      "device": 16777231,
+      "inode": 4959102
+    },
+    "roles": {
+      "path": "/Users/ruhonglin/lhz/agent-gand/agents",
+      "kind": "directory",
+      "mode": 493,
+      "uid": 501,
+      "device": 16777231,
+      "inode": 3805687
+    },
+    "sandbox": {
+      "path": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/sandbox",
+      "kind": "directory",
+      "mode": 493,
+      "uid": 501,
+      "device": 16777231,
+      "inode": 3823323
+    }
+  },
+  "databaseFile": {
+    "headerBytesRead": 20,
+    "bytes": 43147264,
+    "mtimeMs": 1792417373485.6667,
+    "device": 16777231,
+    "inode": 3948277,
+    "journalMode": "wal",
+    "sidecars": {
+      "-wal": {
+        "exists": true,
+        "bytes": 465592,
+        "mtimeMs": 1792428111713.0044,
+        "symbolicLink": false
+      },
+      "-shm": {
+        "exists": true,
+        "bytes": 32768,
+        "mtimeMs": 1793115199610.2268,
+        "symbolicLink": false
+      },
+      "-journal": {
+        "exists": false
+      }
+    }
+  },
+  "databaseErrorCode": "WAL_REQUIRES_QUIESCENT_SNAPSHOT",
+  "rc10": {
+    "sha256": "1fe5f8ab2bcaeee98127f254d3d5374eca6fbc7f826da324c86f5a4f40640cef",
+    "stage": "RC10",
+    "dailyReleaseReady": false,
+    "blockingIssueIds": [
+      "RC10-G01",
+      "RC10-G02",
+      "RC10-G03",
+      "RC10-G04",
+      "RC10-G05",
+      "RC10-G06",
+      "RC10-G07",
+      "RC10-G11"
+    ]
+  },
+  "interpretation": "Preparation checks are metadata only. Component overlaps (including registered projects nested in managed roots) are conservatively unsupported by this preflight and require an explicit coverage review; this is not a claim that the deployment is invalid. This command cannot authorize deployment, confirm credential matching, certify native recovery, or permit whole-database rollback. RC10 audit booleans or self-supplied manifest fields never make targetReleaseReady true."
+}

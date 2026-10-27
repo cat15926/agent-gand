@@ -1,6 +1,6 @@
 # 持续协作发布、排空与恢复手册
 
-日期：2026-10-27。适用 schema 35（RC03前向追加，RC06/RC07/RC08/RC09无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
+日期：2026-10-28。适用 schema 35（RC03前向追加，RC06–RC11无新增迁移，历史迁移保持不变）、HTTP `threaded-http-v1` 及当前兼容 worker。实现依据为 [production](../../apps/server/src/threaded/production.ts)、[发布配置](../../apps/server/src/threaded/productionSettings.ts)、[发布账本](../../apps/server/src/threaded/release.ts)和[独立 HTTP 路由](../../apps/server/src/api/threadedRoutes.ts)。组合范围仍以[兼容矩阵](../plans/threaded-collaboration-compatibility-matrix.md)为准。
 
 代码交付不会自动修改日常配置、升级日常数据库、重启服务或开放房间。默认 `THREADED_COLLABORATION_MODE=closed`，未配置 release pack 时没有生产执行器；持久发布控制初始为虚拟版本 `0`，`admissionOpen=false`、`dispatchOpen=false`。本手册中的配置和请求是可审阅示例，尚未执行。
 
@@ -237,3 +237,28 @@ pnpm accounts:verify-backup --input /受保护的备份目录/新的备份名
 启动前的 schema 校验会拒绝不识别新迁移的旧 binary/worker，且在 schema 初始化前执行。不能删迁移行、新表或 unknown 来降低版本。隔离 release 验收已执行实际 T11 `ba438b1` 的 v33 兼容门，确认拒绝 v34；RC03隔离验证另确认实际RC02 `a871910` 的v34 worker拒绝v35且零修改；这些结果不等于已经替日常环境完成历史备份恢复。
 
 先在隔离原路径副本演练，核对 `quick_check`、外键、grant/root、消息/回执/Action 和预算历史；恢复阶段不得自动重放未知外部请求。完整运维操作应记录应用 revision、schema、pack 摘要、配置模式、控制版本、停机前后清单及保留的未知项，再按已验证范围恢复兼容服务。
+
+## RC11：目标预检与隔离恢复演练
+
+[RC11合同](../architecture/threaded-release-preparation-v1.md)与[报告](../reports/threaded-collaboration-rc11-release-preparation-2026-10-28.md)提供独立准备工具。RC10真实综合链和既有发布门槛尚未通过；工具及合成演练通过不意味着已选定或恢复日常部署，不自动进入RC12。
+
+```bash
+pnpm threaded:release-preflight discover --repo /Users/ruhonglin/lhz/agent-gand
+pnpm threaded:release-preflight check --target /protected/rc11-target.json
+```
+
+`discover`只提取允许的配置路径和模式，输出候选`manifest`，不能将整个发现报告作为目标清单。目标启动目录或环境与当前仓库不同时，应逐项明确真实绝对路径。`check`接受显式清单，检查路径存在、链接/类型/覆盖关系、schema历史、宿主和全模式未决计数；不初始化数据库、不解密密钥、不调用模型。`preparationPassed`仅表示检查覆盖的元数据满足要求，`targetReleaseReady`始终为false，匹配备份/恢复和目标操作还须独立取证。命令退出0也不能授权发布。
+
+WAL格式的日常数据库不直接交给SQLite打开：只读取固定文件头和sidecar元数据，保留`WAL_REQUIRES_QUIESCENT_SNAPSHOT`。这避免只读连接仍可能创建/修改WAL或SHM，也不使用immutable忽略在线WAL。须先按上文全模式停机/一致备份流程取得可独立检查的副本，不能为让预检变绿而对日常库checkpoint、改journal模式或删除sidecar。缺少SQL库存意味着schema、宿主静止和未决责任均尚未核实。普通rollback格式的SQL盘点也应针对静止库或一致副本；文件头预检和打开之间没有跨进程锁，不保证并发切换journal模式时的字节级不变。
+
+账户备份与额外的工作区/产物/原生Session/发布配置必须属于同一恢复集合。若使用环境主密钥，依原安全渠道留存；文件存在或清单自填“已验证”不证明配套正确。工具不会读取主密钥内容，也不会把自填RC10绿色布尔值变成发布许可。
+
+可重复的合成演练命令：
+
+```bash
+pnpm verify:threaded-rc11-preflight
+pnpm verify:threaded-rc11-restore
+pnpm verify:threaded-rc11-modes
+```
+
+后三项只使用隔离合成环境。实际index模式演练通过preload在导入数据库前重定向全部可写路径，并跳过日常.env；只改`DB_PATH`不足以隔离固定的sandbox/threaded工作区。observe的业务表/共享资源检查与closed旧HTTP入口检查不代替整库只读、真实原生Session恢复或日常目标备份验收。发现脚本的路径候选与隔离结果均应附在操作记录中，保留所有blocked/unverifiable项。

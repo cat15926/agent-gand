@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "targetId": "repository-default-candidate",
+  "expectedSchema": 35,
+  "mode": "closed",
+  "paths": {
+    "database": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/agent-gand.sqlite",
+    "private": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/private",
+    "roles": "/Users/ruhonglin/lhz/agent-gand/agents",
+    "sandbox": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/sandbox",
+    "managedWorkspaces": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/workspaces",
+    "codexHome": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/codex",
+    "claudeHome": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/claude"
+  },
+  "registeredWorkspaces": [],
+  "files": {
+    "releasePack": null,
+    "githubRegistration": null,
+    "commandRegistration": null
+  },
+  "rc10Audit": {
+    "path": "/Users/ruhonglin/lhz/agent-gand/docs/reports/evidence/threaded-rc10/acceptance-audit.json",
+    "sha256": "1fe5f8ab2bcaeee98127f254d3d5374eca6fbc7f826da324c86f5a4f40640cef"
+  },
+  "backupManifest": null,
+  "keySource": "unverified"
+}

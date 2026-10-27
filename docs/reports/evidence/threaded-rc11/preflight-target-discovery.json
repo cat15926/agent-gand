@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "readOnly": true,
+  "providerRequests": 0,
+  "dotEnvReadForPathSelection": true,
+  "credentialValuesParsed": false,
+  "credentialValuesExported": false,
+  "messageBodyReads": 0,
+  "discoveryOnly": true,
+  "targetReleaseReady": false,
+  "manifest": {
+    "schemaVersion": 1,
+    "targetId": "repository-default-candidate",
+    "expectedSchema": 35,
+    "mode": "closed",
+    "paths": {
+      "database": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/agent-gand.sqlite",
+      "private": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/private",
+      "roles": "/Users/ruhonglin/lhz/agent-gand/agents",
+      "sandbox": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/sandbox",
+      "managedWorkspaces": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/workspaces",
+      "codexHome": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/codex",
+      "claudeHome": "/Users/ruhonglin/lhz/agent-gand/apps/server/data/external/claude"
+    },
+    "registeredWorkspaces": [],
+    "files": {
+      "releasePack": null,
+      "githubRegistration": null,
+      "commandRegistration": null
+    },
+    "rc10Audit": {
+      "path": "/Users/ruhonglin/lhz/agent-gand/docs/reports/evidence/threaded-rc10/acceptance-audit.json",
+      "sha256": "1fe5f8ab2bcaeee98127f254d3d5374eca6fbc7f826da324c86f5a4f40640cef"
+    },
+    "backupManifest": null,
+    "keySource": "unverified"
+  },
+  "inventory": null,
+  "inventoryError": "WAL_REQUIRES_QUIESCENT_SNAPSHOT",
+  "databaseFile": {
+    "headerBytesRead": 20,
+    "bytes": 43147264,
+    "mtimeMs": 1792417373485.6667,
+    "device": 16777231,
+    "inode": 3948277,
+    "journalMode": "wal",
+    "sidecars": {
+      "-wal": {
+        "exists": true,
+        "bytes": 465592,
+        "mtimeMs": 1792428111713.0044,
+        "symbolicLink": false
+      },
+      "-shm": {
+        "exists": true,
+        "bytes": 32768,
+        "mtimeMs": 1793115199610.2268,
+        "symbolicLink": false
+      },
+      "-journal": {
+        "exists": false
+      }
+    }
+  },
+  "databaseMetadataUnchanged": true,
+  "caveats": [
+    "Candidate paths are not a selected deployment or a backup.",
+    "A relative environment path is resolved against the supplied repository; a differently configured service cwd needs an explicit manifest.",
+    "The .env file is read only to select whitelisted paths/mode; credential values are not parsed, exported, decrypted or used.",
+    "WAL databases are not opened by SQLite: daily SQL inventory, schema and quiescence remain unverified until a separate consistent offline snapshot is available.",
+    "Session transcripts, message bodies and the application runtime are not loaded."
+  ]
+}

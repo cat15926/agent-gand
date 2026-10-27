@@ -235,7 +235,11 @@
     "verify:threaded-rc10-chain": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc10-chain.mjs",
     "verify:threaded-rc10-main": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc10-main.mjs",
     "audit:threaded-rc10-acceptance": "node scripts/audit-threaded-rc10-acceptance.mjs",
-    "audit:threaded-rc10-main-chain": "node scripts/audit-threaded-rc10-main-chain.mjs"
+    "audit:threaded-rc10-main-chain": "node scripts/audit-threaded-rc10-main-chain.mjs",
+    "threaded:release-preflight": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/threaded-release-preflight.mjs",
+    "verify:threaded-rc11-preflight": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc11-preflight.mjs",
+    "verify:threaded-rc11-restore": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc11-restore.mjs",
+    "verify:threaded-rc11-modes": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc11-modes.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "generatedAt": "2026-10-27T16:17:25.407003+00:00",
+  "baseRevision": "ffcbbcad429a1526fb27e7fdfe9952eaba7d8833",
+  "basePushedToOriginMain": true,
+  "results": {
+    "preflightGroups": 18,
+    "restoreGroups": 7,
+    "actualIndexModeGroups": 6,
+    "totalLayeredChecks": 31,
+    "realSupplierRequests": 0,
+    "indexPidsInFinalModes": 3
+  },
+  "syntax": {
+    "passed": true,
+    "scripts": [
+      {
+        "path": "scripts/threaded-release-preflight.mjs",
+        "sha256": "27ae381c670daf9bd77ae8af3aa41209d54c46f76e5be2df4a50cceeb0a2f0af"
+      },
+      {
+        "path": "scripts/verify-threaded-rc11-preflight.mjs",
+        "sha256": "5be778e2e213e0bacd954ac5511f2dca0100ac04915c051b28061a67df86f6c7"
+      },
+      {
+        "path": "scripts/verify-threaded-rc11-restore.mjs",
+        "sha256": "80a78a126fb03c7a69925744bcb2c862758c70a8df07ff32ded04ab714226a23"
+      },
+      {
+        "path": "scripts/verify-threaded-rc11-modes.mjs",
+        "sha256": "800322f08683b80cc06454e0474ac06c5d02941d6cde3b413ceb77ed4bd52bb0"
+      },
+      {
+        "path": "scripts/fixtures/threadedRc11ModesGuard.mjs",
+        "sha256": "9ad43bedd0be189f2ca35467d174a9a098fe4e428396573ea847d766c27a153a"
+      }
+    ]
+  },
+  "documentLinks": {
+    "checkedLocalLinks": 307,
+    "documentCount": 7,
+    "brokenLinks": []
+  },
+  "matrixAudit": {
+    "path": "docs/reports/evidence/threaded-rc11/matrix-audit.json",
+    "sha256": "e21e6c660a760c826dec307f65db928d1574d5cb4002d243b7f24b30402b412d",
+    "rows": 119,
+    "coreContracts": 16,
+    "originalScenarios": 59,
+    "enhancements": 6,
+    "originalTextSha256": "7c0b897370f11707c6204bbf954a1ba0e6efd9df76863815750af55eb63e952e",
+    "enhancementNonStatusCellsUnchanged": true
+  },
+  "gitDiffCheckPassed": true,
+  "productionSourceChanged": false,
+  "schemaChanged": false,
+  "rc10HistoricalAssetsChanged": false,
+  "dailyDatabaseSqlOpened": false,
+  "dailyDatabaseMigrated": false,
+  "dailyServiceRestarted": false,
+  "configuredCredentialsUsed": false,
+  "targetReleaseReady": false,
+  "rc12Started": false,
+  "limitations": [
+    "RC11 preparation assets and isolated checks are delivered; target deployment exit is incomplete.",
+    "WAL header blocked the candidate target before SQLite access; target schema, inventory and host quiescence are unverified.",
+    "No whole-database rollback permission, native session recovery proof or real-provider coexistence claim is issued.",
+    "Captured fixture/environment failures remain archived and are not added to final passing counts."
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "ok": false,
+  "stage": "RC11",
+  "date": "2026-10-27T16:04:33.186Z",
+  "groups": 0,
+  "checks": [],
+  "failures": [
+    {
+      "reason": "SQLITE_ERROR",
+      "stack": "Error: SQLITE_ERROR\n    at ChildProcess.<anonymous> (file:///Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc11-modes.mjs:39:140)\n    at ChildProcess.emit (node:events:519:28)\n    at emit (node:internal/child_process:949:14)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)"
+    }
+  ],
+  "actualMainIndex": true,
+  "entry": "apps/server/src/index.ts",
+  "actualPids": [
+    {
+      "mode": "execute",
+      "restore": false,
+      "pid": 55506
+    }
+  ],
+  "realSupplierRequests": 0,
+  "syntheticCredentialsOnly": true,
+  "isolatedExecutionBypass": false,
+  "productionCodeChanged": false,
+  "dailyDatabaseAccess": false,
+  "evidence": [],
+  "limitations": [
+    "Synthetic isolated database and injected API transport; no daily deployment, database, credential, workspace or supplier accessed.",
+    "Observe invariance covers every threaded table; the complete index still performs its normal schema/host/legacy startup work and is not an SQLite read-only process.",
+    "Closed legacy acceptance covers historical HTTP reads and durable non-executing writes across three old modes, not real-provider execution or a complete legacy/threaded workload mix.",
+    "No RC10 release blocker is waived and no canary or daily enablement is authorized by these isolated checks."
+  ]
+}

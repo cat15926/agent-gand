@@ -1,0 +1,88 @@
+{
+  "stage": "RC11",
+  "localDate": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "countedGroups": 6,
+  "productionDefectFound": false,
+  "sourceFiles": [
+    {
+      "path": "scripts/verify-threaded-rc11-modes.mjs",
+      "sha256": "800322f08683b80cc06454e0474ac06c5d02941d6cde3b413ceb77ed4bd52bb0"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc11ModesGuard.mjs",
+      "sha256": "9ad43bedd0be189f2ca35467d174a9a098fe4e428396573ea847d766c27a153a"
+    }
+  ],
+  "runs": [
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-first.json",
+      "sha256": "310d293da51f73317ddbf77f0e8aeeede0fde43cfe9035cc9b8d0a917b55ceed",
+      "ok": false,
+      "groups": 0,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Sandbox loopback listener denied with EPERM before any index process; rerun with approved local-listener escalation."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-second.json",
+      "sha256": "af1cfbf17e8de066cdd5343ff3a00555d6bada0b7e2c2d6471f247c13b7b21d7",
+      "ok": false,
+      "groups": 0,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Fixture incorrectly queried threaded_waits.causal_root_id rather than root_id; synthetic transport/facts failed, not a product regression."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-third.json",
+      "sha256": "c150c7999b9ad3288bdf12dd9bc1f636e7927096b0faf312da7ed1c99c5f52a4",
+      "ok": false,
+      "groups": 1,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Fixture omitted required agentId query for GET /waits; endpoint correctly returned 404."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-fourth.json",
+      "sha256": "d719f70f785ca271ffcbf6791dccdd5e88f7625978170d81d8d7067d78b6d636",
+      "ok": false,
+      "groups": 3,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Fixture expected wholeDatabaseRollbackReady under drain rather than its top-level response field."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-fifth.json",
+      "sha256": "116e3b66c76b3b65d60e871b989950392051639cde04241dca49664700a75c5f",
+      "ok": false,
+      "groups": 5,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Synthetic role omitted capabilities and disallowedTools required by legacy empty-room capability projection."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-sixth.json",
+      "sha256": "eb02d38ff71da5098a316dff371b97e6a6ae78c641f90dbbb2c09d6617cb0516",
+      "ok": false,
+      "groups": 5,
+      "classification": "harness_or_environment_failure",
+      "explanation": "Synthetic role still omitted disallowedTools; subsequent fixture defines both fields."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-before-resource-audit.json",
+      "sha256": "e6960e57936291caa0533c543d1ca935592cc303d87bc8c53bace17a6aa48001",
+      "ok": true,
+      "groups": 6,
+      "classification": "prior_pass_not_double_counted",
+      "explanation": "Six mode groups passed before the independent review requested explicit shared resource fence/table evidence; not counted again."
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes.json",
+      "sha256": "516b1268edf5556b10985b2ec9e1b9c9ec5517c83bb2ac09394d4d6407d96df0",
+      "ok": true,
+      "groups": 6,
+      "classification": "final_acceptance",
+      "explanation": "Six final mode groups pass with all 100 threaded tables and 9 shared resource tables (availability hints excluded) unchanged in observe."
+    }
+  ],
+  "limitations": [
+    "Prior fixture/environment failures remain preserved; only the final six groups count.",
+    "Legacy read/write acceptance does not execute legacy model tasks.",
+    "Zero real supplier requests; no original paid-token ledger read or mutation."
+  ]
+}

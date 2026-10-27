@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "date": "2026-10-28",
+  "scope": "Metadata-only explicit target preparation and fail-closed negative cases; synthetic SQLite and paths, no daily migration or credential content.",
+  "checks": [
+    {
+      "name": "valid metadata preparation passes while RC10 and independent operation gates block release",
+      "passed": true
+    },
+    {
+      "name": "missing target fields and self-supplied ready flags are rejected",
+      "passed": true
+    },
+    {
+      "name": "missing paths fail preparation instead of being silently created",
+      "passed": true
+    },
+    {
+      "name": "leaf and ancestor symlinks are rejected",
+      "passed": true
+    },
+    {
+      "name": "source component overlaps are rejected",
+      "passed": true
+    },
+    {
+      "name": "private directory permissions are checked without reading its files",
+      "passed": true
+    },
+    {
+      "name": "migration gaps and altered checksums are rejected without repair",
+      "passed": true
+    },
+    {
+      "name": "older and future schema are explicit blockers",
+      "passed": true
+    },
+    {
+      "name": "schema metadata does not hide a missing required table",
+      "passed": true
+    },
+    {
+      "name": "remote host and failed exact process probe are unverifiable and block preparation",
+      "passed": true
+    },
+    {
+      "name": "exact live local process identity is active, never a stopped-host proof",
+      "passed": true
+    },
+    {
+      "name": "unknown model calls remain present and block a clean-preparation claim",
+      "passed": true
+    },
+    {
+      "name": "master-key existence never proves matching and key contents are not parsed",
+      "passed": true
+    },
+    {
+      "name": "registered project omissions and native workspace mismatch are explicit",
+      "passed": true
+    },
+    {
+      "name": "RC10 evidence digest mismatch is rejected",
+      "passed": true
+    },
+    {
+      "name": "forged green RC10 booleans and backup manifest cannot authorize deployment",
+      "passed": true
+    },
+    {
+      "name": "private key path cannot be presented as a public release file",
+      "passed": true
+    },
+    {
+      "name": "WAL sources are refused before SQLite opens and DB/WAL/SHM bytes stay unchanged",
+      "passed": true
+    }
+  ],
+  "checksPassed": 18,
+  "providerRequests": 0,
+  "productionDatabaseAccess": false,
+  "credentialMaterialRead": false,
+  "messageBodyReads": 0,
+  "targetReleaseReady": false,
+  "sourceUnknownCleared": false
+}

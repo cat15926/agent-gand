@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "kind": "restore-rehearsal-fixture-development-failures",
+  "date": "2026-10-28",
+  "applicationRevision": "ffcbbcad429a1526fb27e7fdfe9952eaba7d8833",
+  "command": "node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-rc11-restore.mjs",
+  "classification": "Fixture development failures; neither counts as a passed group nor evidence of a production defect",
+  "attempts": [
+    {
+      "attempt": 1,
+      "exitCode": 1,
+      "completedChecks": 0,
+      "errorCode": "SQLITE_ERROR",
+      "error": "table threaded_actions has no column named successor_slot",
+      "cause": "Synthetic Action seed used the API concept name instead of the actual persisted slot column; root_id also corrected before rerun",
+      "resolution": "Use schema columns slot and root_id in the synthetic historical Action seed"
+    },
+    {
+      "attempt": 2,
+      "exitCode": 1,
+      "completedChecks": 2,
+      "error": "备份文件清单不完整",
+      "cause": "The rehearsal opened its checksum-protected WAL-mode backup database with a readonly SQLite connection; SQLite created WAL/SHM sidecars, which the later verifier correctly rejected as unlisted files",
+      "resolution": "Copy the backed-up database into a separate disposable inspection path before every SQLite query; never open the protected bundle directly"
+    }
+  ],
+  "isolation": {
+    "temporaryFilesRemovedAfterEachAttempt": true,
+    "dailyDatabaseRead": false,
+    "dailyDatabaseMigrated": false,
+    "configuredCredentialsRead": false,
+    "providerRequests": 0,
+    "productionCodeModified": false
+  }
+}

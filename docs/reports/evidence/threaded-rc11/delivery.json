@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC11",
+  "generatedAt": "2026-10-27T16:17:25.409539+00:00",
+  "baseRevision": "ffcbbcad429a1526fb27e7fdfe9952eaba7d8833",
+  "workingTreeDelivery": true,
+  "state": "preparation-delivered-target-release-blocked",
+  "selfHashExcluded": true,
+  "files": [
+    {
+      "path": "docs/architecture/threaded-release-preparation-v1.md",
+      "bytes": 4534,
+      "sha256": "d923c10e36a0ff068a631afa1be8fea55fbea06a5485767ac0ae7980f84baf8f"
+    },
+    {
+      "path": "docs/operations/threaded-release-runbook.md",
+      "bytes": 30736,
+      "sha256": "9cdc8a2bb505fd0ed9bf04efe162133b9a9138eb604473a75f53be5202c31b0b"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 104186,
+      "sha256": "d19e805e07cfa8030ada31ca4cfe168a6dc8f1db1f6465720252f0697f32c121"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 61244,
+      "sha256": "149c7a819c0c972804a5e14a34564d3f30ceb8122c2793e61b424100d1882684"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 57924,
+      "sha256": "245776fa622ba14914900c40ef02ea30e23b430ac09b52210854fd01d7004bfd"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 37843,
+      "sha256": "c37eeed548f7a77e13263bd70cc841ebf77ddf1855bd722f798cf297a75148ab"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/matrix-audit.json",
+      "bytes": 383449,
+      "sha256": "e21e6c660a760c826dec307f65db928d1574d5cb4002d243b7f24b30402b412d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-before-resource-audit.json",
+      "bytes": 143897,
+      "sha256": "e6960e57936291caa0533c543d1ca935592cc303d87bc8c53bace17a6aa48001"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-fifth.json",
+      "bytes": 87057,
+      "sha256": "116e3b66c76b3b65d60e871b989950392051639cde04241dca49664700a75c5f"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-first.json",
+      "bytes": 1404,
+      "sha256": "310d293da51f73317ddbf77f0e8aeeede0fde43cfe9035cc9b8d0a917b55ceed"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-fourth.json",
+      "bytes": 29587,
+      "sha256": "d719f70f785ca271ffcbf6791dccdd5e88f7625978170d81d8d7067d78b6d636"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-history.json",
+      "bytes": 3945,
+      "sha256": "541f0d1fc9b8b1bfa78f2997c301ca15511e368857cdb8ceb7e8b1dceb1489a0"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-second.json",
+      "bytes": 1501,
+      "sha256": "af1cfbf17e8de066cdd5343ff3a00555d6bada0b7e2c2d6471f247c13b7b21d7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-sixth.json",
+      "bytes": 87057,
+      "sha256": "eb02d38ff71da5098a316dff371b97e6a6ae78c641f90dbbb2c09d6617cb0516"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes-third.json",
+      "bytes": 29086,
+      "sha256": "c150c7999b9ad3288bdf12dd9bc1f636e7927096b0faf312da7ed1c99c5f52a4"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/modes.json",
+      "bytes": 158088,
+      "sha256": "516b1268edf5556b10985b2ec9e1b9c9ec5517c83bb2ac09394d4d6407d96df0"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/preflight-target-discovery.json",
+      "bytes": 2708,
+      "sha256": "ae9778ae47b59de68fc8a2f4f3d81e1b30e323033990a4ae2a51287ab075396e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/preflight-target-result.json",
+      "bytes": 3501,
+      "sha256": "fde2bcb7b66b96008a5a6ec0a38fef0f47d4b5f6ec55d63118a67b9b86632143"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/preflight-target.json",
+      "bytes": 1090,
+      "sha256": "cbf9a5255bc289824339c415f85dd07a7b9c43546117401b0d16c5cb7ce2cd40"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/preflight.json",
+      "bytes": 2535,
+      "sha256": "e4da2f7fbfc73d1bc7509644189df88d9764aa4bda1a7da0b42908594d03a298"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/restore-fixture-failures.json",
+      "bytes": 1645,
+      "sha256": "52ddd129dc671e313afedc7cd19bb163095f75a0273fe0ed8ef679ebdc6df6d6"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/restore.json",
+      "bytes": 10063,
+      "sha256": "161e313eb32ba1afa0d1ad91980c8c800798f62c02ee5f134f337a3dddc57e10"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc11/validation.json",
+      "bytes": 2583,
+      "sha256": "c9217b34268832c56ee3220225e8b41db82d143d792745d63d2facc31d10e047"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc11-release-preparation-2026-10-28.md",
+      "bytes": 8857,
+      "sha256": "00f8faf324b37cca1ab6ac0f233787e132fe3bfe86db43d0bd11c469e68f452e"
+    },
+    {
+      "path": "package.json",
+      "bytes": 30461,
+      "sha256": "df94caa881509c9ecdfd591e99c0cdf28058cc4a459c05d82872ed1ae10a241b"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc11ModesGuard.mjs",
+      "bytes": 8797,
+      "sha256": "9ad43bedd0be189f2ca35467d174a9a098fe4e428396573ea847d766c27a153a"
+    },
+    {
+      "path": "scripts/threaded-release-preflight.mjs",
+      "bytes": 21782,
+      "sha256": "27ae381c670daf9bd77ae8af3aa41209d54c46f76e5be2df4a50cceeb0a2f0af"
+    },
+    {
+      "path": "scripts/verify-threaded-rc11-modes.mjs",
+      "bytes": 19414,
+      "sha256": "800322f08683b80cc06454e0474ac06c5d02941d6cde3b413ceb77ed4bd52bb0"
+    },
+    {
+      "path": "scripts/verify-threaded-rc11-preflight.mjs",
+      "bytes": 12782,
+      "sha256": "5be778e2e213e0bacd954ac5511f2dca0100ac04915c051b28061a67df86f6c7"
+    },
+    {
+      "path": "scripts/verify-threaded-rc11-restore.mjs",
+      "bytes": 32325,
+      "sha256": "80a78a126fb03c7a69925744bcb2c862758c70a8df07ff32ded04ab714226a23"
+    }
+  ]
+}
