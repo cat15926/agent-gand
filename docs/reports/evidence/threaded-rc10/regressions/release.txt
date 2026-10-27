@@ -1,0 +1,22 @@
+
+> agent-gand@0.1.0 verify:threaded-release /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-release.mjs
+
+{
+  "schemaVersion": 1,
+  "stage": "T12",
+  "scope": "release control, fresh Thread grants, ingress provenance and drain planning",
+  "checks": [
+    "OPS01: observe snapshots and virtual control version zero are read only; observe never grants, records new ingress or dispatches; closed and unopened admission reject new grants",
+    "OPS01/K13-K16: independent admission and dispatch flags preserve Thread state/epoch; closed retains granted causal roots for drain, denies forged roots/ungranted rooms, freezes backend pack and rechecks only executing member authority",
+    "DB01/OPS01: existing populated Threads cannot be adopted; Thread creation/grant and accepted message/wake/outbox/ingress fact share outer atomic transactions; immutable release history and fault rollback verified",
+    "OPS01/REC01: two actual IPC writers share one SQLite CAS winner; idempotent close receipt survives committed worker SIGKILL; conflicting request and skipped versions rejected",
+    "OPS01/ISO03: trusted account ID/config/credential/identity versions and role definition fingerprints freeze in grant; credential rotation blocks stale drain authority without deleting accepted work or accessing secrets",
+    "OPS01/REC03/B02: real queue/resource/budget reservation followed by authoritative unknown retains execution uncertainty, usage charge and capacity claim through factory/SQLite recovery; drain never declares ready or replays the backend",
+    "OPS01/DB03: consistent SQLite backup restores frozen drain facts under closed mode; pending durable work prevents ready; integrity and foreign keys pass; actual ba438b1 v33 compatibility worker and future writer guard reject without downgrading or deleting data"
+  ],
+  "externalRequests": 0,
+  "modelRequests": 0,
+  "productionDatabaseAccess": false,
+  "productionRelease": false
+}

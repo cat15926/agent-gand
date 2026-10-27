@@ -1,0 +1,1058 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "auditKind": "read-only real acceptance failure diagnosis; not a behavioral verification group",
+  "createdAtUtc": "2026-10-27T15:43:28.470371+00:00",
+  "reportScope": [
+    "main-live-first.json",
+    "main-live-second.json",
+    "main-live-third.json"
+  ],
+  "thirdReportIncluded": true,
+  "scopeNote": "三轮已落盘真实失败报告的最终只读汇总；第三轮 17 个平台 request/ledger 授权中仅 16 个到达 guard nativeFetch 前的 networkStarted 标记，另 1 个本地预发送屏障保留。原诊断文件与原报告均不修改。",
+  "sources": [
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "sha256": "cd738482d3439fda7f234fb324d88207e23c6865a39fde1b2872f9006728bbad",
+      "ok": false,
+      "behaviorGroupsPassed": 0,
+      "failureReasons": [
+        "RC10_TOOL_FAILED"
+      ],
+      "priorUsage": {
+        "knownTokens": 220478,
+        "unknownReserve": 206832
+      },
+      "usage": {
+        "knownTokens": 223261,
+        "unknownReserve": 226938
+      },
+      "knownTokensThisRun": 2783,
+      "unknownReserveThisRun": 20106,
+      "priorLedgerRowsUnchanged": true,
+      "finalAuditComplete": true,
+      "finalAuditReadOnly": true,
+      "unknownEntries": 1,
+      "unknownReservationFromExactLedgerIds": 20106,
+      "knownTokensFromExactLedgerIds": 2783
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "sha256": "0fded922c11557e2b2577fbddb3d16e019cf12b7420cd16d6133da7f2131311b",
+      "ok": false,
+      "behaviorGroupsPassed": 0,
+      "failureReasons": [
+        "RC10_TIMEOUT_facts"
+      ],
+      "priorUsage": {
+        "knownTokens": 223261,
+        "unknownReserve": 226938
+      },
+      "usage": {
+        "knownTokens": 226092,
+        "unknownReserve": 269642
+      },
+      "knownTokensThisRun": 2831,
+      "unknownReserveThisRun": 42704,
+      "priorLedgerRowsUnchanged": true,
+      "finalAuditComplete": true,
+      "finalAuditReadOnly": true,
+      "unknownEntries": 2,
+      "unknownReservationFromExactLedgerIds": 42704,
+      "knownTokensFromExactLedgerIds": 2831
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "sha256": "4d53f841071a6a61eb660af77ae2bacf7cb03f86765be7e6f018ec3ea12322d0",
+      "ok": false,
+      "behaviorGroupsPassed": 0,
+      "failureReasons": [
+        "RC10_INVOCATION_UNKNOWN"
+      ],
+      "priorUsage": {
+        "knownTokens": 226092,
+        "unknownReserve": 269642
+      },
+      "usage": {
+        "knownTokens": 295127,
+        "unknownReserve": 293955
+      },
+      "knownTokensThisRun": 69035,
+      "unknownReserveThisRun": 24313,
+      "priorLedgerRowsUnchanged": true,
+      "finalAuditComplete": true,
+      "finalAuditReadOnly": true,
+      "unknownEntries": 1,
+      "unknownReservationFromExactLedgerIds": 24313,
+      "knownTokensFromExactLedgerIds": 69035,
+      "backendRequestRows": 17,
+      "actualSupplierCalls": 16,
+      "heldBeforeNetwork": 1
+    }
+  ],
+  "exactLedgerRead": {
+    "path": "/tmp/agent-gand-t07-authorized-token-ledger.sqlite",
+    "mode": "read-only",
+    "columns": [
+      "id",
+      "reserved",
+      "actual",
+      "state"
+    ],
+    "predicate": "SELECT * FROM request_tokens ORDER BY id for final retained-history digest; exact RC10 authorization IDs come only from the three finalAudit request tables.",
+    "accountsCredentialsRead": false,
+    "writes": false
+  },
+  "runtimeTimeoutEvidence": {
+    "nodeVersion": "v22.23.1",
+    "builtInUndiciVersion": "6.27.0",
+    "source": "process.binding(natives)[internal/deps/undici/undici], readonly source inspection",
+    "connectorDefaultSnippet": "timeout = timeout == null ? 1e4 : timeout;",
+    "connectTimeoutMs": 10000,
+    "requestTimeoutMechanism": "apps/server/src/threaded/backends/request.ts uses AbortSignal.timeout(prepared.connection.timeoutMs)",
+    "classification": "timing-consistent candidate only; transport error cause was not retained in the second run"
+  },
+  "totalsForIncludedReports": {
+    "backendRequestAndNewLedgerRows": 22,
+    "realSupplierRequests": 21,
+    "completeReceipts": 18,
+    "knownTokens": 74649,
+    "newUnknownRequests": 4,
+    "possiblySentUnknownRequests": 3,
+    "heldBeforeNetworkReservations": 1,
+    "newUnknownReserve": 87123,
+    "behaviorGroupsAdded": 0,
+    "realWholeChainPassed": false
+  },
+  "unknownRequests": [
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "requestId": "607c04b6-454d-4f02-8848-60a5d8357d06",
+      "authorizationId": "e4639005-0f85-4b79-9010-7ace689cb5a6",
+      "bindingId": "3c0bcbd8-0622-49f6-9be8-76bb387b0f3a",
+      "claimId": "9df17bde-5807-4451-b535-9006818c5f51",
+      "claimGeneration": 1,
+      "attemptId": "fc7a7519-cc65-424e-aa10-cfb72a0cdb3e",
+      "invocationId": "4537ed12-11ab-4d16-a39f-9d91f06aa53d",
+      "rootId": "4b1ebb62-ae7d-485e-8745-4343aaefb24f",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "1895e5b8941712e47ca586e9a7a86116d479c1807a07f903016a8c8e383c56aa",
+      "originalPersistedState": {
+        "backendReceipt": "sending",
+        "budgetExecution": "started",
+        "budgetUsage": "reserved",
+        "invocation": "running",
+        "attempt": "running",
+        "attemptExecutionStage": "started",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": null
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "e4639005-0f85-4b79-9010-7ace689cb5a6",
+        "reserved": 20106,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 20106,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114572629,
+        "networkStartedAt": 1793114572650,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": null,
+        "failureAfterNetworkStartedMs": null,
+        "receiptSettledAt": null
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114582615,
+        "remainingAllowanceAtReceiptUnknownMs": null,
+        "allowanceExpiredAtReceiptUnknown": null
+      },
+      "cause": {
+        "confirmed": [
+          "模型首轮完整回执已保存；post_message 被 THREADED_TOOL_VISIBILITY_CONFLICT 拒绝。",
+          "验收等待器检测工具错误后失败退出；退出前下一次 API 请求已开始。",
+          "最终只读快照保留 sending/started 与未结算回执；本地进程结束不能证明供应商未执行。"
+        ],
+        "inferred": [],
+        "unresolved": [
+          "下一请求是否抵达供应商及其实际 token/费用未知；没有完整响应回执。"
+        ],
+        "classification": "tool_visibility_rejected_then_test_interrupt_during_next_request"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "0d8306de-bb43-408b-ad9a-ab3b1cc1451a",
+      "authorizationId": "620ffb82-b134-46cb-ac5c-b3809b86f3a4",
+      "bindingId": "c31f5aab-544a-45b0-bfc6-6f30ab23e2c7",
+      "claimId": "209c7b61-2ab1-4ad5-b0aa-52cae897deab",
+      "claimGeneration": 2,
+      "attemptId": "08c96577-721a-4f80-a3fb-20efc2d05866",
+      "invocationId": "d722db17-33d1-4fe3-8bc0-711bf974e4c7",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "23742764740b0b3ea393432b43a1b730590e7b1d26f141dbead70196cc600921",
+      "originalPersistedState": {
+        "backendReceipt": "unknown",
+        "budgetExecution": "unknown",
+        "budgetUsage": "unknown",
+        "invocation": "unknown",
+        "attempt": "unknown",
+        "attemptExecutionStage": "unknown",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "620ffb82-b134-46cb-ac5c-b3809b86f3a4",
+        "reserved": 20178,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 20178,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114777167,
+        "networkStartedAt": 1793114777198,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": 1793114787450,
+        "failureAfterNetworkStartedMs": 10252,
+        "receiptSettledAt": 1793114787451
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114797184,
+        "remainingAllowanceAtReceiptUnknownMs": 9733,
+        "allowanceExpiredAtReceiptUnknown": false
+      },
+      "cause": {
+        "confirmed": [
+          "两请求均在未收到响应头时发生 transport failure，随后后端回执与 Invocation 转入 unknown。",
+          "请求转 unknown 时活动授权仍有效，heartbeat 已正常续期；不是 activityAllowanceMs=10000 到期。",
+          "报告最终 RC10_TIMEOUT_facts 是随后停止无进展验收时的等待失败，不能当作最初传输失败原因。"
+        ],
+        "inferred": [
+          "约 10.2 秒无响应头失败，与本机 Node 内置 Undici 默认 10000ms 建连超时吻合，TCP/TLS 建连超时为候选原因。"
+        ],
+        "unresolved": [
+          "该轮未记录 error.cause.code 或 signal 原因，不能确认 UND_ERR_CONNECT_TIMEOUT，更不能证明零供应商执行或零消耗。"
+        ],
+        "classification": "unconfirmed_transport_failure_before_headers"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "467bb03f-4df2-4889-9f3c-d8a4b1b2a25d",
+      "authorizationId": "c2645893-6ca4-412b-bf4f-8e54a732120c",
+      "bindingId": "c82c638b-7189-4abc-8dd8-857ed42e631e",
+      "claimId": "fca47616-2243-4258-9e02-f967956907df",
+      "claimGeneration": 1,
+      "attemptId": "e3791801-16d5-4488-bed8-9d64a65bccfb",
+      "invocationId": "553ec000-4cd9-4243-a391-f0e9e10cb179",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "5007dd143a7d2cde71cc6a67c594d25793f1e6173f1b3f7200b4fc255dfdc6a3",
+      "originalPersistedState": {
+        "backendReceipt": "unknown",
+        "budgetExecution": "unknown",
+        "budgetUsage": "unknown",
+        "invocation": "unknown",
+        "attempt": "unknown",
+        "attemptExecutionStage": "unknown",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "c2645893-6ca4-412b-bf4f-8e54a732120c",
+        "reserved": 22526,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 22526,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114777254,
+        "networkStartedAt": 1793114777273,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": 1793114787439,
+        "failureAfterNetworkStartedMs": 10166,
+        "receiptSettledAt": 1793114787440
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114796865,
+        "remainingAllowanceAtReceiptUnknownMs": 9425,
+        "allowanceExpiredAtReceiptUnknown": false
+      },
+      "cause": {
+        "confirmed": [
+          "两请求均在未收到响应头时发生 transport failure，随后后端回执与 Invocation 转入 unknown。",
+          "请求转 unknown 时活动授权仍有效，heartbeat 已正常续期；不是 activityAllowanceMs=10000 到期。",
+          "报告最终 RC10_TIMEOUT_facts 是随后停止无进展验收时的等待失败，不能当作最初传输失败原因。"
+        ],
+        "inferred": [
+          "约 10.2 秒无响应头失败，与本机 Node 内置 Undici 默认 10000ms 建连超时吻合，TCP/TLS 建连超时为候选原因。"
+        ],
+        "unresolved": [
+          "该轮未记录 error.cause.code 或 signal 原因，不能确认 UND_ERR_CONNECT_TIMEOUT，更不能证明零供应商执行或零消耗。"
+        ],
+        "classification": "unconfirmed_transport_failure_before_headers"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "42a75c4e-952e-4ad7-a775-07a2c8300dde",
+      "authorizationId": "af6e2e09-49bb-40f9-a0cb-f2cd9f29f3ab",
+      "bindingId": "bc258684-4298-4610-9d45-fd6bc5103977",
+      "claimId": "61bd6b8d-2a4c-49ae-b752-b25421c58359",
+      "claimGeneration": 7,
+      "attemptId": "541928ac-dbae-4428-ac3b-32276979137f",
+      "invocationId": "cded72b6-94b7-44c3-872a-5dd6a81edd7f",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "6666c9ed0906148b3a71864c3c4be28cf3cae7eb244fbd384d53ae23fe979a8f",
+      "originalPersistedState": {
+        "backendReceipt": "unknown",
+        "budgetExecution": "unknown",
+        "budgetUsage": "unknown",
+        "invocation": "unknown",
+        "attempt": "unknown",
+        "attemptExecutionStage": "unknown",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "af6e2e09-49bb-40f9-a0cb-f2cd9f29f3ab",
+        "reserved": 24313,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 24313,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "transportScope": {
+        "classification": "held_before_supplier_network",
+        "networkStarted": false,
+        "countAsActualSupplierRequest": false,
+        "realSupplierFlagMeaning": "The report realSupplier=true marks real transport mode; networkStartedAt=null shows this authorization never reached the guard nativeFetch call. It must not be counted as a supplier call."
+      },
+      "timing": {
+        "requestCreatedAt": 1793115448723,
+        "preparedAt": 1793115448817,
+        "networkStartedAt": null,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "receiptSettledAt": 1793115628814,
+        "preparedToReceiptUnknownMs": 179997
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793115637533,
+        "note": "本项是本地预发送屏障滞留，不从活动片或网络时长猜测供应商用量。"
+      },
+      "cause": {
+        "classification": "synthetic_review_barrier_unreleased_after_same_generation_reapproval",
+        "confirmed": [
+          "同一 reviewer binding 在 generation=1、同一 HEAD 上先提交 changes_requested，再提交 approved（workflow version=2），并将 finding 标记 verified。",
+          "没有 start_review_revision 或 generation=2，唯一 review gate 为 approved；脚本等待 completed generation=1 且 blocked gate 的屏障条件未能成立。",
+          "B 的请求已完成平台预留，但被验收预发送屏障挡住，networkStartedAt 始终为 null，最终本地状态 unknown。",
+          "真实整链未完成，不得计为通过；该保留预留不计入真实供应商外呼。"
+        ],
+        "inferred": [],
+        "unresolved": [
+          "不能仅因本地未调用 nativeFetch 就通过本审计改写既有 ledger；未执行正式可信未发送对账或退款流程。"
+        ]
+      },
+      "disposition": {
+        "status": "retain_local_presend_reservation_pending_trusted_reconciliation",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "若后续对账拟处理该预留，应将本地预发送屏障事实与精确 authorization/request/hash 绑定，经已有可信未发送/对账流程处理；本审计不代为退款、重放或将用量写成零。",
+        "followUp": "修正综合验收协议与同代复审范围定义，单独验收；原失败报告、最终审计事实及保守占额继续保留。"
+      }
+    }
+  ],
+  "confirmedUsageRequests": [
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "requestId": "b8f98628-97c0-441b-8492-de132d389736",
+      "authorizationId": "d03681ab-f511-42c3-b967-45305af3d2e1",
+      "bindingId": "3c0bcbd8-0622-49f6-9be8-76bb387b0f3a",
+      "claimId": "9df17bde-5807-4451-b535-9006818c5f51",
+      "claimGeneration": 1,
+      "attemptId": "fc7a7519-cc65-424e-aa10-cfb72a0cdb3e",
+      "invocationId": "4537ed12-11ab-4d16-a39f-9d91f06aa53d",
+      "rootId": "4b1ebb62-ae7d-485e-8745-4343aaefb24f",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "e2ac19566c79746dc640968f0268c6c63f10f47418ef95bc87bcdb5ba9477c49",
+      "backendReceiptState": "complete",
+      "inputTokens": 2544,
+      "outputTokens": 239,
+      "operatorLedger": {
+        "id": "d03681ab-f511-42c3-b967-45305af3d2e1",
+        "reserved": 19550,
+        "actual": 2783,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "2ba7f6fa-223d-4f62-9114-0930b7a20f51",
+      "authorizationId": "ee646759-78fe-4143-be5f-b8b266300094",
+      "bindingId": "c82c638b-7189-4abc-8dd8-857ed42e631e",
+      "claimId": "fca47616-2243-4258-9e02-f967956907df",
+      "claimGeneration": 1,
+      "attemptId": "e3791801-16d5-4488-bed8-9d64a65bccfb",
+      "invocationId": "553ec000-4cd9-4243-a391-f0e9e10cb179",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "d216e0c75854918314e3f9d9ac6436d200c6a250eea0975e7cf84481d5afb73a",
+      "backendReceiptState": "complete",
+      "inputTokens": 2580,
+      "outputTokens": 251,
+      "operatorLedger": {
+        "id": "ee646759-78fe-4143-be5f-b8b266300094",
+        "reserved": 19768,
+        "actual": 2831,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "5be2e87a-0679-401c-9bfc-bd896d0041cf",
+      "authorizationId": "47432559-9510-468a-bdfb-ae32d1b66b00",
+      "bindingId": "c7794298-a2d8-4225-89e0-e51df3be1dee",
+      "claimId": "c6a05e19-645a-4d2c-a1ea-daaa446fa75c",
+      "claimGeneration": 1,
+      "attemptId": "09b93e61-7cec-459d-a35b-9f39ed889409",
+      "invocationId": "25c124ee-1de4-4669-a369-b71abf27d1e9",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "7b73eb19e2d28f1dedd527cc10a7fd1921a964d44afea49235d75392304011bf",
+      "backendReceiptState": "complete",
+      "inputTokens": 2582,
+      "outputTokens": 223,
+      "operatorLedger": {
+        "id": "47432559-9510-468a-bdfb-ae32d1b66b00",
+        "reserved": 19768,
+        "actual": 2805,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "6cef9cb4-95b7-45e9-b2b8-931ccf079a2b",
+      "authorizationId": "61c3de31-b7ab-4f32-81d3-eb303fb221ce",
+      "bindingId": "4bfe22fc-8bed-47aa-b8be-3122e5fa7aef",
+      "claimId": "4eaf2c21-9966-45e4-ab4f-9a4e5aa97f6a",
+      "claimGeneration": 2,
+      "attemptId": "69d9dc9a-3713-4293-803f-5c2303de55b9",
+      "invocationId": "da0c2a0b-7226-4640-ab0e-1ae59ae35172",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "5e973b3afa3b920d35ae34911b8591379856ecb997d5c473e45c45c60514662b",
+      "backendReceiptState": "complete",
+      "inputTokens": 2782,
+      "outputTokens": 369,
+      "operatorLedger": {
+        "id": "61c3de31-b7ab-4f32-81d3-eb303fb221ce",
+        "reserved": 20178,
+        "actual": 3151,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "33729cc0-9ff3-48ad-872a-3e8099f88f94",
+      "authorizationId": "a9b871f1-4344-4689-8a1c-7822a48f7b6d",
+      "bindingId": "c7794298-a2d8-4225-89e0-e51df3be1dee",
+      "claimId": "c6a05e19-645a-4d2c-a1ea-daaa446fa75c",
+      "claimGeneration": 1,
+      "attemptId": "09b93e61-7cec-459d-a35b-9f39ed889409",
+      "invocationId": "25c124ee-1de4-4669-a369-b71abf27d1e9",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "602a16cf5bf4e1f620f94ac0d5b750835fb120e928a0cdaae95aee55e5f2a147",
+      "backendReceiptState": "complete",
+      "inputTokens": 3751,
+      "outputTokens": 4,
+      "operatorLedger": {
+        "id": "a9b871f1-4344-4689-8a1c-7822a48f7b6d",
+        "reserved": 22524,
+        "actual": 3755,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "4d182aa4-b42a-4f6f-a1ac-1d6aeabba222",
+      "authorizationId": "f915bc99-0a4f-477d-8ebb-50f3383eccbb",
+      "bindingId": "9dcaf117-1972-4f79-93a3-c5177042f5ee",
+      "claimId": "366b8fe2-ec40-4987-8ea8-c12cd3f160ef",
+      "claimGeneration": 3,
+      "attemptId": "7f1af066-9e2f-4ead-b988-88c1684cf660",
+      "invocationId": "75bfeea7-25fb-4f6b-a06a-310e0f0a80df",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "8bf9890920dc2d9b1b3ddcdcc95e6c0b3ba53f888f09d2901e01541c896553bb",
+      "backendReceiptState": "complete",
+      "inputTokens": 2576,
+      "outputTokens": 303,
+      "operatorLedger": {
+        "id": "f915bc99-0a4f-477d-8ebb-50f3383eccbb",
+        "reserved": 19621,
+        "actual": 2879,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "4c7623f1-4f06-497d-88e1-1cf8f8d72171",
+      "authorizationId": "aea4e499-752d-42e8-b0a7-5157908ab3a1",
+      "bindingId": "4bfe22fc-8bed-47aa-b8be-3122e5fa7aef",
+      "claimId": "4eaf2c21-9966-45e4-ab4f-9a4e5aa97f6a",
+      "claimGeneration": 2,
+      "attemptId": "69d9dc9a-3713-4293-803f-5c2303de55b9",
+      "invocationId": "da0c2a0b-7226-4640-ab0e-1ae59ae35172",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "f762f1ac492ca96a25b266a267fc6e50e71e390651014e9d4c11436cf120e5bf",
+      "backendReceiptState": "complete",
+      "inputTokens": 3989,
+      "outputTokens": 3,
+      "operatorLedger": {
+        "id": "aea4e499-752d-42e8-b0a7-5157908ab3a1",
+        "reserved": 22995,
+        "actual": 3992,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "44c66415-0d40-42ec-9bff-4cedd50a4271",
+      "authorizationId": "2863801d-b0fe-4b44-8125-a723786656af",
+      "bindingId": "9dcaf117-1972-4f79-93a3-c5177042f5ee",
+      "claimId": "366b8fe2-ec40-4987-8ea8-c12cd3f160ef",
+      "claimGeneration": 3,
+      "attemptId": "7f1af066-9e2f-4ead-b988-88c1684cf660",
+      "invocationId": "75bfeea7-25fb-4f6b-a06a-310e0f0a80df",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "ea67dfd8259bb74f4705c1d86544bd85cc2c679c1abaa61e14ff3fde11221819",
+      "backendReceiptState": "complete",
+      "inputTokens": 2720,
+      "outputTokens": 4,
+      "operatorLedger": {
+        "id": "2863801d-b0fe-4b44-8125-a723786656af",
+        "reserved": 20248,
+        "actual": 2724,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "41568c57-adb6-4c0b-991e-0935db7ef94b",
+      "authorizationId": "eb2f6f9f-e329-43f5-b5c0-4e205ff0d1bf",
+      "bindingId": "6c4151c3-0e60-4d6b-abd4-dd7b4a359c74",
+      "claimId": "835b582f-268e-4e75-ba35-0e4f1644d7e2",
+      "claimGeneration": 4,
+      "attemptId": "ae0f258b-0310-48b9-8554-e272522ef21d",
+      "invocationId": "abfacbcd-6c94-424e-8065-7eab350cb98a",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-c",
+      "backend": "claude-sdk",
+      "requestKey": "sdk:1",
+      "requestHash": "af95554b1f82886e131c6bc6ba8b2b37761b6093b8e797c882f8271e5c8f286a",
+      "backendReceiptState": "complete",
+      "inputTokens": 4958,
+      "outputTokens": 93,
+      "operatorLedger": {
+        "id": "eb2f6f9f-e329-43f5-b5c0-4e205ff0d1bf",
+        "reserved": 28077,
+        "actual": 5051,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "8b595ec6-2f26-4c2b-b166-509db83a530b",
+      "authorizationId": "ae1c7d78-5fb3-4b83-a77c-50a90353d933",
+      "bindingId": "319704f3-10b6-4fce-90f3-57235f78a792",
+      "claimId": "dc5a9ad2-76c0-498d-8db0-e24cebf4f055",
+      "claimGeneration": 5,
+      "attemptId": "11632737-f6f3-4ab6-9b48-f5e84c2200a3",
+      "invocationId": "2f2711b7-9187-43da-a2c2-8ebc260fdf7b",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "816a676cd061f2e0507e0e1c1a68ae6034d909741ec84dab030a24007ff3abac",
+      "backendReceiptState": "complete",
+      "inputTokens": 3653,
+      "outputTokens": 1125,
+      "operatorLedger": {
+        "id": "ae1c7d78-5fb3-4b83-a77c-50a90353d933",
+        "reserved": 22873,
+        "actual": 4778,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "a7c06340-2e32-4ccf-9b59-49011d29ebc7",
+      "authorizationId": "a0742409-0e8d-4115-a7b5-d7f14d76e122",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "515aee6a0afc5eb09fa2122cc5a37155599ed5acbd929e3f2bfc4326cc3df391",
+      "backendReceiptState": "complete",
+      "inputTokens": 3867,
+      "outputTokens": 397,
+      "operatorLedger": {
+        "id": "a0742409-0e8d-4115-a7b5-d7f14d76e122",
+        "reserved": 23567,
+        "actual": 4264,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "ea8c9a97-781f-460d-9c1b-fc39d0c6b94b",
+      "authorizationId": "fe52e2fd-7da1-42dd-8db8-0aa75bdce5fd",
+      "bindingId": "319704f3-10b6-4fce-90f3-57235f78a792",
+      "claimId": "dc5a9ad2-76c0-498d-8db0-e24cebf4f055",
+      "claimGeneration": 5,
+      "attemptId": "11632737-f6f3-4ab6-9b48-f5e84c2200a3",
+      "invocationId": "2f2711b7-9187-43da-a2c2-8ebc260fdf7b",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "edcbf49db9a54c37555a1dc7b1df145a2b349df6221f11d5df70e04f700b7a25",
+      "backendReceiptState": "complete",
+      "inputTokens": 3800,
+      "outputTokens": 6,
+      "operatorLedger": {
+        "id": "fe52e2fd-7da1-42dd-8db8-0aa75bdce5fd",
+        "reserved": 23508,
+        "actual": 3806,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "ce6d80f9-9c4a-4cb2-9ab3-0e4db12bdd6c",
+      "authorizationId": "4813043a-1588-4138-8b81-7d3f3fca0b09",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "5f9fa6923ed28e91431afb900480713e388efcc59548daefe9f95a2f2cbc2764",
+      "backendReceiptState": "complete",
+      "inputTokens": 4026,
+      "outputTokens": 251,
+      "operatorLedger": {
+        "id": "4813043a-1588-4138-8b81-7d3f3fca0b09",
+        "reserved": 24254,
+        "actual": 4277,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "ece6756d-6b1b-4a70-89eb-8eb82825494b",
+      "authorizationId": "0c5b07eb-aef3-4c9f-acf1-2cfe475330d3",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:3",
+      "requestHash": "acae27191afb012d556e4020cb107639b81f217fa337cd0d46d8e379419781dc",
+      "backendReceiptState": "complete",
+      "inputTokens": 4380,
+      "outputTokens": 1113,
+      "operatorLedger": {
+        "id": "0c5b07eb-aef3-4c9f-acf1-2cfe475330d3",
+        "reserved": 25367,
+        "actual": 5493,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "34d490c6-a368-4a70-8488-e7514627ff6a",
+      "authorizationId": "8906fc7e-5b6c-4633-93b9-0ef5ad4bfeb5",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:4",
+      "requestHash": "59fb917179d6e74482bcbd7a751d48231a91825d58857ad6b43be712436cf87d",
+      "backendReceiptState": "complete",
+      "inputTokens": 4994,
+      "outputTokens": 341,
+      "operatorLedger": {
+        "id": "8906fc7e-5b6c-4633-93b9-0ef5ad4bfeb5",
+        "reserved": 27169,
+        "actual": 5335,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "102798f0-3eaf-4ac0-8e0f-ae72474d03cb",
+      "authorizationId": "a4af1ae6-43e3-4752-87e8-207c3c855f02",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:5",
+      "requestHash": "f2bd5ff97a5ad2655de4a2c38aff06c831ea52a65b5c10556c88d3f5a2d150e7",
+      "backendReceiptState": "complete",
+      "inputTokens": 5371,
+      "outputTokens": 93,
+      "operatorLedger": {
+        "id": "a4af1ae6-43e3-4752-87e8-207c3c855f02",
+        "reserved": 28251,
+        "actual": 5464,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "7da5ab87-c4bb-4009-b408-e505de27f0fd",
+      "authorizationId": "8ec8d678-d2b3-451a-bbd1-a71450478d38",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:6",
+      "requestHash": "e9c727b5041118840030cb926da834aec1ad71a789a4a8a57eed4b54175b05eb",
+      "backendReceiptState": "complete",
+      "inputTokens": 5522,
+      "outputTokens": 42,
+      "operatorLedger": {
+        "id": "8ec8d678-d2b3-451a-bbd1-a71450478d38",
+        "reserved": 28812,
+        "actual": 5564,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "requestId": "8d31e2ad-7b3c-4c45-b435-b04a79dea35f",
+      "authorizationId": "4983ce12-2c03-4b19-a684-ee6082e4d54c",
+      "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+      "claimId": "04247912-8913-4f75-b5fe-a3c4cb2f42a9",
+      "claimGeneration": 6,
+      "attemptId": "cb9db588-5859-4aa4-8b3e-dddaa8c95cc4",
+      "invocationId": "bfa2eb49-6a4a-41c4-b93d-40424b309e61",
+      "rootId": "e1a5995d-ba75-4654-b8ef-355672e01924",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:7",
+      "requestHash": "a8568e6de4e07fbf36fc98b5bcf49b4c9080f8a57855dd506fcec69324c3632b",
+      "backendReceiptState": "complete",
+      "inputTokens": 5690,
+      "outputTokens": 7,
+      "operatorLedger": {
+        "id": "4983ce12-2c03-4b19-a684-ee6082e4d54c",
+        "reserved": 29519,
+        "actual": 5697,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    }
+  ],
+  "constraints": [
+    "完整回执缺失保留未知占额；不将 null 用量改成零。",
+    "第一轮发送中与第二轮 unknown 的原状态原样记录，不伪造恢复。",
+    "第二轮活动片未过期是直接持久化证据；建连超时仅为时间吻合推断。",
+    "保留原 finalAudit 白名单安全事实；本审计不读取账号、密钥或 auth session。",
+    "本次没有网络请求、账本/数据库写入、请求重放或退款。",
+    "供应商 token 已知与应用费用未知分别列示；不以已知 token 消除未知价格/费用。",
+    "第三轮 realSupplier=true 仅表示真实模式，networkStartedAt=null 的预发送预留不能冒称真实供应商请求。",
+    "第三轮同 binding 同 generation 的重新 approved 不能冒称完成新 HEAD 的返修复审链。",
+    "停止付费后的对账仅核验，不进行补发、退款或修改历史。"
+  ],
+  "thirdRunReviewEvidence": {
+    "submissions": [
+      {
+        "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+        "actionId": "400bc3ef-1988-4295-a380-e3b358bcea8e",
+        "generation": 1,
+        "version": 1,
+        "evidenceId": "b49a6589-6105-45f3-964a-ac2a39b08f5a",
+        "messageId": "8e003718-3c53-43e8-b7e2-98cee096ec24",
+        "findingIds": [
+          "b49a6589-6105-45f3-964a-ac2a39b08f5a:0"
+        ],
+        "verdict": "changes_requested",
+        "actionCompleted": false,
+        "approvalGateSatisfied": false
+      },
+      {
+        "bindingId": "84f30209-40f4-464d-ad7e-6dc143f0cf84",
+        "actionId": "400bc3ef-1988-4295-a380-e3b358bcea8e",
+        "generation": 1,
+        "version": 2,
+        "evidenceId": "e6445a3c-c0b8-4c29-a403-b59b9d5455ec",
+        "messageId": "7396bc7d-b440-4fd7-8ab4-cd8c0e8c9d7a",
+        "findingIds": [
+          "b49a6589-6105-45f3-964a-ac2a39b08f5a:0"
+        ],
+        "verdict": "approved",
+        "actionCompleted": false,
+        "approvalGateSatisfied": false
+      }
+    ],
+    "distinctSubmitBindings": [
+      "84f30209-40f4-464d-ad7e-6dc143f0cf84"
+    ],
+    "reviewedHeads": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "injectedGithubHeadsObserved": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ],
+    "actionGenerations": [
+      {
+        "actionId": "400bc3ef-1988-4295-a380-e3b358bcea8e",
+        "generation": 1
+      }
+    ],
+    "startReviewRevisionReceiptCount": 0,
+    "gates": [
+      {
+        "actionId": "400bc3ef-1988-4295-a380-e3b358bcea8e",
+        "generation": 1,
+        "workflowVersion": 2,
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "approved",
+        "externalApprovalGranted": false
+      }
+    ],
+    "conclusion": "真实综合链 failed；没有新 HEAD/新 generation/返修返回原 Thread 的通过证据。"
+  },
+  "finalLedgerReadOnlyAudit": {
+    "observedAtUtc": "2026-10-27T15:43:28.470024+00:00",
+    "path": "/tmp/agent-gand-t07-authorized-token-ledger.sqlite",
+    "rows": 111,
+    "newRc10Rows": 22,
+    "priorRows": 89,
+    "priorRowsSha256": "95c83752f2627f354326163883088b084e6b9a3b35150a525191c34f299c68b5",
+    "expectedPriorRowsSha256": "95c83752f2627f354326163883088b084e6b9a3b35150a525191c34f299c68b5",
+    "priorRowsUnchanged": true,
+    "knownTokens": 295127,
+    "unknownReserve": 293955,
+    "conservativeTotal": 589082,
+    "unknownRows": 16,
+    "checks": {
+      "ledgerRowCount111": true,
+      "rc10NewLedgerRows22": true,
+      "priorRows89": true,
+      "priorRowsDigestUnchanged": true,
+      "actualSupplierCalls21": true,
+      "completeReceipts18": true,
+      "knownTokens295127": true,
+      "unknownReserve293955": true,
+      "total589082": true
+    },
+    "discrepancies": [],
+    "mode": "read-only",
+    "writes": false
+  },
+  "supersedesReadOnlySnapshot": {
+    "path": "docs/reports/evidence/threaded-rc10/real-failure-diagnostics.json",
+    "sha256": "a08b060abab5e223033a79b897880d08da15562d15a27ae72a45b98801527665",
+    "preserved": true
+  }
+}

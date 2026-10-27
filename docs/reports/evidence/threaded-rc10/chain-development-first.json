@@ -1,0 +1,357 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "date": "2026-10-27",
+  "status": "failed",
+  "checks": [
+    {
+      "id": "RC10-CHAIN01",
+      "passed": true,
+      "scope": "Production factory/broker with injected API; public A to B then explicit cross-Thread B self handoff",
+      "sourceRoot": "1eb9cb45-9f07-44d6-97c3-13b706bed11e",
+      "originalThreadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+      "workThreadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+      "relayMessageId": "9aa3a714-c355-43dc-8a35-5bea3ff6ce80",
+      "crossMessageId": "6333a62c-f8d1-4bd7-a780-2f1185c25c26"
+    }
+  ],
+  "checkCount": 1,
+  "scope": {
+    "productionEntry": "createThreadedBackendRuntime, real broker/SQLite/queue/budget/actions/reviews/cooperation; API HTTP responses and PR facts injected",
+    "actualIndex": false,
+    "realSupplier": false,
+    "realGitHub": false,
+    "dailyData": false,
+    "actualProcesses": "separate recovery PIDs and SIGKILL after commit; API execution remains parent factory",
+    "controlledClock": "paused, unsent target deadline; not native/in-flight provider timeout",
+    "reviewEngineeringVerdict": "scripted local workflow fixture, not a real code review or external approval"
+  },
+  "injectedRequests": 4,
+  "externalRequests": 0,
+  "prReads": 0,
+  "workerCount": 2,
+  "workers": [
+    {
+      "pid": 51237,
+      "crashAfterCommit": true,
+      "messages": [
+        {
+          "type": "ready",
+          "pid": 51237,
+          "networkCalls": 0
+        },
+        {
+          "type": "result",
+          "settlements": [
+            {
+              "group_id": "662e7f97-67e2-421a-be67-34fe49b27a77",
+              "kind": "partial",
+              "record": "{\"groupId\":\"662e7f97-67e2-421a-be67-34fe49b27a77\",\"kind\":\"partial\",\"responses\":[{\"agentId\":\"member-c\",\"status\":\"responded\",\"responseMessageId\":\"20b47edb-b065-44f7-ae4f-dde6dcb18af9\",\"body\":\"C_ORIGINAL_DISAGREEMENT: preserve the unresolved D result.\"},{\"agentId\":\"member-d\",\"status\":\"timeout\",\"responseMessageId\":null,\"body\":null}]}",
+              "created_at": 1793111516920
+            }
+          ],
+          "callbacks": [
+            {
+              "id": "2e93dfc1-0cc9-41a9-a875-960e264f3c28",
+              "kind": "consultation",
+              "source_id": "662e7f97-67e2-421a-be67-34fe49b27a77",
+              "state": "waiting",
+              "message_id": null,
+              "reason": "THREADED_CALLBACK_PAUSED"
+            }
+          ],
+          "foreignKeys": [],
+          "pid": 51237,
+          "networkCalls": 0
+        }
+      ],
+      "exit": {
+        "code": null,
+        "signal": "SIGKILL"
+      }
+    },
+    {
+      "pid": 51238,
+      "crashAfterCommit": false,
+      "messages": [
+        {
+          "type": "ready",
+          "pid": 51238,
+          "networkCalls": 0
+        },
+        {
+          "type": "result",
+          "settlements": [
+            {
+              "group_id": "662e7f97-67e2-421a-be67-34fe49b27a77",
+              "kind": "partial",
+              "record": "{\"groupId\":\"662e7f97-67e2-421a-be67-34fe49b27a77\",\"kind\":\"partial\",\"responses\":[{\"agentId\":\"member-c\",\"status\":\"responded\",\"responseMessageId\":\"20b47edb-b065-44f7-ae4f-dde6dcb18af9\",\"body\":\"C_ORIGINAL_DISAGREEMENT: preserve the unresolved D result.\"},{\"agentId\":\"member-d\",\"status\":\"timeout\",\"responseMessageId\":null,\"body\":null}]}",
+              "created_at": 1793111516920
+            }
+          ],
+          "callbacks": [
+            {
+              "id": "2e93dfc1-0cc9-41a9-a875-960e264f3c28",
+              "kind": "consultation",
+              "source_id": "662e7f97-67e2-421a-be67-34fe49b27a77",
+              "state": "waiting",
+              "message_id": null,
+              "reason": "THREADED_CALLBACK_PAUSED"
+            }
+          ],
+          "foreignKeys": [],
+          "pid": 51238,
+          "networkCalls": 0
+        }
+      ],
+      "exit": {
+        "code": 0,
+        "signal": null
+      }
+    }
+  ],
+  "toolCalls": [
+    {
+      "name": "post_message",
+      "input": {
+        "idempotencyKey": "a-public-to-b",
+        "body": "B, gather independent evidence and return the reviewed conclusion.",
+        "targets": [
+          "member-b"
+        ],
+        "visibility": "public"
+      },
+      "result": {
+        "ok": true,
+        "result": {
+          "message": {
+            "schemaVersion": 1,
+            "id": "9aa3a714-c355-43dc-8a35-5bea3ff6ce80",
+            "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+            "threadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+            "seq": 2,
+            "origin": "agent_post",
+            "state": "published",
+            "visibility": "public",
+            "sender": {
+              "kind": "agent",
+              "agentId": "member-a"
+            },
+            "body": "B, gather independent evidence and return the reviewed conclusion.",
+            "bodyHash": "0ade7a11ec339b351271046f7faf1b257d90f4d74a04e1f8e7769b70ae2e6534",
+            "targets": [
+              "member-b"
+            ],
+            "audience": [],
+            "sourceRefs": [
+              "1eb9cb45-9f07-44d6-97c3-13b706bed11e"
+            ],
+            "sourceThreadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+            "sourceInvocationId": "6037267b-94d7-4646-921f-db1633ed7e55",
+            "sourceAttemptId": "191eb48f-ae2e-418f-92fb-4ff6d0b09903",
+            "sourceBindingId": "76341d70-147a-409c-a6d8-faf432cbe630",
+            "causalRootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e",
+            "waveId": "8db5273f-b548-44f2-b79e-2f6418b58324",
+            "inputMaxSeq": 2,
+            "authorityEpoch": 1,
+            "attachments": [],
+            "createdAt": "2026-10-27T14:28:56.919Z"
+          },
+          "deliveries": [
+            {
+              "schemaVersion": 1,
+              "id": "d18dd1d3-c376-4114-99c0-e1129986abe1",
+              "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+              "threadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+              "messageId": "9aa3a714-c355-43dc-8a35-5bea3ff6ce80",
+              "targetAgentId": "member-b",
+              "purpose": "message",
+              "routingRevision": 1,
+              "waveId": "8db5273f-b548-44f2-b79e-2f6418b58324",
+              "inputMaxSeq": 2,
+              "createdAt": "2026-10-27T14:28:56.919Z"
+            }
+          ],
+          "wakes": [
+            {
+              "schemaVersion": 1,
+              "id": "0926871a-451e-4221-8b6a-4e2da0272ee2",
+              "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+              "threadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+              "sourceMessageId": "9aa3a714-c355-43dc-8a35-5bea3ff6ce80",
+              "deliveryId": "d18dd1d3-c376-4114-99c0-e1129986abe1",
+              "targetAgentId": "member-b",
+              "purpose": "message",
+              "routingRevision": 1,
+              "waveId": "8db5273f-b548-44f2-b79e-2f6418b58324",
+              "inputMaxSeq": 2,
+              "causalRootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e",
+              "authorityEpoch": 1,
+              "targetMemberVersion": 1,
+              "targetPermissionVersion": 1,
+              "status": "pending",
+              "version": 1,
+              "createdAt": "2026-10-27T14:28:56.919Z",
+              "updatedAt": "2026-10-27T14:28:56.919Z"
+            }
+          ],
+          "outboxIds": [
+            "097e1f3e-8c83-4c9b-9cb1-a56831df4657",
+            "6614444e-0872-4203-b22d-fd6596c5c9da"
+          ]
+        }
+      },
+      "agentId": "member-a",
+      "threadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+      "invocationId": "6037267b-94d7-4646-921f-db1633ed7e55",
+      "rootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e"
+    },
+    {
+      "name": "cross_post_message",
+      "input": {
+        "idempotencyKey": "b-to-work-thread",
+        "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+        "body": "Continue the same responsibility in the explicit work Thread.",
+        "targets": [
+          "member-b"
+        ]
+      },
+      "result": {
+        "ok": true,
+        "result": {
+          "message": {
+            "schemaVersion": 1,
+            "id": "6333a62c-f8d1-4bd7-a780-2f1185c25c26",
+            "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+            "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+            "seq": 1,
+            "origin": "agent_post",
+            "state": "published",
+            "visibility": "public",
+            "sender": {
+              "kind": "agent",
+              "agentId": "member-b"
+            },
+            "body": "Continue the same responsibility in the explicit work Thread.",
+            "bodyHash": "832f1e24e7ef5a44e87aef81c85042fd8314aa09296b4b6f726caeaa9c9e6072",
+            "targets": [
+              "member-b"
+            ],
+            "audience": [],
+            "sourceRefs": [
+              "9aa3a714-c355-43dc-8a35-5bea3ff6ce80"
+            ],
+            "sourceThreadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+            "sourceInvocationId": "ce2067de-150f-4eca-852c-521cdf58188d",
+            "sourceAttemptId": "1b55d12a-b0fc-4317-a5ba-a9a46bfe36cd",
+            "sourceBindingId": "2c1e0d5f-6eaa-4087-adf0-c784e2be67ab",
+            "causalRootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e",
+            "waveId": "e013ee24-8820-404b-9d3c-500b7682ae77",
+            "inputMaxSeq": 1,
+            "authorityEpoch": 1,
+            "attachments": [],
+            "createdAt": "2026-10-27T14:28:56.919Z"
+          },
+          "deliveries": [
+            {
+              "schemaVersion": 1,
+              "id": "b56f9343-0d42-4ef9-9518-877e0e3d9679",
+              "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+              "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+              "messageId": "6333a62c-f8d1-4bd7-a780-2f1185c25c26",
+              "targetAgentId": "member-b",
+              "purpose": "message",
+              "routingRevision": 1,
+              "waveId": "e013ee24-8820-404b-9d3c-500b7682ae77",
+              "inputMaxSeq": 1,
+              "createdAt": "2026-10-27T14:28:56.919Z"
+            }
+          ],
+          "wakes": [
+            {
+              "schemaVersion": 1,
+              "id": "22ed9c23-e57a-400b-aa7d-1ddb21857314",
+              "ownerId": "9a0a8e26-2b02-427e-ba9f-003903119539",
+              "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+              "sourceMessageId": "6333a62c-f8d1-4bd7-a780-2f1185c25c26",
+              "deliveryId": "b56f9343-0d42-4ef9-9518-877e0e3d9679",
+              "targetAgentId": "member-b",
+              "purpose": "message",
+              "routingRevision": 1,
+              "waveId": "e013ee24-8820-404b-9d3c-500b7682ae77",
+              "inputMaxSeq": 1,
+              "causalRootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e",
+              "authorityEpoch": 1,
+              "targetMemberVersion": 1,
+              "targetPermissionVersion": 1,
+              "status": "pending",
+              "version": 1,
+              "createdAt": "2026-10-27T14:28:56.919Z",
+              "updatedAt": "2026-10-27T14:28:56.919Z"
+            }
+          ],
+          "outboxIds": [
+            "22d445fd-6603-4262-9e8f-0a9d944f934e",
+            "bdf2873d-db43-499d-91c0-18115f1057a3"
+          ]
+        }
+      },
+      "agentId": "member-b",
+      "threadId": "3daec6ca-1a2f-42ec-87c2-8b618cb0efd8",
+      "invocationId": "ce2067de-150f-4eca-852c-521cdf58188d",
+      "rootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e"
+    },
+    {
+      "name": "multi_mention",
+      "input": {
+        "idempotencyKey": "b-consult-c-d",
+        "targets": [
+          "member-c",
+          "member-d"
+        ],
+        "question": "State your independent original conclusion.",
+        "callbackTo": "member-b",
+        "timeoutMinutes": 3,
+        "overrideReason": "RC10 isolated composite chain"
+      },
+      "result": {
+        "ok": true,
+        "result": {
+          "groupId": "662e7f97-67e2-421a-be67-34fe49b27a77",
+          "deadline": 1793111516919
+        }
+      },
+      "agentId": "member-b",
+      "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+      "invocationId": "618599f2-a2c3-4bf8-881f-61d93bf10924",
+      "rootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e"
+    },
+    {
+      "name": "multi_mention",
+      "input": {
+        "idempotencyKey": "c-must-not-cascade",
+        "targets": [
+          "member-a"
+        ],
+        "question": "Unnecessary downstream work",
+        "callbackTo": "member-c",
+        "overrideReason": "test"
+      },
+      "result": {
+        "ok": false,
+        "code": "THREADED_CONSULTATION_CASCADE_DENIED",
+        "status": 409,
+        "committed": false
+      },
+      "agentId": "member-c",
+      "threadId": "85dc50b9-2274-4ea8-8b77-c1f9de4698d9",
+      "invocationId": "5fb5f0c0-32c4-469d-9cd8-b646374de73c",
+      "rootId": "1eb9cb45-9f07-44d6-97c3-13b706bed11e"
+    }
+  ],
+  "snapshots": [],
+  "failure": {
+    "message": "f.runtime.budget.usage is not a function",
+    "stack": "TypeError: f.runtime.budget.usage is not a function\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc10-chain.mjs:29:110)\n    at Array.map (<anonymous>)\n    at snapshot (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc10-chain.mjs:29:42)\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-threaded-rc10-chain.mjs:91:154)"
+  }
+}

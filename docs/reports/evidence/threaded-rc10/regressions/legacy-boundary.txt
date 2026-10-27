@@ -1,0 +1,5 @@
+
+> agent-gand@0.1.0 verify:threaded-legacy-boundary /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-legacy-boundary.mjs
+
+T02 legacy boundary passed: mixed HTTP reads/writes/derived IDs/lists and WS isolate Threaded; legacy records remain usable; zero external calls. ISO01/ISO02/ISO03 and CTX02/UI01 transport subcases only.

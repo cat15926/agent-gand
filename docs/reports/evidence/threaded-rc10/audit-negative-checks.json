@@ -1,0 +1,41 @@
+{
+  "ok": true,
+  "scope": "Audit guard negative probes; not additional product acceptance groups",
+  "checks": [
+    {
+      "case": "original_core_text",
+      "exitCode": 1,
+      "assertion": "Original K01",
+      "rejected": true
+    },
+    {
+      "case": "mem01_implementation_promotion",
+      "exitCode": 1,
+      "assertion": "MEM01 implementation",
+      "rejected": true
+    },
+    {
+      "case": "mem01_whole_item_promotion",
+      "exitCode": 1,
+      "assertion": "MEM01 must remain",
+      "rejected": true
+    },
+    {
+      "case": "enhancement_contract_change",
+      "exitCode": 1,
+      "assertion": "E01–E06 non-status",
+      "rejected": true
+    },
+    {
+      "case": "missing_local_link",
+      "exitCode": 1,
+      "assertion": "Missing local matrix reference",
+      "rejected": true
+    }
+  ],
+  "developmentCorrection": "The first missing-link probe replaced a path absent from the matrix and changed nothing; corrected to an existing link, added a fixture-mutation assertion and reran all five probes. No production defect inferred.",
+  "originalMatrixUnchangedByProbes": true,
+  "networkRequests": 0,
+  "modelRequests": 0,
+  "dailyDatabaseRead": false
+}

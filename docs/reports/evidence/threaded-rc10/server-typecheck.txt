@@ -1,0 +1,4 @@
+npm error No workspaces found:
+npm error   --workspace=@agent-gand/server
+npm error Log files were not written due to an error writing to the directory: /Users/ruhonglin/.npm/_logs
+npm error You can rerun the command with `--loglevel=verbose` to see the logs in your terminal

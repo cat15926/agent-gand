@@ -1,0 +1,20 @@
+
+> agent-gand@0.1.0 verify:legacy-resources /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-legacy-resources.mjs
+
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: current fixture process identity must be observable; never substitute a fake live result
+    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/verify-legacy-resources.mjs:254:12) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '',
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
+ ELIFECYCLE  Command failed with exit code 1.

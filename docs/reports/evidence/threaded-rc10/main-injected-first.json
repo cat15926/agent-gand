@@ -1,0 +1,67 @@
+{
+  "ok": false,
+  "stage": "RC10",
+  "date": "2026-10-27T14:44:49.159Z",
+  "case": "all",
+  "groups": 0,
+  "checks": [],
+  "failures": [
+    {
+      "id": "comprehensive_chain",
+      "reason": "node:internal/modules/run_main:123\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert.ok(path.isAbsolute(root??''))\n\n    at <anonymous> (/Users/ruhonglin/lhz/agent-gand/scripts/fixtures/threadedRc08MainGuard.mjs:9:8)\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:112:9) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n\nNode.js v22.23.1\n\n\nfalse !== true\n",
+      "facts": null
+    },
+    {
+      "id": "cleanup",
+      "reason": "SQLITE_CANTOPEN"
+    }
+  ],
+  "actualMainIndex": true,
+  "entry": "apps/server/src/index.ts",
+  "actualPids": [
+    {
+      "name": "chain",
+      "restore": false,
+      "pid": 51746,
+      "diagnostics": []
+    }
+  ],
+  "realSupplier": false,
+  "account": {
+    "id": "rc10-fixture-account",
+    "name": "RC10 injected",
+    "model": "fixture-model",
+    "endpointHost": "rc10.invalid"
+  },
+  "operatorTokenLimit": 1000000,
+  "priorUsage": {
+    "knownTokens": 0,
+    "unknownReserve": 0
+  },
+  "usage": {
+    "knownTokens": 0,
+    "unknownReserve": 0
+  },
+  "priorLedgerRowsUnchanged": true,
+  "priorLedgerDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "knownTokensThisRun": 0,
+  "unknownReserveThisRun": 0,
+  "targetActivityAllowanceMs": 10000,
+  "productionDefaultActivityAllowanceMs": 1000,
+  "casePoliciesInEvidence": true,
+  "dailyConfigurationChanged": false,
+  "sourceDbReadOnly": false,
+  "dailyMessagesRead": false,
+  "keyInArgvEnvReports": false,
+  "keyTransferredViaPrivateIPC": false,
+  "limitations": [
+    "Actual index/production singleton, authenticated loopback HTTP and release grants; no factory execution bypass.",
+    "Real mode uses actual configured API and SDK model replies/tools; GitHub GET principal/PR facts and HEAD transition are explicitly injected, never a natural remote PR event or code review.",
+    "D is paused via authenticated controls; the original persisted consultation deadline is crossed with an explicit isolated clock offset after all attempts and native groups stop.",
+    "A review-to-author model request is held until the reviewer completes the Action and checks its gate; this deterministic acceptance barrier is not a product scheduling guarantee.",
+    "Only synthetic root uses explicit activity/quota CAS; production defaults, schema35, daily closed remain unchanged.",
+    "Permission/stale callback/budget rejection negative branches are independently covered by the isolated RC10 chain suite, not claimed as real supplier failures."
+  ],
+  "cleanup": [],
+  "evidence": []
+}

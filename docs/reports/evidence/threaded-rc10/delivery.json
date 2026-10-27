@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "date": "2026-10-27",
+  "baselineCommit": "915f106316863f8f681ad891421be3f4ca53cc0b",
+  "priorStageCommittedAndPushed": true,
+  "priorStageBranch": "main",
+  "rc10Committed": false,
+  "deliveryScope": "Acceptance scripts, isolated and actual-index evidence, real-failure preservation, release audit and current planning documents. Complete real composite chain and RC10 exit are not passed.",
+  "fullStageExitPassed": false,
+  "dailyReleaseReady": false,
+  "productionSourceChanged": false,
+  "schema": 35,
+  "dailyMode": "closed",
+  "passedBehaviorGroups": {
+    "factory": 7,
+    "actualIndexInjected": 1,
+    "actualIndexRealComplete": 0,
+    "numberedRegressions": 52,
+    "total": 60,
+    "additionalUnnumberedSuites": 3
+  },
+  "auditsNotAddedToBehaviorGroups": {
+    "matrixRows": 119,
+    "matrixNegativeControls": 5,
+    "chainNegativeControls": 6
+  },
+  "realExecution": {
+    "independentRuns": 3,
+    "wholeChainPassed": 0,
+    "actualIndexPids": 7,
+    "newLedgerAuthorizations": 22,
+    "supplierRequests": 21,
+    "completeReceipts": 18,
+    "newKnownTokens": 74649,
+    "newRetainedReservation": 87123,
+    "retainedSupplierPossible": 3,
+    "retainedLocalPresend": 1,
+    "original89RowsUnchanged": true,
+    "finalKnownTokens": 295127,
+    "finalRetainedReservation": 293955,
+    "finalConservativeUsage": 589082,
+    "operatorCumulativeCap": 1000000,
+    "userAuthorizedTokenCap": 10000000
+  },
+  "exclusions": [
+    "outputs/",
+    "daily database and configuration",
+    "real GitHub writes",
+    "RC11/RC12 activation"
+  ],
+  "fileCount": 48,
+  "files": [
+    {
+      "path": "docs/architecture/threaded-composite-acceptance-v1.md",
+      "bytes": 5596,
+      "sha256": "bf777637f6c6e767e6085f2fa2af7ff032068df0dcfa5b8074f7378788966a47"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-compatibility-matrix.md",
+      "bytes": 101867,
+      "sha256": "9a4a4e1ee9f47a178fbac747bd1cee2e7922b8fea0f02cd00936fc2fc60755e5"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-guide.md",
+      "bytes": 60067,
+      "sha256": "a9bc44fb0fb71245184ea8ae500f2458850f7d98b0abfc653fb93ba52de1f247"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-implementation-status.md",
+      "bytes": 56349,
+      "sha256": "7d022ab8e2f102aaccd16953abba994995b8b684195a7214f7b458b522896797"
+    },
+    {
+      "path": "docs/plans/threaded-collaboration-remaining-plan.md",
+      "bytes": 36402,
+      "sha256": "5f25e8b3854f007bdf44fe7ae630bb4321e14323b1af625a41e43df24fd583cf"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/acceptance-audit.json",
+      "bytes": 378611,
+      "sha256": "1fe5f8ab2bcaeee98127f254d3d5374eca6fbc7f826da324c86f5a4f40640cef"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/audit-negative-checks.json",
+      "bytes": 1189,
+      "sha256": "15bdca1d6c4e37f7050977eda594aa23c0da9b16c4d935e03a125e8b2a769cd7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/chain-development-first.json",
+      "bytes": 13461,
+      "sha256": "3e4da5f9d7cf5ea4c022f82f0ad80832415f39242d1f06c8bb07d9ae45b6aa64"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/chain-development-second.json",
+      "bytes": 80868,
+      "sha256": "4fde83d4afb60d9af9ab04cf61b6c5322b636342ddd8556113fe7850798c0820"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/chain.json",
+      "bytes": 82438,
+      "sha256": "d7f2dc7ad043dba44aeaa85a1ffb4771be6525eb63b83450c0c9f7e53c9cbe98"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-delivery-chain-audit.json",
+      "bytes": 4537,
+      "sha256": "3cbfca45953bdc28b48785b3069708f92e55ff01464d9301be57c59bca239d3d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-delivery.json",
+      "bytes": 1851417,
+      "sha256": "7daedc83fb8141319f663e14591690a466d3dbac7c2817a22a9f661376d5d40d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-final-chain-audit.json",
+      "bytes": 4534,
+      "sha256": "6c3c356a40072b162f070cecfaf7d2a7097a720139bd9fcf73fe7bf4c1f9d63a"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-final.json",
+      "bytes": 1851416,
+      "sha256": "8a9c4a43c990f480f06882b17bc7acb1f0b2684ea1e32080459e70e8e2b44b56"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-first.json",
+      "bytes": 3133,
+      "sha256": "d401a45b4901838aeaf3d4bf9bd6d8f443df661cc36b192337eef3ce18d505e6"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-fourth-chain-audit.json",
+      "bytes": 4535,
+      "sha256": "d6728764c589418dcf9e2887f41677b358d15fc3592064197872b58201eddfa7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-fourth.json",
+      "bytes": 1851415,
+      "sha256": "342c1fda5dbc39093f67a1155a16e5086dd70f6aec4f461fe570eeab4ef609c7"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-second.json",
+      "bytes": 363961,
+      "sha256": "41954a00a900faa13e080f85c15a40e1e1edf14c1dbdb30a0b21e4ef2d72bc25"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-injected-third.json",
+      "bytes": 837062,
+      "sha256": "39057a881474533995c0deb8c1912ab6d67f90ba80296ff15f18b1d75c98c5b8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "bytes": 47962,
+      "sha256": "cd738482d3439fda7f234fb324d88207e23c6865a39fde1b2872f9006728bbad"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "bytes": 86558,
+      "sha256": "0fded922c11557e2b2577fbddb3d16e019cf12b7420cd16d6133da7f2131311b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-third.json",
+      "bytes": 680791,
+      "sha256": "4d53f841071a6a61eb660af77ae2bacf7cb03f86765be7e6f018ec3ea12322d0"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/real-failure-diagnostics-final.json",
+      "bytes": 44257,
+      "sha256": "c334776c3fba9c5f0162a0ee720362bf17d3810effe17bf69c16a67356ddfb80"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/real-failure-diagnostics.json",
+      "bytes": 17010,
+      "sha256": "a08b060abab5e223033a79b897880d08da15562d15a27ae72a45b98801527665"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/access.txt",
+      "bytes": 317,
+      "sha256": "62bfed71f6c94cf3153b8ae06d2580ff930c17eea79f3cb6e522e44ad5e22449"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/coexistence-summary.json",
+      "bytes": 5214,
+      "sha256": "c50bb713a592b74719f357e70571331848376970ee3c164bc072518efe7f0e1d"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/isolation.txt",
+      "bytes": 334,
+      "sha256": "edf78e372265a5c0086c7964c0fe40158620cd804fd8567649b68f86a0bd9a92"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/legacy-boundary.txt",
+      "bytes": 396,
+      "sha256": "2405f8b9cb81504557dead8de86bd4b99f8cb4018fa5c7ec1c9c9583409ff604"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/legacy-resources-sandbox-first.txt",
+      "bytes": 656,
+      "sha256": "5cb51908de1e3c4d82733fb5574c2504993fa42bb01a0dfa32d0bfdc163124ce"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/legacy-resources.json",
+      "bytes": 2023,
+      "sha256": "d2c3000bec5ada24d10eba21cf2b34bd4e0c1de2aadd6d581fe0e390c29268a8"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/legacy-resources.txt",
+      "bytes": 2199,
+      "sha256": "c2ac59f731bbf331c17955b055f3e3e4ac031890113c3568d149b37be25a0d53"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/production.json",
+      "bytes": 4151,
+      "sha256": "76ca66c19571671b0238f04125535fae6d2da90907562d1aaa18adcad38e2085"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/production.txt",
+      "bytes": 4333,
+      "sha256": "c816eae5c7a645f55e8f83be709624bbbd0426c6a95d2cfc55b79fada379386b"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/release.json",
+      "bytes": 1832,
+      "sha256": "628a3f193c3dfe2e14cc1d0329fcb5562df4d3e92835bf5813199d676f87d041"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/release.txt",
+      "bytes": 2008,
+      "sha256": "43bec7799409479a4e20b637d3245c5d09ad965cf5922cd9949787a008b6872a"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/runtime.json",
+      "bytes": 3351,
+      "sha256": "c2e357d7367c88d367cbdc42c726091b5168b1cdb46d9fe02a27cb97f3c53b91"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/regressions/runtime.txt",
+      "bytes": 3527,
+      "sha256": "13da665302ceac0e74147a532dda2f208b443b98d110e9d1e9ce17a7295fcd60"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/server-typecheck-final.txt",
+      "bytes": 98,
+      "sha256": "fa38638964bf6c604728c0c8d5f9feb19f76b6cf867d4923e44e6cf9e8e9352c"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/server-typecheck.txt",
+      "bytes": 276,
+      "sha256": "2d0fe5547c206b6c391d8f45d8bd3cc06d523bd5849a70e7133b724bc520f38e"
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/validation.json",
+      "bytes": 1188,
+      "sha256": "c77e0b10a0336c258fa89f289979e76c2837a7d8a0c7ce6ea63e1046e9a46467"
+    },
+    {
+      "path": "docs/reports/threaded-collaboration-rc10-release-review-2026-10-27.md",
+      "bytes": 12755,
+      "sha256": "bf63010a471a6eaf85cc8af57de3ffc160eff66fa450e97f9baab3fd998fa3de"
+    },
+    {
+      "path": "package.json",
+      "bytes": 29901,
+      "sha256": "885d045982662942756e5bd46427320bd7fab8acff8c5182414ea3939c85dc1b"
+    },
+    {
+      "path": "scripts/audit-threaded-rc10-acceptance.mjs",
+      "bytes": 24755,
+      "sha256": "93f83f11bac723b2fc32b3baab27e0024ac17c1df84adc17b7720e927e3b9c1d"
+    },
+    {
+      "path": "scripts/audit-threaded-rc10-main-chain.mjs",
+      "bytes": 17321,
+      "sha256": "0d8ff21472cd3af7a476d94319e62838370f73fbda3eef6e816f2aafa9f02aad"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc10ChainWorker.mjs",
+      "bytes": 2510,
+      "sha256": "66cc20017a0f0a4192e384736809115f2e5677d07837925587d904be3a8e46aa"
+    },
+    {
+      "path": "scripts/fixtures/threadedRc10MainGuard.mjs",
+      "bytes": 25266,
+      "sha256": "029ad76a2d029335525e4748d66d3864cac44aa76b983ab2f33276d7cf217bbb"
+    },
+    {
+      "path": "scripts/verify-threaded-rc10-chain.mjs",
+      "bytes": 27487,
+      "sha256": "ff562a1cf59a4cdd9ae7e7d9e39e4d5fa0312906babdccd38da4e9826dc4b0a2"
+    },
+    {
+      "path": "scripts/verify-threaded-rc10-main.mjs",
+      "bytes": 30078,
+      "sha256": "0e72c1dacc6e79c617273af7117f09ca20f2bc55763bc7994211048b0b29d12a"
+    }
+  ],
+  "selfHashExcluded": true
+}

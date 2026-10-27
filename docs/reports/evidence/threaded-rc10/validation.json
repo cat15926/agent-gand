@@ -1,0 +1,47 @@
+{
+  "stage": "RC10",
+  "date": "2026-10-27",
+  "syntaxChecks": [
+    {
+      "path": "scripts/verify-threaded-rc10-chain.mjs",
+      "nodeSyntaxCheck": true
+    },
+    {
+      "path": "scripts/verify-threaded-rc10-main.mjs",
+      "nodeSyntaxCheck": true
+    },
+    {
+      "path": "scripts/fixtures/threadedRc10ChainWorker.mjs",
+      "nodeSyntaxCheck": true
+    },
+    {
+      "path": "scripts/fixtures/threadedRc10MainGuard.mjs",
+      "nodeSyntaxCheck": true
+    },
+    {
+      "path": "scripts/audit-threaded-rc10-acceptance.mjs",
+      "nodeSyntaxCheck": true
+    },
+    {
+      "path": "scripts/audit-threaded-rc10-main-chain.mjs",
+      "nodeSyntaxCheck": true
+    }
+  ],
+  "diffCheck": true,
+  "serverTypecheck": {
+    "passed": true,
+    "command": "pnpm --filter @agent-gand/server typecheck",
+    "log": "server-typecheck-final.txt"
+  },
+  "sourceProductionFilesChanged": false,
+  "schemaChanged": false,
+  "dailyConfigurationChanged": false,
+  "currentHeadAndOriginMain": "915f106316863f8f681ad891421be3f4ca53cc0b",
+  "rc10Committed": false,
+  "unrelatedOutputsExcluded": true,
+  "localDocumentationLinks": {
+    "files": 6,
+    "references": 278,
+    "allExist": true
+  }
+}

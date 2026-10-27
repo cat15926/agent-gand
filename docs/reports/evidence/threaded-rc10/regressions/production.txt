@@ -1,0 +1,35 @@
+
+> agent-gand@0.1.0 verify:threaded-production /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-production.mjs
+
+{
+  "ok": true,
+  "stage": "T12",
+  "groups": 16,
+  "checks": [
+    "OPS01: actual production factory without a registered release pack stays closed/no executor in every configured mode; authenticated routes refuse room creation and never resolve credentials or start a model",
+    "OPS01: a valid pinned release pack plus open durable flags still cannot create new work while configured mode stays closed; recovery/dispatch scans alone never decrypt an account or invent a Thread",
+    "OPS01: observe uses the production read-only recovery plan, routing preview and authenticated admission/release snapshots; actual HTTP thread/member/invocation stop or pause, approval/Decision, release controls, routing-policy and new Thread writes all return OBSERVE_ONLY before any DB write or account decryption",
+    "OPS01: observe with an actually overdue durable timer ignores trusted collaboration notifications, wake/recovery hints and account-revocation follow-up microtasks; necessary revocation fences existing work, then no callback/message/outbox/ACK or other follow-up DB mutation occurs",
+    "OPS01/DB01: authenticated release never adopts an ungranted historical room or fabricated old wake; new Thread, server roster, grant and routing creation roll back atomically when grant persistence fails",
+    "OPS01/ISO03/M03/UI01: authenticated execute creates a fresh server-roster/grant/routing Thread atomically; actual ingress, tool, response and shared resource release run via automatic dispatcher only after startup barrier; closed lost-ACK replay returns exact receipt with no new root/request",
+    "OPS01: closing new ingress and pausing new dispatch preserve an already running request, its exact authority and normal settlement; emergency cancellation remains a separate Owner control",
+    "OPS01: previously accepted queued work stays pending behind dispatch pause; reopening dispatch while mode/new ingress remain closed drains its frozen root once",
+    "OPS01/W06/B01: closed new ingress still permits an authenticated response to a previously created interactive decision; actual platform settle tool resumes the same causal root/budget, exact answer replay is idempotent, and observe rejects business writes",
+    "OPS01/CTX06: rebuilding the same SQLite service with a different allowed backend pack explicitly pauses the accepted API root as CONFIGURATION_NOT_RETAINED; it preserves the original grant/root and never resolves credentials, starts SDK/model transport or silently changes carrier",
+    "OPS01/ISO03: Thread capabilities deny new ingress for a partly changed pack while retaining execution/tools for a compatible peer; that unchanged peer actually drains its previously accepted root once without switching the changed member driver",
+    "OPS01/ISO03: a missing encrypted credential version row makes admission not ready and rejects new ingress before creating root/message or attempting decryption/transport",
+    "OPS01: losing a credential version after ingress preserves the frozen grant/root and explicitly blocks its queue under closed mode without decrypting, sending or pretending to drain",
+    "OPS01/REC03: secure credential read errors become a stable CREDENTIAL_UNAVAILABLE queue/admission fault with one attempted injected decryption, no retry livelock or network, and accepted work retained until operator repair/restart",
+    "OPS01/ISO03: current account metadata pin change fails before ingress, context or network; no credential version silently replaces an existing grant",
+    "OPS01/REC03/B02: bounded production shutdown persists unknown invocation/resource fences in a new SQLite connection while transport ignores abort; late response bytes fail the activity/abort checkpoint before trusted parsing, publish nothing and retain request, claim, usage and unknown audit for Owner reconciliation"
+  ],
+  "injectedModelHttpRequests": 12,
+  "realModelRequests": 0,
+  "externalNetworkRequests": 0,
+  "credentialResolutions": "injected metadata-only resolver",
+  "injectedCredentialReads": 213,
+  "isolatedExecutionBypass": false,
+  "productionDatabaseAccess": false,
+  "productionRelease": false
+}

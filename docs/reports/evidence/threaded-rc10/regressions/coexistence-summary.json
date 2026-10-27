@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "date": "2026-10-27",
+  "baselineCommit": "915f106316863f8f681ad891421be3f4ca53cc0b",
+  "status": "passed",
+  "scope": "existing isolated legacy boundary/access/resource/runtime/release/production regressions",
+  "suites": 7,
+  "structuredGroups": 52,
+  "unstructuredSuites": 3,
+  "countingNote": "52 explicitly reported groups plus three legacy entry/ACL/isolation suites. Do not multiply six malformed/new-mode isolation fixture variants into groups. If normalizing each unstructured suite to one group this is 55, and must be labeled as that convention.",
+  "runs": [
+    {
+      "name": "isolation",
+      "command": "pnpm verify:threaded-isolation",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-isolation.mjs",
+      "scriptSha256": "2264210cbe93be700d1d0940fda8d28004362224b25b45b9f3870d911db2d378",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/isolation.txt",
+      "logSha256": "edf78e372265a5c0086c7964c0fe40158620cd804fd8567649b68f86a0bd9a92",
+      "reportedGroups": null,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "access",
+      "command": "pnpm verify:threaded-access",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-access.mjs",
+      "scriptSha256": "c95b58f8f9ab01702b6ad8e60077c21bdd3f89022d0e3fead9f381a10e45c56f",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/access.txt",
+      "logSha256": "62bfed71f6c94cf3153b8ae06d2580ff930c17eea79f3cb6e522e44ad5e22449",
+      "reportedGroups": null,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "legacy-boundary",
+      "command": "pnpm verify:threaded-legacy-boundary",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-legacy-boundary.mjs",
+      "scriptSha256": "cc62149731d725aa84b2893d1a84b74ef73cb11518483d3f03f9470b3e3653b4",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/legacy-boundary.txt",
+      "logSha256": "2405f8b9cb81504557dead8de86bd4b99f8cb4018fa5c7ec1c9c9583409ff604",
+      "reportedGroups": null,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "legacy-resources",
+      "command": "pnpm verify:legacy-resources",
+      "exitCode": 0,
+      "script": "scripts/verify-legacy-resources.mjs",
+      "scriptSha256": "3038a1ab0188b84d2d1c2abd2c2c8db2f8dde56fe5e43001ac404f4f26882252",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/legacy-resources.txt",
+      "logSha256": "c2ac59f731bbf331c17955b055f3e3e4ac031890113c3568d149b37be25a0d53",
+      "reportedGroups": 11,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "runtime",
+      "command": "pnpm verify:threaded-runtime",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-runtime.mjs",
+      "scriptSha256": "9b224a7d48a8a934d6b91bebe98f3a5b955c56e876b544406bf0a76de82b8c12",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/runtime.txt",
+      "logSha256": "13da665302ceac0e74147a532dda2f208b443b98d110e9d1e9ce17a7295fcd60",
+      "reportedGroups": 18,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "release",
+      "command": "pnpm verify:threaded-release",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-release.mjs",
+      "scriptSha256": "fcf06b278e4e208ada1b8bfa2d99a171929eaca8eff3af2d1b08566144cc8c71",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/release.txt",
+      "logSha256": "43bec7799409479a4e20b637d3245c5d09ad965cf5922cd9949787a008b6872a",
+      "reportedGroups": 7,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    },
+    {
+      "name": "production",
+      "command": "pnpm verify:threaded-production",
+      "exitCode": 0,
+      "script": "scripts/verify-threaded-production.mjs",
+      "scriptSha256": "79ff6fa73a53e287b058362196cc4b7077fa763c505830651ed3a547fc23d25a",
+      "log": "docs/reports/evidence/threaded-rc10/regressions/production.txt",
+      "logSha256": "c816eae5c7a645f55e8f83be709624bbbd0426c6a95d2cfc55b79fada379386b",
+      "reportedGroups": 16,
+      "completeSuite": true,
+      "externalSupplierRequests": 0
+    }
+  ],
+  "developmentFindings": [
+    {
+      "log": "docs/reports/evidence/threaded-rc10/regressions/legacy-resources-sandbox-first.txt",
+      "exitCode": 1,
+      "cause": "Sandbox blocked current process identity observation required by fixture line 254; exact unmodified script reran with ps access and passed.",
+      "countsTowardPassingGroups": false
+    }
+  ],
+  "productionDatabaseAccess": false,
+  "productionRelease": false,
+  "productionCodeChanges": false,
+  "historicalEvidenceOverwritten": false,
+  "externalSupplierRequests": 0,
+  "notes": [
+    "Runtime and release use real IPC/SQLite workers with fake external calls; production uses actual factory without isolated execution bypass, injected HTTP transport and injected metadata-only credential resolver.",
+    "Access and legacy-boundary use Fastify injection/WebSocket injection; no daily server is started.",
+    "Only this RC10 evidence directory was written by this regression agent."
+  ]
+}

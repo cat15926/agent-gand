@@ -1,0 +1,5 @@
+
+> agent-gand@0.1.0 verify:threaded-access /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-access.mjs
+
+threaded access fixtures passed: management bridge, stable owner, HTTP/WS ACL, CSRF, versions, expiry/logout, disabled admission, no execution

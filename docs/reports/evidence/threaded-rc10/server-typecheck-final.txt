@@ -1,0 +1,4 @@
+
+> @agent-gand/server@0.1.0 typecheck /Users/ruhonglin/lhz/agent-gand/apps/server
+> tsc --noEmit
+

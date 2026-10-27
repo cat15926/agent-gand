@@ -1,0 +1,409 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "auditKind": "read-only real acceptance failure diagnosis; not a behavioral verification group",
+  "createdAtUtc": "2026-10-27T15:37:36.667607+00:00",
+  "reportScope": [
+    "main-live-first.json",
+    "main-live-second.json"
+  ],
+  "thirdReportIncluded": false,
+  "scopeNote": "只纳入读取时已经完整落盘的报告；未等待、轮询或改写运行中的第三轮。汇总数字仅对应列出的报告，最终 RC10 合计由根任务更新。",
+  "sources": [
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "sha256": "cd738482d3439fda7f234fb324d88207e23c6865a39fde1b2872f9006728bbad",
+      "ok": false,
+      "behaviorGroupsPassed": 0,
+      "failureReasons": [
+        "RC10_TOOL_FAILED"
+      ],
+      "priorUsage": {
+        "knownTokens": 220478,
+        "unknownReserve": 206832
+      },
+      "usage": {
+        "knownTokens": 223261,
+        "unknownReserve": 226938
+      },
+      "knownTokensThisRun": 2783,
+      "unknownReserveThisRun": 20106,
+      "priorLedgerRowsUnchanged": true,
+      "finalAuditComplete": true,
+      "finalAuditReadOnly": true,
+      "unknownEntries": 1,
+      "unknownReservationFromExactLedgerIds": 20106,
+      "knownTokensFromExactLedgerIds": 2783
+    },
+    {
+      "path": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "sha256": "0fded922c11557e2b2577fbddb3d16e019cf12b7420cd16d6133da7f2131311b",
+      "ok": false,
+      "behaviorGroupsPassed": 0,
+      "failureReasons": [
+        "RC10_TIMEOUT_facts"
+      ],
+      "priorUsage": {
+        "knownTokens": 223261,
+        "unknownReserve": 226938
+      },
+      "usage": {
+        "knownTokens": 226092,
+        "unknownReserve": 269642
+      },
+      "knownTokensThisRun": 2831,
+      "unknownReserveThisRun": 42704,
+      "priorLedgerRowsUnchanged": true,
+      "finalAuditComplete": true,
+      "finalAuditReadOnly": true,
+      "unknownEntries": 2,
+      "unknownReservationFromExactLedgerIds": 42704,
+      "knownTokensFromExactLedgerIds": 2831
+    }
+  ],
+  "exactLedgerRead": {
+    "path": "/tmp/agent-gand-t07-authorized-token-ledger.sqlite",
+    "mode": "read-only",
+    "columns": [
+      "id",
+      "reserved",
+      "actual",
+      "state"
+    ],
+    "predicate": "WHERE id = one of the explicit authorization IDs present in each finalAudit",
+    "accountsCredentialsRead": false,
+    "writes": false
+  },
+  "runtimeTimeoutEvidence": {
+    "nodeVersion": "v22.23.1",
+    "builtInUndiciVersion": "6.27.0",
+    "source": "process.binding(natives)[internal/deps/undici/undici], readonly source inspection",
+    "connectorDefaultSnippet": "timeout = timeout == null ? 1e4 : timeout;",
+    "connectTimeoutMs": 10000,
+    "requestTimeoutMechanism": "apps/server/src/threaded/backends/request.ts uses AbortSignal.timeout(prepared.connection.timeoutMs)",
+    "classification": "timing-consistent candidate only; transport error cause was not retained in the second run"
+  },
+  "totalsForIncludedReports": {
+    "realSupplierRequests": 5,
+    "knownTokens": 5614,
+    "newUnknownRequests": 3,
+    "newUnknownReserve": 62810,
+    "behaviorGroupsAdded": 0
+  },
+  "unknownRequests": [
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "requestId": "607c04b6-454d-4f02-8848-60a5d8357d06",
+      "authorizationId": "e4639005-0f85-4b79-9010-7ace689cb5a6",
+      "bindingId": "3c0bcbd8-0622-49f6-9be8-76bb387b0f3a",
+      "claimId": "9df17bde-5807-4451-b535-9006818c5f51",
+      "claimGeneration": 1,
+      "attemptId": "fc7a7519-cc65-424e-aa10-cfb72a0cdb3e",
+      "invocationId": "4537ed12-11ab-4d16-a39f-9d91f06aa53d",
+      "rootId": "4b1ebb62-ae7d-485e-8745-4343aaefb24f",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "1895e5b8941712e47ca586e9a7a86116d479c1807a07f903016a8c8e383c56aa",
+      "originalPersistedState": {
+        "backendReceipt": "sending",
+        "budgetExecution": "started",
+        "budgetUsage": "reserved",
+        "invocation": "running",
+        "attempt": "running",
+        "attemptExecutionStage": "started",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": null
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "e4639005-0f85-4b79-9010-7ace689cb5a6",
+        "reserved": 20106,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 20106,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114572629,
+        "networkStartedAt": 1793114572650,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": null,
+        "failureAfterNetworkStartedMs": null,
+        "receiptSettledAt": null
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114582615,
+        "remainingAllowanceAtReceiptUnknownMs": null,
+        "allowanceExpiredAtReceiptUnknown": null
+      },
+      "cause": {
+        "confirmed": [
+          "模型首轮完整回执已保存；post_message 被 THREADED_TOOL_VISIBILITY_CONFLICT 拒绝。",
+          "验收等待器检测工具错误后失败退出；退出前下一次 API 请求已开始。",
+          "最终只读快照保留 sending/started 与未结算回执；本地进程结束不能证明供应商未执行。"
+        ],
+        "inferred": [],
+        "unresolved": [
+          "下一请求是否抵达供应商及其实际 token/费用未知；没有完整响应回执。"
+        ],
+        "classification": "tool_visibility_rejected_then_test_interrupt_during_next_request"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "0d8306de-bb43-408b-ad9a-ab3b1cc1451a",
+      "authorizationId": "620ffb82-b134-46cb-ac5c-b3809b86f3a4",
+      "bindingId": "c31f5aab-544a-45b0-bfc6-6f30ab23e2c7",
+      "claimId": "209c7b61-2ab1-4ad5-b0aa-52cae897deab",
+      "claimGeneration": 2,
+      "attemptId": "08c96577-721a-4f80-a3fb-20efc2d05866",
+      "invocationId": "d722db17-33d1-4fe3-8bc0-711bf974e4c7",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-b",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "23742764740b0b3ea393432b43a1b730590e7b1d26f141dbead70196cc600921",
+      "originalPersistedState": {
+        "backendReceipt": "unknown",
+        "budgetExecution": "unknown",
+        "budgetUsage": "unknown",
+        "invocation": "unknown",
+        "attempt": "unknown",
+        "attemptExecutionStage": "unknown",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "620ffb82-b134-46cb-ac5c-b3809b86f3a4",
+        "reserved": 20178,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 20178,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114777167,
+        "networkStartedAt": 1793114777198,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": 1793114787450,
+        "failureAfterNetworkStartedMs": 10252,
+        "receiptSettledAt": 1793114787451
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114797184,
+        "remainingAllowanceAtReceiptUnknownMs": 9733,
+        "allowanceExpiredAtReceiptUnknown": false
+      },
+      "cause": {
+        "confirmed": [
+          "两请求均在未收到响应头时发生 transport failure，随后后端回执与 Invocation 转入 unknown。",
+          "请求转 unknown 时活动授权仍有效，heartbeat 已正常续期；不是 activityAllowanceMs=10000 到期。",
+          "报告最终 RC10_TIMEOUT_facts 是随后停止无进展验收时的等待失败，不能当作最初传输失败原因。"
+        ],
+        "inferred": [
+          "约 10.2 秒无响应头失败，与本机 Node 内置 Undici 默认 10000ms 建连超时吻合，TCP/TLS 建连超时为候选原因。"
+        ],
+        "unresolved": [
+          "该轮未记录 error.cause.code 或 signal 原因，不能确认 UND_ERR_CONNECT_TIMEOUT，更不能证明零供应商执行或零消耗。"
+        ],
+        "classification": "unconfirmed_transport_failure_before_headers"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "467bb03f-4df2-4889-9f3c-d8a4b1b2a25d",
+      "authorizationId": "c2645893-6ca4-412b-bf4f-8e54a732120c",
+      "bindingId": "c82c638b-7189-4abc-8dd8-857ed42e631e",
+      "claimId": "fca47616-2243-4258-9e02-f967956907df",
+      "claimGeneration": 1,
+      "attemptId": "e3791801-16d5-4488-bed8-9d64a65bccfb",
+      "invocationId": "553ec000-4cd9-4243-a391-f0e9e10cb179",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:2",
+      "requestHash": "5007dd143a7d2cde71cc6a67c594d25793f1e6173f1b3f7200b4fc255dfdc6a3",
+      "originalPersistedState": {
+        "backendReceipt": "unknown",
+        "budgetExecution": "unknown",
+        "budgetUsage": "unknown",
+        "invocation": "unknown",
+        "attempt": "unknown",
+        "attemptExecutionStage": "unknown",
+        "resourceReleaseState": null,
+        "invocationRecoveryReason": "THREADED_API_QUIESCENCE_UNCONFIRMED"
+      },
+      "completeReceiptMissing": true,
+      "knownUsage": {
+        "inputTokens": null,
+        "outputTokens": null,
+        "costMicrousd": null,
+        "responseId": null,
+        "budgetKnownOutput": null,
+        "budgetKnownCostMicrousd": null,
+        "actualTokens": null
+      },
+      "operatorLedger": {
+        "id": "c2645893-6ca4-412b-bf4f-8e54a732120c",
+        "reserved": 22526,
+        "actual": null,
+        "state": "reserved"
+      },
+      "conservativeTokenCharge": 22526,
+      "applicationReservation": {
+        "outputTokens": 2048,
+        "costMicrousd": 1000000
+      },
+      "timing": {
+        "requestCreatedAt": 1793114777254,
+        "networkStartedAt": 1793114777273,
+        "headersAt": null,
+        "networkEndedAt": null,
+        "transportFailedAt": 1793114787439,
+        "failureAfterNetworkStartedMs": 10166,
+        "receiptSettledAt": 1793114787440
+      },
+      "activityEvidence": {
+        "reservedActivityMs": 10000,
+        "activityValidUntil": 1793114796865,
+        "remainingAllowanceAtReceiptUnknownMs": 9425,
+        "allowanceExpiredAtReceiptUnknown": false
+      },
+      "cause": {
+        "confirmed": [
+          "两请求均在未收到响应头时发生 transport failure，随后后端回执与 Invocation 转入 unknown。",
+          "请求转 unknown 时活动授权仍有效，heartbeat 已正常续期；不是 activityAllowanceMs=10000 到期。",
+          "报告最终 RC10_TIMEOUT_facts 是随后停止无进展验收时的等待失败，不能当作最初传输失败原因。"
+        ],
+        "inferred": [
+          "约 10.2 秒无响应头失败，与本机 Node 内置 Undici 默认 10000ms 建连超时吻合，TCP/TLS 建连超时为候选原因。"
+        ],
+        "unresolved": [
+          "该轮未记录 error.cause.code 或 signal 原因，不能确认 UND_ERR_CONNECT_TIMEOUT，更不能证明零供应商执行或零消耗。"
+        ],
+        "classification": "unconfirmed_transport_failure_before_headers"
+      },
+      "disposition": {
+        "status": "retain_unknown_pending_exact_evidence",
+        "ledgerWritePerformed": false,
+        "clearedOrRefunded": false,
+        "requestReplayed": false,
+        "automaticRetryAllowed": false,
+        "requiredEvidence": "与 authorization/request/hash/供应商记录精确绑定的可信完整回执或费用记录；若仅取得进程停止证明，只能独立处理执行资源，不能推定未知用量为零。",
+        "followUp": "保留本轮 finalAudit 与原报告哈希；由后续对账逐项核验。新建隔离验收根不构成重放或解决旧请求。"
+      }
+    }
+  ],
+  "confirmedUsageRequests": [
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-first.json",
+      "requestId": "b8f98628-97c0-441b-8492-de132d389736",
+      "authorizationId": "d03681ab-f511-42c3-b967-45305af3d2e1",
+      "bindingId": "3c0bcbd8-0622-49f6-9be8-76bb387b0f3a",
+      "claimId": "9df17bde-5807-4451-b535-9006818c5f51",
+      "claimGeneration": 1,
+      "attemptId": "fc7a7519-cc65-424e-aa10-cfb72a0cdb3e",
+      "invocationId": "4537ed12-11ab-4d16-a39f-9d91f06aa53d",
+      "rootId": "4b1ebb62-ae7d-485e-8745-4343aaefb24f",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "e2ac19566c79746dc640968f0268c6c63f10f47418ef95bc87bcdb5ba9477c49",
+      "backendReceiptState": "complete",
+      "inputTokens": 2544,
+      "outputTokens": 239,
+      "operatorLedger": {
+        "id": "d03681ab-f511-42c3-b967-45305af3d2e1",
+        "reserved": 19550,
+        "actual": 2783,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    },
+    {
+      "report": "docs/reports/evidence/threaded-rc10/main-live-second.json",
+      "requestId": "2ba7f6fa-223d-4f62-9114-0930b7a20f51",
+      "authorizationId": "ee646759-78fe-4143-be5f-b8b266300094",
+      "bindingId": "c82c638b-7189-4abc-8dd8-857ed42e631e",
+      "claimId": "fca47616-2243-4258-9e02-f967956907df",
+      "claimGeneration": 1,
+      "attemptId": "e3791801-16d5-4488-bed8-9d64a65bccfb",
+      "invocationId": "553ec000-4cd9-4243-a391-f0e9e10cb179",
+      "rootId": "2127af7d-fe2d-4a9b-bacb-fe378c098920",
+      "agentId": "rc10-a",
+      "backend": "api",
+      "requestKey": "api:1",
+      "requestHash": "d216e0c75854918314e3f9d9ac6436d200c6a250eea0975e7cf84481d5afb73a",
+      "backendReceiptState": "complete",
+      "inputTokens": 2580,
+      "outputTokens": 251,
+      "operatorLedger": {
+        "id": "ee646759-78fe-4143-be5f-b8b266300094",
+        "reserved": 19768,
+        "actual": 2831,
+        "state": "known"
+      },
+      "costMicrousd": null,
+      "applicationBudgetUsageState": "unknown",
+      "note": "完整模型回执确认 token；供应商价格/费用缺失不据此视为费用已知。"
+    }
+  ],
+  "constraints": [
+    "完整回执缺失保留未知占额；不将 null 用量改成零。",
+    "第一轮发送中与第二轮 unknown 的原状态原样记录，不伪造恢复。",
+    "第二轮活动片未过期是直接持久化证据；建连超时仅为时间吻合推断。",
+    "保留原 finalAudit 白名单安全事实；本审计不读取账号、密钥或 auth session。",
+    "本次没有网络请求、账本/数据库写入、请求重放或退款。",
+    "供应商 token 已知与应用费用未知分别列示；不以已知 token 消除未知价格/费用。"
+  ]
+}

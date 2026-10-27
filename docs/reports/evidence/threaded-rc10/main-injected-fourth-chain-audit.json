@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "stage": "RC10",
+  "date": "2026-10-27",
+  "status": "passed",
+  "scope": "Independent read-only audit of saved actual-index evidence, with in-memory mutated negative controls; no new behavioral acceptance groups, providers, GitHub or SQLite access",
+  "input": "docs/reports/evidence/threaded-rc10/main-injected-fourth.json",
+  "inputSha256": "342c1fda5dbc39093f67a1155a16e5086dd70f6aec4f461fe570eeab4ef609c7",
+  "behavioralAcceptanceGroupsAdded": 0,
+  "externalRequests": 0,
+  "assertions": [
+    "exact public handoff and cross-thread return trigger/Invocation/response",
+    "one causal root and cumulative budget root",
+    "original consultation reply and explicit timeout",
+    "one canonical Action with two generations",
+    "nonempty changes-request findings inherited and verified by exact independent evidence",
+    "complete per-finding revision attestation without premature approval",
+    "responsibility completion separate from current local approval",
+    "each callback has one message, wake, queue, completed Invocation and message.created outbox",
+    "actual index restart preserves group and original SDK reply",
+    "real-model transport distinct from injected GitHub facts"
+  ],
+  "facts": {
+    "rootId": "533fc885-df14-47c8-9cf7-d4c770fa7835",
+    "homeThreadId": "6328a541-fcae-469e-bb35-2b91eae22c3d",
+    "workThreadId": "11b739cb-90ee-4d74-8f3c-6e6a290c90e8",
+    "publicRelayMessageId": "5d298db9-ce84-482b-914c-6be8bd7f8cf6",
+    "enteringMessageId": "a896ed38-7d62-4484-a96c-96ccc599e8e6",
+    "returnedMessageId": "3c01a309-8adf-41d1-8230-7794ed062762",
+    "returnInvocationId": "05327048-becf-4ae9-af87-10685d21ee40",
+    "returnResponseId": "ba4d5d44-55cb-4f61-b0d7-9f0a6bd30716",
+    "groupId": "75dc3f97-0cd0-493b-9e2c-9a22a8d6f910",
+    "originalCMessageId": "52bf84ff-c9bf-467c-8dff-82cb755975b0",
+    "originalCBodySha256": "fbdc237556139d8e7804423ee84817025a16d242ec8a95f475d0babcd2ac93d6",
+    "actionId": "b7b3a335-a783-48d8-a26b-fd048465359b",
+    "firstEvidenceId": "ec5e0680-6966-4884-b659-5cfd22e2813f",
+    "finalEvidenceId": "822d2d94-4f59-4203-b890-16daab68ffaa",
+    "findingIds": [
+      "ec5e0680-6966-4884-b659-5cfd22e2813f:0"
+    ],
+    "revisionMessageId": "8e51e268-6a32-44a3-96ee-672c2bd46818",
+    "callbackLinks": [
+      {
+        "callbackId": "60df9f77-03ab-4388-904d-370b5ad36f9c",
+        "kind": "consultation",
+        "messageId": "6a82fa73-c988-4571-8aa2-d0d441016f1c",
+        "wakeId": "9fc6ca6d-2fe3-4f62-8e8c-2c82429a343a",
+        "queueId": "0801a020-ac44-48e1-b018-7fe79191bc56",
+        "invocationId": "186e048d-57bd-450f-9aad-d4ab385360f2",
+        "outboxId": "8ea7b0da-3e2c-4092-a598-cc8b55657234"
+      },
+      {
+        "callbackId": "04c85241-0309-41bf-bab8-5acf9ced765f",
+        "kind": "action_completed",
+        "messageId": "e0c8ce92-46bb-4ba7-b798-38cc8b5eb27d",
+        "wakeId": "682daaf5-cd7b-4670-a5f9-e320519d7a0d",
+        "queueId": "cea83a3a-39a2-47aa-86d8-bbca3a237512",
+        "invocationId": "177e3de6-07b9-4175-a674-7293632259ec",
+        "outboxId": "e0f89005-f3a1-49f1-a599-2d13090b037e"
+      },
+      {
+        "callbackId": "04f48450-3f3f-4d99-939a-7ae14d598970",
+        "kind": "action_completed",
+        "messageId": "a1bdee06-b4f8-4f3f-acc9-303aa0ea6c3b",
+        "wakeId": "d3ef069d-91a0-445a-bbe9-57b371e9242d",
+        "queueId": "98464b9a-7742-4e59-880b-980c259e8da6",
+        "invocationId": "8d3026f2-032f-45d5-967f-92669d228fcd",
+        "outboxId": "0cb1dbf3-a334-4722-a034-0eb3b7e200df"
+      }
+    ],
+    "distinctTransportRequests": 29,
+    "realSupplier": false,
+    "actualIndexPids": [
+      52511,
+      52521,
+      52556
+    ],
+    "injectedGithubFacts": true,
+    "externalApprovalGranted": false
+  },
+  "negativeControls": [
+    {
+      "id": "detached_return_trigger",
+      "rejected": true,
+      "reason": "RETURN_QUEUE_REQUIRED"
+    },
+    {
+      "id": "vacuous_verified_findings",
+      "rejected": true,
+      "reason": "WORKFLOW_FINDING_IDS_INHERITED"
+    },
+    {
+      "id": "commented_without_changes_request",
+      "rejected": true,
+      "reason": "FIRST_VERDICT_CHANGES_REQUEST_REQUIRED"
+    },
+    {
+      "id": "duplicate_callback_wake",
+      "rejected": true,
+      "reason": "CALLBACK_WAKE_UNIQUE"
+    },
+    {
+      "id": "missing_revision_finding_response",
+      "rejected": true,
+      "reason": "REVISION_RESPONSES_COMPLETE"
+    },
+    {
+      "id": "reset_causal_root",
+      "rejected": true,
+      "reason": "MESSAGE_ROOT_UNIFIED"
+    }
+  ]
+}

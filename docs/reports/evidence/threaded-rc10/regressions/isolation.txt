@@ -1,0 +1,5 @@
+
+> agent-gand@0.1.0 verify:threaded-isolation /Users/ruhonglin/lhz/agent-gand
+> node --import ./apps/server/node_modules/tsx/dist/loader.mjs scripts/verify-threaded-isolation.mjs
+
+Threaded isolation passed: 6 malformed/new-mode fixtures; startup recovery unchanged; 0 executor/callback invocations; legacy terminal positive controls.
